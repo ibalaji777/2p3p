@@ -14,7 +14,8 @@ import { WallGeometryEngine } from '../wall/WallGeometryEngine.js';
 import { Platform3DBuilder } from './Platform3DBuilder.js';
 import { renderFacadeRibbon3D } from '../../features/facade/facadeRibbon.renderer3d.js';
 import { renderElevationSegment3D } from '../../features/elevation/elevationSegment.renderer3d.js';
-import { WIDGET_REGISTRY, FURNITURE_REGISTRY, WALL_DECOR_REGISTRY, ROOF_DECOR_REGISTRY, WALL_HEIGHT, DOOR_HEIGHT, WINDOW_SILL, WINDOW_HEIGHT, FLOOR_REGISTRY, RAILING_REGISTRY, SKY_REGISTRY, GROUND_REGISTRY, DOOR_MATERIALS, WINDOW_FRAME_MATERIALS, GLASS_REGISTRY, offsetPolygon } from '../../core/registry';
+import { WIDGET_REGISTRY, FURNITURE_REGISTRY, WALL_DECOR_REGISTRY, ROOF_DECOR_REGISTRY, WALL_HEIGHT, DOOR_HEIGHT, WINDOW_SILL, WINDOW_HEIGHT, FLOOR_REGISTRY, RAILING_REGISTRY, SKY_REGISTRY, GROUND_REGISTRY, DOOR_MATERIALS, WINDOW_FRAME_MATERIALS, GLASS_REGISTRY, offsetPolygon, EVENTS } from '../../core/registry';
+import { coreEventBus } from '../EventBus.js';
 import { DEFAULT_UNIVERSAL_TILE_SIZE } from '../registries/material.registry.js';
 import { MaterialFactory } from './MaterialFactory.js';
 import { UniversalMaterialManager } from './UniversalMaterialManager.js';
@@ -2005,6 +2006,11 @@ export class EnvironmentBuilder {
                 tempRoofGroup.remove(item);
                 realRoofGroup.add(item);
             });
+
+            if (coreEventBus) {
+                coreEventBus.emit(EVENTS.SYNC_ENGINE);
+                coreEventBus.emit('EntityGeometryUpdated', { entity: roof, object3D: realRoofGroup });
+            }
         }
         if (this.ctx && typeof this.ctx.requestRender === 'function') {
             this.ctx.requestRender();

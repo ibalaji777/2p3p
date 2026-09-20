@@ -51,6 +51,8 @@ export const WallSerializer = {
             isAutoGable: w.isAutoGable,
             parentWallId: w.parentWallId,
             parentRoofId: w.parentRoofId,
+            hostLevelId: w.hostLevelId || null,
+            relativeElevation: w.relativeElevation || 0,
             elevation: w.elevation,
             pts: typeof w.getExactPolygonPoints === 'function' ? w.getExactPolygonPoints() : (w.poly ? (typeof w.poly.points === 'function' ? w.poly.points() : null) : null),
             bevels: w.wallShapeData ? { start: w.wallShapeData.startData, end: w.wallShapeData.endData } : null,
@@ -82,6 +84,7 @@ export const WallSerializer = {
                     grillePattern: wid.grillePattern,
                     grilleProfile: wid.grilleProfile,
                     description: wid.description,
+                    anchorMode: wid.anchorMode || 'bottom',
                     materials: wid.materials ? safeClone(wid.materials) : {},
                     params: wid.params ? safeClone(wid.params) : {}
                 };
@@ -91,7 +94,8 @@ export const WallSerializer = {
                 t: m.t, type: m.type, configId: m.type, width: m.width, depth: m.depth, heightOffset: m.heightOffset, 
                 moldingHeight: m.moldingHeight || m.height || 10,
                 side: m.side, profileType: m.profileType, material: m.material, color: m.color, layers: m.layers, 
-                layerGap: m.layerGap, grooveWidth: m.grooveWidth, frameWidth: m.frameWidth 
+                layerGap: m.layerGap, grooveWidth: m.grooveWidth, frameWidth: m.frameWidth,
+                anchorMode: m.anchorMode || (m.type && (m.type.includes('crown') || m.type.includes('frieze') || m.type.includes('cornice')) ? 'top' : 'bottom')
             })) : [],
             params: w.params ? safeClone(w.params) : {}
         };
@@ -144,6 +148,8 @@ export const WallSerializer = {
         if (wData.isAutoGable !== undefined) wall.isAutoGable = wData.isAutoGable;
         if (wData.parentWallId !== undefined) wall.parentWallId = wData.parentWallId;
         if (wData.parentRoofId !== undefined) wall.parentRoofId = wData.parentRoofId;
+        if (wData.hostLevelId !== undefined) wall.hostLevelId = wData.hostLevelId;
+        if (wData.relativeElevation !== undefined) wall.relativeElevation = wData.relativeElevation;
 
         // Restore Widgets
         if (wData.widgets && Array.isArray(wData.widgets)) {
@@ -151,6 +157,7 @@ export const WallSerializer = {
                 const wid = new PremiumWidget(planner, wall, widData.t, widData.type || widData.configId);
                 Object.assign(wid, widData);
                 wid.wall = wall;
+                if (widData.anchorMode) wid.anchorMode = widData.anchorMode;
                 return wid;
             });
         }
@@ -161,6 +168,11 @@ export const WallSerializer = {
                 const mold = new PremiumMolding(planner, wall, moldData.t || 0.5, moldData.type || moldData.configId || 'molding_skirting_flat');
                 Object.assign(mold, moldData);
                 mold.wall = wall;
+                if (moldData.anchorMode) {
+                    mold.anchorMode = moldData.anchorMode;
+                } else if (mold.type && (mold.type.includes('crown') || mold.type.includes('frieze') || mold.type.includes('cornice'))) {
+                    mold.anchorMode = 'top';
+                }
                 return mold;
             });
         }

@@ -1,5 +1,6 @@
 import Konva from 'konva';
 import { SNAP_DIST } from '../registry.js';
+import { VerticalPropagationEngine } from '../vertical/VerticalPropagationEngine.js';
 
 export const PLATFORM_TRIM_STYLES = {
     flat: { id: 'flat', name: 'Clean Modern Riser', icon: 'square' },
@@ -313,13 +314,7 @@ export class PremiumPlatform {
      * @param {number} [step] 
      */
     raisePlatform(step = this.stepHeight) {
-        this.height = Math.round((this.height + step) * 10) / 10;
-        this.isSunken = this.height < 0;
-        this.update();
-        this._sync3DGeometry();
-        if (this.planner?.syncAll) this.planner.syncAll();
-        if (this.planner?.debouncedSaveHistory) this.planner.debouncedSaveHistory();
-        return this.height;
+        return this.setHeight(Math.round((this.height + step) * 10) / 10);
     }
 
     stepUp(step = this.stepHeight) {
@@ -332,13 +327,7 @@ export class PremiumPlatform {
      * @param {number} [step] 
      */
     lowerPlatform(step = this.stepHeight) {
-        this.height = Math.round((this.height - step) * 10) / 10;
-        this.isSunken = this.height < 0;
-        this.update();
-        this._sync3DGeometry();
-        if (this.planner?.syncAll) this.planner.syncAll();
-        if (this.planner?.debouncedSaveHistory) this.planner.debouncedSaveHistory();
-        return this.height;
+        return this.setHeight(Math.round((this.height - step) * 10) / 10);
     }
 
     stepDown(step = this.stepHeight) {
@@ -350,17 +339,29 @@ export class PremiumPlatform {
     }
 
     setHeight(h) {
+        const oldH = this.height;
         this.height = Number(h) || 0;
         this.isSunken = this.height < 0;
         this.update();
         this._sync3DGeometry();
+        if (this.planner) {
+            VerticalPropagationEngine.onPlatformHeightChanged(this, this.height, oldH, this.planner);
+        }
         if (this.planner?.syncAll) this.planner.syncAll();
         if (this.planner?.debouncedSaveHistory) this.planner.debouncedSaveHistory();
+        return this.height;
     }
 
     setElevation(elev) {
+        const oldElev = this.elevation;
         this.elevation = Number(elev) || 0;
         this._sync3DTransform();
+        if (this.planner) {
+            const deltaElev = this.elevation - oldElev;
+            if (Math.abs(deltaElev) > 0.001) {
+                VerticalPropagationEngine.onPlatformHeightChanged(this, this.height, this.height - deltaElev, this.planner);
+            }
+        }
         if (this.planner?.syncAll) this.planner.syncAll();
         if (this.planner?.debouncedSaveHistory) this.planner.debouncedSaveHistory();
     }
@@ -559,6 +560,7 @@ export class PremiumPlatform {
             fill: this.fill,
             stroke: this.stroke,
             isBuildingFoundation: Boolean(this.isBuildingFoundation),
+            isRoomInteriorPlatform: Boolean(this.isRoomInteriorPlatform),
             associatedRoomId: this.associatedRoomId || null
         };
     }

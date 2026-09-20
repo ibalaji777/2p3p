@@ -1,0 +1,1432 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Luxury Modern Villa — 100% Architectural 3D Elevation Showcase</title>
+    <!-- Three.js and OrbitControls via reliable CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <style>
+        :root {
+            --bg-glass: rgba(15, 23, 42, 0.78);
+            --border-glass: rgba(255, 255, 255, 0.14);
+            --primary: #3b82f6;
+            --primary-hover: #2563eb;
+            --accent: #10b981;
+            --text: #f8fafc;
+            --text-dim: #94a3b8;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+        }
+
+        html, body {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: #090d16;
+            color: var(--text);
+        }
+
+        #viewport-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        #three-canvas-wrap {
+            position: relative;
+            flex: 1;
+            height: 100%;
+            overflow: hidden;
+        }
+
+        #canvas3d {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        /* Reference Photo Overlay & Side-by-Side */
+        #photo-overlay-wrap {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            transition: opacity 0.25s ease;
+            z-index: 10;
+        }
+
+        #photo-overlay-img {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+            filter: drop-shadow(0 0 20px rgba(0,0,0,0.5));
+        }
+
+        #side-by-side-pane {
+            width: 0;
+            height: 100%;
+            background: #0f172a;
+            border-right: 1px solid var(--border-glass);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            transition: width 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            z-index: 15;
+        }
+
+        #side-by-side-pane.active {
+            width: 45%;
+        }
+
+        #side-by-side-img {
+            max-width: 96%;
+            max-height: 85%;
+            object-fit: contain;
+            border-radius: 8px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+        }
+
+        .pane-badge {
+            position: absolute;
+            top: 16px;
+            left: 16px;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(8px);
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 600;
+            color: #38bdf8;
+            border: 1px solid rgba(56, 189, 248, 0.3);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        /* Top HUD Header */
+        .hud-header {
+            position: absolute;
+            top: 14px;
+            left: 14px;
+            right: 14px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            pointer-events: none;
+            z-index: 30;
+        }
+
+        .header-title-badge {
+            pointer-events: auto;
+            background: var(--bg-glass);
+            backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px);
+            border: 1px solid var(--border-glass);
+            border-radius: 12px;
+            padding: 8px 16px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+        }
+
+        .title-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #10b981;
+            box-shadow: 0 0 10px #10b981;
+        }
+
+        .title-text h1 {
+            font-size: 14px;
+            font-weight: 700;
+            letter-spacing: 0.3px;
+        }
+
+        .title-text p {
+            font-size: 11px;
+            color: var(--text-dim);
+        }
+
+        .header-tools {
+            pointer-events: auto;
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .hud-btn {
+            background: var(--bg-glass);
+            backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px);
+            border: 1px solid var(--border-glass);
+            border-radius: 10px;
+            padding: 8px 14px;
+            color: var(--text);
+            font-size: 12px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+        }
+
+        .hud-btn:hover, .hud-btn.active {
+            background: rgba(59, 130, 246, 0.25);
+            border-color: rgba(59, 130, 246, 0.6);
+            color: #fff;
+            transform: translateY(-1px);
+        }
+
+        .hud-btn.active {
+            box-shadow: 0 0 16px rgba(59, 130, 246, 0.4);
+        }
+
+        /* Comparison Slider Controls */
+        #compare-controls-bar {
+            position: absolute;
+            top: 72px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--bg-glass);
+            backdrop-filter: blur(14px);
+            border: 1px solid var(--border-glass);
+            border-radius: 24px;
+            padding: 6px 18px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            z-index: 30;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.5);
+            transition: all 0.3s ease;
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        #compare-controls-bar.visible {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .slider-label {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-dim);
+        }
+
+        .opacity-range {
+            accent-color: var(--primary);
+            width: 140px;
+            cursor: pointer;
+        }
+
+        /* Bottom View Library Dock */
+        .hud-bottom-dock {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--bg-glass);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid var(--border-glass);
+            border-radius: 18px;
+            padding: 8px 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            max-width: 94vw;
+            z-index: 30;
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+        }
+
+        .dock-tab-strip {
+            display: flex;
+            justify-content: center;
+            gap: 6px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+            padding-bottom: 6px;
+        }
+
+        .dock-tab-btn {
+            background: transparent;
+            border: none;
+            color: var(--text-dim);
+            font-size: 12px;
+            font-weight: 600;
+            padding: 4px 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .dock-tab-btn.active {
+            color: #fff;
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .dock-views-scroll {
+            display: flex;
+            gap: 8px;
+            overflow-x: auto;
+            padding: 2px 4px;
+            scrollbar-width: none;
+        }
+
+        .dock-views-scroll::-webkit-scrollbar {
+            display: none;
+        }
+
+        .view-chip {
+            flex-shrink: 0;
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            padding: 7px 14px;
+            color: var(--text);
+            font-size: 12px;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .view-chip:hover, .view-chip.active {
+            background: var(--primary);
+            border-color: var(--primary-hover);
+            color: #fff;
+            transform: scale(1.03);
+            box-shadow: 0 4px 14px rgba(59, 130, 246, 0.4);
+        }
+
+        /* Floating Info Box */
+        .info-pill {
+            position: absolute;
+            bottom: 120px;
+            left: 20px;
+            background: var(--bg-glass);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--border-glass);
+            border-radius: 12px;
+            padding: 8px 14px;
+            font-size: 11px;
+            line-height: 1.5;
+            color: var(--text-dim);
+            max-width: 240px;
+            pointer-events: none;
+            z-index: 20;
+        }
+
+        .info-pill strong {
+            color: #fff;
+        }
+
+        /* Mobile Adjustments */
+        @media (max-width: 768px) {
+            .hud-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 8px;
+            }
+            .header-tools {
+                width: 100%;
+                overflow-x: auto;
+                padding-bottom: 4px;
+            }
+            #side-by-side-pane.active {
+                width: 100%;
+                position: absolute;
+                z-index: 25;
+            }
+            .info-pill {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="viewport-container">
+        <!-- Side-by-Side Reference Image Pane -->
+        <div id="side-by-side-pane">
+            <div class="pane-badge">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                Reference Elevation
+            </div>
+            <img id="side-by-side-img" src="assets/elevation_reference.png" alt="Reference Architectural Elevation" />
+        </div>
+
+        <!-- 3D Canvas Container -->
+        <div id="three-canvas-wrap">
+            <canvas id="canvas3d"></canvas>
+
+            <!-- Translucent 1:1 Photo Overlay for Exact Alignment -->
+            <div id="photo-overlay-wrap">
+                <img id="photo-overlay-img" src="assets/elevation_reference.png" alt="Reference Overlay" />
+            </div>
+        </div>
+    </div>
+
+    <!-- Top HUD Header -->
+    <header class="hud-header">
+        <div class="header-title-badge">
+            <div class="title-dot"></div>
+            <div class="title-text">
+                <h1>Luxury Modern Villa</h1>
+                <p>100% Identical Architectural 3D Elevation</p>
+            </div>
+        </div>
+
+        <div class="header-tools">
+            <!-- Lighting Presets -->
+            <button class="hud-btn active" id="btn-day" title="Bright Daylight">☀️ Day</button>
+            <button class="hud-btn" id="btn-sunset" title="Golden Sunset">🌅 Sunset</button>
+            <button class="hud-btn" id="btn-night" title="Twilight & Illumination">🌙 Night</button>
+
+            <!-- Elevation Photo Compare Toggles -->
+            <button class="hud-btn" id="btn-overlay" title="Overlay Photo on 3D (with Opacity Slider)">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                Overlay Photo
+            </button>
+            <button class="hud-btn" id="btn-split" title="Split Screen Side-by-Side">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="12" y1="3" x2="12" y2="21"/></svg>
+                Side-by-Side
+            </button>
+
+            <!-- Custom Upload File Button -->
+            <label class="hud-btn" title="Upload custom elevation image to compare">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                Upload Photo
+                <input type="file" id="upload-image-input" accept="image/*" style="display:none;" />
+            </label>
+
+            <!-- Download App Import JSON -->
+            <a href="building_planner_elevation_project.json" download="building_planner_elevation_project.json" class="hud-btn" style="text-decoration:none; background: rgba(16, 185, 129, 0.2); border-color: rgba(16, 185, 129, 0.5); color: #34d399;" title="Download 100% Identical JSON to import into Android App">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                📥 Download App JSON
+            </a>
+        </div>
+    </header>
+
+    <!-- Overlay Opacity Slider Bar -->
+    <div id="compare-controls-bar">
+        <span class="slider-label">Photo Opacity:</span>
+        <input type="range" class="opacity-range" id="opacity-slider" min="0" max="100" value="50" />
+        <span id="opacity-val" style="font-size:12px; font-weight:700; width:35px;">50%</span>
+    </div>
+
+    <!-- Bottom View Library Dock -->
+    <nav class="hud-bottom-dock">
+        <div class="dock-tab-strip">
+            <button class="dock-tab-btn active" id="tab-outside">Outside Views</button>
+            <button class="dock-tab-btn" id="tab-inside">Inside Views</button>
+            <button class="dock-tab-btn" id="tab-cinematic">Cinematic Tour</button>
+        </div>
+
+        <!-- Outside Views Strip -->
+        <div class="dock-views-scroll" id="strip-outside">
+            <button class="view-chip active" data-view="front">🏠 Front Elevation (Hero)</button>
+            <button class="view-chip" data-view="carport">🚗 Carport & Vehicles</button>
+            <button class="view-chip" data-view="entrance">🚪 Entrance & Porch</button>
+            <button class="view-chip" data-view="balcony">🔲 Cantilever Balcony</button>
+            <button class="view-chip" data-view="terrace">🌿 Rooftop Terrace</button>
+            <button class="view-chip" data-view="isometric">📐 Isometric 45°</button>
+        </div>
+
+        <!-- Inside Views Strip -->
+        <div class="dock-views-scroll" id="strip-inside" style="display: none;">
+            <button class="view-chip" data-view="interior_gf">🛋️ GF Living & Foyer</button>
+            <button class="view-chip" data-view="interior_ff">🛏️ FF Master Bedroom</button>
+            <button class="view-chip" data-view="interior_balcony">🌅 Left Balcony Deck</button>
+        </div>
+
+        <!-- Cinematic Strip -->
+        <div class="dock-views-scroll" id="strip-cinematic" style="display: none;">
+            <button class="view-chip" id="btn-orbit-toggle">🔄 360° Cinematic Orbit (Play/Pause)</button>
+        </div>
+    </nav>
+
+    <!-- Context Hint Pill -->
+    <div class="info-pill">
+        <strong>PBR 3D Engine</strong><br>
+        Touch / Drag: Rotate<br>
+        Two-finger / Scroll: Zoom<br>
+        Right-click / 2-finger: Pan
+    </div>
+
+    <!-- Core Three.js Script -->
+    <script>
+        // -------------------------------------------------------------
+        // 1. Procedural High-Resolution Architectural Texture Generators
+        // -------------------------------------------------------------
+        function createStoneCanvas() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 1024;
+            canvas.height = 1024;
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#262930';
+            ctx.fillRect(0, 0, 1024, 1024);
+
+            // Horizontal linear slate stone courses
+            const courseH = 64;
+            for (let y = 0; y < 1024; y += courseH) {
+                let x = 0;
+                while (x < 1024) {
+                    const blockW = 120 + Math.random() * 180;
+                    const shade = Math.floor(32 + Math.random() * 24);
+                    ctx.fillStyle = `rgb(${shade}, ${shade + 2}, ${shade + 6})`;
+                    ctx.fillRect(x, y + 2, blockW - 4, courseH - 4);
+
+                    // Micro-texture lines
+                    ctx.strokeStyle = 'rgba(0,0,0,0.18)';
+                    ctx.lineWidth = 1;
+                    for (let i = 0; i < 4; i++) {
+                        const ly = y + Math.random() * courseH;
+                        ctx.beginPath();
+                        ctx.moveTo(x, ly);
+                        ctx.lineTo(x + blockW, ly + (Math.random() - 0.5) * 4);
+                        ctx.stroke();
+                    }
+                    x += blockW;
+                }
+            }
+            return new THREE.CanvasTexture(canvas);
+        }
+
+        function createWoodCanvas() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 512;
+            canvas.height = 1024;
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#6d4221';
+            ctx.fillRect(0, 0, 512, 1024);
+
+            // Vertical grain lines
+            ctx.strokeStyle = '#4e2d14';
+            ctx.lineWidth = 1.2;
+            for (let i = 0; i < 300; i++) {
+                const x = Math.random() * 512;
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.bezierCurveTo(x + (Math.random() - 0.5) * 20, 300, x + (Math.random() - 0.5) * 20, 700, x, 1024);
+                ctx.stroke();
+            }
+
+            // Slat panel grooves
+            ctx.strokeStyle = '#221208';
+            ctx.lineWidth = 3;
+            for (let x = 0; x < 512; x += 48) {
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, 1024);
+                ctx.stroke();
+            }
+            const tex = new THREE.CanvasTexture(canvas);
+            tex.wrapS = THREE.RepeatWrapping;
+            tex.wrapT = THREE.RepeatWrapping;
+            return tex;
+        }
+
+        function createPlasterCanvas() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 512;
+            canvas.height = 512;
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#f8fafc';
+            ctx.fillRect(0, 0, 512, 512);
+
+            // Fine noise
+            const imgData = ctx.getImageData(0, 0, 512, 512);
+            for (let i = 0; i < imgData.data.length; i += 4) {
+                const noise = (Math.random() - 0.5) * 12;
+                imgData.data[i] = Math.min(255, Math.max(0, imgData.data[i] + noise));
+                imgData.data[i+1] = Math.min(255, Math.max(0, imgData.data[i+1] + noise));
+                imgData.data[i+2] = Math.min(255, Math.max(0, imgData.data[i+2] + noise));
+            }
+            ctx.putImageData(imgData, 0, 0);
+            return new THREE.CanvasTexture(canvas);
+        }
+
+        function createDrivewayCanvas() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 1024;
+            canvas.height = 1024;
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#334155';
+            ctx.fillRect(0, 0, 1024, 1024);
+
+            // Paver grid
+            ctx.strokeStyle = '#1e293b';
+            ctx.lineWidth = 4;
+            for (let x = 0; x < 1024; x += 128) {
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, 1024);
+                ctx.stroke();
+            }
+            for (let y = 0; y < 1024; y += 128) {
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(1024, y);
+                ctx.stroke();
+            }
+            const tex = new THREE.CanvasTexture(canvas);
+            tex.wrapS = THREE.RepeatWrapping;
+            tex.wrapT = THREE.RepeatWrapping;
+            tex.repeat.set(4, 4);
+            return tex;
+        }
+
+        // -------------------------------------------------------------
+        // 2. Three.js Scene Setup & PBR Materials
+        // -------------------------------------------------------------
+        const canvas = document.getElementById('canvas3d');
+        const renderer = new THREE.WebGLRenderer({
+            canvas: canvas,
+            antialias: true,
+            powerPreference: 'high-performance',
+            alpha: true
+        });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        renderer.toneMappingExposure = 1.1;
+        if (THREE.sRGBEncoding) renderer.outputEncoding = THREE.sRGBEncoding;
+
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color('#87ceeb');
+
+        const camera = new THREE.PerspectiveCamera(42, window.innerWidth / window.innerHeight, 5, 10000);
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.08;
+        controls.maxPolarAngle = Math.PI / 2 - 0.02;
+        controls.minDistance = 80;
+        controls.maxDistance = 2500;
+
+        // Shared PBR Materials
+        const stoneTex = createStoneCanvas();
+        const woodTex = createWoodCanvas();
+        const plasterTex = createPlasterCanvas();
+        const drivewayTex = createDrivewayCanvas();
+
+        const matWhite = new THREE.MeshStandardMaterial({
+            map: plasterTex,
+            color: '#f8fafc',
+            roughness: 0.35,
+            metalness: 0.02
+        });
+
+        const matStone = new THREE.MeshStandardMaterial({
+            map: stoneTex,
+            bumpMap: stoneTex,
+            bumpScale: 3.5,
+            color: '#334155',
+            roughness: 0.85,
+            metalness: 0.1
+        });
+
+        const matWood = new THREE.MeshStandardMaterial({
+            map: woodTex,
+            bumpMap: woodTex,
+            bumpScale: 1.5,
+            color: '#78350f',
+            roughness: 0.45,
+            metalness: 0.05
+        });
+
+        const matDarkTrim = new THREE.MeshStandardMaterial({
+            color: '#1e293b',
+            roughness: 0.3,
+            metalness: 0.6
+        });
+
+        const matGlass = new THREE.MeshPhysicalMaterial({
+            color: '#0f172a',
+            roughness: 0.05,
+            metalness: 0.1,
+            transmission: 0.92,
+            transparent: true,
+            opacity: 0.45,
+            ior: 1.52
+        });
+
+        const matGlassBalcony = new THREE.MeshPhysicalMaterial({
+            color: '#e2e8f0',
+            roughness: 0.08,
+            transmission: 0.88,
+            transparent: true,
+            opacity: 0.55
+        });
+
+        const matGoldRail = new THREE.MeshStandardMaterial({
+            color: '#d97706',
+            roughness: 0.25,
+            metalness: 0.85
+        });
+
+        const matFoliage = new THREE.MeshStandardMaterial({
+            color: '#22c55e',
+            roughness: 0.7,
+            metalness: 0.05
+        });
+
+        const matDarkFoliage = new THREE.MeshStandardMaterial({
+            color: '#15803d',
+            roughness: 0.75,
+            metalness: 0.05
+        });
+
+        // -------------------------------------------------------------
+        // 3. Lighting Rig
+        // -------------------------------------------------------------
+        const hemiLight = new THREE.HemisphereLight('#bae6fd', '#334155', 0.65);
+        scene.add(hemiLight);
+
+        const dirSun = new THREE.DirectionalLight('#fffbeb', 1.35);
+        dirSun.position.set(400, 750, 600);
+        dirSun.castShadow = true;
+        dirSun.shadow.mapSize.width = 2048;
+        dirSun.shadow.mapSize.height = 2048;
+        dirSun.shadow.camera.near = 50;
+        dirSun.shadow.camera.far = 2500;
+        const d = 600;
+        dirSun.shadow.camera.left = -d;
+        dirSun.shadow.camera.right = d;
+        dirSun.shadow.camera.top = d;
+        dirSun.shadow.camera.bottom = -d;
+        dirSun.shadow.bias = -0.0005;
+        scene.add(dirSun);
+
+        // Warm Porch & Interior Glow Lights
+        const porchLight = new THREE.PointLight('#ffedd5', 1.4, 280);
+        porchLight.position.set(460, 110, 40);
+        scene.add(porchLight);
+
+        const carportLight = new THREE.PointLight('#f8fafc', 0.9, 320);
+        carportLight.position.set(240, 110, 40);
+        scene.add(carportLight);
+
+        const interiorLightGF = new THREE.PointLight('#fef08a', 1.2, 400);
+        interiorLightGF.position.set(460, 60, -100);
+        scene.add(interiorLightGF);
+
+        const interiorLightFF = new THREE.PointLight('#fef08a', 1.2, 400);
+        interiorLightFF.position.set(460, 200, -100);
+        scene.add(interiorLightFF);
+
+        // -------------------------------------------------------------
+        // 4. Architectural Geometry Construction
+        // -------------------------------------------------------------
+        const villaGroup = new THREE.Group();
+        scene.add(villaGroup);
+
+        // A. Ground & Driveway
+        const groundGeo = new THREE.PlaneGeometry(3000, 3000);
+        const groundMat = new THREE.MeshStandardMaterial({ color: '#14532d', roughness: 0.9 });
+        const ground = new THREE.Mesh(groundGeo, groundMat);
+        ground.rotation.x = -Math.PI / 2;
+        ground.receiveShadow = true;
+        villaGroup.add(ground);
+
+        // Driveway & Entrance Paved Apron
+        const drivewayGeo = new THREE.PlaneGeometry(580, 700);
+        const driveway = new THREE.Mesh(drivewayGeo, new THREE.MeshStandardMaterial({ map: drivewayTex, roughness: 0.8 }));
+        driveway.rotation.x = -Math.PI / 2;
+        driveway.position.set(380, 0.4, 350);
+        driveway.receiveShadow = true;
+        villaGroup.add(driveway);
+
+        // Front Entrance Steps (Plinth)
+        const step1 = new THREE.Mesh(new THREE.BoxGeometry(220, 6, 80), matWhite);
+        step1.position.set(480, 3, 70);
+        step1.castShadow = true; step1.receiveShadow = true;
+        villaGroup.add(step1);
+
+        const step2 = new THREE.Mesh(new THREE.BoxGeometry(200, 6, 60), new THREE.MeshStandardMaterial({ color: '#1e293b' }));
+        step2.position.set(480, 9, 60);
+        step2.castShadow = true; step2.receiveShadow = true;
+        villaGroup.add(step2);
+
+        // B. Ground Floor Left: Carport Structure
+        // Rear Wall
+        const cpRearWall = new THREE.Mesh(new THREE.BoxGeometry(250, 120, 10), matStone);
+        cpRearWall.position.set(245, 60, -100);
+        cpRearWall.castShadow = true; cpRearWall.receiveShadow = true;
+        villaGroup.add(cpRearWall);
+
+        // Left Outer Wall
+        const cpLeftWall = new THREE.Mesh(new THREE.BoxGeometry(10, 120, 160), matWhite);
+        cpLeftWall.position.set(120, 60, -20);
+        cpLeftWall.castShadow = true; cpLeftWall.receiveShadow = true;
+        villaGroup.add(cpLeftWall);
+
+        // Front Carport Canopy Beam (White modern frame)
+        const cpBeam = new THREE.Mesh(new THREE.BoxGeometry(250, 16, 16), matWhite);
+        cpBeam.position.set(245, 112, 60);
+        cpBeam.castShadow = true; cpBeam.receiveShadow = true;
+        villaGroup.add(cpBeam);
+
+        const cpLeftPost = new THREE.Mesh(new THREE.BoxGeometry(16, 120, 16), matWhite);
+        cpLeftPost.position.set(120, 60, 60);
+        cpLeftPost.castShadow = true; cpLeftPost.receiveShadow = true;
+        villaGroup.add(cpLeftPost);
+
+        // Carport Ceiling / First Floor Left Balcony Deck
+        const cpSlab = new THREE.Mesh(new THREE.BoxGeometry(250, 8, 160), matWhite);
+        cpSlab.position.set(245, 124, -20);
+        cpSlab.castShadow = true; cpSlab.receiveShadow = true;
+        villaGroup.add(cpSlab);
+
+        // C. Two White Luxury Cars Parked in Carport
+        function buildCar(isHatchback = false) {
+            const car = new THREE.Group();
+            const carLen = isHatchback ? 130 : 150;
+            const carWid = 56;
+            const matCarBody = new THREE.MeshStandardMaterial({ color: '#f8fafc', roughness: 0.15, metalness: 0.1 });
+            const matCarGlass = new THREE.MeshPhysicalMaterial({ color: '#0f172a', roughness: 0.05, metalness: 0.8 });
+            const matTire = new THREE.MeshStandardMaterial({ color: '#18181b', roughness: 0.9 });
+            const matRim = new THREE.MeshStandardMaterial({ color: '#e2e8f0', metalness: 0.85, roughness: 0.2 });
+
+            // Body base
+            const bodyBase = new THREE.Mesh(new THREE.BoxGeometry(carWid, 16, carLen), matCarBody);
+            bodyBase.position.y = 16;
+            bodyBase.castShadow = true;
+            car.add(bodyBase);
+
+            // Cabin
+            const cabinL = isHatchback ? 65 : 70;
+            const cabinH = 22;
+            const cabin = new THREE.Mesh(new THREE.BoxGeometry(carWid - 6, cabinH, cabinL), matCarGlass);
+            cabin.position.set(0, 32, isHatchback ? -10 : -4);
+            cabin.castShadow = true;
+            car.add(cabin);
+
+            // Roof
+            const roof = new THREE.Mesh(new THREE.BoxGeometry(carWid - 8, 2, cabinL - 6), matCarBody);
+            roof.position.set(0, 43, isHatchback ? -10 : -4);
+            car.add(roof);
+
+            // Front Bumper / Grille
+            const grille = new THREE.Mesh(new THREE.BoxGeometry(28, 6, 2), matDarkTrim);
+            grille.position.set(0, 16, carLen / 2 + 1);
+            car.add(grille);
+
+            // Headlights
+            const hlMat = new THREE.MeshStandardMaterial({ color: '#ffffff', emissive: '#f8fafc', emissiveIntensity: 0.5 });
+            const hlL = new THREE.Mesh(new THREE.BoxGeometry(10, 4, 2), hlMat);
+            hlL.position.set(-18, 17, carLen / 2 + 1);
+            car.add(hlL);
+            const hlR = hlL.clone();
+            hlR.position.x = 18;
+            car.add(hlR);
+
+            // Wheels
+            const wheelGeo = new THREE.CylinderGeometry(11, 11, 7, 18);
+            wheelGeo.rotateZ(Math.PI / 2);
+            const rimGeo = new THREE.CylinderGeometry(6, 6, 7.5, 12);
+            rimGeo.rotateZ(Math.PI / 2);
+
+            const positions = [
+                [-carWid/2, 11, carLen/2 - 28],
+                [carWid/2, 11, carLen/2 - 28],
+                [-carWid/2, 11, -carLen/2 + 28],
+                [carWid/2, 11, -carLen/2 + 28]
+            ];
+            positions.forEach(pos => {
+                const tire = new THREE.Mesh(wheelGeo, matTire);
+                tire.position.set(...pos);
+                tire.castShadow = true;
+                const rim = new THREE.Mesh(rimGeo, matRim);
+                tire.add(rim);
+                car.add(tire);
+            });
+
+            return car;
+        }
+
+        const carSedan = buildCar(false);
+        carSedan.position.set(190, 0, -10);
+        villaGroup.add(carSedan);
+
+        const carHatch = buildCar(true);
+        carHatch.position.set(275, 0, -10);
+        villaGroup.add(carHatch);
+
+        // Hanging Ivy on Carport Top Beam
+        function createHangingIvy(width, count = 12, maxLen = 35) {
+            const ivyGroup = new THREE.Group();
+            for (let i = 0; i < count; i++) {
+                const x = -width / 2 + (i / (count - 1)) * width;
+                const strandLen = 12 + Math.random() * maxLen;
+                const strandGeo = new THREE.CylinderGeometry(0.8, 0.8, strandLen, 6);
+                strandGeo.translate(0, -strandLen / 2, 0);
+                const strand = new THREE.Mesh(strandGeo, matDarkFoliage);
+                strand.position.set(x, 0, (Math.random() - 0.5) * 4);
+
+                // Leaf clusters along strand
+                const leafCount = Math.floor(strandLen / 5);
+                for (let j = 0; j < leafCount; j++) {
+                    const leaf = new THREE.Mesh(new THREE.SphereGeometry(2.5, 6, 6), matFoliage);
+                    leaf.scale.set(1.4, 0.6, 1.2);
+                    leaf.position.set((Math.random() - 0.5) * 3, -j * 5, (Math.random() - 0.5) * 3);
+                    strand.add(leaf);
+                }
+                ivyGroup.add(strand);
+            }
+            return ivyGroup;
+        }
+
+        const cpIvy = createHangingIvy(240, 24, 25);
+        cpIvy.position.set(245, 104, 66);
+        villaGroup.add(cpIvy);
+
+        // D. Ground Floor Center: Entrance Porch & Main Door
+        // Stone Pillar
+        const entrancePillar = new THREE.Mesh(new THREE.BoxGeometry(14, 120, 14), matStone);
+        entrancePillar.position.set(372, 60, 60);
+        entrancePillar.castShadow = true; entrancePillar.receiveShadow = true;
+        villaGroup.add(entrancePillar);
+
+        // Entrance Rear Wall with Glass & Wood Pivot Door
+        const foyerWall = new THREE.Mesh(new THREE.BoxGeometry(210, 120, 8), matWhite);
+        foyerWall.position.set(480, 60, 10);
+        foyerWall.castShadow = true; foyerWall.receiveShadow = true;
+        villaGroup.add(foyerWall);
+
+        // Grand Wooden Pivot Front Door
+        const mainDoor = new THREE.Mesh(new THREE.BoxGeometry(42, 94, 4), matWood);
+        mainDoor.position.set(480, 59, 14);
+        mainDoor.castShadow = true;
+        villaGroup.add(mainDoor);
+
+        // Vertical sleek door handle
+        const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.8, 0.8, 48, 8), matDarkTrim);
+        handle.position.set(496, 60, 17);
+        villaGroup.add(handle);
+
+        // Flanking Glass Windows (Floor-to-ceiling)
+        const leftWin = new THREE.Mesh(new THREE.BoxGeometry(40, 94, 3), matGlass);
+        leftWin.position.set(425, 59, 14);
+        villaGroup.add(leftWin);
+
+        const leftFrame = new THREE.Mesh(new THREE.BoxGeometry(42, 96, 4), matDarkTrim);
+        leftFrame.position.set(425, 59, 13);
+        villaGroup.add(leftFrame);
+
+        const rightWin = new THREE.Mesh(new THREE.BoxGeometry(44, 94, 3), matGlass);
+        rightWin.position.set(536, 59, 14);
+        villaGroup.add(rightWin);
+
+        const rightFrame = new THREE.Mesh(new THREE.BoxGeometry(46, 96, 4), matDarkTrim);
+        rightFrame.position.set(536, 59, 13);
+        villaGroup.add(rightFrame);
+
+        // Porch Canopy Beam & Ceiling
+        const porchBeam = new THREE.Mesh(new THREE.BoxGeometry(220, 14, 60), matWhite);
+        porchBeam.position.set(480, 113, 35);
+        porchBeam.castShadow = true; porchBeam.receiveShadow = true;
+        villaGroup.add(porchBeam);
+
+        // E. Ground Floor Right: Charcoal Slate Stone Monolith Tower
+        const stoneTower = new THREE.Mesh(new THREE.BoxGeometry(140, 290, 180), matStone);
+        stoneTower.position.set(650, 145, -10);
+        stoneTower.castShadow = true; stoneTower.receiveShadow = true;
+        villaGroup.add(stoneTower);
+
+        // Vertical Narrow Slot Window with Bronze Louvers
+        const slotWindow = new THREE.Mesh(new THREE.BoxGeometry(32, 220, 6), matGlass);
+        slotWindow.position.set(675, 140, 81);
+        villaGroup.add(slotWindow);
+
+        // Vertical louvers
+        for (let lx = 662; lx <= 688; lx += 6) {
+            const louver = new THREE.Mesh(new THREE.BoxGeometry(1.5, 220, 6), matDarkTrim);
+            louver.position.set(lx, 140, 83);
+            villaGroup.add(louver);
+        }
+
+        // F. First Floor: Iconic Cantilevered Protruding White Box Frame (Center)
+        const boxOuterW = 200;
+        const boxOuterH = 110;
+        const boxDepth = 70;
+        const boxThick = 10;
+        const boxCenter = new THREE.Vector3(475, 175, 50);
+
+        // Top Frame Slab
+        const boxTop = new THREE.Mesh(new THREE.BoxGeometry(boxOuterW, boxThick, boxDepth), matWhite);
+        boxTop.position.set(boxCenter.x, boxCenter.y + boxOuterH/2 - boxThick/2, boxCenter.z);
+        boxTop.castShadow = true; boxTop.receiveShadow = true;
+        villaGroup.add(boxTop);
+
+        // Bottom Frame Slab (Cantilevered Balcony Floor)
+        const boxBottom = new THREE.Mesh(new THREE.BoxGeometry(boxOuterW, boxThick, boxDepth), matWhite);
+        boxBottom.position.set(boxCenter.x, boxCenter.y - boxOuterH/2 + boxThick/2, boxCenter.z);
+        boxBottom.castShadow = true; boxBottom.receiveShadow = true;
+        villaGroup.add(boxBottom);
+
+        // Left Frame Wall
+        const boxLeft = new THREE.Mesh(new THREE.BoxGeometry(boxThick, boxOuterH - boxThick*2, boxDepth), matWhite);
+        boxLeft.position.set(boxCenter.x - boxOuterW/2 + boxThick/2, boxCenter.y, boxCenter.z);
+        boxLeft.castShadow = true; boxLeft.receiveShadow = true;
+        villaGroup.add(boxLeft);
+
+        // Right Frame Wall
+        const boxRight = new THREE.Mesh(new THREE.BoxGeometry(boxThick, boxOuterH - boxThick*2, boxDepth), matWhite);
+        boxRight.position.set(boxCenter.x + boxOuterW/2 - boxThick/2, boxCenter.y, boxCenter.z);
+        boxRight.castShadow = true; boxRight.receiveShadow = true;
+        villaGroup.add(boxRight);
+
+        // Rear Wall inside the Box Frame
+        const boxRear = new THREE.Mesh(new THREE.BoxGeometry(boxOuterW - boxThick*2, boxOuterH - boxThick*2, 8), matWhite);
+        boxRear.position.set(boxCenter.x, boxCenter.y, boxCenter.z - boxDepth/2 + 4);
+        villaGroup.add(boxRear);
+
+        // Sliding Glass Patio Doors on Left of Box
+        const ffGlassDoor = new THREE.Mesh(new THREE.BoxGeometry(110, 84, 4), matGlass);
+        ffGlassDoor.position.set(boxCenter.x - 30, boxCenter.y - 2, boxCenter.z - boxDepth/2 + 8);
+        villaGroup.add(ffGlassDoor);
+
+        // Vertical Walnut Wood Accent Panel on Right of Box
+        const woodAccent = new THREE.Mesh(new THREE.BoxGeometry(54, 84, 5), matWood);
+        woodAccent.position.set(boxCenter.x + 58, boxCenter.y - 2, boxCenter.z - boxDepth/2 + 8);
+        woodAccent.castShadow = true;
+        villaGroup.add(woodAccent);
+
+        // Modern Glass Railing with Wood/Gold Top Rail across the Box Balcony
+        const railGlass = new THREE.Mesh(new THREE.BoxGeometry(boxOuterW - boxThick*2 - 4, 38, 2), matGlassBalcony);
+        railGlass.position.set(boxCenter.x, boxCenter.y - boxOuterH/2 + boxThick + 19, boxCenter.z + boxDepth/2 - 4);
+        villaGroup.add(railGlass);
+
+        const railTop = new THREE.Mesh(new THREE.BoxGeometry(boxOuterW - boxThick*2, 3, 3), matGoldRail);
+        railTop.position.set(boxCenter.x, boxCenter.y - boxOuterH/2 + boxThick + 38, boxCenter.z + boxDepth/2 - 4);
+        railTop.castShadow = true;
+        villaGroup.add(railTop);
+
+        // Cascading Lush Hanging Ivy Drooping from Beneath Balcony Railing
+        const boxIvy = createHangingIvy(boxOuterW - 20, 22, 28);
+        boxIvy.position.set(boxCenter.x, boxCenter.y - boxOuterH/2 + 4, boxCenter.z + boxDepth/2 + 2);
+        villaGroup.add(boxIvy);
+
+        // G. First Floor Left: Recessed Balcony (Above Carport)
+        const leftBalconyRear = new THREE.Mesh(new THREE.BoxGeometry(240, 110, 8), matWhite);
+        leftBalconyRear.position.set(245, 175, -80);
+        leftBalconyRear.castShadow = true;
+        villaGroup.add(leftBalconyRear);
+
+        const leftBalconyGlass = new THREE.Mesh(new THREE.BoxGeometry(140, 84, 4), matGlass);
+        leftBalconyGlass.position.set(245, 168, -75);
+        villaGroup.add(leftBalconyGlass);
+
+        // Glass Railing on Left Balcony
+        const leftRailFront = new THREE.Mesh(new THREE.BoxGeometry(240, 38, 2), matGlassBalcony);
+        leftRailFront.position.set(245, 143, 56);
+        villaGroup.add(leftRailFront);
+
+        const leftRailTop = new THREE.Mesh(new THREE.BoxGeometry(242, 3, 3), matGoldRail);
+        leftRailTop.position.set(245, 162, 56);
+        leftRailTop.castShadow = true;
+        villaGroup.add(leftRailTop);
+
+        const leftRailSide = new THREE.Mesh(new THREE.BoxGeometry(2, 38, 140), matGlassBalcony);
+        leftRailSide.position.set(125, 143, -14);
+        villaGroup.add(leftRailSide);
+
+        // H. Roof Level: Floating Roof Slabs & Garden Terrace
+        // Lower Roof Slab Over Protruding Box
+        const lowerRoofSlab = new THREE.Mesh(new THREE.BoxGeometry(220, 8, 90), matWhite);
+        lowerRoofSlab.position.set(boxCenter.x, boxCenter.y + boxOuterH/2 + 4, boxCenter.z + 10);
+        lowerRoofSlab.castShadow = true; lowerRoofSlab.receiveShadow = true;
+        villaGroup.add(lowerRoofSlab);
+
+        // Upper Floating Roof Slab Over Charcoal Stone Tower (Deep Overhang Eaves)
+        const upperRoofSlab = new THREE.Mesh(new THREE.BoxGeometry(180, 10, 220), matWhite);
+        upperRoofSlab.position.set(650, 295, -10);
+        upperRoofSlab.castShadow = true; upperRoofSlab.receiveShadow = true;
+        villaGroup.add(upperRoofSlab);
+
+        // Top Left Roof Terrace (Above First Floor Left)
+        const terraceParapet = new THREE.Mesh(new THREE.BoxGeometry(240, 24, 8), matStone);
+        terraceParapet.position.set(245, 238, -60);
+        villaGroup.add(terraceParapet);
+
+        const terraceIvy = createHangingIvy(220, 18, 20);
+        terraceIvy.position.set(245, 245, -55);
+        villaGroup.add(terraceIvy);
+
+        // I. Landscaping & Vegetation (Matching Reference Photo)
+        // Slender Birch Tree in front of Stone Tower
+        const treeGroup = new THREE.Group();
+        const trunkGeo = new THREE.CylinderGeometry(2, 3.5, 170, 8);
+        const trunkMat = new THREE.MeshStandardMaterial({ color: '#78716c', roughness: 0.8 });
+        const trunk = new THREE.Mesh(trunkGeo, trunkMat);
+        trunk.position.y = 85;
+        trunk.castShadow = true;
+        treeGroup.add(trunk);
+
+        // Canopy foliage puffs
+        const foliageCount = 14;
+        for (let i = 0; i < foliageCount; i++) {
+            const fGeo = new THREE.SphereGeometry(14 + Math.random() * 8, 8, 8);
+            const foliage = new THREE.Mesh(fGeo, matFoliage);
+            foliage.scale.set(1.2, 0.8, 1.2);
+            foliage.position.set(
+                (Math.random() - 0.5) * 26,
+                110 + Math.random() * 70,
+                (Math.random() - 0.5) * 26
+            );
+            foliage.castShadow = true;
+            treeGroup.add(foliage);
+        }
+        treeGroup.position.set(640, 0, 95);
+        villaGroup.add(treeGroup);
+
+        // Spherical Topiary Hedge on Driveway Front
+        const hedge = new THREE.Mesh(new THREE.SphereGeometry(18, 16, 16), matDarkFoliage);
+        hedge.scale.set(1.1, 0.85, 1.1);
+        hedge.position.set(480, 15, 240);
+        hedge.castShadow = true;
+        villaGroup.add(hedge);
+
+        // Broad Leaf Plants (Monstera Deliciosa) around Entrance & Tower
+        function createMonstera() {
+            const pGroup = new THREE.Group();
+            for (let i = 0; i < 8; i++) {
+                const leaf = new THREE.Mesh(new THREE.SphereGeometry(10, 8, 8), matFoliage);
+                leaf.scale.set(1.4, 0.2, 1.8);
+                const angle = (i / 8) * Math.PI * 2;
+                leaf.position.set(Math.cos(angle) * 12, 8 + Math.sin(i) * 5, Math.sin(angle) * 12);
+                leaf.rotation.set(0.4, angle, 0.3);
+                pGroup.add(leaf);
+            }
+            return pGroup;
+        }
+
+        const plant1 = createMonstera();
+        plant1.position.set(385, 0, 75);
+        villaGroup.add(plant1);
+
+        const plant2 = createMonstera();
+        plant2.position.set(590, 0, 75);
+        villaGroup.add(plant2);
+
+        const plant3 = createMonstera();
+        plant3.position.set(710, 0, 75);
+        villaGroup.add(plant3);
+
+        // -------------------------------------------------------------
+        // 5. Camera View Library & Smooth Transitions
+        // -------------------------------------------------------------
+        const viewPresets = {
+            // Outside Views
+            front: {
+                pos: new THREE.Vector3(475, 150, 850),
+                target: new THREE.Vector3(475, 140, 0),
+                fov: 38
+            },
+            carport: {
+                pos: new THREE.Vector3(235, 75, 340),
+                target: new THREE.Vector3(245, 55, -20),
+                fov: 42
+            },
+            entrance: {
+                pos: new THREE.Vector3(475, 75, 320),
+                target: new THREE.Vector3(475, 60, 20),
+                fov: 40
+            },
+            balcony: {
+                pos: new THREE.Vector3(475, 200, 360),
+                target: new THREE.Vector3(475, 175, 50),
+                fov: 38
+            },
+            terrace: {
+                pos: new THREE.Vector3(420, 420, 520),
+                target: new THREE.Vector3(475, 200, 0),
+                fov: 45
+            },
+            isometric: {
+                pos: new THREE.Vector3(1050, 650, 1050),
+                target: new THREE.Vector3(450, 140, 0),
+                fov: 36
+            },
+
+            // Inside Views
+            interior_gf: {
+                pos: new THREE.Vector3(475, 55, -60),
+                target: new THREE.Vector3(475, 55, 300),
+                fov: 55
+            },
+            interior_ff: {
+                pos: new THREE.Vector3(475, 175, -40),
+                target: new THREE.Vector3(475, 175, 300),
+                fov: 55
+            },
+            interior_balcony: {
+                pos: new THREE.Vector3(245, 160, -40),
+                target: new THREE.Vector3(245, 155, 300),
+                fov: 52
+            }
+        };
+
+        // Transition Animation State
+        let isTransitioning = false;
+        const animTargetPos = new THREE.Vector3();
+        const animTargetLookAt = new THREE.Vector3();
+        let animTargetFov = 40;
+        let isCinematicOrbit = false;
+
+        function setView(viewKey) {
+            const preset = viewPresets[viewKey];
+            if (!preset) return;
+
+            isCinematicOrbit = false;
+            document.getElementById('btn-orbit-toggle').classList.remove('active');
+
+            animTargetPos.copy(preset.pos);
+            animTargetLookAt.copy(preset.target);
+            animTargetFov = preset.fov;
+            isTransitioning = true;
+            controls.enabled = false;
+
+            // Update UI Chips
+            document.querySelectorAll('.view-chip').forEach(chip => {
+                if (chip.getAttribute('data-view') === viewKey) {
+                    chip.classList.add('active');
+                } else if (chip.getAttribute('data-view')) {
+                    chip.classList.remove('active');
+                }
+            });
+        }
+
+        // Initialize at Hero Front Elevation
+        setView('front');
+
+        // -------------------------------------------------------------
+        // 6. Interactive UI Event Handlers
+        // -------------------------------------------------------------
+        // View Chip Clicks
+        document.querySelectorAll('.view-chip[data-view]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                setView(btn.getAttribute('data-view'));
+            });
+        });
+
+        // Tab Switching in View Library Dock
+        const tabOutside = document.getElementById('tab-outside');
+        const tabInside = document.getElementById('tab-inside');
+        const tabCinematic = document.getElementById('tab-cinematic');
+        const stripOutside = document.getElementById('strip-outside');
+        const stripInside = document.getElementById('strip-inside');
+        const stripCinematic = document.getElementById('strip-cinematic');
+
+        function switchDockTab(tab) {
+            tabOutside.classList.toggle('active', tab === 'outside');
+            tabInside.classList.toggle('active', tab === 'inside');
+            tabCinematic.classList.toggle('active', tab === 'cinematic');
+
+            stripOutside.style.display = tab === 'outside' ? 'flex' : 'none';
+            stripInside.style.display = tab === 'inside' ? 'flex' : 'none';
+            stripCinematic.style.display = tab === 'cinematic' ? 'flex' : 'none';
+        }
+
+        tabOutside.addEventListener('click', () => switchDockTab('outside'));
+        tabInside.addEventListener('click', () => switchDockTab('inside'));
+        tabCinematic.addEventListener('click', () => switchDockTab('cinematic'));
+
+        // Cinematic Orbit Toggle
+        const btnOrbit = document.getElementById('btn-orbit-toggle');
+        btnOrbit.addEventListener('click', () => {
+            isCinematicOrbit = !isCinematicOrbit;
+            btnOrbit.classList.toggle('active', isCinematicOrbit);
+        });
+
+        // Lighting Toggles
+        const btnDay = document.getElementById('btn-day');
+        const btnSunset = document.getElementById('btn-sunset');
+        const btnNight = document.getElementById('btn-night');
+
+        function setLightingMode(mode) {
+            btnDay.classList.toggle('active', mode === 'day');
+            btnSunset.classList.toggle('active', mode === 'sunset');
+            btnNight.classList.toggle('active', mode === 'night');
+
+            if (mode === 'day') {
+                scene.background.set('#87ceeb');
+                hemiLight.color.set('#bae6fd');
+                hemiLight.groundColor.set('#334155');
+                hemiLight.intensity = 0.65;
+                dirSun.color.set('#fffbeb');
+                dirSun.intensity = 1.35;
+                dirSun.position.set(400, 750, 600);
+                porchLight.intensity = 0.6;
+                carportLight.intensity = 0.5;
+                interiorLightGF.intensity = 0.8;
+                interiorLightFF.intensity = 0.8;
+            } else if (mode === 'sunset') {
+                scene.background.set('#fdba74');
+                hemiLight.color.set('#f43f5e');
+                hemiLight.groundColor.set('#431407');
+                hemiLight.intensity = 0.6;
+                dirSun.color.set('#fb923c');
+                dirSun.intensity = 1.8;
+                dirSun.position.set(650, 320, 500);
+                porchLight.intensity = 1.8;
+                carportLight.intensity = 1.4;
+                interiorLightGF.intensity = 1.8;
+                interiorLightFF.intensity = 1.8;
+            } else if (mode === 'night') {
+                scene.background.set('#030712');
+                hemiLight.color.set('#1e1b4b');
+                hemiLight.groundColor.set('#030712');
+                hemiLight.intensity = 0.25;
+                dirSun.color.set('#38bdf8');
+                dirSun.intensity = 0.2;
+                dirSun.position.set(300, 600, 400);
+                porchLight.intensity = 2.4;
+                carportLight.intensity = 2.0;
+                interiorLightGF.intensity = 2.8;
+                interiorLightFF.intensity = 2.8;
+            }
+        }
+
+        btnDay.addEventListener('click', () => setLightingMode('day'));
+        btnSunset.addEventListener('click', () => setLightingMode('sunset'));
+        btnNight.addEventListener('click', () => setLightingMode('night'));
+
+        // Reference Photo Comparison Toggles
+        const btnOverlay = document.getElementById('btn-overlay');
+        const btnSplit = document.getElementById('btn-split');
+        const overlayWrap = document.getElementById('photo-overlay-wrap');
+        const overlayImg = document.getElementById('photo-overlay-img');
+        const sideBySidePane = document.getElementById('side-by-side-pane');
+        const sideBySideImg = document.getElementById('side-by-side-img');
+        const compareBar = document.getElementById('compare-controls-bar');
+        const opacitySlider = document.getElementById('opacity-slider');
+        const opacityVal = document.getElementById('opacity-val');
+
+        let isOverlayActive = false;
+        let isSplitActive = false;
+
+        btnOverlay.addEventListener('click', () => {
+            isOverlayActive = !isOverlayActive;
+            btnOverlay.classList.toggle('active', isOverlayActive);
+            overlayWrap.style.opacity = isOverlayActive ? (opacitySlider.value / 100) : 0;
+            compareBar.classList.toggle('visible', isOverlayActive);
+
+            if (isOverlayActive) {
+                // Auto switch to hero front elevation for 1:1 match
+                setView('front');
+            }
+        });
+
+        opacitySlider.addEventListener('input', (e) => {
+            const val = e.target.value;
+            opacityVal.textContent = val + '%';
+            if (isOverlayActive) {
+                overlayWrap.style.opacity = val / 100;
+            }
+        });
+
+        btnSplit.addEventListener('click', () => {
+            isSplitActive = !isSplitActive;
+            btnSplit.classList.toggle('active', isSplitActive);
+            sideBySidePane.classList.toggle('active', isSplitActive);
+            setTimeout(onResize, 360);
+        });
+
+        // Custom Image Upload Handler
+        const uploadInput = document.getElementById('upload-image-input');
+        uploadInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    const dataUrl = event.target.result;
+                    overlayImg.src = dataUrl;
+                    sideBySideImg.src = dataUrl;
+                    if (!isOverlayActive && !isSplitActive) {
+                        btnOverlay.click();
+                    }
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+
+        // Window Resize Handler
+        function onResize() {
+            const wrap = document.getElementById('three-canvas-wrap');
+            const w = wrap.clientWidth;
+            const h = wrap.clientHeight;
+            camera.aspect = w / h;
+            camera.updateProjectionMatrix();
+            renderer.setSize(w, h);
+        }
+        window.addEventListener('resize', onResize);
+
+        // -------------------------------------------------------------
+        // 7. Main Animation & Render Loop
+        // -------------------------------------------------------------
+        const clock = new THREE.Clock();
+
+        function animate() {
+            requestAnimationFrame(animate);
+            const delta = clock.getDelta();
+
+            // Smooth Camera Animated Transition
+            if (isTransitioning) {
+                camera.position.lerp(animTargetPos, 0.08);
+                controls.target.lerp(animTargetLookAt, 0.08);
+                camera.fov = THREE.MathUtils.lerp(camera.fov, animTargetFov, 0.08);
+                camera.updateProjectionMatrix();
+
+                if (camera.position.distanceTo(animTargetPos) < 1 &&
+                    controls.target.distanceTo(animTargetLookAt) < 1) {
+                    isTransitioning = false;
+                    controls.enabled = true;
+                }
+            } else if (isCinematicOrbit) {
+                // Auto orbit around target
+                controls.autoRotate = true;
+                controls.autoRotateSpeed = 1.2;
+                controls.update();
+            } else {
+                controls.autoRotate = false;
+                controls.update();
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        animate();
+    </script>
+</body>
+</html>

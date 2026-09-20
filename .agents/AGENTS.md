@@ -219,4 +219,34 @@ Wall corner miter calculations, bevel logic, endpoint/corner vertex mappings, an
 4. **Approval Mandate**:
    - Before making ANY change to `WallGeometryEngine.getCorners`, `WallGeometryEngine.getExactPolygonPoints`, `WallEngine.recalculateGeometry`, `wall.renderer2d.js:sceneFunc`, or corner shearing in `wall.renderer3d.js`, the agent MUST explain the exact proposed mathematical difference to the user and obtain explicit user approval.
 
+# Universal Vertical Dependency & Elevation Propagation Rule
+
+**CRITICAL MANDATE**
+
+All vertical dependencies, parametric wall-rise propagation, building rise, multi-story level coordination, and in-place CAD/BIM vertical synchronization MUST strictly adhere to the unified architecture defined in `VerticalPropagationEngine` (`src/core/vertical/VerticalPropagationEngine.js`) and the `vertical_dependency_expert` skill:
+
+## Required Behavior
+1. **Centralized Propagation Authority (Zero Manual Y-Offsets)**:
+   - NEVER apply direct, uncoordinated Y-position shifts to individual meshes.
+   - All height and elevation mutations MUST route through `WallEngine` and `VerticalPropagationEngine`.
+   - Vertical dependencies must be strictly derived from parent-child relationships (`parentWallId`, `hostLevelId`, `hostPlatformId`, `_restingOnWalls`).
+2. **Bi-Directional Resting Roof Tracking (UP and DOWN)**:
+   - When a roof rests on supporting walls (`_restingOnWalls !== false`), changing the wall height must adjust the roof elevation **both upward and downward**.
+   - NEVER use `Math.max(roof.elevation, maxWallTop)` without checking `isResting`. Unconditional `Math.max` prevents roofs from ever moving downward when walls are lowered, leaving floating roofs.
+3. **Universal In-Place CAD Updates (Zero Duplicate Groups)**:
+   - Adjusting wall height or level elevations must update existing 3D groups in place via `updateRoofLive` and `updateWallGeometryLive`.
+   - In `Roof3DBuilder.js`, tag parent `roofGroup.userData` with `{ isRoof: true, isRoofGroup: true, entity: roof, roofId: roof.id }` and purge duplicate groups before adding.
+   - In `RoomInteractiveSuite.js`, `_syncRoofs()` must update existing roofs in place and purge orphaned groups from `structureGroup`. NEVER call `buildRoofs(...)` repeatedly during live wall rises.
+4. **Dynamic Top/Bottom Anchoring for Wall Moldings**:
+   - Crown moldings/cornices/friezes MUST anchor dynamically to the wall top (`heightOffset = Math.max(0, wallHeight - moldingHeight)`).
+   - Baseboards/skirtings MUST anchor to the wall base (`heightOffset = 0`).
+5. **Platform & Furniture Host Hierarchy**:
+   - Furniture placed on a platform must record `hostPlatformId` and `relativeElevation`.
+   - When the platform changes elevation or height, `VerticalPropagationEngine.onPlatformHeightChanged` must update all hosted furniture.
+6. **Floor-to-Floor Staircase Dynamic Step Adaptation**:
+   - Spanning staircases must automatically recalculate step counts and riser heights via `StairHeightDetector.recalculateStairForHeight` when floor-to-floor heights change.
+7. **Full Serialization & Persistence Integrity**:
+   - All vertical dependency metadata (`hostLevelId`, `relativeElevation`, `anchorMode`, `_restingOnWalls`, `_lastSyncedWallTop`, `hostPlatformId`) MUST be preserved across 2D/3D serialization and deserialization.
+
+
 

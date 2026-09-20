@@ -193,6 +193,92 @@ describe('Sims 4 Building Rise Tool & Specific Room Lift Suite', () => {
         });
     });
 
+    it('Building Rise: when building rise height increases, the roof automatically moves upward by the same height and remains physically attached', () => {
+        WallEngine.createRoomBox(mockPlanner, {
+            minX: 0, minY: 0, maxX: 400, maxY: 300, thickness: 20, height: 280, elevation: 0
+        });
+
+        // Add a roof over the building with initial elevation matching wall height (280)
+        const mockRoof = {
+            id: 'roof_1',
+            points: [{ x: 0, y: 0 }, { x: 400, y: 0 }, { x: 400, y: 300 }, { x: 0, y: 300 }],
+            elevation: 280,
+            config: { roofType: 'hip' }
+        };
+        mockPlanner.roofs = [mockRoof];
+
+        // 1. Increase building rise height from 280 to 360 (+80)
+        suite.setAllWallsHeight(360);
+
+        mockPlanner.walls.forEach(w => {
+            expect(w.height).toBe(360);
+        });
+        expect(mockRoof.elevation).toBe(360);
+
+        // 2. Step height downwards by -60 (from 360 to 300)
+        suite.stepAllWallsHeight(-60);
+        mockPlanner.walls.forEach(w => {
+            expect(w.height).toBe(300);
+        });
+        expect(mockRoof.elevation).toBe(300);
+
+        // 3. Step height upwards by +20 (from 300 to 320)
+        suite.setScopeMode('building');
+        suite.stepWallHeight(20);
+        mockPlanner.walls.forEach(w => {
+            expect(w.height).toBe(320);
+        });
+        expect(mockRoof.elevation).toBe(320);
+    });
+
+    it('Building Rise Live Drag: moving up cone translates 3D roof meshes live and commits elevation on pointer up', () => {
+        WallEngine.createRoomBox(mockPlanner, {
+            minX: 0, minY: 0, maxX: 400, maxY: 300, thickness: 20, height: 300, elevation: 0
+        });
+        const room = {
+            path: [{ x: 0, y: 0 }, { x: 400, y: 0 }, { x: 400, y: 300 }, { x: 0, y: 300 }],
+            cx: 200, cy: 150, elevation: 0, wallHeight: 300
+        };
+        mockPlanner.rooms = [room];
+        suite.attach(room);
+        suite.activateBuildingRiseMode();
+
+        const mockRoofMesh = new THREE.Mesh();
+        mockRoofMesh.userData = { isRoof: true };
+        mockRoofMesh.position.set(200, 300, 150);
+        mockCtx.structureGroup = new THREE.Group();
+        mockCtx.structureGroup.add(mockRoofMesh);
+
+        const mockRoof = {
+            id: 'roof_test_live',
+            points: [{ x: 0, y: 0 }, { x: 400, y: 0 }, { x: 400, y: 300 }, { x: 0, y: 300 }],
+            elevation: 300,
+            config: { roofType: 'gable', autoShapeWalls: false }
+        };
+        mockPlanner.roofs = [mockRoof];
+
+        // Simulate pointer down on the 'up' cone
+        suite.activeDragMode = 'up';
+        suite.targetAdjustMode = 'wall';
+        suite.dragStartY = 500;
+        suite.downY = 500;
+        suite.downX = 500;
+        suite.initialWallHeight = 300;
+
+        // Simulate pointer move dragging upward (e.clientY = 400, deltaPixelsY = 100, deltaCm = 60cm, newWallH = 360)
+        suite._onPointerMove({ clientX: 500, clientY: 400, stopPropagation: vi.fn(), preventDefault: vi.fn() });
+
+        // 3D roof mesh must have moved live by +60cm
+        expect(mockRoofMesh.position.y).toBe(360);
+
+        // Simulate pointer up
+        suite._onPointerUp({ clientY: 400 });
+
+        // Roof entity elevation must be updated to 360
+        expect(mockRoof.elevation).toBe(360);
+        expect(mockRoofMesh.userData._baseRoofY).toBeUndefined();
+    });
+
     it('Building Rise: adjusts elevation (foundation lift) for all walls simultaneously', () => {
         WallEngine.createRoomBox(mockPlanner, {
             minX: 0, minY: 0, maxX: 400, maxY: 300, thickness: 20, height: 300, elevation: 0

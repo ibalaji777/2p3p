@@ -1,5 +1,6 @@
 import { onBeforeUnmount } from 'vue';
 import { WallEngine } from '../core/wall/WallEngine.js';
+import { RoofMutationEngine } from '../core/roof/RoofMutationEngine.js';
 
 export function useAppScene({
     renderer3D,
@@ -234,6 +235,12 @@ export function useAppScene({
                 }
                 if (selectedEntity.value && selectedEntity.value.type === 'compound') {
                     refresh3DScene(true);
+                }
+                if (['wall', 'arc', 'room'].includes(selectedType.value) && planner.value?.roofs?.length > 0) {
+                    const targetWalls = selectedType.value === 'room'
+                        ? (selectedEntity.value.walls || planner.value.walls)
+                        : (selectedEntity.value.parentArc?.walls || (selectedEntity.value.walls || [selectedEntity.value]));
+                    RoofMutationEngine.syncRoofsWithWalls(targetWalls, planner.value, renderer3D.value);
                 }
                 if (['wall', 'arc', 'roof', 'room', 'stair'].includes(selectedType.value) && planner.value?.updateRoofAutoPlacement) {
                     planner.value.updateRoofAutoPlacement();

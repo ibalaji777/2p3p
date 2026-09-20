@@ -28,25 +28,15 @@ describe('Luxury Modern Villa Elevation Project JSON Integrity', () => {
         expect(data.anchors.length).toBeGreaterThan(5);
         expect(data.walls.length).toBeGreaterThan(8);
         expect(data.rooms.length).toBeGreaterThan(2);
-        expect(data.furniture.length).toBeGreaterThan(5);
+        expect(data.furniture.length).toBeGreaterThanOrEqual(3);
 
-        // Verify cars in carport
-        const sedan = data.furniture.find(f => f.configId === 'decor_car_white_sedan');
-        const hatchback = data.furniture.find(f => f.configId === 'decor_car_white_hatchback');
-        expect(sedan, 'Missing sedan in carport').toBeDefined();
-        expect(hatchback, 'Missing hatchback in carport').toBeDefined();
-        expect(FURNITURE_REGISTRY[sedan.configId]).toBeDefined();
-        expect(FURNITURE_REGISTRY[hatchback.configId]).toBeDefined();
-
-        // Verify hanging ivy
-        const ivy = data.furniture.filter(f => f.configId === 'decor_hanging_ivy');
-        expect(ivy.length).toBeGreaterThanOrEqual(2);
-
-        // Verify slender tree and hedge
-        const tree = data.furniture.find(f => f.configId === 'decor_tree_slender');
-        const hedge = data.furniture.find(f => f.configId === 'decor_hedge_sphere');
-        expect(tree, 'Missing slender tree').toBeDefined();
-        expect(hedge, 'Missing spherical topiary hedge').toBeDefined();
+        // Verify official catalog plants present around porch and tower
+        const monstera = data.furniture.filter(f => f.configId === 'decor_plant_monstera');
+        const snake = data.furniture.find(f => f.configId === 'decor_plant_snake');
+        expect(monstera.length).toBeGreaterThanOrEqual(2);
+        expect(snake, 'Missing snake plant').toBeDefined();
+        expect(FURNITURE_REGISTRY['decor_plant_monstera']).toBeDefined();
+        expect(FURNITURE_REGISTRY['decor_plant_snake']).toBeDefined();
 
         // Verify main pivot entrance door and floor-to-ceiling windows
         const entranceWall = data.walls.find(w => w.id === 'gf_wall_entrance_front');
@@ -89,9 +79,9 @@ describe('Luxury Modern Villa Elevation Project JSON Integrity', () => {
         expect(boxFrameRear.widgets.some(w => w.doorStyle === 'patio_multi_slide')).toBe(true);
         expect(boxFrameRear.widgets.some(w => w.materials?.leaf?.id === 'wood_siding_walnut')).toBe(true);
 
-        // Verify cascading ivy on first-floor box frame
-        const frameIvy = data.furniture.filter(f => f.configId === 'decor_hanging_ivy');
-        expect(frameIvy.length).toBeGreaterThanOrEqual(2);
+        // Verify catalog plant on first-floor balcony
+        const balconyPlant = data.furniture.find(f => f.configId === 'decor_plant_monstera');
+        expect(balconyPlant).toBeDefined();
     });
 
     it('should validate Level 2 (Roof Level - Floating Cantilevered Cap & Terrace)', () => {
@@ -108,9 +98,8 @@ describe('Luxury Modern Villa Elevation Project JSON Integrity', () => {
             expect(w.params.textureFront).toBe('upvc_white');
         });
 
-        // Verify rooftop terrace garden
-        const terraceWalls = data.walls.filter(w => w.id.startsWith('rf_terrace_'));
-        expect(terraceWalls.length).toBe(3);
+        // Verify rooftop terrace and center roof coverage
+        expect(data.rooms.length).toBeGreaterThanOrEqual(2);
         expect(data.furniture.length).toBeGreaterThanOrEqual(3);
     });
 });

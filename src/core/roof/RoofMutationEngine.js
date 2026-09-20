@@ -742,4 +742,74 @@ export class RoofMutationEngine {
 
         this.notifyRoofUpdated(roof, planner || roof.planner, changedAspect);
     }
+
+    /**
+     * Synchronizes any roofs that rest on or cover the given walls.
+     * When wall height or elevation increases/changes, roofs automatically move upward
+     * to remain physically attached to the top of the building walls.
+     * @param {Array<Object>|Object} walls 
+     * @param {Object} [plannerOrCtx] 
+     * @param {Object} [ctx3d] 
+     */
+    static syncRoofsWithWalls(walls, plannerOrCtx = null, ctx3d = null) {
+        let planner = null;
+        let c3d = ctx3d;
+
+        if (plannerOrCtx) {
+            if (plannerOrCtx.camera || (plannerOrCtx.scene && plannerOrCtx.renderer)) {
+                c3d = plannerOrCtx;
+                planner = plannerOrCtx.planner;
+            } else {
+                planner = plannerOrCtx;
+                if (!c3d) c3d = plannerOrCtx.engine3d || plannerOrCtx.ctx || (plannerOrCtx.envBuilder ? plannerOrCtx : null);
+            }
+        }
+
+        if (typeof window !== 'undefined') {
+            if (!planner) planner = window.plannerInstance || window.planner?.value || window.planner;
+            if (!c3d) c3d = planner?.engine3d || window.engine3d || window.renderer3D?.value || window.preview3D;
+        }
+
+        if (!planner || !planner.roofs || planner.roofs.length === 0) return;
+
+        const wallList = Array.isArray(walls) ? walls : (walls ? [walls] : (planner.walls || []));
+        if (wallList.length === 0) return;
+
+        const allPlannerWalls = planner.walls || [];
+
+        planner.roofs.forEach(rf => {
+            // Check if any of the target walls is under this roof
+            const coversTargetWall = wallList.some(w => {
+                const wallsUnder = RoofGeometryEngine.getWallsUnderRoof(rf, [w]);
+                return wallsUnder.length > 0;
+            });
+
+            if (!coversTargetWall) return;
+
+            // Get max top of ALL walls under this roof
+            const maxWallTop = RoofGeometryEngine.getMaxWallTopUnderRoof(rf, allPlannerWalls);
+            if (maxWallTop <= 0) return;
+
+            const curElev = rf.elevation !== undefined ? Number(rf.elevation) : 0;
+
+            // If roof is below wall top, it MUST move up to sit on top of the walls.
+            // If roof was previously resting on the walls, it tracks the wall height change.
+            const wasResting = rf._restingOnWalls || (rf._lastSyncedWallTop && Math.abs(curElev - rf._lastSyncedWallTop) < 2) || (curElev <= maxWallTop);
+
+            if (curElev < maxWallTop || wasResting) {
+                if (curElev !== maxWallTop) {
+                    rf.elevation = maxWallTop;
+                    rf._lastSyncedWallTop = maxWallTop;
+                    rf._restingOnWalls = true;
+                    this.notifyRoofUpdated(rf, c3d || planner, 'transform');
+                } else {
+                    // Elevation is already at maxWallTop, but 3D mesh might need updating in place
+                    const env = c3d?.envBuilder || planner?.envBuilder || c3d;
+                    if (env && typeof env.updateRoofLive === 'function' && rf.mesh3D) {
+                        env.updateRoofLive(rf);
+                    }
+                }
+            }
+        });
+    }
 }

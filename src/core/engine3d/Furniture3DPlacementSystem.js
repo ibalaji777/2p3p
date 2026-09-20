@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { FURNITURE_REGISTRY } from '../../features/furniture/furniture.registry.js';
 import { PremiumFurniture } from '../../features/furniture/furniture.renderer2d.js';
 import { SnapshotCommand } from '../commands/SnapshotCommand.js';
+import { VerticalPropagationEngine } from '../vertical/VerticalPropagationEngine.js';
 
 /**
  * Furniture3DPlacementSystem
@@ -253,10 +254,28 @@ export class Furniture3DPlacementSystem {
 
         const isFine = e.shiftKey;
         const gridStep = isFine ? 1 : 10;
+        const snappedX = Math.round(hitPoint.x / gridStep) * gridStep;
+        const snappedZ = Math.round(hitPoint.z / gridStep) * gridStep;
+
+        const planner = this.getPlanner();
+        let targetElev = elev;
+        let hostPlatformId = null;
+        if (planner && planner.platforms) {
+            for (const p of planner.platforms) {
+                if (VerticalPropagationEngine.isPointInPlatform(snappedX, snappedZ, p)) {
+                    const pTop = (Number(p.elevation) || 0) + (Number(p.height) > 0 ? Number(p.height) : 0);
+                    targetElev = pTop;
+                    hostPlatformId = p.id;
+                    break;
+                }
+            }
+        }
+
         return {
-            x: Math.round(hitPoint.x / gridStep) * gridStep,
-            z: Math.round(hitPoint.z / gridStep) * gridStep,
-            elev
+            x: snappedX,
+            z: snappedZ,
+            elev: targetElev,
+            hostPlatformId
         };
     }
 
@@ -285,6 +304,7 @@ export class Furniture3DPlacementSystem {
 
         this.activePos.set(worldX, floor.elev, worldZ);
         this.activeElevation = floor.elev;
+        this._lastHostPlatformId = floor.hostPlatformId || null;
 
         // Update Ghost 3D Mesh
         this.updateGhostModel(preset, worldX, floor.elev, worldZ, this.activeRotation);
@@ -525,6 +545,11 @@ export class Furniture3DPlacementSystem {
         if (preset.height) newFurn.height = Number(preset.height);
         newFurn.elevation = this.activeElevation + (Number(preset.elevation) || 0);
         newFurn.rotation = this.activeRotation;
+
+        if (this._lastHostPlatformId) {
+            newFurn.hostPlatformId = this._lastHostPlatformId;
+            newFurn.relativeElevation = Number(preset.elevation) || 0;
+        }
 
         if (preset.materials) {
             newFurn.materials = JSON.parse(JSON.stringify(preset.materials));

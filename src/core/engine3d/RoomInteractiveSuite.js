@@ -8,6 +8,7 @@ import { getRoomWallsAndSides, getRoomForWallFace, getRoomsList } from './WallPa
 import { PremiumPlatform } from '../engine2d/PremiumPlatform.js';
 import { Platform3DBuilder } from './Platform3DBuilder.js';
 import { offsetPolygon } from '../registry.js';
+import { RoofMutationEngine } from '../roof/RoofMutationEngine.js';
 
 /**
  * RoomInteractiveSuite
@@ -2229,7 +2230,7 @@ export class RoomInteractiveSuite extends THREE.Group {
         if (engine.structureGroup) {
             const elevDiff = newElev - this.initialElev;
             engine.structureGroup.children.forEach(c => {
-                if (c.userData && c.userData.isRoof) {
+                if (c.userData && (c.userData.isRoof || c.userData.isRoofGroup)) {
                     if (c.userData._baseRoofY === undefined) {
                         c.userData._baseRoofY = c.position.y;
                     }
@@ -2281,12 +2282,7 @@ export class RoomInteractiveSuite extends THREE.Group {
         }
 
         // Update roofs in planner to follow raised room
-        const allRoofs = planner.roofs || this.ctx.engine3d?.roofs || [];
-        allRoofs.forEach(rf => {
-            if (rf.elevation !== undefined && deltaElev !== 0) {
-                rf.elevation = Math.max(0, (Number(rf.elevation) || 0) + deltaElev);
-            }
-        });
+        RoofMutationEngine.syncRoofsWithWalls(roomWalls, planner);
         this._syncRoofs();
 
         if (typeof this.ctx.rebuildActiveFloors === 'function') {
@@ -2308,6 +2304,8 @@ export class RoomInteractiveSuite extends THREE.Group {
         if (!this.room) return;
         const planner = this.planner;
         const roomWalls = this._getRoomBoundingWalls();
+        const prevH = this._getRoomWallHeight();
+        const deltaH = height - prevH;
         this.room.wallHeight = height;
 
         if (roomWalls.length > 0) {
@@ -2329,6 +2327,9 @@ export class RoomInteractiveSuite extends THREE.Group {
                 }
             });
             this._syncWalls3D(roomWalls);
+
+            // Sync roofs in planner to follow raised walls
+            RoofMutationEngine.syncRoofsWithWalls(roomWalls, planner);
             this._syncRoofs();
         }
 
@@ -2529,7 +2530,9 @@ export class RoomInteractiveSuite extends THREE.Group {
         const targetWalls = planner.walls.filter(w => !w.hidden && w.type !== 'railing');
         if (targetWalls.length === 0) return;
 
+        const prevH = targetWalls[0].height !== undefined ? Number(targetWalls[0].height) : 300;
         const validH = WallHeightPolicy.clamp(height);
+        const deltaH = validH - prevH;
         if (this.room) {
             this.room.wallHeight = validH;
         }
@@ -2547,6 +2550,9 @@ export class RoomInteractiveSuite extends THREE.Group {
         (planner.rooms || []).forEach(r => {
             r.wallHeight = validH;
         });
+
+        // Sync roofs in planner to follow raised walls
+        RoofMutationEngine.syncRoofsWithWalls(targetWalls, planner);
 
         this._syncWalls3D(targetWalls);
         this._syncRoofs();
@@ -2631,13 +2637,22 @@ export class RoomInteractiveSuite extends THREE.Group {
         }
 
         // Update roofs in planner to follow raised walls
-        const allRoofs = planner.roofs || this.ctx.engine3d?.roofs || [];
-        allRoofs.forEach(rf => {
-            if (rf.elevation !== undefined && deltaElev !== 0) {
-                rf.elevation = Math.max(0, (Number(rf.elevation) || 0) + deltaElev);
+        RoofMutationEngine.syncRoofsWithWalls(targetWalls, planner);
+        this._syncRoofs();
+
+        // Update furniture resting on floor
+        (planner.furniture || []).forEach(f => {
+            if (!f.hostPlatformId) {
+                f.elevation = (Number(f.elevation) || 0) + deltaElev;
+                if (f.mesh3D) f.mesh3D.position.y = f.elevation;
             }
         });
-        this._syncRoofs();
+
+        // Update stairs resting on floor
+        (planner.stairs || []).forEach(s => {
+            s.elevation = (Number(s.elevation) || 0) + deltaElev;
+            if (s.mesh3D) s.mesh3D.position.y = s.elevation;
+        });
 
         // Rebuild active floors so meshes stay fully synchronized
         if (typeof this.ctx.rebuildActiveFloors === 'function') {
@@ -2723,7 +2738,7 @@ export class RoomInteractiveSuite extends THREE.Group {
         if (engine.structureGroup) {
             const elevDiff = newElev - this.initialElev;
             engine.structureGroup.children.forEach(c => {
-                if (c.userData && c.userData.isRoof) {
+                if (c.userData && (c.userData.isRoof || c.userData.isRoofGroup)) {
                     if (c.userData._baseRoofY === undefined) {
                         c.userData._baseRoofY = c.position.y;
                     }
@@ -2934,6 +2949,20 @@ export class RoomInteractiveSuite extends THREE.Group {
                         }
                         (planner?.rooms || []).forEach(r => { r.wallHeight = newWallH; });
                         this._updateGizmoLive(newWallH);
+
+                        // Move roof meshes live in 3D
+                        const engine = this.ctx.engine3d || this.ctx;
+                        if (engine.structureGroup) {
+                            const heightDiff = newWallH - this.initialWallHeight;
+                            engine.structureGroup.children.forEach(c => {
+                                if (c.userData && (c.userData.isRoof || c.userData.isRoofGroup)) {
+                                    if (c.userData._baseRoofY === undefined) {
+                                        c.userData._baseRoofY = c.position.y;
+                                    }
+                                    c.position.y = c.userData._baseRoofY + heightDiff;
+                                }
+                            });
+                        }
                     }
                     this._showTooltip(`Building Wall Height: ${newWallH} cm`, e.clientX, e.clientY);
                 } else {
@@ -2947,6 +2976,20 @@ export class RoomInteractiveSuite extends THREE.Group {
                             this._syncWalls3D(roomWalls);
                         }
                         this._updateGizmoLive(newWallH);
+
+                        // Move roof meshes live in 3D
+                        const engine = this.ctx.engine3d || this.ctx;
+                        if (engine.structureGroup) {
+                            const heightDiff = newWallH - this.initialWallHeight;
+                            engine.structureGroup.children.forEach(c => {
+                                if (c.userData && (c.userData.isRoof || c.userData.isRoofGroup)) {
+                                    if (c.userData._baseRoofY === undefined) {
+                                        c.userData._baseRoofY = c.position.y;
+                                    }
+                                    c.position.y = c.userData._baseRoofY + heightDiff;
+                                }
+                            });
+                        }
                     }
                     this._showTooltip(`Room Wall Height: ${newWallH} cm`, e.clientX, e.clientY);
                 }
@@ -3067,15 +3110,21 @@ export class RoomInteractiveSuite extends THREE.Group {
                 if (mode === 'up' || mode === 'down') {
                     const deltaPixelsY = this.dragStartY - e.clientY;
                     if (this.targetAdjustMode === 'wall') {
-                        const roomWalls = (this.scopeMode === 'building')
+                        const isBuilding = (this.scopeMode === 'building');
+                        const roomWalls = isBuilding
                             ? (planner?.walls?.filter(w => !w.hidden && w.type !== 'railing') || [])
                             : this._getRoomBoundingWalls();
                         if (planner && typeof planner.syncAll === 'function') {
                             planner.syncAll();
                         }
                         this._syncWalls3D(roomWalls);
+
+                        const finalH = this._lastLiveWallHeight !== null && this._lastLiveWallHeight !== undefined
+                            ? this._lastLiveWallHeight
+                            : this.initialWallHeight;
+                        RoofMutationEngine.syncRoofsWithWalls(roomWalls, planner);
                         this._syncRoofs();
-                        coreEventBus.emit(EVENTS.WALL_CHANGE, { room: this.room, building: (this.scopeMode === 'building') });
+                        coreEventBus.emit(EVENTS.WALL_CHANGE, { room: this.room, building: isBuilding });
                     } else if (this.targetAdjustMode === 'foundation') {
                         const deltaCm = deltaPixelsY * 0.6;
                         const newElev = Math.max(0, Math.min(600, Math.round((this.initialElev + deltaCm) / 15) * 15));
@@ -3102,7 +3151,7 @@ export class RoomInteractiveSuite extends THREE.Group {
             const engine = this.ctx.engine3d || this.ctx;
             if (engine.structureGroup) {
                 engine.structureGroup.children.forEach(c => {
-                    if (c.userData && c.userData.isRoof) {
+                    if (c.userData && (c.userData.isRoof || c.userData.isRoofGroup)) {
                         delete c.userData._baseRoofY;
                     }
                 });
@@ -3144,26 +3193,53 @@ export class RoomInteractiveSuite extends THREE.Group {
     }
 
     _syncRoofs() {
-        if (this.ctx.envBuilder && typeof this.ctx.envBuilder.buildRoofs === 'function') {
-            try {
-                const engine = this.ctx.engine3d || this.ctx;
-                if (engine.roofs && engine.roofs.length > 0) {
-                    const currentRoofMeshes = engine.structureGroup?.children.filter(c => c.userData && c.userData.isRoof) || [];
-                    currentRoofMeshes.forEach(m => {
-                        if (typeof engine.deepDispose === 'function') engine.deepDispose(m);
-                        engine.structureGroup?.remove(m);
-                    });
-                    this.ctx.envBuilder.buildRoofs(
-                        engine.roofs,
+        try {
+            const engine = this.ctx.engine3d || this.ctx;
+            const roofs = engine.roofs || this.planner?.roofs || [];
+            if (!roofs || roofs.length === 0) return;
+
+            const env = this.ctx.envBuilder;
+            if (!env) return;
+
+            // In-place update existing roofs without duplicating groups
+            roofs.forEach(rf => {
+                if (rf.mesh3D && typeof env.updateRoofLive === 'function') {
+                    env.updateRoofLive(rf);
+                } else if (typeof env.buildRoofs === 'function') {
+                    env.buildRoofs(
+                        [rf],
                         engine.activeIndex || 0,
                         engine.walls || this.planner?.walls || [],
                         engine.structureGroup,
                         engine.shapes || this.planner?.shapes || []
                     );
                 }
-            } catch (err) {
-                console.error('[RoomInteractiveSuite] Error syncing roofs:', err);
+            });
+
+            // Clean up any orphaned or duplicate roof groups in structureGroup
+            if (engine.structureGroup) {
+                const activeMeshSet = new Set(roofs.map(r => r.mesh3D).filter(Boolean));
+                const activeIdSet = new Set(roofs.map(r => r.id).filter(Boolean));
+                const toRemove = [];
+                engine.structureGroup.children.forEach(c => {
+                    if (c.userData && (c.userData.isRoof || c.userData.isRoofGroup)) {
+                        const isMatch = activeMeshSet.has(c) || 
+                            (c.userData.roofId && activeIdSet.has(c.userData.roofId)) || 
+                            (c.userData.entity && roofs.includes(c.userData.entity));
+                        if (!isMatch) {
+                            toRemove.push(c);
+                        }
+                    }
+                });
+                toRemove.forEach(m => {
+                    if (typeof engine.deepDispose === 'function') engine.deepDispose(m);
+                    engine.structureGroup.remove(m);
+                });
             }
+
+            if (this.ctx.requestRender) this.ctx.requestRender('sync_roofs_after_wall_change');
+        } catch (err) {
+            console.error('[RoomInteractiveSuite] Error syncing roofs:', err);
         }
     }
 

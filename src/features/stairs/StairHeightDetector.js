@@ -400,4 +400,22 @@ export class StairHeightDetector {
             point: { x: projX, z: projZ }
         };
     }
+
+    /**
+     * Dynamically recalculates staircase steps and riser heights for a new target height.
+     * @param {Object} stair 
+     * @param {number} targetHeight 
+     * @returns {boolean} True if modified
+     */
+    static recalculateStairForHeight(stair, targetHeight) {
+        if (!stair || targetHeight <= 0) return false;
+        const optimal = this.calculateOptimalSteps(targetHeight, stair.shape || 'straight');
+        stair.totalSteps = optimal.totalSteps;
+        stair.stepHeight = optimal.stepHeight;
+        if (optimal.flight1Steps !== undefined) stair.flight1Steps = optimal.flight1Steps;
+        if (optimal.flight2Steps !== undefined) stair.flight2Steps = optimal.flight2Steps;
+        if (stair.update) stair.update();
+        return true;
+    }
 }
+

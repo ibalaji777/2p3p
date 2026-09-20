@@ -64,7 +64,13 @@ export class RoofTopologyEngine {
         const roof = new PremiumHipRoof(planner, cleaned);
         if (options.id) roof.id = options.id;
         roof.rotation = options.rotation !== undefined ? options.rotation : 0;
-        roof.elevation = options.elevation !== undefined ? options.elevation : baseWallHeight;
+        const wallsTop = (planner && planner.walls && planner.walls.length > 0)
+            ? RoofGeometryEngine.getMaxWallTopUnderRoof(roof, planner.walls)
+            : 0;
+        const initialElev = options.elevation !== undefined ? options.elevation : (wallsTop > 0 ? wallsTop : baseWallHeight);
+        roof.elevation = initialElev;
+        roof._lastSyncedWallTop = wallsTop > 0 ? wallsTop : initialElev;
+        roof._restingOnWalls = (options.elevation === undefined) || (wallsTop > 0 && Math.abs(options.elevation - wallsTop) < 2);
         roof.config = mergedConfig;
         roof.configId = mergedConfig.material;
         if (options.description !== undefined) roof.description = options.description;

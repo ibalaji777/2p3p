@@ -3,6 +3,7 @@ import { useUIStore } from '../stores/useUIStore.js';
 import { usePlannerStore } from '../stores/usePlannerStore.js';
 import { WallEngine } from '../core/wall/WallEngine.js';
 import { WallHeightPolicy } from '../core/wall/WallHeightPolicy.js';
+import { VerticalPropagationEngine } from '../core/vertical/VerticalPropagationEngine.js';
 
 export function useLevelManager(dependencies) {
     const uiStore = useUIStore();
@@ -88,6 +89,8 @@ export function useLevelManager(dependencies) {
         activeLevelIndex.value = index;
         const activeLvl = levels.value[index];
         if (planner.value) {
+            planner.value.levels = levels.value;
+            planner.value.activeLevelIndex = index;
             planner.value.activeLevel = activeLvl;
             planner.value.activeLevelConfig = activeLvl;
         }
@@ -208,7 +211,14 @@ export function useLevelManager(dependencies) {
             if (description !== undefined) lvl.description = description;
             if (height !== undefined) {
                 const validH = WallHeightPolicy.processInputHeight(height);
+                const prevH = lvl.height || validH;
                 lvl.height = validH;
+                if (planner.value) {
+                    planner.value.levels = levels.value;
+                    planner.value.activeLevelIndex = activeLevelIndex.value;
+                    planner.value.activeLevel = lvl;
+                    planner.value.activeLevelConfig = lvl;
+                }
                 // Update walls on active level
                 if (index === activeLevelIndex.value && planner.value && planner.value.walls) {
                     WallEngine.batchUpdate(planner.value, planner.value.walls, { height: validH });
@@ -223,6 +233,9 @@ export function useLevelManager(dependencies) {
                             lvl.data = JSON.stringify(parsed);
                         }
                     } catch(e) {}
+                }
+                if (planner.value) {
+                    VerticalPropagationEngine.onLevelHeightChanged(lvl, validH, prevH, planner.value);
                 }
             }
             if (defaultWallThickness !== undefined) {
@@ -292,6 +305,8 @@ export function useLevelManager(dependencies) {
                     thickness: targetThickness,
                     type: 'outer',
                     height: targetHeight,
+                    parentWallId: w.id || null,
+                    hostLevelId: activeLvl?.id || null,
                     windows: [],
                     doors: [],
                     decors: []

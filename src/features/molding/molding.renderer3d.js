@@ -22,7 +22,11 @@ export const getMoldingMaterial = (matName) => {
  */
 export const buildMoldingMesh3D = (moldData, wallLength, wallThickness, helpers = null, wallEntity = null) => {
     const depth = moldData.depth || 2;
-    const heightOffset = moldData.heightOffset !== undefined ? moldData.heightOffset : 0;
+    const moldingHeight = moldData.moldingHeight || moldData.height || 10;
+    const isTopAnchored = moldData.anchorMode === 'top' || (!moldData.anchorMode && (moldData.type?.includes('crown') || moldData.type?.includes('frieze') || moldData.type?.includes('cornice')));
+    const wallH = wallEntity?.height || moldData.wall?.height || 180;
+    const heightOffset = isTopAnchored ? Math.max(0, wallH - moldingHeight) : (moldData.heightOffset !== undefined ? moldData.heightOffset : 0);
+    moldData.heightOffset = heightOffset;
     const profileType = moldData.profileType || 'skirting_flat';
     const isGroove = moldData.type === 'molding_groove' || profileType === 'groove';
 
@@ -30,7 +34,6 @@ export const buildMoldingMesh3D = (moldData, wallLength, wallThickness, helpers 
     const actualLength = isFullLength ? wallLength : (moldData.width || wallLength);
     moldData.width = actualLength;
 
-    const moldingHeight = moldData.moldingHeight || moldData.height || 10;
     const finalShape = generateMoldingProfileShape(profileType, depth, moldingHeight, moldData);
 
     const segments = calculateMoldingSegments(actualLength, heightOffset, moldingHeight, wallEntity || moldData.wall);

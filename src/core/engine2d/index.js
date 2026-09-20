@@ -1946,7 +1946,21 @@ export class FloorPlanner {
             unit: this.currentUnit,
             anchors: this.anchors.map(a => ({ id: a._id, x: a.x, y: a.y })),
             walls: standardWalls.map(w => WallSerializer.serialize(w)),
-            furniture: this.furniture.map(f => ({ x: f.group.x(), y: f.group.y(), rotation: f.rotation, width: f.width, depth: f.depth, height: f.height, configId: f.config.id, description: f.description, params: f.params ? JSON.parse(JSON.stringify(f.params)) : null })),
+            furniture: this.furniture.map(f => ({ 
+                x: f.group.x(), 
+                y: f.group.y(), 
+                rotation: f.rotation, 
+                width: f.width, 
+                depth: f.depth, 
+                height: f.height, 
+                elevation: f.elevation || 0,
+                hostPlatformId: f.hostPlatformId || null,
+                hostFurnitureId: f.hostFurnitureId || null,
+                relativeElevation: f.relativeElevation || 0,
+                configId: f.config.id, 
+                description: f.description, 
+                params: f.params ? JSON.parse(JSON.stringify(f.params)) : null 
+            })),
             stairs: this.stairs.map(s => {
                 if (s.type === 'stair_v4_flight' || s.type === 'stair_v4_landing') {
                     return { type: s.type, x: s.x, y: s.y, rotation: s.rotation, elevation: s.elevation, direction: s.direction, stepCount: s.stepCount, stepDepth: s.stepDepth, stepHeight: s.stepHeight, width: s.width, length: s.length, shape: s.shape, innerRadius: s.innerRadius, systemId: s.systemId, id: s.id, description: s.description, connections: s.connections ? JSON.parse(JSON.stringify(s.connections)) : [] };
@@ -2089,6 +2103,10 @@ export class FloorPlanner {
                 state.furniture.forEach(fData => {
                     const furn = new PremiumFurniture(this, fData.x, fData.y, fData.configId);
                     furn.rotation = fData.rotation; furn.width = fData.width; furn.depth = fData.depth; furn.height = fData.height;
+                    if (fData.elevation !== undefined) furn.elevation = fData.elevation;
+                    if (fData.hostPlatformId !== undefined) furn.hostPlatformId = fData.hostPlatformId;
+                    if (fData.hostFurnitureId !== undefined) furn.hostFurnitureId = fData.hostFurnitureId;
+                    if (fData.relativeElevation !== undefined) furn.relativeElevation = fData.relativeElevation;
                     if (fData.description !== undefined) furn.description = fData.description;
                     if (fData.params) furn.params = JSON.parse(JSON.stringify(fData.params));
                     this.furniture.push(furn);
@@ -2190,6 +2208,9 @@ export class FloorPlanner {
                             platform.group.draggable(false);
                         }
                         if (platform.badgeGroup) platform.badgeGroup.visible(false);
+                    }
+                    if (pData.isRoomInteriorPlatform) {
+                        platform.isRoomInteriorPlatform = true;
                     }
                     this.platforms.push(platform);
                 });

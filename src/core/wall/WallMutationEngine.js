@@ -14,6 +14,8 @@ import { WallGeometryEngine } from './WallGeometryEngine.js';
 import { isFloorAnchoredDoor } from './WallEngine.js';
 import { WallHeightPolicy } from './WallHeightPolicy.js';
 import { WallTopologyEngine } from './WallTopologyEngine.js';
+import { RoofMutationEngine } from '../roof/RoofMutationEngine.js';
+import { VerticalPropagationEngine } from '../vertical/VerticalPropagationEngine.js';
 
 export class WallMutationEngine {
     /**
@@ -110,6 +112,12 @@ export class WallMutationEngine {
             });
         }
 
+        if (p && p.roofs && p.roofs.length > 0) {
+            RoofMutationEngine.syncRoofsWithWalls([wall], p);
+        }
+
+        VerticalPropagationEngine.onWallHeightChanged(wall, h, prevH, p);
+
         if (shouldSync && p && typeof p.syncAll === 'function') {
             p.syncAll();
             if (p.update3D) p.update3D();
@@ -127,6 +135,7 @@ export class WallMutationEngine {
         if (!wall) return;
         wall.wallShapeData = null;
         const p = planner || wall.planner;
+        const prevElev = wall.elevation !== undefined ? Number(wall.elevation) : 0;
         const elev = Number(newElevation) || 0;
         wall.elevation = elev;
 
@@ -148,6 +157,12 @@ export class WallMutationEngine {
                 }
             });
         }
+
+        if (p && p.roofs && p.roofs.length > 0) {
+            RoofMutationEngine.syncRoofsWithWalls([wall], p);
+        }
+
+        VerticalPropagationEngine.onWallElevationChanged(wall, elev, prevElev, p);
 
         if (shouldSync && p && typeof p.syncAll === 'function') {
             p.syncAll();
@@ -245,6 +260,10 @@ export class WallMutationEngine {
                     sibling._propagatingArcTopProfile = false;
                 }
             });
+        }
+
+        if (p && p.roofs && p.roofs.length > 0) {
+            RoofMutationEngine.syncRoofsWithWalls([wall], p);
         }
 
         if (shouldSync && p && typeof p.syncAll === 'function') {
@@ -600,7 +619,13 @@ export class WallMutationEngine {
     static batchUpdate(planner, walls = [], updates = {}, shouldSync = true) {
         if (!walls || walls.length === 0) return;
 
-        this.batchMutateOnly(walls, updates);
+        this.batchMutateOnly(walls, updates, planner);
+
+        if (planner && planner.roofs && planner.roofs.length > 0) {
+            if (updates.height !== undefined || updates.elevation !== undefined || updates.startHeight !== undefined || updates.endHeight !== undefined || updates.peakHeight !== undefined || updates.topProfileType !== undefined) {
+                RoofMutationEngine.syncRoofsWithWalls(walls, planner);
+            }
+        }
 
         if (shouldSync && planner && typeof planner.syncAll === 'function') {
             planner.syncAll();
@@ -613,9 +638,11 @@ export class WallMutationEngine {
      * Ideal for live interactive dragging (60 FPS performance).
      * @param {Array<Object>} walls 
      * @param {Object} updates 
+     * @param {Object} [planner]
      */
-    static batchMutateOnly(walls = [], updates = {}) {
+    static batchMutateOnly(walls = [], updates = {}, planner = null) {
         if (!walls || walls.length === 0) return;
+        const p = planner || walls[0]?.planner || (typeof window !== 'undefined' ? (window.plannerInstance || window.planner?.value || window.planner) : null);
 
         walls.forEach(w => {
             w.wallShapeData = null;
@@ -667,6 +694,8 @@ export class WallMutationEngine {
                 w.params = { ...(w.params || {}), ...updates.params };
             }
         });
+
+        VerticalPropagationEngine.onBatchWallsUpdated(p, walls, updates);
     }
 
     /**

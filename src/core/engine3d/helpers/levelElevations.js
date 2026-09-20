@@ -8,7 +8,7 @@
  */
 import { WALL_HEIGHT } from '../../../core/registry.js';
 
-export function computeLevelElevations(levelsConfigArray) {
+export function computeLevelElevations(levelsConfigArray, planner = null) {
     if (!levelsConfigArray || levelsConfigArray.length === 0) return [];
     
     const count = levelsConfigArray.length;
@@ -19,6 +19,13 @@ export function computeLevelElevations(levelsConfigArray) {
     for (let i = 0; i < count; i++) {
         const lvl = levelsConfigArray[i];
         let h = Number(lvl?.height) || (lvl?.type === 'plinth' ? 18 : (lvl?.type === 'foundation' ? 40 : (WALL_HEIGHT || 120)));
+        if (planner && (planner.activeLevelIndex === i || planner.activeLevel === lvl) && planner.walls && planner.walls.length > 0) {
+            const wallH = Math.max(...planner.walls.filter(w => !w.parentWallId).map(w => w.height || 0), 0);
+            if (wallH > 0) {
+                h = wallH;
+                lvl.height = wallH;
+            }
+        }
         heights[i] = h;
     }
 

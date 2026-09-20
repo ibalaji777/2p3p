@@ -273,4 +273,65 @@ export class RoofGeometryEngine {
 
         return cutouts;
     }
+
+    /**
+     * Finds all walls that are covered by or intersect the given roof footprint.
+     * @param {Object} roof 
+     * @param {Array<Object>} walls 
+     * @param {number} [margin=40] 
+     * @returns {Array<Object>}
+     */
+    static getWallsUnderRoof(roof, walls, margin = 40) {
+        if (!roof || !walls || !Array.isArray(walls) || walls.length === 0) return [];
+        const basePts = roof.points || [];
+        if (basePts.length < 3) return [];
+
+        const gx = (roof.group && typeof roof.group.x === 'function') ? roof.group.x() : (roof.x || 0);
+        const gy = (roof.group && typeof roof.group.y === 'function') ? roof.group.y() : (roof.y || 0);
+        const conf = roof.config || roof;
+        const overhangs = conf.overhangs ? conf.overhangs : (conf.overhang !== undefined ? conf.overhang : 8);
+        const pts = offsetPolygon(basePts, overhangs);
+        const bounds = this.getBounds(pts, { x: gx, y: gy });
+
+        return walls.filter(w => {
+            if (w.hidden || w.isAutoGable) return false;
+            const p1 = (w.startAnchor && typeof w.startAnchor.position === 'function')
+                ? w.startAnchor.position()
+                : (w.startAnchor || { x: w.startX || 0, y: w.startY || 0 });
+            const p2 = (w.endAnchor && typeof w.endAnchor.position === 'function')
+                ? w.endAnchor.position()
+                : (w.endAnchor || { x: w.endX || 0, y: w.endY || 0 });
+            const midX = (p1.x + p2.x) / 2;
+            const midY = (p1.y + p2.y) / 2;
+
+            return (midX >= bounds.minX - margin && midX <= bounds.maxX + margin && midY >= bounds.minY - margin && midY <= bounds.maxY + margin) ||
+                   (p1.x >= bounds.minX - margin && p1.x <= bounds.maxX + margin && p1.y >= bounds.minY - margin && p1.y <= bounds.maxY + margin) ||
+                   (p2.x >= bounds.minX - margin && p2.x <= bounds.maxX + margin && p2.y >= bounds.minY - margin && p2.y <= bounds.maxY + margin);
+        });
+    }
+
+    /**
+     * Calculates the maximum wall top elevation across all walls covered by this roof.
+     * @param {Object} roof 
+     * @param {Array<Object>} walls 
+     * @param {number} [margin=40] 
+     * @returns {number}
+     */
+    static getMaxWallTopUnderRoof(roof, walls, margin = 40) {
+        const wallsUnder = this.getWallsUnderRoof(roof, walls, margin);
+        if (wallsUnder.length === 0) return 0;
+        return Math.max(...wallsUnder.map(w => {
+            const elev = Number(w.elevation) || 0;
+            let h = w.height !== undefined ? Number(w.height) : (Number(w.config?.height) || 120);
+            if (w.topProfileType === 'single' || w.topProfileType === 'gable') {
+                const maxSlopeH = Math.max(
+                    w.startHeight !== undefined ? Number(w.startHeight) : h,
+                    w.endHeight !== undefined ? Number(w.endHeight) : h,
+                    w.peakHeight !== undefined ? Number(w.peakHeight) : h
+                );
+                h = maxSlopeH;
+            }
+            return elev + h;
+        }));
+    }
 }

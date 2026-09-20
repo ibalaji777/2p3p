@@ -53,6 +53,9 @@ export class RoofSerializer {
             crestings: conf.crestings ? JSON.parse(JSON.stringify(conf.crestings)) : [],
             finials: conf.finials ? JSON.parse(JSON.stringify(conf.finials)) : [],
             chimneys: conf.chimneys ? JSON.parse(JSON.stringify(conf.chimneys)) : [],
+            _restingOnWalls: Boolean(roof._restingOnWalls),
+            _lastSyncedWallTop: roof._lastSyncedWallTop !== undefined ? roof._lastSyncedWallTop : null,
+            hostWallIds: roof.hostWallIds ? [...roof.hostWallIds] : [],
             description: roof.description
         };
     }
@@ -110,6 +113,9 @@ export class RoofSerializer {
         if (roof) {
             if (rData.configId) roof.configId = rData.configId;
             if (rData.tileSize !== undefined) roof.tileSize = rData.tileSize;
+            if (rData._restingOnWalls !== undefined) roof._restingOnWalls = Boolean(rData._restingOnWalls);
+            if (rData._lastSyncedWallTop !== null && rData._lastSyncedWallTop !== undefined) roof._lastSyncedWallTop = rData._lastSyncedWallTop;
+            if (rData.hostWallIds && Array.isArray(rData.hostWallIds)) roof.hostWallIds = [...rData.hostWallIds];
         }
 
         return roof;

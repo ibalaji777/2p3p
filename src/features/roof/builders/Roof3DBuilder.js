@@ -3,6 +3,7 @@ import { WALL_HEIGHT, ROOF_DECOR_REGISTRY, WALL_DECOR_REGISTRY, offsetPolygon } 
 import { ComponentRegistry } from '../../../core/engine3d/ComponentRegistry.js';
 import { Skylight3DBuilder } from './Skylight3DBuilder.js';
 import { RoofSculpture3DBuilder } from './RoofSculpture3DBuilder.js';
+import { RoofGeometryEngine } from '../../../core/roof/RoofGeometryEngine.js';
 
 export class Roof3DBuilder {
     constructor(ctx) {
@@ -125,23 +126,32 @@ export class Roof3DBuilder {
 
             const wallGap = conf.wallGap || 0;
             
-            // Find walls that intersect or are near this roof
-            let localWallHeight = maxWallHeight;
-            let wallsUnderRoof = [];
-            if (hasWalls) {
-                wallsUnderRoof = wallList.filter(w => {
-                    const p1 = (w.startAnchor && typeof w.startAnchor.position === 'function') ? w.startAnchor.position() : (w.startAnchor || { x: w.startX || 0, y: w.startY || 0 });
-                    const p2 = (w.endAnchor && typeof w.endAnchor.position === 'function') ? w.endAnchor.position() : (w.endAnchor || { x: w.endX || 0, y: w.endY || 0 });
-                    const midX = (p1.x + p2.x) / 2;
-                    const midY = (p1.y + p2.y) / 2;
-                    return midX >= minX - 40 && midX <= maxX + 40 && midY >= minY - 40 && midY <= maxY + 40;
-                });
-                if (wallsUnderRoof.length > 0) {
-                    localWallHeight = Math.max(...wallsUnderRoof.map(w => (Number(w.elevation) || 0) + (w.height !== undefined ? Number(w.height) : (Number(w.config?.height) || 120))));
-                }
+            // Use canonical RoofGeometryEngine to detect walls under this roof
+            const wallsUnderRoof = hasWalls ? RoofGeometryEngine.getWallsUnderRoof(roof, wallList) : [];
+            const maxWallTop = (hasWalls && wallsUnderRoof.length > 0)
+                ? RoofGeometryEngine.getMaxWallTopUnderRoof(roof, wallsUnderRoof)
+                : (hasWalls ? RoofGeometryEngine.getMaxWallTopUnderRoof(roof, wallList) : 0);
+
+            const isResting = roof._restingOnWalls !== false && (
+                roof._restingOnWalls ||
+                roof.elevation === undefined ||
+                (maxWallTop > 0 && Math.abs((Number(roof.elevation) || 0) - maxWallTop) < 2)
+            );
+
+            let baseHeight;
+            if (maxWallTop > 0 && isResting) {
+                // Roof is resting on walls: strictly track wall top UP and DOWN
+                baseHeight = maxWallTop;
+                roof.elevation = maxWallTop;
+                roof._restingOnWalls = true;
+                roof._lastSyncedWallTop = maxWallTop;
+            } else if (roof.elevation !== undefined) {
+                // Manually placed roof: cannot sink below supporting walls
+                baseHeight = maxWallTop > 0 ? Math.max(Number(roof.elevation), maxWallTop) : Number(roof.elevation);
+            } else {
+                baseHeight = maxWallTop > 0 ? maxWallTop : (hasWalls ? maxWallHeight : 0);
             }
 
-            const baseHeight = roof.elevation !== undefined ? roof.elevation : (hasWalls ? localWallHeight : 0);
             const h = baseHeight + wallGap;
 
             const resolveRoofMaterial = (matKey) => {
@@ -1738,6 +1748,12 @@ export class Roof3DBuilder {
             const cz = (ptsMinY !== Infinity) ? (ptsMinY + ptsMaxY) / 2 : 0;
 
             const roofGroup = new THREE.Group();
+            roofGroup.userData = {
+                isRoof: true,
+                isRoofGroup: true,
+                entity: roof,
+                roofId: roof.id
+            };
             let groupX = 0, groupZ = 0;
             if (roof.group && typeof roof.group.x === 'function') {
                 groupX = roof.group.x();
@@ -2008,10 +2024,28 @@ export class Roof3DBuilder {
                 });
             }
 
-            targetGroup.add(roofGroup);
             if (targetGroup === this.ctx.structureGroup) {
+                const existingIndex = targetGroup.children.findIndex(c => 
+                    (roof.mesh3D && c === roof.mesh3D) || 
+                    (c.userData && (
+                        (roof.id && c.userData.roofId === roof.id) || 
+                        (roof && c.userData.entity === roof)
+                    ))
+                );
+                if (existingIndex !== -1) {
+                    const oldGroup = targetGroup.children[existingIndex];
+                    if (oldGroup !== roofGroup) {
+                        targetGroup.remove(oldGroup);
+                        if (this.ctx && typeof this.ctx.deepDispose === 'function') {
+                            this.ctx.deepDispose(oldGroup);
+                        }
+                    }
+                }
                 roof.mesh3D = roofGroup;
+            } else if (roof.mesh3D && roof.mesh3D !== roofGroup && roof.mesh3D.parent === targetGroup) {
+                targetGroup.remove(roof.mesh3D);
             }
+            targetGroup.add(roofGroup);
         } catch(err) {
             console.error("Error building individual roof 3D mesh:", err);
         }
