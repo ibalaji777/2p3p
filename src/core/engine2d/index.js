@@ -1972,6 +1972,7 @@ export class FloorPlanner {
             }),
             roofs: this.roofs ? this.roofs.map(r => RoofSerializer.serialize(r)).filter(Boolean) : [],
             arcs: this.arcs ? this.arcs.map(a => ({ 
+                id: a.id,
                 p1: {x: a.p1.x, y: a.p1.y}, 
                 p2: {x: a.p2.x, y: a.p2.y}, 
                 pos: a.pos, 
@@ -1979,6 +1980,9 @@ export class FloorPlanner {
                 railingConfig: a.railingConfig, 
                 hidden: a.hidden, 
                 description: a.description,
+                isCornerFillet: a.isCornerFillet,
+                cornerData: a.cornerData,
+                wallType: a.wallType,
                 thickness: a.thickness !== undefined ? a.thickness : (a.walls[0]?.thickness),
                 height: a.height !== undefined ? a.height : (a.walls[0]?.height),
                 topProfileType: a.topProfileType !== undefined ? a.topProfileType : (a.walls[0]?.topProfileType),
@@ -2108,7 +2112,25 @@ export class FloorPlanner {
                 state.arcs.forEach(aData => {
                     const a1 = this.getOrCreateAnchor(aData.p1.x, aData.p1.y);
                     const a2 = this.getOrCreateAnchor(aData.p2.x, aData.p2.y);
-                    const arc = new PremiumArc(this, a1, a2, aData.pos);
+                    const arc = new PremiumArc(this, a1, a2, aData.pos, {
+                        id: aData.id,
+                        thickness: aData.thickness,
+                        height: aData.height,
+                        topProfileType: aData.topProfileType,
+                        startHeight: aData.startHeight,
+                        endHeight: aData.endHeight,
+                        peakHeight: aData.peakHeight,
+                        flipSlope: aData.flipSlope,
+                        elevation: aData.elevation,
+                        wallType: aData.wallType,
+                        isCornerFillet: aData.isCornerFillet,
+                        cornerData: aData.cornerData,
+                        params: aData.params
+                    });
+                    if (aData.id) arc.id = aData.id;
+                    if (aData.isCornerFillet) arc.isCornerFillet = true;
+                    if (aData.cornerData) arc.cornerData = aData.cornerData;
+                    if (aData.wallType) arc.wallType = aData.wallType;
                     if (aData.hasRailing) {
                         arc.hasRailing = true;
                         if (aData.railingConfig) arc.railingConfig = aData.railingConfig;

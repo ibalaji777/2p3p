@@ -346,9 +346,11 @@ export class RoomInteractiveSuite extends THREE.Group {
             );
         }
 
-        // Vertical Corner Posts
+        // Vertical Corner Posts (Skip intermediate arc tessellation vertices so curves stay clean)
         for (let i = 0; i < path.length; i++) {
             const p = path[i];
+            const isIntermediate = planner?.anchors?.some(a => a.isArcIntermediate && Math.hypot(a.x - p.x, a.y - p.y) < 2.0);
+            if (isIntermediate) continue;
             linePoints.push(
                 new THREE.Vector3(p.x, elev + 0.8, p.y),
                 new THREE.Vector3(p.x, elev + wallH + 0.8, p.y)
@@ -449,7 +451,7 @@ export class RoomInteractiveSuite extends THREE.Group {
 
     /**
      * Builds outward horizontal push/pull arrows along each wall bounding the room.
-     * Matches the white cylindrical arm and cone arrowhead in the screenshot.
+     * Curved walls receive exactly one unified arrow at the arc midpoint.
      */
     _updateEdgeArrows() {
         while (this.edgeArrowsGroup.children.length > 0) {
@@ -476,6 +478,8 @@ export class RoomInteractiveSuite extends THREE.Group {
             depthWrite: false
         });
 
+        const processedArcs = new Set();
+
         for (let i = 0; i < path.length; i++) {
             const p1 = path[i];
             const p2 = path[(i + 1) % path.length];
@@ -483,7 +487,77 @@ export class RoomInteractiveSuite extends THREE.Group {
             const dx = p2.x - p1.x;
             const dy = p2.y - p1.y;
             const len = Math.hypot(dx, dy);
-            if (len < 10) continue;
+            if (len < 5) continue;
+
+            // Check if this segment belongs to an arc
+            const arc = planner?.arcs?.find(a => 
+                a.walls && a.walls.some(w => {
+                    const s = typeof w.startAnchor?.position === 'function' ? w.startAnchor.position() : (w.startAnchor || { x: w.startX, y: w.startY });
+                    const e = typeof w.endAnchor?.position === 'function' ? w.endAnchor.position() : (w.endAnchor || { x: w.endX, y: w.endY });
+                    return (Math.hypot(s.x - p1.x, s.y - p1.y) < 2.0 && Math.hypot(e.x - p2.x, e.y - p2.y) < 2.0) ||
+                           (Math.hypot(s.x - p2.x, s.y - p2.y) < 2.0 && Math.hypot(e.x - p1.x, e.y - p1.y) < 2.0);
+                })
+            );
+
+            if (arc) {
+                if (processedArcs.has(arc)) continue;
+                processedArcs.add(arc);
+
+                // Create a single unified push/pull arrow at the arc midpoint
+                const curvePt = arc.pos || { x: (arc.p1.x + arc.p2.x) / 2, y: (arc.p1.y + arc.p2.y) / 2 };
+                const midX = curvePt.x;
+                const midZ = curvePt.y;
+
+                let nx = 0, nz = 0;
+                if (arc.cornerData?.filletData?.bisector) {
+                    nx = -arc.cornerData.filletData.bisector.x;
+                    nz = -arc.cornerData.filletData.bisector.y;
+                } else {
+                    const chordDx = (arc.p2?.x || 0) - (arc.p1?.x || 0);
+                    const chordDy = (arc.p2?.y || 0) - (arc.p1?.y || 0);
+                    const chordLen = Math.hypot(chordDx, chordDy);
+                    if (chordLen > 0) {
+                        nx = -chordDy / chordLen;
+                        nz = chordDx / chordLen;
+                    }
+                }
+
+                const testPt = { x: midX + nx * 5, y: midZ + nz * 5 };
+                if (this._isPointInPolygon(testPt, path)) {
+                    nx = -nx;
+                    nz = -nz;
+                }
+
+                const arrowGroup = new THREE.Group();
+                arrowGroup.position.set(midX, arrowY, midZ);
+                const angle = Math.atan2(nx, nz);
+                arrowGroup.rotation.y = angle;
+
+                const stalkGeo = new THREE.CylinderGeometry(2.8, 2.8, 28, 16);
+                stalkGeo.rotateX(Math.PI / 2);
+                const stalk = new THREE.Mesh(stalkGeo, this.matBase);
+                stalk.position.z = 14;
+                stalk.renderOrder = 3014;
+
+                const coneGeo = new THREE.ConeGeometry(9.0, 18, 16);
+                coneGeo.rotateX(Math.PI / 2);
+                const cone = new THREE.Mesh(coneGeo, this.matBase);
+                cone.position.z = 36;
+                cone.renderOrder = 3015;
+
+                const hit = new THREE.Mesh(new THREE.BoxGeometry(26, 26, 48), matCollider);
+                hit.position.z = 25;
+                hit.userData = { isRoomEdgeArrow: true, isArcArrow: true, arc, normal: { x: nx, y: nz } };
+
+                arrowGroup.add(stalk, cone, hit);
+                arrowGroup.userData = { isRoomEdgeArrow: true, isArcArrow: true, arc, normal: { x: nx, y: nz } };
+                this.edgeArrowsGroup.add(arrowGroup);
+                continue;
+            }
+
+            if (planner?.anchors?.some(a => a.isArcIntermediate && (Math.hypot(a.x - p1.x, a.y - p1.y) < 2.0 || Math.hypot(a.x - p2.x, a.y - p2.y) < 2.0))) {
+                continue;
+            }
 
             const midX = (p1.x + p2.x) / 2;
             const midZ = (p1.y + p2.y) / 2;

@@ -844,7 +844,7 @@ export class GizmoManager {
                             const key = thumb.getAttribute('data-mat');
                             if (key === null) return;
 
-                            const isWallEntity = entity.type === 'outer' || entity.type === 'inner' || entity.type === 'compound' || entity.type === 'wall' || entity.startX !== undefined;
+                            const isWallEntity = entity.type === 'outer' || entity.type === 'inner' || entity.type === 'compound' || entity.type === 'wall' || entity.type === 'arc' || entity.walls || entity.parentArc || entity.startX !== undefined;
                             const isWallDecor = entity.type === 'wallDecor';
 
                             // 1. Wall and WallDecor Material Management (Material Scope: Selected Face vs Entire Object)
@@ -893,14 +893,34 @@ export class GizmoManager {
                                     return;
                                 }
 
-                                if (wall.parentArc && wall.parentArc.walls) {
-                                    wall.parentArc.walls.forEach(w => {
+                                const arcWalls = (wall.parentArc && wall.parentArc.walls) 
+                                    ? wall.parentArc.walls 
+                                    : (wall.walls && Array.isArray(wall.walls) ? wall.walls : null);
+                                const arcEntity = wall.parentArc || (wall.walls ? wall : null);
+
+                                if (arcWalls) {
+                                    if (arcEntity) {
+                                        arcEntity.params = arcEntity.params || {};
+                                        if (this.materialScope === 'entireObject') {
+                                            arcEntity.params.texture = key;
+                                            arcEntity.params.textureFront = key;
+                                            arcEntity.params.textureBack = key;
+                                            arcEntity.params.textureSides = key;
+                                        } else {
+                                            const pKey = side === 'back' ? 'textureBack' : (side === 'left' ? 'textureLeft' : (side === 'right' ? 'textureRight' : 'textureFront'));
+                                            arcEntity.params[pKey] = key;
+                                        }
+                                    }
+                                    arcWalls.forEach(w => {
                                         WallEngine.applyMaterial(w, {
                                             target: this.materialScope === 'entireObject' ? 'all' : side,
                                             key,
                                             ctx: this.ctx
                                         });
                                     });
+                                    if (arcEntity && typeof this.ctx.updateMaterialLive === 'function') {
+                                        this.ctx.updateMaterialLive(arcEntity);
+                                    }
                                     if (typeof this.ctx.requestRender === 'function') {
                                         this.ctx.requestRender();
                                     }
@@ -1362,6 +1382,8 @@ export class GizmoManager {
                     const type = selectedObj.userData.entity.type;
                     if (type === 'room' || selectedObj.userData.isFloor || type === 'floor') {
                         materialCategory = 'floor';
+                    } else if (type === 'outer' || type === 'inner' || type === 'compound' || type === 'wall' || type === 'arc' || selectedObj.userData.entity.walls || selectedObj.userData.entity.parentArc) {
+                        materialCategory = 'categories';
                     } else if (type !== 'furniture' && !selectedObj.userData.entity.isFurniture) {
                         materialCategory = type;
                     }
@@ -2072,7 +2094,7 @@ export class GizmoManager {
             }
             
             let tex = null;
-            const isWall = entity.type === 'outer' || entity.type === 'inner' || entity.type === 'compound' || entity.type === 'wall' || entity.type === 'wallDecor' || entity.startX !== undefined;
+            const isWall = entity.type === 'outer' || entity.type === 'inner' || entity.type === 'compound' || entity.type === 'wall' || entity.type === 'wallDecor' || entity.type === 'arc' || entity.walls || entity.parentArc || entity.startX !== undefined;
             if (isWall && this.materialScope === 'selectedFace') {
                 const side = selectedObj?.userData?.side || this.activeObject?.userData?.side || this.activeFace || 'front';
                 const wall = entity.type === 'wallDecor' ? (entity.mesh3D?.userData?.parentWall || selectedObj?.parent?.userData?.entity || entity) : entity;
@@ -3551,7 +3573,7 @@ export class GizmoManager {
             }
 
             const isProtrusion = !!selectedObj.userData?.isProtrusion || entity.type === 'solid_protrusion' || selectedObj.userData?.widget?.type === 'solid_protrusion';
-            const isWall = selectedObj && (selectedObj.userData.isWallSide || selectedObj.userData.isWallMesh || selectedObj.userData.isWallDecor || isProtrusion || entity.type === 'outer' || entity.type === 'inner' || entity.type === 'compound' || entity.type === 'wall' || entity.type === 'wallDecor');
+            const isWall = selectedObj && (selectedObj.userData.isWallSide || selectedObj.userData.isWallMesh || selectedObj.userData.isWallDecor || isProtrusion || entity.type === 'outer' || entity.type === 'inner' || entity.type === 'compound' || entity.type === 'wall' || entity.type === 'arc' || entity.walls || entity.parentArc || entity.type === 'wallDecor');
             const targetToAttach = (isWall && !isProtrusion && selectedObj.parent) ? selectedObj.parent : selectedObj;
 
             if (this.ctx.interactions.materialGizmo && targetToAttach) {

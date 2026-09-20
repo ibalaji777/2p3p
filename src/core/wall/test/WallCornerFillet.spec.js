@@ -1,4 +1,7 @@
-import { describe, it, expect, beforeEach, beforeAll } from 'vitest';
+import { describe, it, expect, beforeEach, beforeAll, vi } from 'vitest';
+import * as THREE from 'three';
+import { Anchor } from '../../engine2d/Anchor.js';
+import { AllWallCornersGizmo } from '../../engine3d/AllWallCornersGizmo.js';
 import { WallEngine } from '../WallEngine.js';
 import { WallGeometryEngine } from '../WallGeometryEngine.js';
 import { WallTopologyEngine } from '../WallTopologyEngine.js';
@@ -49,6 +52,7 @@ describe('WallCornerFillet - Modern Curved Wall Corner Architecture', () => {
         const anchors = [];
         const walls = [];
 
+        const mockContainer = { style: { cursor: 'default' } };
         mockPlanner = {
             walls,
             anchors,
@@ -61,7 +65,7 @@ describe('WallCornerFillet - Modern Curved Wall Corner Architecture', () => {
             wallLayer: { add: () => {} },
             uiLayer: { add: () => {}, batchDraw: () => {} },
             mainLayer: { batchDraw: () => {} },
-            stage: { batchDraw: () => {} },
+            stage: { batchDraw: () => {}, container: () => mockContainer, isDragging: () => false },
             getOrCreateAnchor: (x, y) => {
                 let existing = anchors.find(a => Math.hypot(a.x - x, a.y - y) < 1.0);
                 if (existing) return existing;
@@ -69,7 +73,10 @@ describe('WallCornerFillet - Modern Curved Wall Corner Architecture', () => {
                 anchors.push(newA);
                 return newA;
             },
-            selectEntity: () => {},
+            selectEntity: vi.fn((entity, type) => {
+                mockPlanner.selectedEntity = entity;
+                mockPlanner.selectedType = type;
+            }),
             syncAll: () => {},
             findRooms: () => {},
             update3D: () => {}
@@ -220,15 +227,117 @@ describe('WallCornerFillet - Modern Curved Wall Corner Architecture', () => {
 
         // Mock 3D meshes on arc walls
         const mockParent = { remove: vi.fn() };
-        arc.walls.forEach(w => {
+        const segmentWalls = [...arc.walls];
+        const numSegments = segmentWalls.length;
+        segmentWalls.forEach(w => {
             w.mesh3D = { parent: mockParent, traverse: vi.fn() };
         });
 
         const unfilletOk = WallEngine.unfilletCorner(mockPlanner, aCorner);
         expect(unfilletOk).toBe(true);
-        expect(mockParent.remove).toHaveBeenCalledTimes(arc.walls.length);
-        arc.walls.forEach(w => {
+        expect(mockParent.remove).toHaveBeenCalledTimes(numSegments);
+        segmentWalls.forEach(w => {
             expect(w.mesh3D).toBeNull();
+        });
+    });
+
+    describe('Wall Corner Hover & Selection Mechanics', () => {
+        it('should change cursor to pointer and highlight inner circle on 2D mouseenter', () => {
+            const anchor = new Anchor(mockPlanner, 100, 100);
+            expect(anchor.innerCircle.fill()).toBe('#111827');
+
+            // Simulate mouseenter in select mode
+            mockPlanner.tool = 'select';
+            anchor.node.fire('mouseenter');
+
+            expect(anchor.innerCircle.fill()).toBe('#0284c7');
+            expect(anchor.innerCircle.stroke()).toBe('#38bdf8');
+            expect(anchor.innerCircle.strokeWidth()).toBe(3);
+            expect(mockPlanner.stage.container().style.cursor).toBe('pointer');
+
+            // Simulate mouseleave
+            anchor.node.fire('mouseleave');
+            expect(anchor.innerCircle.fill()).toBe('#111827');
+            expect(anchor.innerCircle.stroke()).toBe('white');
+            expect(anchor.innerCircle.strokeWidth()).toBe(2);
+            expect(mockPlanner.stage.container().style.cursor).toBe('grab');
+        });
+
+        it('should allow selection and hover when planner tool is "corner"', () => {
+            mockPlanner.tool = 'corner';
+            const anchor = new Anchor(mockPlanner, 100, 100);
+
+            // Hover in corner mode
+            anchor.node.fire('mouseenter');
+            expect(anchor.innerCircle.fill()).toBe('#0284c7');
+            expect(mockPlanner.stage.container().style.cursor).toBe('pointer');
+
+            // Click in corner mode
+            anchor.node.fire('click', { cancelBubble: false });
+            expect(mockPlanner.selectEntity).toHaveBeenCalledWith(anchor, 'anchor');
+            expect(mockPlanner.selectedEntity).toBe(anchor);
+        });
+
+        it('should only show fillet handle on the actively selected anchor', () => {
+            const a1 = new Anchor(mockPlanner, 0, 0);
+            const a2 = new Anchor(mockPlanner, 200, 0);
+            const a3 = new Anchor(mockPlanner, 200, 200);
+            mockPlanner.anchors.push(a1, a2, a3);
+
+            const w1 = WallEngine.createWall(mockPlanner, { startAnchor: a1, endAnchor: a2 });
+            const w2 = WallEngine.createWall(mockPlanner, { startAnchor: a2, endAnchor: a3 });
+
+            // Select a2
+            mockPlanner.selectedEntity = a2;
+            a2.setHighlight(true);
+            expect(a2.filletGroup.visible()).toBe(true);
+
+            // Unselected a1 should not show fillet handle even if highlighted in corner batch
+            mockPlanner.selectedEntity = a2;
+            a1.setHighlight(true);
+            expect(a1.filletGroup.visible()).toBe(false);
+        });
+
+        it('should build interactive corner handles in AllWallCornersGizmo in 3D', () => {
+            const domElement = {
+                getBoundingClientRect: () => ({ left: 0, top: 0, width: 800, height: 600 }),
+                addEventListener: vi.fn(),
+                removeEventListener: vi.fn(),
+                style: { cursor: '' }
+            };
+
+            const a1 = { x: 0, y: 0, position: () => ({ x: 0, y: 0 }) };
+            const a2 = { x: 200, y: 0, position: () => ({ x: 200, y: 0 }) };
+            const a3 = { x: 200, y: 200, position: () => ({ x: 200, y: 200 }) };
+
+            const w1 = { startAnchor: a1, endAnchor: a2, startX: 0, startY: 0, endX: 200, endY: 0, height: 120, elevation: 0, thickness: 20 };
+            const w2 = { startAnchor: a2, endAnchor: a3, startX: 200, startY: 0, endX: 200, endY: 200, height: 120, elevation: 0, thickness: 20 };
+
+            mockPlanner.anchors = [a1, a2, a3];
+            mockPlanner.walls = [w1, w2];
+
+            const ctx = {
+                renderer: { domElement },
+                camera: new THREE.PerspectiveCamera(),
+                planner: mockPlanner,
+                requestRender: vi.fn(),
+                interactions: {
+                    commonController: { setSelection: vi.fn() },
+                    selectObject: vi.fn()
+                },
+                onEntitySelect: vi.fn()
+            };
+
+            const gizmo = new AllWallCornersGizmo(ctx);
+            gizmo.show(true);
+
+            expect(gizmo.interactiveMeshes.length).toBeGreaterThan(0);
+
+            // Verify a2 (corner) has hit handles
+            const cornerHandles = gizmo.interactiveMeshes.filter(m => m.userData?.anchor === a2);
+            expect(cornerHandles.length).toBe(2);
+
+            gizmo.destroy();
         });
     });
 });

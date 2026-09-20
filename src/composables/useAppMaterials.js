@@ -68,11 +68,12 @@ export function useAppMaterials({
             if (!selectedEntity.value.params) selectedEntity.value.params = {};
             const target = selectedEntity.value.params.materialTarget || 'all';
             
-            if (selectedType.value === 'wall' || selectedType.value === 'arc' || selectedEntity.value?.parentArc) {
-                const side = (target === 'front' || target === 'back' || target === 'left' || target === 'right') ? target : selectedWallSide.value;
-                const arc = selectedEntity.value.parentArc || (selectedType.value === 'arc' ? selectedEntity.value : null);
+            if (selectedType.value === 'wall' || selectedType.value === 'arc' || selectedEntity.value?.parentArc || selectedEntity.value?.walls) {
+                const side = (target === 'front' || target === 'back' || target === 'left' || target === 'right') ? target : (selectedWallSide?.value || 'front');
+                const arc = selectedEntity.value?.parentArc || (selectedType.value === 'arc' || (selectedEntity.value?.walls && Array.isArray(selectedEntity.value.walls)) ? selectedEntity.value : null);
                 if (arc && arc.walls) {
-                    const paramKey = side === 'back' ? 'textureBack' : (side === 'left' ? 'textureLeft' : (side === 'right' ? 'textureRight' : 'textureFront'));
+                    const effectiveTarget = (target === 'front' || target === 'back' || target === 'left' || target === 'right') ? target : (selectedWallSide?.value || 'front');
+                    const paramKey = effectiveTarget === 'back' ? 'textureBack' : (effectiveTarget === 'left' ? 'textureLeft' : (effectiveTarget === 'right' ? 'textureRight' : 'textureFront'));
                     arc.params = arc.params || {};
                     arc.params[paramKey] = key;
                     if (target === 'all') {
@@ -82,8 +83,17 @@ export function useAppMaterials({
                         arc.params.textureSides = key;
                     }
                     arc.walls.forEach(w => {
-                        WallEngine.applyMaterial(w, { target, key }, planner?.value || planner);
+                        WallEngine.applyMaterial(w, { target: (target === 'all' ? 'all' : effectiveTarget), key, ctx: renderer3D?.value }, planner?.value || planner);
                     });
+                    if (renderer3D?.value && typeof renderer3D.value.updateMaterialLive === 'function') {
+                        renderer3D.value.updateMaterialLive(arc);
+                    }
+                    if (renderer3D?.value?.interactions?.highlightRenderer) {
+                        renderer3D.value.interactions.highlightRenderer.refresh();
+                    }
+                    if (renderer3D?.value && typeof renderer3D.value.requestRender === 'function') {
+                        renderer3D.value.requestRender();
+                    }
                     syncEngine('material');
                     return;
                 }

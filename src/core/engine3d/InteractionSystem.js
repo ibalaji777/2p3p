@@ -893,7 +893,7 @@ export class InteractionSystem {
                 
                 // Fallback: If clicked submesh belongs to an entity (like staircase, furniture, roof, elevation segment), resolve to ent.mesh3D
                 const targetEntity = mesh.userData?.entity || mesh.parent?.userData?.entity;
-                const isWallEntity = targetEntity && (targetEntity.type === 'outer' || targetEntity.type === 'inner' || targetEntity.type === 'compound' || targetEntity.type === 'wall' || mesh.userData?.isWallSide || mesh.userData?.isWallMesh || mesh.userData?.isWallDecor || mesh.userData?.isWallGroup);
+                const isWallEntity = targetEntity && (targetEntity.type === 'outer' || targetEntity.type === 'inner' || targetEntity.type === 'compound' || targetEntity.type === 'wall' || targetEntity.type === 'arc' || targetEntity.walls || targetEntity.parentArc || mesh.userData?.isWallSide || mesh.userData?.isWallMesh || mesh.userData?.isWallDecor || mesh.userData?.isWallGroup);
                 if (!isWallEntity && targetEntity && targetEntity.mesh3D) {
                     mesh = targetEntity.mesh3D;
                 }
@@ -1061,6 +1061,48 @@ export class InteractionSystem {
                     this.hoveredObject = null;
                 }
                 return;
+            }
+
+            // Direct check for interactive Corner Gizmos (AllWallCornersGizmo, WallCornerFilletGizmo, WallCornerVertexGizmo)
+            if (this.allWallCornersGizmo && this.allWallCornersGizmo.visible) {
+                this.raycaster.setFromCamera(this.mouse, this.ctx.camera);
+                const cornerHits = this.raycaster.intersectObjects(this.allWallCornersGizmo.interactiveMeshes, false);
+                if (cornerHits.length > 0) {
+                    if (this.hoveredObject && this.hoveredObject !== this.selectedObject) {
+                        this.setHighlight(this.hoveredObject, false);
+                        this.hoveredObject = null;
+                    }
+                    this.allWallCornersGizmo._onPointerMove(e);
+                    return;
+                }
+            }
+
+            if (this.cornerFilletGizmo && this.cornerFilletGizmo.visible) {
+                this.raycaster.setFromCamera(this.mouse, this.ctx.camera);
+                const filletHits = this.raycaster.intersectObjects(this.cornerFilletGizmo.interactiveMeshes, false);
+                if (filletHits.length > 0 || this.cornerFilletGizmo.isDragging) {
+                    if (this.hoveredObject && this.hoveredObject !== this.selectedObject) {
+                        this.setHighlight(this.hoveredObject, false);
+                        this.hoveredObject = null;
+                    }
+                    this.cornerFilletGizmo._onPointerMove(e);
+                    return;
+                }
+            }
+
+            if (this.wallInteractiveSuite && this.wallInteractiveSuite.cornerGizmo && this.wallInteractiveSuite.cornerGizmo.visible) {
+                this.raycaster.setFromCamera(this.mouse, this.ctx.camera);
+                const meshes = [];
+                this.wallInteractiveSuite.cornerGizmo.handles.traverse(c => {
+                    if (c.isMesh && c.userData?.isWallCornerHandle) meshes.push(c);
+                });
+                if (this.raycaster.intersectObjects(meshes, false).length > 0 || this.wallInteractiveSuite.cornerGizmo.isDragging) {
+                    if (this.hoveredObject && this.hoveredObject !== this.selectedObject) {
+                        this.setHighlight(this.hoveredObject, false);
+                        this.hoveredObject = null;
+                    }
+                    return;
+                }
             }
 
             this.raycaster.setFromCamera(this.mouse, this.ctx.camera);
@@ -1490,7 +1532,7 @@ export class InteractionSystem {
             }
 
             const wallEntity = object.userData?.parentWall || object.userData?.entity;
-            const isWallType = wallEntity && (wallEntity.type === 'outer' || wallEntity.type === 'inner' || wallEntity.type === 'compound' || wallEntity.type === 'wall');
+            const isWallType = wallEntity && (wallEntity.type === 'outer' || wallEntity.type === 'inner' || wallEntity.type === 'compound' || wallEntity.type === 'wall' || wallEntity.type === 'arc' || wallEntity.walls || wallEntity.parentArc);
             const isBaseWall = (object.userData?.isWallSide || object.userData?.isWall || object.userData?.isWallMesh || isWallType) && !object.userData?.isOpening;
             const isRiseMode = this.commonController?.activeTool === COMMON_TOOLS.BUILDING_RISE || Boolean(this.roomInteractiveSuite?.isBuildingRiseMode);
             
@@ -1551,8 +1593,13 @@ export class InteractionSystem {
                 this.elevationSegmentGizmo.detach();
             }
 
-            if (type && this.ctx.onEntitySelect) this.ctx.onEntitySelect(object.userData.entity, type, side);
-            if (this.commonController) this.commonController.setSelection(object.userData.entity, object);
+            const planner = this.ctx.planner || window.planner?.value || window.planner || window.plannerInstance;
+            const arcEntity = wallEntity?.parentArc || (wallEntity?.type === 'arc' || (wallEntity?.walls && Array.isArray(wallEntity.walls)) ? wallEntity : null);
+            const effectiveEntity = arcEntity || object.userData.entity;
+            const effectiveType = arcEntity ? 'arc' : type;
+
+            if (effectiveType && this.ctx.onEntitySelect) this.ctx.onEntitySelect(effectiveEntity, effectiveType, side);
+            if (this.commonController) this.commonController.setSelection(effectiveEntity, object);
             if (this.commonController?.activeTool === COMMON_TOOLS.MOVE || this.ctx.currentTransformMode === 'translate' || this.ctx.currentTransformMode === 'move') {
                 if (this.universalMoveGizmo) this.universalMoveGizmo.attach(object);
                 if (this.universalSpinGizmo) this.universalSpinGizmo.detach();
@@ -1563,9 +1610,8 @@ export class InteractionSystem {
                 if (this.universalMoveGizmo) this.universalMoveGizmo.detach();
                 if (this.universalSpinGizmo) this.universalSpinGizmo.detach();
             }
-            const planner = this.ctx.planner || window.planner?.value || window.planner || window.plannerInstance;
-            if (planner && object.userData.entity && planner.selectedEntity !== object.userData.entity) {
-                planner.selectEntity(object.userData.entity, type);
+            if (planner && effectiveEntity && planner.selectedEntity !== effectiveEntity) {
+                planner.selectEntity(effectiveEntity, effectiveType);
             }
             
             // CAD Standard & User Mandate: Never auto-zoom, auto-rotate, or jump camera on object clicks

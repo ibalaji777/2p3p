@@ -85,9 +85,18 @@ export class ApplyMaterialCommand extends Command {
             if (entity.config) entity.config.material = matId;
         }
 
-        if (entity.parentArc && entity.parentArc.walls) {
-            entity.parentArc.params = { ...(entity.parentArc.params || {}), ...entity.params };
-            entity.parentArc.walls.forEach(w => {
+        const arcWalls = (entity.parentArc && entity.parentArc.walls)
+            ? entity.parentArc.walls
+            : (entity.walls && Array.isArray(entity.walls) ? entity.walls : null);
+        const arcEntity = entity.parentArc || (entity.walls ? entity : null);
+
+        if (arcEntity) {
+            arcEntity.params = { ...(arcEntity.params || {}), ...entity.params };
+            arcEntity.materials = { ...(arcEntity.materials || {}), ...entity.materials };
+        }
+
+        if (arcWalls) {
+            arcWalls.forEach(w => {
                 w.params = { ...(w.params || {}), ...entity.params };
                 w.materials = { ...(w.materials || {}), ...entity.materials };
                 if (this.face === 'front' && w.elevationLayers && w.elevationLayers.front) {
@@ -102,6 +111,12 @@ export class ApplyMaterialCommand extends Command {
         let liveUpdated = false;
         if (this.planner.engine3d && typeof this.planner.engine3d.updateMaterialLive === 'function') {
             liveUpdated = this.planner.engine3d.updateMaterialLive(entity);
+            if (arcWalls) {
+                arcWalls.forEach(w => {
+                    this.planner.engine3d.updateMaterialLive(w);
+                });
+                liveUpdated = true;
+            }
         }
         
         if (!liveUpdated) {

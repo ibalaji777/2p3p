@@ -13,6 +13,7 @@
 import { WallGeometryEngine } from './WallGeometryEngine.js';
 import { isFloorAnchoredDoor } from './WallEngine.js';
 import { WallHeightPolicy } from './WallHeightPolicy.js';
+import { WallTopologyEngine } from './WallTopologyEngine.js';
 
 export class WallMutationEngine {
     /**
@@ -31,6 +32,15 @@ export class WallMutationEngine {
         const thick = Math.max(minThk, Math.min(maxThk, Number(newThickness) || minThk));
         wall.thickness = thick;
         if (wall.config) wall.config.thickness = thick;
+
+        if (wall.walls && Array.isArray(wall.walls) && !wall._propagatingArcThickness) {
+            wall.thickness = thick;
+            wall.walls.forEach(seg => {
+                seg._propagatingArcThickness = true;
+                this.setThickness(seg, thick, false, p);
+                seg._propagatingArcThickness = false;
+            });
+        }
 
         if (wall.parentArc && wall.parentArc.walls && !wall._propagatingArcThickness) {
             wall.parentArc.thickness = thick;
@@ -80,6 +90,15 @@ export class WallMutationEngine {
             if (wall.peakHeight !== undefined) wall.peakHeight = h;
         }
 
+        if (wall.walls && Array.isArray(wall.walls) && !wall._propagatingArcHeight) {
+            wall.height = h;
+            wall.walls.forEach(seg => {
+                seg._propagatingArcHeight = true;
+                this.setHeight(seg, h, false, p);
+                seg._propagatingArcHeight = false;
+            });
+        }
+
         if (wall.parentArc && wall.parentArc.walls && !wall._propagatingArcHeight) {
             wall.parentArc.height = h;
             wall.parentArc.walls.forEach(sibling => {
@@ -108,7 +127,27 @@ export class WallMutationEngine {
         if (!wall) return;
         wall.wallShapeData = null;
         const p = planner || wall.planner;
-        wall.elevation = Number(newElevation) || 0;
+        const elev = Number(newElevation) || 0;
+        wall.elevation = elev;
+
+        if (wall.walls && Array.isArray(wall.walls) && !wall._propagatingArcElevation) {
+            wall.walls.forEach(seg => {
+                seg._propagatingArcElevation = true;
+                this.setElevation(seg, elev, false, p);
+                seg._propagatingArcElevation = false;
+            });
+        }
+
+        if (wall.parentArc && wall.parentArc.walls && !wall._propagatingArcElevation) {
+            wall.parentArc.elevation = elev;
+            wall.parentArc.walls.forEach(sibling => {
+                if (sibling !== wall) {
+                    sibling._propagatingArcElevation = true;
+                    this.setElevation(sibling, elev, false, p);
+                    sibling._propagatingArcElevation = false;
+                }
+            });
+        }
 
         if (shouldSync && p && typeof p.syncAll === 'function') {
             p.syncAll();
@@ -183,6 +222,31 @@ export class WallMutationEngine {
         if (options.peakPos !== undefined) wall.peakPos = Number(options.peakPos);
         if (options.flipSlope !== undefined) wall.flipSlope = !!options.flipSlope;
 
+        if (wall.walls && Array.isArray(wall.walls) && !wall._propagatingArcTopProfile) {
+            wall.walls.forEach(seg => {
+                seg._propagatingArcTopProfile = true;
+                this.setTopProfile(seg, profileType, options, false, p);
+                seg._propagatingArcTopProfile = false;
+            });
+        }
+
+        if (wall.parentArc && wall.parentArc.walls && !wall._propagatingArcTopProfile) {
+            wall.parentArc.topProfileType = profileType;
+            if (options.startHeight !== undefined) wall.parentArc.startHeight = Number(options.startHeight);
+            if (options.endHeight !== undefined) wall.parentArc.endHeight = Number(options.endHeight);
+            if (options.peakHeight !== undefined) wall.parentArc.peakHeight = Number(options.peakHeight);
+            if (options.peakPos !== undefined) wall.parentArc.peakPos = Number(options.peakPos);
+            if (options.flipSlope !== undefined) wall.parentArc.flipSlope = !!options.flipSlope;
+
+            wall.parentArc.walls.forEach(sibling => {
+                if (sibling !== wall) {
+                    sibling._propagatingArcTopProfile = true;
+                    this.setTopProfile(sibling, profileType, options, false, p);
+                    sibling._propagatingArcTopProfile = false;
+                }
+            });
+        }
+
         if (shouldSync && p && typeof p.syncAll === 'function') {
             p.syncAll();
             if (p.update3D) p.update3D();
@@ -254,21 +318,31 @@ export class WallMutationEngine {
             }
         }
 
-        // Propagate material to siblings if part of an arc
-        if (wall.parentArc && wall.parentArc.walls && !wall._propagatingArcMaterial) {
-            wall.parentArc.params = wall.parentArc.params || {};
-            wall.parentArc.params = { ...wall.parentArc.params, ...wall.params };
+        // Propagate material to siblings or constituent walls if part of an arc
+        const arcWalls = (wall.parentArc && wall.parentArc.walls) 
+            ? wall.parentArc.walls 
+            : (wall.walls && Array.isArray(wall.walls) ? wall.walls : null);
+        const arcEntity = wall.parentArc || (wall.walls ? wall : null);
 
-            wall.parentArc.walls.forEach(siblingWall => {
+        if (arcEntity) {
+            arcEntity.params = arcEntity.params || {};
+            arcEntity.params = { ...arcEntity.params, ...wall.params };
+        }
+
+        if (arcWalls && !wall._propagatingArcMaterial) {
+            arcWalls.forEach(siblingWall => {
                 if (siblingWall === wall) return;
                 siblingWall._propagatingArcMaterial = true;
-                this.applyMaterial(siblingWall, { target, key, newMat: newMat ? newMat.clone() : null, activeMatIndex, activeObject: null, ctx }, p);
+                this.applyMaterial(siblingWall, { target, key, newMat: newMat ? (newMat.clone ? newMat.clone() : newMat) : null, activeMatIndex, activeObject: null, ctx }, p);
                 siblingWall._propagatingArcMaterial = false;
             });
         }
 
         if (ctx && typeof ctx.updateMaterialLive === 'function') {
             ctx.updateMaterialLive(wall);
+            if (arcEntity && arcEntity !== wall) {
+                ctx.updateMaterialLive(arcEntity);
+            }
         }
     }
 
@@ -284,6 +358,38 @@ export class WallMutationEngine {
         if (!wall) return;
         wall.wallShapeData = null;
         const p = planner || wall.planner;
+
+        if (wall.type === 'arc' || (wall.p1 && wall.p2 && wall.pos)) {
+            if (typeof wall.move === 'function') {
+                wall.move(dx, dy);
+            } else {
+                if (wall.p1) {
+                    const pos1 = typeof wall.p1.position === 'function' ? wall.p1.position() : { x: wall.p1.x, y: wall.p1.y };
+                    if (typeof wall.p1.position === 'function') wall.p1.position({ x: pos1.x + dx, y: pos1.y + dy });
+                    else { wall.p1.x += dx; wall.p1.y += dy; }
+                }
+                if (wall.p2) {
+                    const pos2 = typeof wall.p2.position === 'function' ? wall.p2.position() : { x: wall.p2.x, y: wall.p2.y };
+                    if (typeof wall.p2.position === 'function') wall.p2.position({ x: pos2.x + dx, y: pos2.y + dy });
+                    else { wall.p2.x += dx; wall.p2.y += dy; }
+                }
+                if (wall.pos) {
+                    wall.pos.x += dx;
+                    wall.pos.y += dy;
+                }
+                if (typeof wall.rebuild === 'function') wall.rebuild();
+            }
+            if (shouldSync && p && typeof p.syncAll === 'function') {
+                p.syncAll();
+                if (p.update3D) p.update3D();
+            }
+            return;
+        }
+
+        if (wall.parentArc) {
+            this.moveWall(wall.parentArc, dx, dy, shouldSync, p);
+            return;
+        }
 
         const p1 = WallGeometryEngine.getAnchorPosition(wall.startAnchor);
         const p2 = WallGeometryEngine.getAnchorPosition(wall.endAnchor);
@@ -319,6 +425,50 @@ export class WallMutationEngine {
             });
         }
 
+        // Maintain connected filleted corners with dynamic safe radius clamping & tangent re-projection
+        if (p && p.anchors) {
+            const affectedApexes = p.anchors.filter(a => {
+                if (!a.isCornerApex || !a.filletData) return false;
+                const fd = a.filletData;
+                return (fd.w1 && (fd.w1.startAnchor === anchor || fd.w1.endAnchor === anchor)) ||
+                       (fd.w2 && (fd.w2.startAnchor === anchor || fd.w2.endAnchor === anchor)) ||
+                       a === anchor;
+            });
+
+            affectedApexes.forEach(apex => {
+                const fd = apex.filletData;
+                const w1 = fd.w1;
+                const w2 = fd.w2;
+                if (!w1 || !w2) return;
+
+                const pC = apex.position ? apex.position() : { x: apex.x, y: apex.y };
+                const other1 = fd.origEndpoint1 === 'start' ? w1.endAnchor : (w1.startAnchor === fd.a1 ? w1.endAnchor : w1.startAnchor);
+                const other2 = fd.origEndpoint2 === 'start' ? w2.endAnchor : (w2.startAnchor === fd.a2 ? w2.endAnchor : w2.startAnchor);
+                const p1 = WallGeometryEngine.getAnchorPosition(other1);
+                const p2 = WallGeometryEngine.getAnchorPosition(other2);
+
+                const l1 = Math.hypot(p1.x - pC.x, p1.y - pC.y);
+                const l2 = Math.hypot(p2.x - pC.x, p2.y - pC.y);
+                const minL = Math.min(l1, l2);
+
+                if (minL < 25) {
+                    // Automatically collapse to sharp corner if wall length is too small to sustain a curve
+                    WallTopologyEngine.unfilletCorner(p, apex);
+                } else {
+                    const v1 = { x: p1.x - pC.x, y: p1.y - pC.y };
+                    const v2 = { x: p2.x - pC.x, y: p2.y - pC.y };
+                    const dot = Math.max(-0.9999, Math.min(0.9999, (v1.x * v2.x + v1.y * v2.y) / (l1 * l2)));
+                    const theta = Math.acos(dot);
+                    const deltaPhi = Math.PI - theta;
+                    const tanHalf = Math.tan(deltaPhi / 2);
+                    const maxSafeR = tanHalf > 0.01 ? (minL * 0.80) / tanHalf : 200;
+                    const clampedR = Math.max(20, Math.min(fd.radius || 50, Math.round(maxSafeR / 5) * 5));
+
+                    WallTopologyEngine.filletCorner(p, apex, clampedR);
+                }
+            });
+        }
+
         if (shouldSync && p && typeof p.syncAll === 'function') {
             p.syncAll();
             if (p.update3D) p.update3D();
@@ -330,7 +480,7 @@ export class WallMutationEngine {
      * @param {Object} wall 
      * @param {string} side - 'front' | 'back'
      * @param {number} distance - Distance in cm (+ is pull outward, - is push inward)
-     * @param {Object} options - { mode: 'thickness'|'baseline'|'subregion', initialThickness, initialStart, initialEnd, bounds }
+     * @param {Object} options - { mode: 'thickness'|'baseline'|'subregion', initialThickness, initialStart, initialEnd, initialArcPos, bounds }
      * @param {Object} planner 
      */
     static pushPull(wall, side, distance, options = {}, planner = null) {
@@ -341,8 +491,53 @@ export class WallMutationEngine {
             mode = 'thickness',
             initialThickness = (Number(wall.thickness) || 20),
             initialStart,
-            initialEnd
+            initialEnd,
+            initialArcPos
         } = options;
+
+        const shouldSync = options.shouldSync !== undefined ? options.shouldSync : true;
+
+        const arcEntity = wall.type === 'arc' || (wall.walls && Array.isArray(wall.walls)) ? wall : (wall.parentArc || null);
+
+        if (arcEntity) {
+            if (mode === 'baseline') {
+                // Shift arc control apex along chord normal
+                const p1Pos = typeof arcEntity.p1.position === 'function' ? arcEntity.p1.position() : arcEntity.p1;
+                const p2Pos = typeof arcEntity.p2.position === 'function' ? arcEntity.p2.position() : arcEntity.p2;
+                const chordDx = p2Pos.x - p1Pos.x;
+                const chordDy = p2Pos.y - p1Pos.y;
+                const chordLen = Math.hypot(chordDx, chordDy);
+                let normal = { x: 0, y: 1 };
+                if (chordLen > 1e-4) {
+                    normal = { x: -chordDy / chordLen, y: chordDx / chordLen };
+                }
+                if (side === 'back') {
+                    normal = { x: -normal.x, y: -normal.y };
+                }
+
+                const basePos = initialArcPos || arcEntity.pos;
+                arcEntity.pos = {
+                    x: basePos.x + normal.x * distance,
+                    y: basePos.y + normal.y * distance
+                };
+                arcEntity.rebuild();
+                if (shouldSync && p && typeof p.syncAll === 'function') {
+                    p.syncAll();
+                    if (p.update3D) p.update3D();
+                }
+            } else {
+                // THICKNESS ADJUSTMENT FOR CURVED WALL:
+                // Expand thickness uniformly across all arc segments
+                const baseMin = arcEntity.config?.minThickness !== undefined ? Number(arcEntity.config.minThickness) : 6;
+                const minThick = options.minThickness !== undefined ? options.minThickness : Math.max(baseMin, initialThickness);
+                const maxThick = options.maxThickness !== undefined ? options.maxThickness : (Number(arcEntity.config?.maxThickness) || 200);
+
+                const newThick = Math.max(minThick, Math.min(maxThick, initialThickness + distance));
+                arcEntity.thickness = newThick;
+                this.setThickness(arcEntity, newThick, shouldSync, p);
+            }
+            return;
+        }
 
         const centerline = WallGeometryEngine.getCenterline(wall);
         let normal = centerline.normal;
@@ -352,8 +547,6 @@ export class WallMutationEngine {
 
         const startPos = initialStart || centerline.p1;
         const endPos = initialEnd || centerline.p2;
-
-        const shouldSync = options.shouldSync !== undefined ? options.shouldSync : true;
 
         if (mode === 'baseline') {
             // BASELINE MOVE: Shifts the entire wall perpendicularly (Room resizing)

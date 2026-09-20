@@ -292,8 +292,8 @@ export class Preview3D {
                 const defaultWallMat = (entity?.type === 'foundation') ? (entity.params?.material || 'stone_ashlar_grey') : null;
                 const defaultCopingMat = (entity?.type === 'half_wall') ? 'black_metal' : null;
 
-                if (entity && (entity.params || defaultWallMat || defaultCopingMat)) {
-                    const ep = entity.params || {};
+                if (entity && (entity.params || defaultWallMat || defaultCopingMat || (entity.parentArc && entity.parentArc.params))) {
+                    const ep = Object.assign({}, entity.parentArc ? entity.parentArc.params : null, entity.params || {});
                     const resolveTex = (...keys) => {
                         for (let k of keys) {
                             if (ep[k] === '' || ep[k] === null) return null;
@@ -543,6 +543,12 @@ export class Preview3D {
     updateMaterialLive(entity) {
         if (!entity || this.isUpdatingFrom3D) return false;
         let obj = entity.mesh3D;
+        if (!obj && (entity.type === 'arc' || (entity.walls && Array.isArray(entity.walls)))) {
+            const firstWall = entity.walls && entity.walls[0];
+            if (firstWall && firstWall.mesh3D) {
+                obj = firstWall.mesh3D;
+            }
+        }
         if (!obj && (entity.type === 'room' || entity.isRoom || entity.path || entity.isFloor)) {
             obj = (this.interactables && this.interactables.find(m => m.userData && (m.userData.entity === entity || (m.userData.isFloor && entity.cx !== undefined && Math.hypot((m.userData.entity?.cx || 0) - entity.cx, (m.userData.entity?.cy || 0) - entity.cy) < 50)))) || null;
             if (obj) entity.mesh3D = obj;
@@ -551,11 +557,17 @@ export class Preview3D {
         const parent = obj.parent;
         if (!parent) return false;
 
-        if (entity.type === 'outer' || entity.type === 'inner' || entity.type === 'compound' || entity.type === 'wall' || entity.type === 'railing' || (entity.type === 'arc' && entity.walls)) {
+        if (entity.type === 'outer' || entity.type === 'inner' || entity.type === 'compound' || entity.type === 'wall' || entity.type === 'railing' || entity.type === 'arc' || (entity.walls && Array.isArray(entity.walls)) || entity.parentArc) {
             const wallsToUpdate = (entity.parentArc && entity.parentArc.walls) 
                 ? entity.parentArc.walls 
-                : (entity.walls ? entity.walls : [entity]);
+                : ((entity.walls && Array.isArray(entity.walls)) ? entity.walls : [entity]);
             let anyUpdated = false;
+
+            if (entity.params && wallsToUpdate) {
+                wallsToUpdate.forEach(w => {
+                    w.params = Object.assign({}, w.params || {}, entity.params);
+                });
+            }
 
             wallsToUpdate.forEach(w => {
                 const h = w.height !== undefined ? w.height : (w.config?.height || 300);

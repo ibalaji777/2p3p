@@ -6,6 +6,7 @@ import { WallFactory } from '../../features/wall/wall.factory.js';
 
 export class PremiumArc {
     constructor(planner, p1, p2, pos, options = {}) {
+        this.id = options.id || ('arc_' + Date.now() + '_' + Math.floor(Math.random() * 10000));
         this.planner = planner;
         this.type = 'arc';
         this.p1 = p1; 
@@ -44,11 +45,54 @@ export class PremiumArc {
         });
         
         this.group.add(this.controlHandle);
-        this.planner.uiLayer.add(this.group);
+        if (this.planner?.uiLayer) {
+            this.planner.uiLayer.add(this.group);
+        }
+
+        // Interactive 2D Arc Raiser Handle (One single badge for the entire curved wall)
+        this.raiserGroup = new Konva.Group({ visible: false });
+        this.raiserHit = new Konva.Rect({ fill: 'transparent' });
+        this.raiserBg = new Konva.Rect({
+            fill: '#1e293b',
+            stroke: '#10b981',
+            strokeWidth: 1.5,
+            cornerRadius: 10,
+            shadowColor: 'rgba(0, 0, 0, 0.4)',
+            shadowBlur: 6,
+            shadowOffset: { x: 0, y: 2 }
+        });
+        this.raiserText = new Konva.Text({
+            fill: '#ffffff',
+            fontSize: 10,
+            fontStyle: 'bold',
+            align: 'center',
+            padding: 5
+        });
+        this.raiserGroup.add(this.raiserHit, this.raiserBg, this.raiserText);
+        if (this.planner?.uiLayer) {
+            this.planner.uiLayer.add(this.raiserGroup);
+        }
         
         this.rebuild();
     }
     
+    updateRaiserBadge(h) {
+        if (!this.raiserText || !this.raiserBg || !this.raiserGroup) return;
+        const currentH = Math.round(h !== undefined ? h : (this.height || 180));
+        this.raiserText.text(`▲ ${currentH} cm ▼`);
+        const pad = 5;
+        const w = this.raiserText.width() + pad * 2;
+        const ht = this.raiserText.height() + pad * 2;
+        this.raiserBg.width(w);
+        this.raiserBg.height(ht);
+        if (this.raiserHit) {
+            this.raiserHit.width(w + 14);
+            this.raiserHit.height(ht + 14);
+            this.raiserHit.position({ x: -7, y: -7 });
+        }
+        this.raiserGroup.offset({ x: w / 2, y: ht / 2 });
+    }
+
     getBaseColor(w) {
         if (w.type === 'railing') {
             const rConf = RAILING_REGISTRY[w.configId || 'rail_1'];
@@ -62,6 +106,16 @@ export class PremiumArc {
         if (isActive && !this.isCornerFillet) {
             this.controlHandle.position(this.pos);
             this.controlHandle.moveToTop();
+        }
+        if (this.raiserGroup && !this.isCornerFillet && this.wallType !== 'railing') {
+            if (isActive) {
+                this.updateRaiserBadge(this.height);
+                this.raiserGroup.position({ x: this.pos.x, y: this.pos.y - 25 });
+                this.raiserGroup.visible(true);
+                this.raiserGroup.moveToTop();
+            } else {
+                this.raiserGroup.visible(false);
+            }
         }
         this.walls.forEach(w => {
             w.poly.stroke(isActive ? '#3b82f6' : this.getBaseColor(w));
@@ -216,6 +270,26 @@ export class PremiumArc {
     
     update() { const p1 = this.p1.position(), p2 = this.p2.position(); if (!this.lastP1 || !this.lastP2 || this.lastP1.x !== p1.x || this.lastP1.y !== p1.y || this.lastP2.x !== p2.x || this.lastP2.y !== p2.y) this.rebuild(); }
     
+    move(dx, dy) {
+        if (!dx && !dy) return;
+        if (this.p1) {
+            const pos1 = typeof this.p1.position === 'function' ? this.p1.position() : { x: this.p1.x, y: this.p1.y };
+            if (typeof this.p1.position === 'function') this.p1.position({ x: pos1.x + dx, y: pos1.y + dy });
+            else { this.p1.x += dx; this.p1.y += dy; }
+        }
+        if (this.p2) {
+            const pos2 = typeof this.p2.position === 'function' ? this.p2.position() : { x: this.p2.x, y: this.p2.y };
+            if (typeof this.p2.position === 'function') this.p2.position({ x: pos2.x + dx, y: pos2.y + dy });
+            else { this.p2.x += dx; this.p2.y += dy; }
+        }
+        if (this.pos) {
+            this.pos.x += dx;
+            this.pos.y += dy;
+        }
+        this.rebuild();
+        if (this.planner && typeof this.planner.syncAll === 'function') this.planner.syncAll();
+    }
+    
     remove() { 
         this.walls.forEach(w => { 
             if (w.wallGroup) w.wallGroup.destroy(); 
@@ -231,9 +305,43 @@ export class PremiumArc {
             if (a.node) a.node.destroy(); 
             this.planner.anchors = (this.planner.anchors || []).filter(existing => existing !== a); 
         }); 
+        this.walls = [];
+        this.intermediateAnchors = [];
+        if (this.raiserGroup) this.raiserGroup.destroy();
         if (this.group) this.group.destroy(); 
-        this.planner.arcs = (this.planner.arcs || []).filter(a => a !== this); 
+        if (this.planner?.arcs) this.planner.arcs = this.planner.arcs.filter(a => a !== this); 
         if (typeof this.planner?.selectEntity === 'function') this.planner.selectEntity(null); 
         if (typeof this.planner?.syncAll === 'function') this.planner.syncAll(); 
+    }
+
+    applyMaterial(options = {}) {
+        const { target = 'all', key, newMat, ctx } = options;
+        this.params = this.params || {};
+        if (target === 'top') this.params.textureTop = key;
+        else if (target === 'bottom') this.params.textureBottom = key;
+        else if (target === 'left') this.params.textureLeft = key;
+        else if (target === 'right') this.params.textureRight = key;
+        else if (target === 'front') this.params.textureFront = key;
+        else if (target === 'back') this.params.textureBack = key;
+        else if (target === 'all' || target === 'sides') {
+            this.params.texture = key;
+            this.params.textureSides = key;
+            this.params.textureFront = key;
+            this.params.textureBack = key;
+            this.params.textureLeft = key;
+            this.params.textureRight = key;
+            this.params.textureTop = key;
+            this.params.textureBottom = key;
+        }
+
+        if (this.walls && Array.isArray(this.walls)) {
+            this.walls.forEach(w => {
+                WallEngine.applyMaterial(w, { target, key, newMat, ctx }, this.planner);
+            });
+        }
+
+        if (ctx && typeof ctx.updateMaterialLive === 'function') {
+            ctx.updateMaterialLive(this);
+        }
     }
 }

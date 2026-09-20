@@ -46,7 +46,17 @@ export class PremiumWall {
         
         this.poly.sceneFunc((ctx, shape) => {
             if (!this.wallShapeData) return;
-            const { startL, endL, endR, startR, hasStartCap, hasEndCap, startData, endData, frontVerts, backVerts } = this.wallShapeData;
+            let { startL, endL, endR, startR, hasStartCap, hasEndCap, startData, endData, frontVerts, backVerts } = this.wallShapeData;
+
+            // Treat curved wall as a single entity: suppress internal dividing seams between segments
+            if (this.parentArc && this.parentArc.walls) {
+                const arcWalls = this.parentArc.walls;
+                const idx = arcWalls.indexOf(this);
+                if (idx !== -1) {
+                    if (idx > 0) hasStartCap = false;
+                    if (idx < arcWalls.length - 1) hasEndCap = false;
+                }
+            }
 
             const fVerts = (frontVerts && frontVerts.length > 0) ? frontVerts : [startL, endL];
             const bVerts = (backVerts && backVerts.length > 0) ? backVerts : [endR, startR];
@@ -182,7 +192,7 @@ export class PremiumWall {
             this.poly.shadowBlur(5);
             this.poly.shadowOpacity(0.3);
             this.poly.shadowOffset({ x: 0, y: 0 });
-            if (this.raiserGroup && !this.hidden && this.type !== 'railing') {
+            if (this.raiserGroup && !this.hidden && this.type !== 'railing' && !this.parentArc) {
                 this.positionRaiserHandle();
                 this.updateRaiserBadge(this.height);
                 this.raiserGroup.visible(true);
@@ -325,6 +335,9 @@ export class PremiumWall {
             if (this.parentGroup) {
                 this.planner.selectEntity(this.parentGroup, 'preset_group');
                 this.planner.syncAll();
+            } else if (this.parentArc) {
+                this.planner.selectEntity(this.parentArc, 'arc');
+                this.planner.syncAll();
             } else {
                 this.planner.selectEntity(this, 'wall'); 
                 this.planner.syncAll();
@@ -337,6 +350,9 @@ export class PremiumWall {
             if (this.parentGroup) {
                 this.planner.selectEntity(this.parentGroup, 'preset_group');
                 this.planner.syncAll();
+            } else if (this.parentArc) {
+                this.planner.selectEntity(this.parentArc, 'arc');
+                this.planner.syncAll();
             } else {
                 this.planner.selectEntity(this, 'wall');
                 this.planner.syncAll();
@@ -346,7 +362,7 @@ export class PremiumWall {
         let startAncPos = {}, startPointer = {}, initialObjectPositions = []; 
         let anchorsOnWall = [], arcsOnWall = [];
         this.poly.on('dragstart', (e) => { 
-            if (this.planner.tool !== 'select' || this.parentGroup) { e.target.stopDrag(); return; }
+            if (this.planner.tool !== 'select' || this.parentGroup || this.parentArc) { e.target.stopDrag(); return; }
             this.setHighlight(true); const pos = this.planner.getPointerPos ? this.planner.getPointerPos() : this.planner.stage.getPointerPosition(); startPointer = { x: pos.x, y: pos.y }; startAncPos = { x1: this.startAnchor.x, y1: this.startAnchor.y, x2: this.endAnchor.x, y2: this.endAnchor.y }; 
             
             anchorsOnWall = [];
@@ -852,11 +868,11 @@ export class PremiumWall {
         this.labelGroup.position({ x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 });
         this.labelGroup.offset({ x: this.labelText.width() / 2, y: 15 });
         this.labelGroup.rotation(-(this.planner.settings?.houseRotation || 0));
-        this.labelGroup.visible(this.planner.settings ? this.planner.settings.showDimensionLabels : true);
+        this.labelGroup.visible(this.parentArc ? false : (this.planner.settings ? this.planner.settings.showDimensionLabels : true));
 
         // --- Add Interactive 2D Wall Raiser Overlay ---
         if (this.raiserGroup) {
-            if (isSel && !this.hidden && this.type !== 'railing') {
+            if (isSel && !this.hidden && this.type !== 'railing' && !this.parentArc) {
                 this.positionRaiserHandle();
                 this.updateRaiserBadge(this.height);
                 this.raiserGroup.visible(true);

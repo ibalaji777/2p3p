@@ -323,6 +323,16 @@ export class WallTopologyEngine {
     static deleteWall(planner, wall) {
         if (!wall) return;
 
+        // Cascade delete if wall is an arc or belongs to a parentArc
+        if (typeof wall.remove === 'function' && (wall.type === 'arc' || wall.walls)) {
+            wall.remove();
+            return;
+        }
+        if (wall.parentArc && typeof wall.parentArc.remove === 'function') {
+            wall.parentArc.remove();
+            return;
+        }
+
         // Cascade delete child gable/attic walls
         if (wall.id && planner && planner.walls) {
             planner.walls.filter(w => w !== wall && w.parentWallId === wall.id).forEach(cw => this.deleteWall(planner, cw));

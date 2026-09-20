@@ -367,13 +367,16 @@ export function useAppTools({
                     const arc = selectedEntity.value.parentArc || (selectedType.value === 'arc' ? selectedEntity.value : null);
                     
                     if (arc && arc.walls) {
-                        const paramKey = selectedWallSide.value === 'back' ? 'textureBack' : 'textureFront';
+                        const side = selectedWallSide?.value === 'back' ? 'back' : 'front';
+                        const paramKey = side === 'back' ? 'textureBack' : 'textureFront';
                         arc.params = arc.params || {};
                         arc.params[paramKey] = configId;
                         arc.walls.forEach(w => {
-                            w.params = w.params || {};
-                            w.params[paramKey] = configId;
+                            WallEngine.applyMaterial(w, { target: side, key: configId, ctx: renderer3D.value }, planner.value);
                         });
+                        if (renderer3D.value && typeof renderer3D.value.updateMaterialLive === 'function') {
+                            renderer3D.value.updateMaterialLive(arc);
+                        }
                         syncEngine('material');
                     } else if (currentScope === 'room' || currentScope === 'exterior') {
                         const results = applyWallPaintWithScope({

@@ -97,36 +97,84 @@ export class AllWallCornersGizmo extends THREE.Group {
                 ? Math.max(...walls.map(w => w.height !== undefined ? w.height : (w.config?.height || 120))) 
                 : 120;
 
-            const baseColor = isFilleted ? 0x10b981 : 0x00f0ff;
-            const baseMat = isFilleted ? this.matCurved : this.matSharp;
+            if (isFilleted) {
+                // Determine true wall corner center along the curve
+                let curvePt = pos;
+                if (cd?.arc) {
+                    if (cd.arc.pos) {
+                        curvePt = cd.arc.pos;
+                    } else if (cd.arc.walls && cd.arc.walls.length > 0) {
+                        const midW = cd.arc.walls[Math.floor(cd.arc.walls.length / 2)];
+                        const s = midW.startAnchor?.position ? midW.startAnchor.position() : { x: midW.startX, y: midW.startY };
+                        const e = midW.endAnchor?.position ? midW.endAnchor.position() : { x: midW.endX, y: midW.endY };
+                        curvePt = { x: (s.x + e.x) / 2, y: (s.y + e.y) / 2 };
+                    }
+                }
+                const centerY = wallElev + wallH / 2;
 
-            // 1. Vertical Beacon Laser Line
-            const lineGeo = new THREE.BufferGeometry().setFromPoints([
-                new THREE.Vector3(pos.x, wallElev, pos.y),
-                new THREE.Vector3(pos.x, wallElev + wallH, pos.y)
-            ]);
-            const lineMat = new THREE.LineBasicMaterial({ 
-                color: baseColor, 
-                linewidth: 2, 
-                transparent: true, 
-                opacity: 0.85, 
-                depthTest: false 
-            });
-            const lineMesh = new THREE.Line(lineGeo, lineMat);
-            lineMesh.renderOrder = 1000;
-            this.handlesGroup.add(lineMesh);
+                // 1. Full Curve Lumen Highlight tracing the wall curve
+                const arcPts = [];
+                if (cd?.arc?.walls && cd.arc.walls.length > 0) {
+                    cd.arc.walls.forEach((w, idx) => {
+                        const s = typeof w.startAnchor?.position === 'function' ? w.startAnchor.position() : (w.startAnchor || { x: w.startX, y: w.startY });
+                        const e = typeof w.endAnchor?.position === 'function' ? w.endAnchor.position() : (w.endAnchor || { x: w.endX, y: w.endY });
+                        if (idx === 0) arcPts.push(new THREE.Vector3(s.x, centerY, s.y));
+                        arcPts.push(new THREE.Vector3(e.x, centerY, e.y));
+                    });
+                }
+                if (arcPts.length >= 2) {
+                    const curveGeo = new THREE.BufferGeometry().setFromPoints(arcPts);
+                    const lumenLineMat = new THREE.LineBasicMaterial({
+                        color: 0x10b981,
+                        linewidth: 3,
+                        transparent: true,
+                        opacity: 0.9,
+                        depthTest: false
+                    });
+                    const lumenLineMesh = new THREE.Line(curveGeo, lumenLineMat);
+                    lumenLineMesh.renderOrder = 1001;
+                    lumenLineMesh.raycast = () => {};
+                    this.handlesGroup.add(lumenLineMesh);
+                }
 
-            // 2. Bottom Corner Node
-            this._addCornerHandle(pos.x, wallElev + 3, pos.y, anc, baseMat, cd);
+                // 2. Curve Symbol Point at Wall Corner Center with Lumen
+                this._addCurveCenterSymbolPoint(curvePt.x, centerY, curvePt.y, anc, cd);
 
-            // 3. Top Corner Node
-            this._addCornerHandle(pos.x, wallElev + wallH - 3, pos.y, anc, baseMat, cd);
-
-            // 4. Floating 3D Angle Badge
-            if (angleDeg !== undefined && angleDeg !== null) {
-                const badgeSprite = this._createAngleBadgeSprite(isFilleted ? `╭ ${angleDeg}°` : `${angleDeg}°`, isFilleted);
-                badgeSprite.position.set(pos.x, wallElev + wallH + 12, pos.y);
+                // 3. Floating 3D Badge directly above curve center
+                const radVal = Math.round(cd.radius || 80);
+                const badgeSprite = this._createAngleBadgeSprite(`╭ R${radVal}`, true);
+                badgeSprite.position.set(curvePt.x, wallElev + wallH + 12, curvePt.y);
+                badgeSprite.raycast = () => {};
                 this.handlesGroup.add(badgeSprite);
+            } else {
+                // Sharp Corner: Vertical Beacon Laser Line + Top/Bottom Nodes
+                const lineGeo = new THREE.BufferGeometry().setFromPoints([
+                    new THREE.Vector3(pos.x, wallElev, pos.y),
+                    new THREE.Vector3(pos.x, wallElev + wallH, pos.y)
+                ]);
+                const lineMat = new THREE.LineBasicMaterial({ 
+                    color: 0x00f0ff, 
+                    linewidth: 2, 
+                    transparent: true, 
+                    opacity: 0.85, 
+                    depthTest: false 
+                });
+                const lineMesh = new THREE.Line(lineGeo, lineMat);
+                lineMesh.renderOrder = 1000;
+                lineMesh.raycast = () => {};
+                this.handlesGroup.add(lineMesh);
+
+                // Top & Bottom Nodes
+                this._addCornerHandle(pos.x, wallElev + 3, pos.y, anc, this.matSharp, cd);
+                this._addCornerHandle(pos.x, wallElev + wallH - 3, pos.y, anc, this.matSharp, cd);
+
+                // Floating 3D Angle Badge
+                if (angleDeg !== undefined && angleDeg !== null) {
+                    const badgeSprite = this._createAngleBadgeSprite(`${angleDeg}°`, false);
+                    badgeSprite.position.set(pos.x, wallElev + wallH + 12, pos.y);
+                    badgeSprite.raycast = () => {};
+                    this.handlesGroup.add(badgeSprite);
+                }
             }
         });
     }
@@ -148,6 +196,7 @@ export class AllWallCornersGizmo extends THREE.Group {
         const mesh = new THREE.Mesh(geo, material);
         mesh.userData = { isAllWallCornerHandle: true, anchor, defaultMat: material, cornerData };
         mesh.renderOrder = 1005;
+        mesh.raycast = () => {};
         group.add(mesh);
         hitMesh.userData.visualMesh = mesh;
 
@@ -156,6 +205,7 @@ export class AllWallCornersGizmo extends THREE.Group {
         ringGeo.rotateX(Math.PI / 2);
         const ringMesh = new THREE.Mesh(ringGeo, this.matRing);
         ringMesh.renderOrder = 1006;
+        ringMesh.raycast = () => {};
         group.add(ringMesh);
 
         this.handlesGroup.add(group);
@@ -197,6 +247,93 @@ export class AllWallCornersGizmo extends THREE.Group {
         const sprite = new THREE.Sprite(mat);
         sprite.scale.set(22, 11, 1);
         sprite.renderOrder = 1007;
+        sprite.raycast = () => {};
+        return sprite;
+    }
+
+    _addCurveCenterSymbolPoint(x, y, z, anchor, cornerData) {
+        const group = new THREE.Group();
+        group.position.set(x, y, z);
+        group.renderOrder = 1005;
+
+        // 1. Hit collider for clicking
+        const hitGeo = new THREE.SphereGeometry(14, 12, 12);
+        const hitMesh = new THREE.Mesh(hitGeo, new THREE.MeshBasicMaterial({ visible: false }));
+        hitMesh.userData = { isAllWallCornerHandle: true, anchor, defaultMat: this.matCurved, cornerData };
+        group.add(hitMesh);
+        this.interactiveMeshes.push(hitMesh);
+
+        // 2. Visible Center Diamond Node
+        const geo = new THREE.OctahedronGeometry(6.0);
+        const mesh = new THREE.Mesh(geo, this.matCurved);
+        mesh.userData = { isAllWallCornerHandle: true, anchor, defaultMat: this.matCurved, cornerData };
+        mesh.renderOrder = 1005;
+        mesh.raycast = () => {};
+        group.add(mesh);
+        hitMesh.userData.visualMesh = mesh;
+
+        // 3. Luminous Outer Halo (Lumen Glow)
+        const haloGeo = new THREE.RingGeometry(5.0, 9.5, 32);
+        haloGeo.rotateX(Math.PI / 2);
+        const haloMat = new THREE.MeshBasicMaterial({
+            color: 0x10b981,
+            transparent: true,
+            opacity: 0.75,
+            side: THREE.DoubleSide,
+            depthTest: false
+        });
+        const haloMesh = new THREE.Mesh(haloGeo, haloMat);
+        haloMesh.renderOrder = 1006;
+        haloMesh.raycast = () => {};
+        group.add(haloMesh);
+
+        // 4. Glowing Torus Ring
+        const ringGeo = new THREE.TorusGeometry(6.0, 1.2, 8, 24);
+        ringGeo.rotateX(Math.PI / 2);
+        const ringMesh = new THREE.Mesh(ringGeo, this.matCurved);
+        ringMesh.renderOrder = 1007;
+        ringMesh.raycast = () => {};
+        group.add(ringMesh);
+
+        // 5. Curve Symbol Sprite (Arc Glyph ⌒) at the corner center point
+        const symbolSprite = this._createCurveSymbolBadgeSprite();
+        symbolSprite.position.set(0, 8.0, 0);
+        symbolSprite.raycast = () => {};
+        group.add(symbolSprite);
+
+        this.handlesGroup.add(group);
+    }
+
+    _createCurveSymbolBadgeSprite() {
+        const canvas = document.createElement('canvas');
+        canvas.width = 64;
+        canvas.height = 64;
+        const ctx = canvas.getContext('2d');
+
+        // Circular luminous pill
+        ctx.fillStyle = 'rgba(16, 185, 129, 0.95)';
+        ctx.beginPath();
+        ctx.arc(32, 32, 26, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Glowing border
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = '#6ee7b7';
+        ctx.stroke();
+
+        // Curve symbol glyph
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 30px Inter, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('⌒', 32, 30);
+
+        const texture = new THREE.CanvasTexture(canvas);
+        texture.minFilter = THREE.LinearFilter;
+        const mat = new THREE.SpriteMaterial({ map: texture, depthTest: false, transparent: true });
+        const sprite = new THREE.Sprite(mat);
+        sprite.scale.set(14, 14, 1);
+        sprite.renderOrder = 1008;
         return sprite;
     }
 
@@ -258,11 +395,25 @@ export class AllWallCornersGizmo extends THREE.Group {
 
             const hit = intersects[0].object;
             const anchor = hit.userData?.anchor;
+            const cd = hit.userData?.cornerData;
             const planner = this.ctx.planner || window.planner?.value || window.plannerInstance;
 
-            if (planner && anchor && typeof planner.selectEntity === 'function') {
-                planner.selectEntity(anchor, 'anchor');
-                if (this.ctx.cornerFilletGizmo) {
+            if (planner && typeof planner.selectEntity === 'function') {
+                if (cd?.arc) {
+                    planner.selectEntity(cd.arc, 'arc');
+                    if (this.ctx.interactions?.selectObject && cd.arc.walls && cd.arc.walls[0]?.mesh3D) {
+                        const firstWall = cd.arc.walls[0];
+                        const hitFront = firstWall.mesh3D.children?.find(c => c.userData?.isWallSide);
+                        if (hitFront) this.ctx.interactions.selectObject(hitFront);
+                    }
+                } else if (anchor) {
+                    planner.selectEntity(anchor, 'anchor');
+                    if (this.ctx.onEntitySelect) this.ctx.onEntitySelect(anchor, 'anchor');
+                    if (this.ctx.interactions?.commonController) {
+                        this.ctx.interactions.commonController.setSelection(anchor, hit);
+                    }
+                }
+                if (anchor && this.ctx.cornerFilletGizmo) {
                     this.ctx.cornerFilletGizmo.attach(anchor);
                 }
                 if (this.ctx.requestRender) this.ctx.requestRender();

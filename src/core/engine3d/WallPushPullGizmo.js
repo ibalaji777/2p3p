@@ -987,10 +987,20 @@ export class WallPushPullGizmo extends THREE.Group {
         return null;
     }
 
+    _getArcEntity() {
+        const wall = this._getWallEntity();
+        if (!wall) return null;
+        if (wall.parentArc) return wall.parentArc;
+        if (wall.type === 'arc' || (wall.walls && Array.isArray(wall.walls))) return wall;
+        return null;
+    }
+
     _getWallGroup() {
         const wall = this._getWallEntity();
         if (!wall) return null;
         if (wall.mesh3D) return wall.mesh3D;
+        if (wall.parentArc && wall.parentArc.walls?.[0]?.mesh3D) return wall.parentArc.walls[0].mesh3D;
+        if (wall.walls && wall.walls[0]?.mesh3D) return wall.walls[0].mesh3D;
         if (this.target && this.target.isGroup) return this.target;
         if (this.target && this.target.parent && this.target.parent.isGroup) return this.target.parent;
         return null;
@@ -999,7 +1009,82 @@ export class WallPushPullGizmo extends THREE.Group {
     updateHandles() {
         const wall = this._getWallEntity();
         const wallGroup = this._getWallGroup();
-        if (!wall || !wallGroup) {
+        const arc = this._getArcEntity();
+
+        if (!wall && !arc) {
+            this.visible = false;
+            if (this.domConfirmBar) this.domConfirmBar.style.display = 'none';
+            this._hideDimensionBadges();
+            return;
+        }
+
+        if (arc) {
+            const p1Pos = arc.p1 && typeof arc.p1.position === 'function' ? arc.p1.position() : (arc.p1 || { x: 0, y: 0 });
+            const p2Pos = arc.p2 && typeof arc.p2.position === 'function' ? arc.p2.position() : (arc.p2 || { x: 0, y: 0 });
+            const p3Pos = arc.pos || { x: (p1Pos.x + p2Pos.x) / 2, y: (p1Pos.y + p2Pos.y) / 2 };
+
+            const chordDx = p2Pos.x - p1Pos.x;
+            const chordDy = p2Pos.y - p1Pos.y;
+            const chordLen = Math.hypot(chordDx, chordDy) || 1;
+            const midChordX = (p1Pos.x + p2Pos.x) / 2;
+            const midChordY = (p1Pos.y + p2Pos.y) / 2;
+
+            let normX = -chordDy / chordLen;
+            let normY = chordDx / chordLen;
+            if ((p3Pos.x - midChordX) * normX + (p3Pos.y - midChordY) * normY < 0) {
+                normX = -normX;
+                normY = -normY;
+            }
+
+            const normalAngle = Math.atan2(normY, normX);
+            const tangentAngle = normalAngle - Math.PI / 2;
+
+            const h = arc.height !== undefined ? Number(arc.height) : (arc.walls?.[0]?.height || 120);
+            const t = arc.thickness !== undefined ? Number(arc.thickness) : (arc.walls?.[0]?.thickness || 20);
+            const elev = Number(arc.elevation) || 0;
+
+            this.position.set(p3Pos.x, elev, p3Pos.y);
+            this.rotation.set(0, -tangentAngle, 0);
+            this.scale.set(1, 1, 1);
+
+            const midY = h / 2;
+            const frontOffset = t / 2 + 10;
+            const backOffset = t / 2 + 10;
+
+            const camPos = this.ctx.camera ? this.ctx.camera.position : new THREE.Vector3();
+            const worldCenter = new THREE.Vector3(p3Pos.x, elev + midY, p3Pos.y);
+            const worldNormal = new THREE.Vector3(normX, 0, normY);
+            const camToWall = new THREE.Vector3().subVectors(camPos, worldCenter);
+            const isFrontFacing = camToWall.dot(worldNormal) >= 0;
+
+            this.activeFacing = isFrontFacing ? 1 : -1;
+            this.activeSide = isFrontFacing ? 'front' : 'back';
+            this.wallNormal2D = { x: normX * this.activeFacing, y: normY * this.activeFacing };
+
+            this.handleFront.position.set(0, midY, frontOffset);
+            this.handleFront.rotation.set(0, 0, 0);
+            this.handleFront.visible = isFrontFacing;
+
+            this.handleBack.position.set(0, midY, -backOffset);
+            this.handleBack.rotation.set(0, Math.PI, 0);
+            this.handleBack.visible = !isFrontFacing;
+
+            this.startWidthHandle.visible = false;
+            this.endWidthHandle.visible = false;
+            this.bottomHeightHandle.visible = false;
+            this.topHeightHandle.visible = false;
+            this.cornerBL.visible = false;
+            this.cornerBR.visible = false;
+            this.cornerTL.visible = false;
+            this.cornerTR.visible = false;
+            if (this.selectionRectGroup) this.selectionRectGroup.visible = false;
+            if (this.solidBlockPreview) this.solidBlockPreview.visible = false;
+
+            this._updateConfirmHUDBar(t, chordLen, h);
+            return;
+        }
+
+        if (!wallGroup) {
             this.visible = false;
             if (this.domConfirmBar) this.domConfirmBar.style.display = 'none';
             this._hideDimensionBadges();
@@ -1421,18 +1506,30 @@ export class WallPushPullGizmo extends THREE.Group {
             }
             
             const wall = this._getWallEntity();
-            if (!wall) return;
-            
-            const p1 = (wall.startAnchor && typeof wall.startAnchor.position === 'function') ? wall.startAnchor.position() : { x: wall.startX || 0, y: wall.startY || 0 };
-            const p2 = (wall.endAnchor && typeof wall.endAnchor.position === 'function') ? wall.endAnchor.position() : { x: wall.endX || 0, y: wall.endY || 0 };
-            this.initialStart = { x: p1.x, y: p1.y };
-            this.initialEnd = { x: p2.x, y: p2.y };
-            this.initialThickness = (wall.thickness !== undefined ? wall.thickness : (wall.config?.thickness || 20));
-            this.initialStartT = this.tStart;
-            this.initialEndT = this.tEnd;
-            this.initialElevBottom = this.elevBottom;
-            this.initialElevTop = this.elevTop;
-            this.initialExtrudeDepth = this.currentExtrudeDepth || 0;
+            const arc = this._getArcEntity();
+            if (!wall && !arc) return;
+
+            let p1, p2;
+            if (arc) {
+                p1 = arc.p1 && typeof arc.p1.position === 'function' ? arc.p1.position() : (arc.p1 || { x: 0, y: 0 });
+                p2 = arc.p2 && typeof arc.p2.position === 'function' ? arc.p2.position() : (arc.p2 || { x: 0, y: 0 });
+                this.initialStart = { x: p1.x, y: p1.y };
+                this.initialEnd = { x: p2.x, y: p2.y };
+                this.initialThickness = (arc.thickness !== undefined ? Number(arc.thickness) : (arc.walls?.[0]?.thickness || 20));
+                this.initialArcPos = arc.pos ? { ...arc.pos } : { x: 0, y: 0 };
+                this.selectionScope = 'full';
+            } else if (wall) {
+                p1 = (wall.startAnchor && typeof wall.startAnchor.position === 'function') ? wall.startAnchor.position() : { x: wall.startX || 0, y: wall.startY || 0 };
+                p2 = (wall.endAnchor && typeof wall.endAnchor.position === 'function') ? wall.endAnchor.position() : { x: wall.endX || 0, y: wall.endY || 0 };
+                this.initialStart = { x: p1.x, y: p1.y };
+                this.initialEnd = { x: p2.x, y: p2.y };
+                this.initialThickness = (wall.thickness !== undefined ? wall.thickness : (wall.config?.thickness || 20));
+                this.initialStartT = this.tStart;
+                this.initialEndT = this.tEnd;
+                this.initialElevBottom = this.elevBottom;
+                this.initialElevTop = this.elevTop;
+                this.initialExtrudeDepth = this.currentExtrudeDepth || 0;
+            }
             
             const dx = p2.x - p1.x;
             const dy = p2.y - p1.y;
@@ -1806,6 +1903,33 @@ export class WallPushPullGizmo extends THREE.Group {
                     let dist = (deltaWorldX * this.wallNormal2D.x) + (deltaWorldZ * this.wallNormal2D.y);
                     const step = 1; // 1cm precision
                     this.currentDragDist = dist;
+
+                    const arc = this._getArcEntity();
+                    if (arc) {
+                        const shiftDist = Math.round(dist / step) * step;
+                        if (this.mode === 'baseline') {
+                            WallEngine.pushPull(arc, this.activeSide, shiftDist, {
+                                mode: 'baseline',
+                                initialArcPos: this.initialArcPos
+                            }, planner);
+                        } else {
+                            WallEngine.pushPull(arc, this.activeSide, shiftDist, {
+                                mode: 'thickness',
+                                initialThickness: this.initialThickness
+                            }, planner);
+                        }
+
+                        if (arc.walls) {
+                            arc.walls.forEach(w => this._updateWallAndSiblings(w));
+                        }
+                        if (typeof this.ctx.rebuildActiveFloors === 'function') {
+                            try { this.ctx.rebuildActiveFloors(); } catch(err) {}
+                        }
+
+                        this.updateHandles();
+                        if (this.ctx.requestRender) this.ctx.requestRender();
+                        return;
+                    }
 
                     const isSubRegion = (this.selectionScope === 'subregion') || (this.tStart > 0.02 || this.tEnd < 0.98 || this.elevBottom > 2 || this.elevTop < (wallH - 2)) || !!this.existingProtrusion;
 

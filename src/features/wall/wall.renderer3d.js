@@ -461,9 +461,18 @@ export class Wall3DBuilder {
         }
         const startProfile = w.wallShapeData?.startProfile || w.startProfile;
         const endProfile = w.wallShapeData?.endProfile || w.endProfile;
-        const pts = typeof w.poly?.points === 'function' ? w.poly.points() : (w.pts || null);
-        const hasStartCap = w.wallShapeData?.hasStartCap ?? (w.startAnchor ? (w.startAnchor.connectedWalls ? w.startAnchor.connectedWalls.length <= 1 : true) : true);
-        const hasEndCap = w.wallShapeData?.hasEndCap ?? (w.endAnchor ? (w.endAnchor.connectedWalls ? w.endAnchor.connectedWalls.length <= 1 : true) : true);
+        let hasStartCap = w.wallShapeData?.hasStartCap ?? (w.startAnchor ? (w.startAnchor.connectedWalls ? w.startAnchor.connectedWalls.length <= 1 : true) : true);
+        let hasEndCap = w.wallShapeData?.hasEndCap ?? (w.endAnchor ? (w.endAnchor.connectedWalls ? w.endAnchor.connectedWalls.length <= 1 : true) : true);
+
+        // Treat curved wall as a single entity: suppress internal dividing caps in 3D
+        if (w.parentArc && w.parentArc.walls) {
+            const arcWalls = w.parentArc.walls;
+            const idx = arcWalls.indexOf(w);
+            if (idx !== -1) {
+                if (idx > 0) hasStartCap = false;
+                if (idx < arcWalls.length - 1) hasEndCap = false;
+            }
+        }
 
         const toLocal = (ptX, ptY) => {
             const dx_pt = ptX - p1.x;
@@ -775,7 +784,7 @@ export class Wall3DBuilder {
         hitBack.userData = { isWallSide: true, side: 'back', entity: w };
 
         const extraHitboxes = [];
-        if (startProfileLocal && startProfileLocal.length >= 2) {
+        if (hasStartCap && startProfileLocal && startProfileLocal.length >= 2) {
             const startHitGeo = new THREE.BufferGeometry();
             const hitVerts = [];
             for (let i = 0; i < startProfileLocal.length - 1; i++) {
@@ -811,7 +820,7 @@ export class Wall3DBuilder {
             extraHitboxes.push(hitStart);
         }
 
-        if (endProfileLocal && endProfileLocal.length >= 2) {
+        if (hasEndCap && endProfileLocal && endProfileLocal.length >= 2) {
             const endHitGeo = new THREE.BufferGeometry();
             const hitVerts = [];
             for (let i = 0; i < endProfileLocal.length - 1; i++) {

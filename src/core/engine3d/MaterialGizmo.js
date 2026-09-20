@@ -26,7 +26,7 @@ export class MaterialGizmo extends THREE.Group {
             this.pointerDownPos.copy(this.mouse);
             this.isDragging = false;
         };
-        
+
         this._onPointerMove = (e) => {
             if (!this.visible || this.ctx.currentTransformMode !== 'material' || !this.target) return;
             this.updateMouse(e);
@@ -36,7 +36,8 @@ export class MaterialGizmo extends THREE.Group {
             }
             
             this.raycaster.setFromCamera(this.mouse, this.ctx.camera);
-            const intersects = this.raycaster.intersectObject(this.target, true);
+            const targets = this._getTargetObjects();
+            const intersects = this.raycaster.intersectObjects(targets, true);
             
             const validIntersects = intersects.filter(i => {
                 const mat = i.object.material;
@@ -79,7 +80,8 @@ export class MaterialGizmo extends THREE.Group {
             
             this.updateMouse(e);
             this.raycaster.setFromCamera(this.mouse, this.ctx.camera);
-            const intersects = this.raycaster.intersectObject(this.target, true);
+            const targets = this._getTargetObjects();
+            const intersects = this.raycaster.intersectObjects(targets, true);
             
             const validIntersects = intersects.filter(i => {
                 const mat = i.object.material;
@@ -132,6 +134,20 @@ export class MaterialGizmo extends THREE.Group {
         dom.addEventListener('pointerup', this._onPointerUp);
     }
 
+    _getTargetObjects() {
+        if (!this.target) return [];
+        const entity = this.target.userData?.entity || this.target.parent?.userData?.entity;
+        const arc = entity?.parentArc || (entity?.walls && Array.isArray(entity?.walls) ? entity : null);
+        if (arc && arc.walls) {
+            const meshes = [];
+            arc.walls.forEach(w => {
+                if (w.mesh3D) meshes.push(w.mesh3D);
+            });
+            if (meshes.length > 0) return meshes;
+        }
+        return [this.target];
+    }
+
     setHighlight(mesh, matIndex, active) {
         if (!mesh) return;
         const descriptor = BIMMaterialSystem.resolveBIMTarget(mesh, matIndex, null, this.target?.userData?.entity);
@@ -178,7 +194,8 @@ export class MaterialGizmo extends THREE.Group {
         if (!this.visible || this.ctx.currentTransformMode !== 'material' || !this.target) return;
         
         this.raycaster.setFromCamera(this.mouse, this.ctx.camera);
-        const intersects = this.raycaster.intersectObject(this.target, true);
+        const targets = this._getTargetObjects();
+        const intersects = this.raycaster.intersectObjects(targets, true);
         
         const validIntersects = intersects.filter(i => {
             const mat = i.object.material;

@@ -26,7 +26,7 @@ export class BIMMaterialSystem {
         if (!mesh) return null;
 
         const targetEntity = entity || mesh.userData?.entity || BIMMaterialSystem._findBIMEntity(mesh);
-        const isWall = targetEntity && (targetEntity.type === 'outer' || targetEntity.type === 'inner' || targetEntity.type === 'compound' || targetEntity.type === 'wall' || targetEntity.type === 'half_wall' || targetEntity.type === 'foundation' || targetEntity.startX !== undefined);
+        const isWall = targetEntity && (targetEntity.type === 'outer' || targetEntity.type === 'inner' || targetEntity.type === 'compound' || targetEntity.type === 'wall' || targetEntity.type === 'half_wall' || targetEntity.type === 'foundation' || targetEntity.type === 'arc' || targetEntity.walls || targetEntity.parentArc || targetEntity.startX !== undefined);
 
         let targetMesh = mesh;
         if (isWall) {

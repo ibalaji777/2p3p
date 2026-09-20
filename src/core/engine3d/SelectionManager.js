@@ -17,7 +17,7 @@ export class SelectionManager {
             object.userData.isWallMesh || 
             object.userData.isWallGroup || 
             object.userData.isWall || 
-            (object.userData.entity && ['outer', 'inner', 'compound', 'wall'].includes(object.userData.entity.type))
+            (object.userData.entity && (['outer', 'inner', 'compound', 'wall', 'arc'].includes(object.userData.entity.type) || object.userData.entity.walls || object.userData.entity.parentArc))
         );
 
         if (isWall) {
@@ -46,8 +46,9 @@ export class SelectionManager {
         } else {
             this._updateWallHighlightShape(object, this.system.wallHighlight);
         }
-        if (this.ctx.showTransformMenu) this.ctx.showTransformMenu(true);
-        return { type: 'wall', side: object.userData?.side || 'front' };
+        const wallEntity = object.userData?.entity || object.parent?.userData?.entity;
+        const type = (wallEntity?.parentArc || wallEntity?.type === 'arc' || (wallEntity?.walls && Array.isArray(wallEntity.walls))) ? 'arc' : 'wall';
+        return { type, side: object.userData?.side || 'front' };
     }
 
     hoverWall(object) {
@@ -128,10 +129,13 @@ export class SelectionManager {
                 }
             }
         }
-
+        const totalH = currentH;
+        const startH = w.startHeight !== undefined ? w.startHeight : totalH;
+        const endH = w.endHeight !== undefined ? w.endHeight : totalH;
+        const profileType = w.topProfileType || 'normal';
         const peakH = w.peakHeight !== undefined ? w.peakHeight : totalH;
 
-        const hlWidth = w.length3D + (maxDepth * 2) + 0.5;
+        const hlWidth = (w.length3D || 100) + (maxDepth * 2) + 0.5;
         const hlHeight = totalH + 0.5;
         const halfW = hlWidth / 2;
 
@@ -202,6 +206,7 @@ export class SelectionManager {
         targetMesh.geometry = new THREE.ShapeGeometry(shape);
         targetMesh.scale.set(1, 1, 1);
 
+        const currentT = w.thickness !== undefined ? Number(w.thickness) : (w.config?.thickness || (isRailing ? 4 : 20));
         const zOffset = side === 'front' ? (currentT / 2 + maxDepth + 0.15) : (-currentT / 2 - maxDepth - 0.15);
         
         // ====== MITER JOINT SHEARING FOR HIGHLIGHT ======

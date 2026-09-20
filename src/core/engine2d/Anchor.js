@@ -18,15 +18,45 @@ export class Anchor {
         this.node.add(makeArrow([-arrowOffset, 0, -arrowOffset+arrowSize, -arrowSize, -arrowOffset+arrowSize, arrowSize]));
         this.node.add(makeArrow([arrowOffset, 0, arrowOffset-arrowSize, -arrowSize, arrowOffset-arrowSize, arrowSize]));
         
+        this.node.on('mouseenter', () => {
+            const isInteractive = this.planner.tool === 'select' || this.planner.tool === 'corner';
+            if (!isInteractive) return;
+            document.body.style.cursor = 'pointer';
+            if (this.planner.stage && typeof this.planner.stage.container === 'function' && this.planner.stage.container()) {
+                this.planner.stage.container().style.cursor = 'pointer';
+            }
+            if (this.innerCircle && this.planner.selectedEntity !== this) {
+                this.innerCircle.fill('#0284c7');
+                this.innerCircle.stroke('#38bdf8');
+                this.innerCircle.strokeWidth(3);
+                if (this.node && this.node.getLayer()) this.node.getLayer().batchDraw();
+            }
+        });
+
+        this.node.on('mouseleave', () => {
+            if (this.planner.tool === 'select' || this.planner.tool === 'corner') {
+                document.body.style.cursor = '';
+                if (this.planner.stage && typeof this.planner.stage.container === 'function' && this.planner.stage.container()) {
+                    this.planner.stage.container().style.cursor = this.planner.tool === 'select' ? (this.planner.stage.isDragging() ? 'grabbing' : 'grab') : 'crosshair';
+                }
+            }
+            if (this.innerCircle && this.planner.selectedEntity !== this) {
+                this.innerCircle.fill('#111827');
+                this.innerCircle.stroke('white');
+                this.innerCircle.strokeWidth(2);
+                if (this.node && this.node.getLayer()) this.node.getLayer().batchDraw();
+            }
+        });
+        
         this.node.on('click tap', (e) => {
-            if (this.planner.tool !== 'select') return;
+            if (this.planner.tool !== 'select' && this.planner.tool !== 'corner') return;
             e.cancelBubble = true;
             this.planner.selectEntity(this, 'anchor');
             this.planner.syncAll();
         });
 
         this.node.on('dragstart', (e) => {
-            if (this.planner.tool !== 'select') { e.target.stopDrag(); return; }
+            if (this.planner.tool !== 'select' && this.planner.tool !== 'corner') { e.target.stopDrag(); return; }
             let attachedWalls = this.planner.walls.filter(w => w.startAnchor === this || w.endAnchor === this); 
             
             this.planner.selectEntity(this, 'anchor');
@@ -409,9 +439,9 @@ export class Anchor {
             this.planner.walls.filter(w => w.startAnchor === this || w.endAnchor === this)
                 .forEach(w => { if (w.setHighlight) w.setHighlight(active); });
         }
-        if (active) {
+        if (active && this.planner?.selectedEntity === this) {
             this._updateFilletHandle();
-        } else {
+        } else if (!active) {
             this._hideFilletHandle();
         }
     }

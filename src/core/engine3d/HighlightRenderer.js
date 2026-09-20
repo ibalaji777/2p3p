@@ -130,47 +130,47 @@ export class HighlightRenderer {
         this.selectedObject = object;
         this.currentMode = mode;
 
-        if (mode === 'material') {
-            // In material mode, hide standard wall selection highlight so face highlights operate cleanly
-            if (object.userData && object.userData.isWallSide) {
-                this._detachMesh(this.wallSelectionMesh);
-                if (this.arcSelectionMeshes) this.arcSelectionMeshes.forEach(m => this._detachMesh(m));
-                return;
-            }
-        }
+        const wallEntity = object.userData?.entity || object.parent?.userData?.entity || (object.walls ? object : null);
+        const arcEntity = wallEntity?.parentArc || (wallEntity?.type === 'arc' || (wallEntity?.walls && Array.isArray(wallEntity.walls)) ? wallEntity : null);
 
-        const isWall = object.userData && (
-            object.userData.isWallSide || 
-            object.userData.isWallMesh || 
-            object.userData.isWallGroup || 
-            object.userData.isWall || 
-            (object.userData.entity && ['outer', 'inner', 'compound', 'wall'].includes(object.userData.entity.type))
+        const isWall = (
+            Boolean(arcEntity) ||
+            (object.userData && (
+                object.userData.isWallSide || 
+                object.userData.isWallMesh || 
+                object.userData.isWallGroup || 
+                object.userData.isWall || 
+                (object.userData.entity && ['outer', 'inner', 'compound', 'wall', 'arc'].includes(object.userData.entity.type)) ||
+                object.userData.entity?.parentArc ||
+                object.userData.entity?.walls
+            ))
         );
 
         if (isWall) {
-            const wallEntity = object.userData?.entity || object.parent?.userData?.entity;
             const side = object.userData?.side || 'front';
-            const wallSideMesh = object.userData?.isWallSide ? object : (
-                object.parent?.children?.find(c => c.userData?.isWallSide && c.userData?.side === side) ||
-                object.children?.find(c => c.userData?.isWallSide && c.userData?.side === side) ||
-                object.parent?.children?.find(c => c.userData?.isWallSide) ||
-                object.children?.find(c => c.userData?.isWallSide) ||
-                object
-            );
+            const arcWalls = arcEntity?.walls;
             
-            if (wallEntity?.parentArc && wallEntity.parentArc.walls && wallEntity.parentArc.walls.length > 0) {
+            if (arcWalls && arcWalls.length > 0) {
                 this._detachMesh(this.wallSelectionMesh);
-                wallEntity.parentArc.walls.forEach((siblingWall, idx) => {
+                arcWalls.forEach((siblingWall, idx) => {
                     const sideMesh = siblingWall.mesh3D?.children?.find(c => c.userData?.isWallSide && c.userData?.side === side)
                         || siblingWall.mesh3D?.children?.find(c => c.userData?.isWallSide)
+                        || siblingWall.mesh3D?.children?.find(c => c.userData?.isWallMesh)
                         || (siblingWall.mesh3D ? { userData: { side, entity: siblingWall }, parent: siblingWall.mesh3D } : null);
                     
-                    if (sideMesh && sideMesh.parent) {
+                    if (sideMesh) {
                         const hMesh = this._getOrCreateArcSelectionMesh(idx);
                         this._buildWallHighlight(sideMesh, hMesh, mode);
                     }
                 });
             } else {
+                const wallSideMesh = object.userData?.isWallSide ? object : (
+                    object.parent?.children?.find(c => c.userData?.isWallSide && c.userData?.side === side) ||
+                    object.children?.find(c => c.userData?.isWallSide && c.userData?.side === side) ||
+                    object.parent?.children?.find(c => c.userData?.isWallSide) ||
+                    object.children?.find(c => c.userData?.isWallSide) ||
+                    object
+                );
                 this._buildWallHighlight(wallSideMesh, this.wallSelectionMesh, mode);
             }
         } else {
@@ -194,38 +194,47 @@ export class HighlightRenderer {
 
         this.hoveredObject = object;
 
-        const isWall = object.userData && (
-            object.userData.isWallSide || 
-            object.userData.isWallMesh || 
-            object.userData.isWallGroup || 
-            object.userData.isWall || 
-            (object.userData.entity && ['outer', 'inner', 'compound', 'wall'].includes(object.userData.entity.type))
+        const wallEntity = object.userData?.entity || object.parent?.userData?.entity || (object.walls ? object : null);
+        const arcEntity = wallEntity?.parentArc || (wallEntity?.type === 'arc' || (wallEntity?.walls && Array.isArray(wallEntity.walls)) ? wallEntity : null);
+
+        const isWall = (
+            Boolean(arcEntity) ||
+            (object.userData && (
+                object.userData.isWallSide || 
+                object.userData.isWallMesh || 
+                object.userData.isWallGroup || 
+                object.userData.isWall || 
+                (object.userData.entity && ['outer', 'inner', 'compound', 'wall', 'arc'].includes(object.userData.entity.type)) ||
+                object.userData.entity?.parentArc ||
+                object.userData.entity?.walls
+            ))
         );
 
         if (isWall) {
-            const wallEntity = object.userData?.entity || object.parent?.userData?.entity;
             const side = object.userData?.side || 'front';
-            const wallSideMesh = object.userData?.isWallSide ? object : (
-                object.parent?.children?.find(c => c.userData?.isWallSide && c.userData?.side === side) ||
-                object.children?.find(c => c.userData?.isWallSide && c.userData?.side === side) ||
-                object.parent?.children?.find(c => c.userData?.isWallSide) ||
-                object.children?.find(c => c.userData?.isWallSide) ||
-                object
-            );
+            const arcWalls = arcEntity?.walls;
             
-            if (wallEntity?.parentArc && wallEntity.parentArc.walls && wallEntity.parentArc.walls.length > 0) {
+            if (arcWalls && arcWalls.length > 0) {
                 this._detachMesh(this.wallHoverMesh);
-                wallEntity.parentArc.walls.forEach((siblingWall, idx) => {
+                arcWalls.forEach((siblingWall, idx) => {
                     const sideMesh = siblingWall.mesh3D?.children?.find(c => c.userData?.isWallSide && c.userData?.side === side)
                         || siblingWall.mesh3D?.children?.find(c => c.userData?.isWallSide)
+                        || siblingWall.mesh3D?.children?.find(c => c.userData?.isWallMesh)
                         || (siblingWall.mesh3D ? { userData: { side, entity: siblingWall }, parent: siblingWall.mesh3D } : null);
                     
-                    if (sideMesh && sideMesh.parent) {
+                    if (sideMesh) {
                         const hMesh = this._getOrCreateArcHoverMesh(idx);
                         this._buildWallHighlight(sideMesh, hMesh, 'hover');
                     }
                 });
             } else {
+                const wallSideMesh = object.userData?.isWallSide ? object : (
+                    object.parent?.children?.find(c => c.userData?.isWallSide && c.userData?.side === side) ||
+                    object.children?.find(c => c.userData?.isWallSide && c.userData?.side === side) ||
+                    object.parent?.children?.find(c => c.userData?.isWallSide) ||
+                    object.children?.find(c => c.userData?.isWallSide) ||
+                    object
+                );
                 this._buildWallHighlight(wallSideMesh, this.wallHoverMesh, 'hover');
             }
         } else {
@@ -241,18 +250,22 @@ export class HighlightRenderer {
         const objToRefresh = selectedObject || this.selectedObject;
         if (!objToRefresh) return;
 
-        if (objToRefresh.userData && objToRefresh.userData.isWallSide) {
-            const wallEntity = objToRefresh.userData?.entity || objToRefresh.parent?.userData?.entity;
-            const side = objToRefresh.userData.side || 'front';
+        const wallEntity = objToRefresh.userData?.entity || objToRefresh.parent?.userData?.entity || (objToRefresh.walls ? objToRefresh : null);
+        const arcEntity = wallEntity?.parentArc || (wallEntity?.type === 'arc' || (wallEntity?.walls && Array.isArray(wallEntity.walls)) ? wallEntity : null);
+
+        if (objToRefresh.userData && (objToRefresh.userData.isWallSide || objToRefresh.userData.isWallMesh || Boolean(arcEntity))) {
+            const side = objToRefresh.userData?.side || 'front';
+            const arcWalls = arcEntity?.walls;
             
-            if (wallEntity?.parentArc && wallEntity.parentArc.walls && wallEntity.parentArc.walls.length > 0) {
+            if (arcWalls && arcWalls.length > 0) {
                 this._detachMesh(this.wallSelectionMesh);
-                wallEntity.parentArc.walls.forEach((siblingWall, idx) => {
+                arcWalls.forEach((siblingWall, idx) => {
                     const sideMesh = siblingWall.mesh3D?.children?.find(c => c.userData?.isWallSide && c.userData?.side === side)
                         || siblingWall.mesh3D?.children?.find(c => c.userData?.isWallSide)
+                        || siblingWall.mesh3D?.children?.find(c => c.userData?.isWallMesh)
                         || (siblingWall.mesh3D ? { userData: { side, entity: siblingWall }, parent: siblingWall.mesh3D } : null);
                     
-                    if (sideMesh && sideMesh.parent) {
+                    if (sideMesh) {
                         const hMesh = this._getOrCreateArcSelectionMesh(idx);
                         this._buildWallHighlight(sideMesh, hMesh, this.currentMode);
                     }
@@ -339,17 +352,17 @@ export class HighlightRenderer {
 
     _buildWallHighlight(object, targetMesh, mode = 'normal') {
         const side = object.userData?.side || 'front';
-        const wallGroup = object.isGroup ? object : (object.parent || object);
-        if (!wallGroup || !wallGroup.userData || !wallGroup.userData.entity) return;
-        const w = wallGroup.userData.entity;
+        const wallGroup = object.isGroup ? object : (object.parent || object.userData?.entity?.mesh3D || object);
+        if (!wallGroup) return;
 
         wallGroup.add(targetMesh);
 
         // Find the authoritative wall skin mesh (hitFront / hitBack)
-        const skinMesh = (object.geometry && object.userData?.isWallSide)
+        const skinMesh = (object.geometry && (object.userData?.isWallSide || object.userData?.isWallMesh))
             ? object
             : (wallGroup.children?.find(c => c.userData?.isWallSide && c.userData?.side === side)
-               || wallGroup.children?.find(c => c.userData?.isWallSide));
+               || wallGroup.children?.find(c => c.userData?.isWallSide)
+               || wallGroup.children?.find(c => c.userData?.isWallMesh));
 
         if (skinMesh && skinMesh.geometry) {
             if (targetMesh.geometry) targetMesh.geometry.dispose();
@@ -360,9 +373,7 @@ export class HighlightRenderer {
         }
 
         // Adjust opacity according to mode
-        const targetOpacity = (mode === 'material')
-            ? HIGHLIGHT_CONFIG.SELECTION_OPACITY_MATERIAL_MODE
-            : (mode === 'hover' ? HIGHLIGHT_CONFIG.HOVER_OPACITY : HIGHLIGHT_CONFIG.SELECTION_OPACITY);
+        const targetOpacity = (mode === 'hover' ? HIGHLIGHT_CONFIG.HOVER_OPACITY : HIGHLIGHT_CONFIG.SELECTION_OPACITY);
         targetMesh.material.opacity = targetOpacity;
         targetMesh.visible = true;
     }

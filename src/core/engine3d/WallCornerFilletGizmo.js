@@ -87,14 +87,17 @@ export class WallCornerFilletGizmo extends THREE.Group {
         // Initialize ghost arc meshes
         this.ghostWallMesh = new THREE.Mesh(new THREE.BufferGeometry(), this.matGhostWall);
         this.ghostWallMesh.renderOrder = 1020;
+        this.ghostWallMesh.raycast = () => {};
         this.ghostGroup.add(this.ghostWallMesh);
 
         this.ghostLinesMesh = new THREE.LineSegments(new THREE.BufferGeometry(), this.matGhostLines);
         this.ghostLinesMesh.renderOrder = 1021;
+        this.ghostLinesMesh.raycast = () => {};
         this.ghostGroup.add(this.ghostLinesMesh);
 
         this.ghostCutLinesMesh = new THREE.LineSegments(new THREE.BufferGeometry(), this.matGhostCutLines);
         this.ghostCutLinesMesh.renderOrder = 1022;
+        this.ghostCutLinesMesh.raycast = () => {};
         this.ghostGroup.add(this.ghostCutLinesMesh);
 
         this._createLiveBadge();
@@ -630,6 +633,7 @@ export class WallCornerFilletGizmo extends THREE.Group {
         const lineMesh = new THREE.Line(lineGeo, lineMat);
         lineMesh.computeLineDistances();
         lineMesh.renderOrder = 1004;
+        lineMesh.raycast = () => {};
         this.handlesGroup.add(lineMesh);
 
         // 2. Interactive Curvature Drag Handle
@@ -658,6 +662,7 @@ export class WallCornerFilletGizmo extends THREE.Group {
         const ringMat = isFilleted ? this.matCurved : this.matSharp;
         const ringMesh = new THREE.Mesh(ringGeo, ringMat);
         ringMesh.renderOrder = 1011;
+        ringMesh.raycast = () => {};
         group.add(ringMesh);
         hitMesh.userData.visualRing = ringMesh;
 
@@ -665,6 +670,7 @@ export class WallCornerFilletGizmo extends THREE.Group {
         const discGeo = new THREE.CylinderGeometry(5.0, 5.0, 2.0, 16);
         const discMesh = new THREE.Mesh(discGeo, this.matRing);
         discMesh.renderOrder = 1012;
+        discMesh.raycast = () => {};
         group.add(discMesh);
 
         // Center Indicator Symbol (Octahedron diamond)
@@ -672,6 +678,7 @@ export class WallCornerFilletGizmo extends THREE.Group {
         const coreMat = isFilleted ? this.matCurved : this.matSharp;
         const coreMesh = new THREE.Mesh(coreGeo, coreMat);
         coreMesh.renderOrder = 1013;
+        coreMesh.raycast = () => {};
         group.add(coreMesh);
         hitMesh.userData.visualCore = coreMesh;
 
