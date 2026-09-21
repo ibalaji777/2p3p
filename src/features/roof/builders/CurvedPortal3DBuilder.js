@@ -54,7 +54,63 @@ export class CurvedPortal3DBuilder {
             ? Number(conf.wallDropHeight)
             : h;
         dropHeight = Math.max(R + 5, Math.min(h, dropHeight));
-        const wallBottomY = -dropHeight;
+
+        // Detect existing below walls to automatically connect flush with zero overlap
+        const allWalls = (ctx?.walls) || (roof.planner?.walls) || (roof._planner?.walls) || (ctx?.helpers?.getPlanner?.()?.walls) || [];
+        const roofElev = roof.elevation !== undefined ? Number(roof.elevation) : h;
+
+        const getBelowWallForEdge = (edge) => {
+            if (!allWalls || allWalls.length === 0) return null;
+
+            // 1. Check explicit connection via conf.connectedWallId
+            if (conf.connectedWallId) {
+                const cw = allWalls.find(w => w.id === conf.connectedWallId);
+                if (cw) {
+                    const p1 = cw.startAnchor?.position ? cw.startAnchor.position() : { x: cw.x1 || cw.startX || 0, y: cw.y1 || cw.startY || 0 };
+                    const p2 = cw.endAnchor?.position ? cw.endAnchor.position() : { x: cw.x2 || cw.endX || 0, y: cw.y2 || cw.endY || 0 };
+                    const wMidX = (p1.x + p2.x) / 2;
+                    const wMidY = (p1.y + p2.y) / 2;
+                    if (edge === 'left' && Math.abs(wMidX - minX) < 35) return cw;
+                    if (edge === 'right' && Math.abs(wMidX - maxX) < 35) return cw;
+                    if (edge === 'back' && Math.abs(wMidY - minY) < 35) return cw;
+                    if (edge === 'front' && Math.abs(wMidY - maxY) < 35) return cw;
+                }
+            }
+
+            // 2. Spatial scan across all walls in scene
+            for (const w of allWalls) {
+                if (w.hidden || w.isAutoGable) continue;
+                const p1 = w.startAnchor?.position ? w.startAnchor.position() : { x: w.x1 || w.startX || 0, y: w.y1 || w.startY || 0 };
+                const p2 = w.endAnchor?.position ? w.endAnchor.position() : { x: w.x2 || w.endX || 0, y: w.y2 || w.endY || 0 };
+                const wTop = (Number(w.elevation) || 0) + (w.height !== undefined ? Number(w.height) : (Number(w.config?.height) || 120));
+
+                if (wTop > roofElev + 5) continue;
+
+                const wMidX = (p1.x + p2.x) / 2;
+                const wMidY = (p1.y + p2.y) / 2;
+
+                if (edge === 'left' && Math.abs(wMidX - minX) < 25 && wMidY >= minY - 25 && wMidY <= maxY + 25) return w;
+                if (edge === 'right' && Math.abs(wMidX - maxX) < 25 && wMidY >= minY - 25 && wMidY <= maxY + 25) return w;
+                if (edge === 'back' && Math.abs(wMidY - minY) < 25 && wMidX >= minX - 25 && wMidX <= maxX + 25) return w;
+                if (edge === 'front' && Math.abs(wMidY - maxY) < 25 && wMidX >= minX - 25 && wMidX <= maxX + 25) return w;
+            }
+            return null;
+        };
+
+        const getWallBottomY = (edge) => {
+            const belowW = getBelowWallForEdge(edge);
+            if (belowW) {
+                const wTop = (Number(belowW.elevation) || 0) + (belowW.height !== undefined ? Number(belowW.height) : (Number(belowW.config?.height) || 120));
+                const diff = roofElev - wTop;
+                return -Math.max(0, Math.round(diff * 10) / 10);
+            }
+            return -dropHeight;
+        };
+
+        const wallBottomYLeft = getWallBottomY('left');
+        const wallBottomYRight = getWallBottomY('right');
+        const wallBottomYBack = getWallBottomY('back');
+        const wallBottomYFront = getWallBottomY('front');
 
         // 2. Materials
         const outerMatInfo = resolveRoofMaterial(conf.material || 'white_plaster_wall');
@@ -117,7 +173,47 @@ export class CurvedPortal3DBuilder {
         };
 
         // --- A. TOP HORIZONTAL ROOF SLAB ---
-        if (slabMaxX > slabMinX && slabMaxZ > slabMinZ) {
+        if (pts && pts.length > 4) {
+            // Arbitrary N-sided polygon slab (Option B polyline footprint)
+            try {
+                const flatPoints = pts.map(p => new THREE.Vector2(p.x, p.y));
+                const triangles = THREE.ShapeUtils.triangulateShape(flatPoints, []);
+
+                // Top Surface (+Y, Outer Material) at Y = 0
+                for (const tri of triangles) {
+                    const p0 = pts[tri[0]], p1 = pts[tri[1]], p2 = pts[tri[2]];
+                    outerV.push(p0.x, 0, p0.y, p1.x, 0, p1.y, p2.x, 0, p2.y);
+                    outerNorm.push(0, 1, 0, 0, 1, 0, 0, 1, 0);
+                    outerUV.push(p0.x / 100, p0.y / 100, p1.x / 100, p1.y / 100, p2.x / 100, p2.y / 100);
+                }
+
+                // Underside Soffit (-Y, Ceiling Material) at Y = -T
+                for (const tri of triangles) {
+                    const p0 = pts[tri[0]], p1 = pts[tri[1]], p2 = pts[tri[2]];
+                    ceilV.push(p0.x, -T, p0.y, p2.x, -T, p2.y, p1.x, -T, p1.y);
+                    ceilNorm.push(0, -1, 0, 0, -1, 0, 0, -1, 0);
+                    ceilUV.push(p0.x / 100, p0.y / 100, p2.x / 100, p2.y / 100, p1.x / 100, p1.y / 100);
+                }
+
+                // Perimeter Fascia along every polygon edge
+                for (let i = 0; i < pts.length; i++) {
+                    const j = (i + 1) % pts.length;
+                    const pi = pts[i], pj = pts[j];
+                    const edx = pj.x - pi.x, edz = pj.y - pi.y;
+                    const elen = Math.hypot(edx, edz);
+                    if (elen < 0.1) continue;
+                    const enx = -edz / elen, enz = edx / elen;
+
+                    fasciaV.push(
+                        pi.x, 0, pi.y,  pj.x, 0, pj.y,  pj.x, -T, pj.y,
+                        pi.x, 0, pi.y,  pj.x, -T, pj.y,  pi.x, -T, pi.y
+                    );
+                    fasciaNorm.push(enx, 0, enz, enx, 0, enz, enx, 0, enz, enx, 0, enz, enx, 0, enz, enx, 0, enz);
+                    fasciaUV.push(0, 0, elen / 100, 0, elen / 100, T / 100, 0, 0, elen / 100, T / 100, 0, T / 100);
+                }
+            } catch (err) {}
+        } else if (slabMaxX > slabMinX && slabMaxZ > slabMinZ) {
+            // Standard 4-point bounding box slab
             // Top Surface (+Y, Outer Material) at Y = 0
             const upNorm = { x: 0, y: 1, z: 0 };
             addQuad(outerV, outerUV, outerNorm,
@@ -140,9 +236,11 @@ export class CurvedPortal3DBuilder {
         }
 
         // --- B. CURVED FILLET ARCS & VERTICAL DROP WALLS ---
-        const arcSubdivs = R > 0 ? 16 : 1;
+        const isFourSided = !pts || pts.length <= 4;
+        if (isFourSided) {
+            const arcSubdivs = R > 0 ? 16 : 1;
 
-        // 1. LEFT WALL (-X)
+            // 1. LEFT WALL (-X)
         if (hasLeft) {
             const z0 = slabMinZ;
             const z1 = slabMaxZ;
@@ -193,19 +291,23 @@ export class CurvedPortal3DBuilder {
                     }
 
                     // Side End Caps of the Fillet Arc (Fascia)
-                    fasciaV.push(
-                        xOut0, yOut0, z0,  xOut1, yOut1, z0,  xc + rInner * cos1, yc + rInner * sin1, z0,
-                        xOut0, yOut0, z0,  xc + rInner * cos1, yc + rInner * sin1, z0,  xc + rInner * cos0, yc + rInner * sin0, z0
-                    );
-                    fasciaNorm.push(0, 0, -1, 0, 0, -1, 0, 0, -1, 0, 0, -1, 0, 0, -1, 0, 0, -1);
-                    fasciaUV.push(xOut0 / 100, yOut0 / 100, xOut1 / 100, yOut1 / 100, xOut1 / 100, yOut1 / 100, xOut0 / 100, yOut0 / 100, xOut1 / 100, yOut1 / 100, xOut0 / 100, yOut0 / 100);
+                    if (!hasBack) {
+                        fasciaV.push(
+                            xOut0, yOut0, z0,  xOut1, yOut1, z0,  xc + rInner * cos1, yc + rInner * sin1, z0,
+                            xOut0, yOut0, z0,  xc + rInner * cos1, yc + rInner * sin1, z0,  xc + rInner * cos0, yc + rInner * sin0, z0
+                        );
+                        fasciaNorm.push(0, 0, -1, 0, 0, -1, 0, 0, -1, 0, 0, -1, 0, 0, -1, 0, 0, -1);
+                        fasciaUV.push(xOut0 / 100, yOut0 / 100, xOut1 / 100, yOut1 / 100, xOut1 / 100, yOut1 / 100, xOut0 / 100, yOut0 / 100, xOut1 / 100, yOut1 / 100, xOut0 / 100, yOut0 / 100);
+                    }
 
-                    fasciaV.push(
-                        xOut0, yOut0, z1,  xc + rInner * cos1, yc + rInner * sin1, z1,  xOut1, yOut1, z1,
-                        xOut0, yOut0, z1,  xc + rInner * cos0, yc + rInner * sin0, z1,  xc + rInner * cos1, yc + rInner * sin1, z1
-                    );
-                    fasciaNorm.push(0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1);
-                    fasciaUV.push(xOut0 / 100, yOut0 / 100, xOut1 / 100, yOut1 / 100, xOut1 / 100, yOut1 / 100, xOut0 / 100, yOut0 / 100, xOut1 / 100, yOut1 / 100, xOut1 / 100, yOut1 / 100);
+                    if (!hasFront) {
+                        fasciaV.push(
+                            xOut0, yOut0, z1,  xc + rInner * cos1, yc + rInner * sin1, z1,  xOut1, yOut1, z1,
+                            xOut0, yOut0, z1,  xc + rInner * cos0, yc + rInner * sin0, z1,  xc + rInner * cos1, yc + rInner * sin1, z1
+                        );
+                        fasciaNorm.push(0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1);
+                        fasciaUV.push(xOut0 / 100, yOut0 / 100, xOut1 / 100, yOut1 / 100, xOut1 / 100, yOut1 / 100, xOut0 / 100, yOut0 / 100, xOut1 / 100, yOut1 / 100, xOut0 / 100, yOut0 / 100);
+                    }
                 }
             }
 
@@ -218,8 +320,8 @@ export class CurvedPortal3DBuilder {
             addQuadVertical(outerV, outerUV, outerNorm,
                 { x: wallOuterX, y: wallTopY, z: z1 },
                 { x: wallOuterX, y: wallTopY, z: z0 },
-                { x: wallOuterX, y: wallBottomY, z: z0 },
-                { x: wallOuterX, y: wallBottomY, z: z1 },
+                { x: wallOuterX, y: wallBottomYLeft, z: z0 },
+                { x: wallOuterX, y: wallBottomYLeft, z: z1 },
                 { x: -1, y: 0, z: 0 }
             );
 
@@ -227,35 +329,39 @@ export class CurvedPortal3DBuilder {
             addQuadVertical(ceilV, ceilUV, ceilNorm,
                 { x: wallInnerX, y: wallTopY, z: z0 },
                 { x: wallInnerX, y: wallTopY, z: z1 },
-                { x: wallInnerX, y: wallBottomY, z: z1 },
-                { x: wallInnerX, y: wallBottomY, z: z0 },
+                { x: wallInnerX, y: wallBottomYLeft, z: z1 },
+                { x: wallInnerX, y: wallBottomYLeft, z: z0 },
                 { x: 1, y: 0, z: 0 }
             );
 
             // Bottom Edge Cap (-Y)
             addQuad(fasciaV, fasciaUV, fasciaNorm,
-                { x: wallOuterX, y: wallBottomY, z: z0 },
-                { x: wallInnerX, y: wallBottomY, z: z0 },
-                { x: wallInnerX, y: wallBottomY, z: z1 },
-                { x: wallOuterX, y: wallBottomY, z: z1 },
+                { x: wallOuterX, y: wallBottomYLeft, z: z0 },
+                { x: wallInnerX, y: wallBottomYLeft, z: z0 },
+                { x: wallInnerX, y: wallBottomYLeft, z: z1 },
+                { x: wallOuterX, y: wallBottomYLeft, z: z1 },
                 { x: 0, y: -1, z: 0 }
             );
 
-            // Wall Vertical Side Caps (North and South)
-            addQuadFrontBack(fasciaV, fasciaUV, fasciaNorm,
-                { x: wallOuterX, y: wallTopY, z: z0 },
-                { x: wallInnerX, y: wallTopY, z: z0 },
-                { x: wallInnerX, y: wallBottomY, z: z0 },
-                { x: wallOuterX, y: wallBottomY, z: z0 },
-                { x: 0, y: 0, z: -1 }
-            );
-            addQuadFrontBack(fasciaV, fasciaUV, fasciaNorm,
-                { x: wallInnerX, y: wallTopY, z: z1 },
-                { x: wallOuterX, y: wallTopY, z: z1 },
-                { x: wallOuterX, y: wallBottomY, z: z1 },
-                { x: wallInnerX, y: wallBottomY, z: z1 },
-                { x: 0, y: 0, z: 1 }
-            );
+            // Wall Vertical Side Caps (North and South if open)
+            if (!hasBack) {
+                addQuadFrontBack(fasciaV, fasciaUV, fasciaNorm,
+                    { x: wallOuterX, y: wallTopY, z: z0 },
+                    { x: wallInnerX, y: wallTopY, z: z0 },
+                    { x: wallInnerX, y: wallBottomYLeft, z: z0 },
+                    { x: wallOuterX, y: wallBottomYLeft, z: z0 },
+                    { x: 0, y: 0, z: -1 }
+                );
+            }
+            if (!hasFront) {
+                addQuadFrontBack(fasciaV, fasciaUV, fasciaNorm,
+                    { x: wallInnerX, y: wallTopY, z: z1 },
+                    { x: wallOuterX, y: wallTopY, z: z1 },
+                    { x: wallOuterX, y: wallBottomYLeft, z: z1 },
+                    { x: wallInnerX, y: wallBottomYLeft, z: z1 },
+                    { x: 0, y: 0, z: 1 }
+                );
+            }
         }
 
         // 2. RIGHT WALL (+X)
@@ -309,19 +415,23 @@ export class CurvedPortal3DBuilder {
                     }
 
                     // Side End Caps (Fascia)
-                    fasciaV.push(
-                        xOut0, yOut0, z0,  xc + rInner * cos1, yc + rInner * sin1, z0,  xOut1, yOut1, z0,
-                        xOut0, yOut0, z0,  xc + rInner * cos0, yc + rInner * sin0, z0,  xc + rInner * cos1, yc + rInner * sin1, z0
-                    );
-                    fasciaNorm.push(0, 0, -1, 0, 0, -1, 0, 0, -1, 0, 0, -1, 0, 0, -1, 0, 0, -1);
-                    fasciaUV.push(xOut0 / 100, yOut0 / 100, xOut1 / 100, yOut1 / 100, xOut1 / 100, yOut1 / 100, xOut0 / 100, yOut0 / 100, xOut1 / 100, yOut1 / 100, xOut0 / 100, yOut0 / 100);
+                    if (!hasBack) {
+                        fasciaV.push(
+                            xOut0, yOut0, z0,  xc + rInner * cos1, yc + rInner * sin1, z0,  xOut1, yOut1, z0,
+                            xOut0, yOut0, z0,  xc + rInner * cos0, yc + rInner * sin0, z0,  xc + rInner * cos1, yc + rInner * sin1, z0
+                        );
+                        fasciaNorm.push(0, 0, -1, 0, 0, -1, 0, 0, -1, 0, 0, -1, 0, 0, -1, 0, 0, -1);
+                        fasciaUV.push(xOut0 / 100, yOut0 / 100, xOut1 / 100, yOut1 / 100, xOut1 / 100, yOut1 / 100, xOut0 / 100, yOut0 / 100, xOut1 / 100, yOut1 / 100, xOut0 / 100, yOut0 / 100);
+                    }
 
-                    fasciaV.push(
-                        xOut0, yOut0, z1,  xOut1, yOut1, z1,  xc + rInner * cos1, yc + rInner * sin1, z1,
-                        xOut0, yOut0, z1,  xc + rInner * cos0, yc + rInner * sin0, z1,  xc + rInner * cos1, yc + rInner * sin1, z1
-                    );
-                    fasciaNorm.push(0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1);
-                    fasciaUV.push(xOut0 / 100, yOut0 / 100, xOut1 / 100, yOut1 / 100, xOut1 / 100, yOut1 / 100, xOut0 / 100, yOut0 / 100, xOut1 / 100, yOut1 / 100, xOut1 / 100, yOut1 / 100);
+                    if (!hasFront) {
+                        fasciaV.push(
+                            xOut0, yOut0, z1,  xOut1, yOut1, z1,  xc + rInner * cos1, yc + rInner * sin1, z1,
+                            xOut0, yOut0, z1,  xc + rInner * cos0, yc + rInner * sin0, z1,  xc + rInner * cos1, yc + rInner * sin1, z1
+                        );
+                        fasciaNorm.push(0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1);
+                        fasciaUV.push(xOut0 / 100, yOut0 / 100, xOut1 / 100, yOut1 / 100, xOut1 / 100, yOut1 / 100, xOut0 / 100, yOut0 / 100, xOut1 / 100, yOut1 / 100, xOut0 / 100, yOut0 / 100);
+                    }
                 }
             }
 
@@ -333,8 +443,8 @@ export class CurvedPortal3DBuilder {
             addQuadVertical(outerV, outerUV, outerNorm,
                 { x: wallOuterX, y: wallTopY, z: z0 },
                 { x: wallOuterX, y: wallTopY, z: z1 },
-                { x: wallOuterX, y: wallBottomY, z: z1 },
-                { x: wallOuterX, y: wallBottomY, z: z0 },
+                { x: wallOuterX, y: wallBottomYRight, z: z1 },
+                { x: wallOuterX, y: wallBottomYRight, z: z0 },
                 { x: 1, y: 0, z: 0 }
             );
 
@@ -342,35 +452,279 @@ export class CurvedPortal3DBuilder {
             addQuadVertical(ceilV, ceilUV, ceilNorm,
                 { x: wallInnerX, y: wallTopY, z: z1 },
                 { x: wallInnerX, y: wallTopY, z: z0 },
-                { x: wallInnerX, y: wallBottomY, z: z0 },
-                { x: wallInnerX, y: wallBottomY, z: z1 },
+                { x: wallInnerX, y: wallBottomYRight, z: z0 },
+                { x: wallInnerX, y: wallBottomYRight, z: z1 },
                 { x: -1, y: 0, z: 0 }
             );
 
             // Bottom Edge Cap (-Y)
             addQuad(fasciaV, fasciaUV, fasciaNorm,
-                { x: wallInnerX, y: wallBottomY, z: z0 },
-                { x: wallOuterX, y: wallBottomY, z: z0 },
-                { x: wallOuterX, y: wallBottomY, z: z1 },
-                { x: wallInnerX, y: wallBottomY, z: z1 },
+                { x: wallInnerX, y: wallBottomYRight, z: z0 },
+                { x: wallOuterX, y: wallBottomYRight, z: z0 },
+                { x: wallOuterX, y: wallBottomYRight, z: z1 },
+                { x: wallInnerX, y: wallBottomYRight, z: z1 },
                 { x: 0, y: -1, z: 0 }
             );
 
-            // Wall Vertical Side Caps (North and South)
-            addQuadFrontBack(fasciaV, fasciaUV, fasciaNorm,
-                { x: wallInnerX, y: wallTopY, z: z0 },
-                { x: wallOuterX, y: wallTopY, z: z0 },
-                { x: wallOuterX, y: wallBottomY, z: z0 },
-                { x: wallInnerX, y: wallBottomY, z: z0 },
+            // Wall Vertical Side Caps (North and South if open)
+            if (!hasBack) {
+                addQuadFrontBack(fasciaV, fasciaUV, fasciaNorm,
+                    { x: wallInnerX, y: wallTopY, z: z0 },
+                    { x: wallOuterX, y: wallTopY, z: z0 },
+                    { x: wallOuterX, y: wallBottomYRight, z: z0 },
+                    { x: wallInnerX, y: wallBottomYRight, z: z0 },
+                    { x: 0, y: 0, z: -1 }
+                );
+            }
+            if (!hasFront) {
+                addQuadFrontBack(fasciaV, fasciaUV, fasciaNorm,
+                    { x: wallOuterX, y: wallTopY, z: z1 },
+                    { x: wallInnerX, y: wallTopY, z: z1 },
+                    { x: wallInnerX, y: wallBottomYRight, z: z1 },
+                    { x: wallOuterX, y: wallBottomYRight, z: z1 },
+                    { x: 0, y: 0, z: 1 }
+                );
+            }
+        }
+
+        // 3. BACK WALL (-Z)
+        if (hasBack) {
+            const x0 = slabMinX;
+            const x1 = slabMaxX;
+            const zc = minY + R;
+            const yc = -R;
+
+            if (R > 0) {
+                for (let i = 0; i < arcSubdivs; i++) {
+                    const a0 = (i / arcSubdivs) * (Math.PI / 2);
+                    const a1 = ((i + 1) / arcSubdivs) * (Math.PI / 2);
+
+                    const sin0 = Math.sin(a0), cos0 = Math.cos(a0);
+                    const sin1 = Math.sin(a1), cos1 = Math.cos(a1);
+
+                    const zOut0 = zc - R * sin0, yOut0 = yc + R * cos0;
+                    const zOut1 = zc - R * sin1, yOut1 = yc + R * cos1;
+
+                    outerV.push(
+                        x0, yOut0, zOut0,  x1, yOut0, zOut0,  x1, yOut1, zOut1,
+                        x0, yOut0, zOut0,  x1, yOut1, zOut1,  x0, yOut1, zOut1
+                    );
+                    outerNorm.push(
+                        0, cos0, -sin0,  0, cos0, -sin0,  0, cos1, -sin1,
+                        0, cos0, -sin0,  0, cos1, -sin1,  0, cos1, -sin1
+                    );
+                    outerUV.push(
+                        x0 / 100, yOut0 / 100,  x1 / 100, yOut0 / 100,  x1 / 100, yOut1 / 100,
+                        x0 / 100, yOut0 / 100,  x1 / 100, yOut1 / 100,  x0 / 100, yOut1 / 100
+                    );
+
+                    if (rInner > 0) {
+                        const zIn0 = zc - rInner * sin0, yIn0 = yc + rInner * cos0;
+                        const zIn1 = zc - rInner * sin1, yIn1 = yc + rInner * cos1;
+
+                        ceilV.push(
+                            x1, yIn0, zIn0,  x0, yIn0, zIn0,  x0, yIn1, zIn1,
+                            x1, yIn0, zIn0,  x0, yIn1, zIn1,  x1, yIn1, zIn1
+                        );
+                        ceilNorm.push(
+                            0, -cos0, sin0,  0, -cos0, sin0,  0, -cos1, sin1,
+                            0, -cos0, sin0,  0, -cos1, sin1,  0, -cos1, sin1
+                        );
+                        ceilUV.push(
+                            x1 / 100, yIn0 / 100,  x0 / 100, yIn0 / 100,  x0 / 100, yIn1 / 100,
+                            x1 / 100, yIn0 / 100,  x0 / 100, yIn1 / 100,  x1 / 100, yIn1 / 100
+                        );
+                    }
+
+                    if (!hasLeft) {
+                        fasciaV.push(
+                            x0, yOut0, zOut0,  x0, yOut1, zOut1,  x0, yc + rInner * cos1, zc - rInner * sin1,
+                            x0, yOut0, zOut0,  x0, yc + rInner * cos1, zc - rInner * sin1,  x0, yc + rInner * cos0, zc - rInner * sin0
+                        );
+                        fasciaNorm.push(-1, 0, 0, -1, 0, 0, -1, 0, 0, -1, 0, 0, -1, 0, 0, -1, 0, 0);
+                        fasciaUV.push(zOut0 / 100, yOut0 / 100, zOut1 / 100, yOut1 / 100, (zc - rInner * sin1) / 100, (yc + rInner * cos1) / 100, zOut0 / 100, yOut0 / 100, (zc - rInner * sin1) / 100, (yc + rInner * cos1) / 100, (zc - rInner * sin0) / 100, (yc + rInner * cos0) / 100);
+                    }
+                    if (!hasRight) {
+                        fasciaV.push(
+                            x1, yOut0, zOut0,  x1, yc + rInner * cos1, zc - rInner * sin1,  x1, yOut1, zOut1,
+                            x1, yOut0, zOut0,  x1, yc + rInner * cos0, zc - rInner * sin0,  x1, yc + rInner * cos1, zc - rInner * sin1
+                        );
+                        fasciaNorm.push(1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0);
+                        fasciaUV.push(zOut0 / 100, yOut0 / 100, (zc - rInner * sin1) / 100, (yc + rInner * cos1) / 100, zOut1 / 100, yOut1 / 100, zOut0 / 100, yOut0 / 100, (zc - rInner * sin0) / 100, (yc + rInner * cos0) / 100, (zc - rInner * sin1) / 100, (yc + rInner * cos1) / 100);
+                    }
+                }
+            }
+
+            const wallTopY = -R;
+            const wallOuterZ = minY;
+            const wallInnerZ = minY + T;
+
+            // Outer Face (-Z)
+            addQuadFrontBack(outerV, outerUV, outerNorm,
+                { x: x1, y: wallTopY, z: wallOuterZ },
+                { x: x0, y: wallTopY, z: wallOuterZ },
+                { x: x0, y: wallBottomYBack, z: wallOuterZ },
+                { x: x1, y: wallBottomYBack, z: wallOuterZ },
                 { x: 0, y: 0, z: -1 }
             );
-            addQuadFrontBack(fasciaV, fasciaUV, fasciaNorm,
-                { x: wallOuterX, y: wallTopY, z: z1 },
-                { x: wallInnerX, y: wallTopY, z: z1 },
-                { x: wallInnerX, y: wallBottomY, z: z1 },
-                { x: wallOuterX, y: wallBottomY, z: z1 },
+
+            // Inner Face (+Z)
+            addQuadFrontBack(ceilV, ceilUV, ceilNorm,
+                { x: x0, y: wallTopY, z: wallInnerZ },
+                { x: x1, y: wallTopY, z: wallInnerZ },
+                { x: x1, y: wallBottomYBack, z: wallInnerZ },
+                { x: x0, y: wallBottomYBack, z: wallInnerZ },
                 { x: 0, y: 0, z: 1 }
             );
+
+            // Bottom Edge Cap (-Y)
+            addQuad(fasciaV, fasciaUV, fasciaNorm,
+                { x: x0, y: wallBottomYBack, z: wallOuterZ },
+                { x: x1, y: wallBottomYBack, z: wallOuterZ },
+                { x: x1, y: wallBottomYBack, z: wallInnerZ },
+                { x: x0, y: wallBottomYBack, z: wallInnerZ },
+                { x: 0, y: -1, z: 0 }
+            );
+
+            // Side Caps if open
+            if (!hasLeft) {
+                addQuadVertical(fasciaV, fasciaUV, fasciaNorm,
+                    { x: x0, y: wallTopY, z: wallInnerZ },
+                    { x: x0, y: wallTopY, z: wallOuterZ },
+                    { x: x0, y: wallBottomYBack, z: wallOuterZ },
+                    { x: x0, y: wallBottomYBack, z: wallInnerZ },
+                    { x: -1, y: 0, z: 0 }
+                );
+            }
+            if (!hasRight) {
+                addQuadVertical(fasciaV, fasciaUV, fasciaNorm,
+                    { x: x1, y: wallTopY, z: wallOuterZ },
+                    { x: x1, y: wallTopY, z: wallInnerZ },
+                    { x: x1, y: wallBottomYBack, z: wallInnerZ },
+                    { x: x1, y: wallBottomYBack, z: wallOuterZ },
+                    { x: 1, y: 0, z: 0 }
+                );
+            }
+        }
+
+        // 4. FRONT WALL (+Z)
+        if (hasFront) {
+            const x0 = slabMinX;
+            const x1 = slabMaxX;
+            const zc = maxY - R;
+            const yc = -R;
+
+            if (R > 0) {
+                for (let i = 0; i < arcSubdivs; i++) {
+                    const a0 = (i / arcSubdivs) * (Math.PI / 2);
+                    const a1 = ((i + 1) / arcSubdivs) * (Math.PI / 2);
+
+                    const sin0 = Math.sin(a0), cos0 = Math.cos(a0);
+                    const sin1 = Math.sin(a1), cos1 = Math.cos(a1);
+
+                    const zOut0 = zc + R * sin0, yOut0 = yc + R * cos0;
+                    const zOut1 = zc + R * sin1, yOut1 = yc + R * cos1;
+
+                    outerV.push(
+                        x1, yOut0, zOut0,  x0, yOut0, zOut0,  x0, yOut1, zOut1,
+                        x1, yOut0, zOut0,  x0, yOut1, zOut1,  x1, yOut1, zOut1
+                    );
+                    outerNorm.push(
+                        0, cos0, sin0,  0, cos0, sin0,  0, cos1, sin1,
+                        0, cos0, sin0,  0, cos1, sin1,  0, cos1, sin1
+                    );
+                    outerUV.push(
+                        x1 / 100, yOut0 / 100,  x0 / 100, yOut0 / 100,  x0 / 100, yOut1 / 100,
+                        x1 / 100, yOut0 / 100,  x0 / 100, yOut1 / 100,  x1 / 100, yOut1 / 100
+                    );
+
+                    if (rInner > 0) {
+                        const zIn0 = zc + rInner * sin0, yIn0 = yc + rInner * cos0;
+                        const zIn1 = zc + rInner * sin1, yIn1 = yc + rInner * cos1;
+
+                        ceilV.push(
+                            x0, yIn0, zIn0,  x1, yIn0, zIn0,  x1, yIn1, zIn1,
+                            x0, yIn0, zIn0,  x1, yIn1, zIn1,  x0, yIn1, zIn1
+                        );
+                        ceilNorm.push(
+                            0, -cos0, -sin0,  0, -cos0, -sin0,  0, -cos1, -sin1,
+                            0, -cos0, -sin0,  0, -cos1, -sin1,  0, -cos1, -sin1
+                        );
+                        ceilUV.push(
+                            x0 / 100, yIn0 / 100,  x1 / 100, yIn0 / 100,  x1 / 100, yIn1 / 100,
+                            x0 / 100, yIn0 / 100,  x1 / 100, yIn1 / 100,  x0 / 100, yIn1 / 100
+                        );
+                    }
+
+                    if (!hasLeft) {
+                        fasciaV.push(
+                            x0, yOut0, zOut0,  x0, yc + rInner * cos1, zc + rInner * sin1,  x0, yOut1, zOut1,
+                            x0, yOut0, zOut0,  x0, yc + rInner * cos0, zc + rInner * sin0,  x0, yc + rInner * cos1, zc + rInner * sin1
+                        );
+                        fasciaNorm.push(-1, 0, 0, -1, 0, 0, -1, 0, 0, -1, 0, 0, -1, 0, 0, -1, 0, 0);
+                        fasciaUV.push(zOut0 / 100, yOut0 / 100, (zc + rInner * sin1) / 100, (yc + rInner * cos1) / 100, zOut1 / 100, yOut1 / 100, zOut0 / 100, yOut0 / 100, (zc + rInner * sin0) / 100, (yc + rInner * cos0) / 100, (zc + rInner * sin1) / 100, (yc + rInner * cos1) / 100);
+                    }
+                    if (!hasRight) {
+                        fasciaV.push(
+                            x1, yOut0, zOut0,  x1, yOut1, zOut1,  x1, yc + rInner * cos1, zc + rInner * sin1,
+                            x1, yOut0, zOut0,  x1, yc + rInner * cos1, zc + rInner * sin1,  x1, yc + rInner * cos0, zc + rInner * sin0
+                        );
+                        fasciaNorm.push(1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0);
+                        fasciaUV.push(zOut0 / 100, yOut0 / 100, zOut1 / 100, yOut1 / 100, (zc + rInner * sin1) / 100, (yc + rInner * cos1) / 100, zOut0 / 100, yOut0 / 100, (zc + rInner * sin1) / 100, (yc + rInner * cos1) / 100, (zc + rInner * sin0) / 100, (yc + rInner * cos0) / 100);
+                    }
+                }
+            }
+
+            const wallTopY = -R;
+            const wallOuterZ = maxY;
+            const wallInnerZ = maxY - T;
+
+            // Outer Face (+Z)
+            addQuadFrontBack(outerV, outerUV, outerNorm,
+                { x: x0, y: wallTopY, z: wallOuterZ },
+                { x: x1, y: wallTopY, z: wallOuterZ },
+                { x: x1, y: wallBottomYFront, z: wallOuterZ },
+                { x: x0, y: wallBottomYFront, z: wallOuterZ },
+                { x: 0, y: 0, z: 1 }
+            );
+
+            // Inner Face (-Z)
+            addQuadFrontBack(ceilV, ceilUV, ceilNorm,
+                { x: x1, y: wallTopY, z: wallInnerZ },
+                { x: x0, y: wallTopY, z: wallInnerZ },
+                { x: x0, y: wallBottomYFront, z: wallInnerZ },
+                { x: x1, y: wallBottomYFront, z: wallInnerZ },
+                { x: 0, y: 0, z: -1 }
+            );
+
+            // Bottom Edge Cap (-Y)
+            addQuad(fasciaV, fasciaUV, fasciaNorm,
+                { x: x1, y: wallBottomYFront, z: wallOuterZ },
+                { x: x0, y: wallBottomYFront, z: wallOuterZ },
+                { x: x0, y: wallBottomYFront, z: wallInnerZ },
+                { x: x1, y: wallBottomYFront, z: wallInnerZ },
+                { x: 0, y: -1, z: 0 }
+            );
+
+            // Side Caps if open
+            if (!hasLeft) {
+                addQuadVertical(fasciaV, fasciaUV, fasciaNorm,
+                    { x: x0, y: wallTopY, z: wallOuterZ },
+                    { x: x0, y: wallTopY, z: wallInnerZ },
+                    { x: x0, y: wallBottomYFront, z: wallInnerZ },
+                    { x: x0, y: wallBottomYFront, z: wallOuterZ },
+                    { x: -1, y: 0, z: 0 }
+                );
+            }
+            if (!hasRight) {
+                addQuadVertical(fasciaV, fasciaUV, fasciaNorm,
+                    { x: x1, y: wallTopY, z: wallInnerZ },
+                    { x: x1, y: wallTopY, z: wallOuterZ },
+                    { x: x1, y: wallBottomYFront, z: wallOuterZ },
+                    { x: x1, y: wallBottomYFront, z: wallInnerZ },
+                    { x: 1, y: 0, z: 0 }
+                );
+            }
         }
 
         // --- C. EXPOSED EDGES (FASCIA TRIMS) FOR OPEN SIDES ---
@@ -413,6 +767,7 @@ export class CurvedPortal3DBuilder {
                 { x: 1, y: 0, z: 0 }
             );
         }
+    }
 
         // 4. Create BufferGeometries and Meshes
         const createSubMesh = (v, uv, norm, material, slotName) => {

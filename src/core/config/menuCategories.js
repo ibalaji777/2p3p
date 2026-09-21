@@ -89,6 +89,8 @@ export const getMenuCategories = () => [
         tools: [
             { isDivider: true, name: 'Custom Roofs' },
             { id: 'roof', name: 'Roofs' },
+            { id: 'roof_box', name: 'Roof (Box / Drag)', presetParams: { drawMode: 'box' } },
+            { id: 'roof_polygon', name: 'Roof (Polyline Drawer)', presetParams: { drawMode: 'polygon' } },
             { id: 'curved_portal', name: 'Modern Curved Portal Roof', presetParams: { roofType: 'curved_portal', radius: 0, wallSides: { left: true, right: true, front: false, back: false }, thickness: 15, overhang: 0, material: 'white_plaster_wall' } },
             { id: 'auto_roof', name: 'Generate Auto-Roof', action: 'auto_roof' },
             { isDivider: true, name: 'Glass & Skylight Addons' },

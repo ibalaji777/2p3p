@@ -148,6 +148,18 @@ export function useAppTools({
                 };
                 planner.value.activePresetParams = activePresetParams.value;
             }
+        } else if (tool === 'roof_box') {
+            activePresetParams.value = {
+                drawMode: 'box',
+                roofType: 'gable'
+            };
+            planner.value.activePresetParams = activePresetParams.value;
+        } else if (tool === 'roof_polygon') {
+            activePresetParams.value = {
+                drawMode: 'polygon',
+                roofType: 'gable'
+            };
+            planner.value.activePresetParams = activePresetParams.value;
         } else if (tool === 'curved_portal' || tool === 'curved_portal_roof') {
             if (!activePresetParams.value || activePresetParams.value.roofType !== 'curved_portal') {
                 activePresetParams.value = {

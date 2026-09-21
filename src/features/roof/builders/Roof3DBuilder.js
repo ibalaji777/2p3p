@@ -159,7 +159,7 @@ export class Roof3DBuilder {
                 const effectiveKey = matKey || conf.material || 'terracotta_tiles_roof';
                 const matDecor = ROOF_DECOR_REGISTRY[effectiveKey] || ROOF_DECOR_REGISTRY['concrete_flat'];
                 const isGlass = Boolean(matDecor && (matDecor.isGlass || matDecor.category === 'glass' || effectiveKey.startsWith('glass_roof_')));
-                const m = this.ctx.helpers.getDynamicMaterial(effectiveKey, isGlass ? 'glass' : 'roof') || new THREE.MeshStandardMaterial({color: 0x888888});
+                const m = (this.ctx?.helpers?.getDynamicMaterial ? this.ctx.helpers.getDynamicMaterial(effectiveKey, isGlass ? 'glass' : 'roof') : null) || new THREE.MeshStandardMaterial({color: 0x888888});
                 m.side = THREE.DoubleSide;
                 if (isGlass) {
                     m.transparent = true;
@@ -175,7 +175,7 @@ export class Roof3DBuilder {
                         m.clearcoatRoughness = 0.02;
                     }
                 }
-                if (matDecor && (matDecor.texture || matDecor.dataUri)) {
+                if (matDecor && (matDecor.texture || matDecor.dataUri) && this.ctx?.assets?.getTexture) {
                     const texSrc = matDecor.dataUri || matDecor.texture;
                     this.ctx.assets.getTexture(texSrc).then(tex => {
                         if (!tex) return;
@@ -198,7 +198,7 @@ export class Roof3DBuilder {
             const mat = defaultMatInfo.mat;
             
             const defaultFascia = isGlassRoof ? 'metal_dark_steel' : 'white_plaster_wall';
-            const fasciaMat = this.ctx.helpers.getDynamicMaterial(conf.fasciaMaterial || defaultFascia, isGlassRoof ? 'metal' : 'wall') 
+            const fasciaMat = (this.ctx?.helpers?.getDynamicMaterial ? this.ctx.helpers.getDynamicMaterial(conf.fasciaMaterial || defaultFascia, isGlassRoof ? 'metal' : 'wall') : null) 
                 || new THREE.MeshStandardMaterial({
                     color: isGlassRoof ? 0x1e293b : 0xF5F5F5, 
                     metalness: isGlassRoof ? 0.75 : 0.0, 

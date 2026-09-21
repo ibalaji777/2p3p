@@ -33,10 +33,116 @@ export class Roof3DPlacementSystem {
         this.ghostGroup.raycast = () => {}; // Zero-occlusion
         this.ctx.scene.add(this.ghostGroup);
 
+        // Snap Indicator Group (Interactive circle dot cursor + pulsing ring)
+        this.snapIndicatorGroup = new THREE.Group();
+        this.snapIndicatorGroup.name = 'Roof3DPlacement_SnapIndicator';
+        this.snapIndicatorGroup.visible = false;
+        this.snapIndicatorGroup.raycast = () => {};
+
+        const outerRingGeo = new THREE.RingGeometry(8, 14, 32);
+        outerRingGeo.rotateX(-Math.PI / 2);
+        this.snapRingMat = new THREE.MeshBasicMaterial({
+            color: 0x00f0ff,
+            depthTest: false,
+            transparent: true,
+            opacity: 0.95,
+            side: THREE.DoubleSide
+        });
+        this.snapRing = new THREE.Mesh(outerRingGeo, this.snapRingMat);
+        this.snapRing.renderOrder = 10002;
+        this.snapRing.raycast = () => {};
+        this.snapIndicatorGroup.add(this.snapRing);
+
+        const innerDotGeo = new THREE.CircleGeometry(6, 32);
+        innerDotGeo.rotateX(-Math.PI / 2);
+        this.snapDotMat = new THREE.MeshBasicMaterial({
+            color: 0x10b981,
+            depthTest: false,
+            transparent: true,
+            opacity: 0.95,
+            side: THREE.DoubleSide
+        });
+        this.snapDot = new THREE.Mesh(innerDotGeo, this.snapDotMat);
+        this.snapDot.renderOrder = 10003;
+        this.snapDot.raycast = () => {};
+        this.snapIndicatorGroup.add(this.snapDot);
+
+        // Start Anchor Marker (displayed at startPoint during drawing)
+        this.startAnchorGroup = new THREE.Group();
+        this.startAnchorGroup.name = 'Roof3DPlacement_StartAnchor';
+        this.startAnchorGroup.visible = false;
+        this.startAnchorGroup.raycast = () => {};
+
+        const startRingGeo = new THREE.RingGeometry(8, 14, 32);
+        startRingGeo.rotateX(-Math.PI / 2);
+        const startDotGeo = new THREE.CircleGeometry(6, 32);
+        startDotGeo.rotateX(-Math.PI / 2);
+
+        this.startRing = new THREE.Mesh(startRingGeo, new THREE.MeshBasicMaterial({
+            color: 0x10b981,
+            depthTest: false,
+            transparent: true,
+            opacity: 0.85,
+            side: THREE.DoubleSide
+        }));
+        this.startRing.renderOrder = 10002;
+        this.startRing.raycast = () => {};
+        this.startAnchorGroup.add(this.startRing);
+
+        this.startDot = new THREE.Mesh(startDotGeo, new THREE.MeshBasicMaterial({
+            color: 0x059669,
+            depthTest: false,
+            transparent: true,
+            opacity: 0.95,
+            side: THREE.DoubleSide
+        }));
+        this.startDot.renderOrder = 10003;
+        this.startDot.raycast = () => {};
+        this.startAnchorGroup.add(this.startDot);
+
+        // Snap Halo Group (highlights snapped wall or roof edge)
+        this.snapHaloGroup = new THREE.Group();
+        this.snapHaloGroup.name = 'Roof3DPlacement_SnapHalo';
+        this.snapHaloGroup.visible = false;
+        this.snapHaloGroup.raycast = () => {};
+
+        this.haloMat = new THREE.LineBasicMaterial({
+            color: 0x00f0ff,
+            linewidth: 3,
+            depthTest: false,
+            transparent: true,
+            opacity: 0.95
+        });
+
+        this.ctx.scene.add(this.snapIndicatorGroup);
+        this.ctx.scene.add(this.startAnchorGroup);
+        this.ctx.scene.add(this.snapHaloGroup);
+
+        // Polyline Drawing State (Option B)
+        this.drawMode = 'box'; // 'box' | 'polygon'
+        this.polygonPoints = [];
+        this.polygonElevation = null;
+        this.lastClickTime = 0;
+
+        // Visual group for polyline vertex markers
+        this.polygonMarkersGroup = new THREE.Group();
+        this.polygonMarkersGroup.name = 'Roof3DPlacement_PolygonMarkers';
+        this.polygonMarkersGroup.visible = false;
+        this.polygonMarkersGroup.raycast = () => {};
+        this.ctx.scene.add(this.polygonMarkersGroup);
+
+        // Visual group for polyline edge lines & closing guide
+        this.polygonLineGroup = new THREE.Group();
+        this.polygonLineGroup.name = 'Roof3DPlacement_PolygonLines';
+        this.polygonLineGroup.visible = false;
+        this.polygonLineGroup.raycast = () => {};
+        this.ctx.scene.add(this.polygonLineGroup);
+
         // Grid Snap Plane (XZ)
         this.placementPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
 
         this._createDOMBadge();
+        this._createModeHUD();
 
         this._onKeyDown = this._onKeyDown.bind(this);
         if (typeof window !== 'undefined') {
@@ -89,6 +195,163 @@ export class Roof3DPlacementSystem {
         if (this.domBadge) this.domBadge.style.display = 'none';
     }
 
+    _createModeHUD() {
+        if (typeof document === 'undefined') return;
+        this.modeHUD = document.createElement('div');
+        this.modeHUD.className = 'roof3d-draw-mode-hud';
+        this.modeHUD.style.cssText = `
+            position: fixed;
+            top: 24px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: none;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 16px;
+            background: rgba(15, 23, 42, 0.94);
+            border: 1.5px solid rgba(56, 189, 248, 0.45);
+            border-radius: 9999px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.65), 0 0 18px rgba(56, 189, 248, 0.25);
+            color: #ffffff;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            font-size: 13px;
+            font-weight: 700;
+            z-index: 100000;
+            backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px);
+            user-select: none;
+            pointer-events: auto;
+        `;
+        this.modeHUD.innerHTML = `
+            <span style="color: #94a3b8; font-size: 11px; text-transform: uppercase; letter-spacing: 0.8px; margin-right: 4px;">Draw Mode:</span>
+            <button id="roof-btn-mode-box" style="display: inline-flex; align-items: center; gap: 5px; padding: 5px 12px; border-radius: 20px; border: 1px solid rgba(56, 189, 248, 0.5); background: ${this.drawMode === 'box' ? '#0284c7' : 'rgba(30, 41, 59, 0.8)'}; color: #fff; cursor: pointer; font-size: 12px; font-weight: 700; transition: all 0.15s ease;">
+                <span>◻</span> Box (Drag)
+            </button>
+            <button id="roof-btn-mode-polygon" style="display: inline-flex; align-items: center; gap: 5px; padding: 5px 12px; border-radius: 20px; border: 1px solid rgba(56, 189, 248, 0.5); background: ${this.drawMode === 'polygon' ? '#0284c7' : 'rgba(30, 41, 59, 0.8)'}; color: #fff; cursor: pointer; font-size: 12px; font-weight: 700; transition: all 0.15s ease;">
+                <span>✏</span> Polyline (Click-by-Click)
+            </button>
+            <span style="color: #64748b; font-size: 11px; margin-left: 6px; border-left: 1px solid rgba(148, 163, 184, 0.25); padding-left: 8px;">
+                [P] Toggle &bull; [Enter] Finish &bull; [Backspace] Undo
+            </span>
+            <button id="roof-btn-mode-done" style="display: inline-flex; align-items: center; gap: 4px; padding: 5px 12px; margin-left: 6px; border-radius: 20px; border: 1px solid rgba(239, 68, 68, 0.5); background: rgba(239, 68, 68, 0.2); color: #fca5a5; cursor: pointer; font-size: 12px; font-weight: 700; transition: all 0.15s ease;">
+                <span>✕</span> Done
+            </button>
+        `;
+
+        // Prevent click/touch events on HUD from bleeding through into 3D scene raycaster
+        const stopProp = (e) => e.stopPropagation();
+        ['pointerdown', 'mousedown', 'mouseup', 'click', 'touchstart', 'touchend'].forEach(evt => {
+            this.modeHUD.addEventListener(evt, stopProp);
+        });
+
+        const container = this.ctx.renderer?.domElement?.parentElement || document.body;
+        container.appendChild(this.modeHUD);
+
+        const btnBox = this.modeHUD.querySelector('#roof-btn-mode-box');
+        const btnPoly = this.modeHUD.querySelector('#roof-btn-mode-polygon');
+        const btnDone = this.modeHUD.querySelector('#roof-btn-mode-done');
+
+        if (btnBox) {
+            btnBox.onclick = (e) => {
+                e.stopPropagation();
+                this.setDrawMode('box');
+            };
+        }
+        if (btnPoly) {
+            btnPoly.onclick = (e) => {
+                e.stopPropagation();
+                this.setDrawMode('polygon');
+            };
+        }
+        if (btnDone) {
+            btnDone.onclick = (e) => {
+                e.stopPropagation();
+                this.drawing = false;
+                this.startPoint = null;
+                this.currentPoint = null;
+                if (this.startAnchorGroup) this.startAnchorGroup.visible = false;
+                if (this.ctx.controls) this.ctx.controls.enabled = true;
+                const planner = this.getPlanner();
+                if (planner) {
+                    planner.tool = 'select';
+                    if (planner.updateToolStates) planner.updateToolStates();
+                    if (planner.onToolChange) planner.onToolChange('select');
+                }
+                this.resetPolygon();
+                this.hideGhost();
+                this._hideModeHUD();
+            };
+        }
+    }
+
+    _updateModeHUD() {
+        if (!this.modeHUD) return;
+        const btnBox = this.modeHUD.querySelector('#roof-btn-mode-box');
+        const btnPoly = this.modeHUD.querySelector('#roof-btn-mode-polygon');
+        if (btnBox) {
+            btnBox.style.background = this.drawMode === 'box' ? '#0284c7' : 'rgba(30, 41, 59, 0.8)';
+            btnBox.style.boxShadow = this.drawMode === 'box' ? '0 0 10px rgba(56, 189, 248, 0.5)' : 'none';
+        }
+        if (btnPoly) {
+            btnPoly.style.background = this.drawMode === 'polygon' ? '#0284c7' : 'rgba(30, 41, 59, 0.8)';
+            btnPoly.style.boxShadow = this.drawMode === 'polygon' ? '0 0 10px rgba(56, 189, 248, 0.5)' : 'none';
+        }
+    }
+
+    _showModeHUD() {
+        if (!this.modeHUD) this._createModeHUD();
+        if (this.modeHUD) {
+            this.modeHUD.style.display = 'flex';
+            this._updateModeHUD();
+        }
+    }
+
+    _hideModeHUD() {
+        if (this.modeHUD) {
+            this.modeHUD.style.display = 'none';
+        }
+    }
+
+    setDrawMode(mode) {
+        if (mode !== 'box' && mode !== 'polygon') return;
+        this.drawMode = mode;
+        this.resetPolygon();
+        this.hideGhost();
+        this._showModeHUD();
+        if (this.ctx && typeof this.ctx.requestRender === 'function') {
+            this.ctx.requestRender();
+        }
+    }
+
+    _snapAngle(fromPt, toPt) {
+        const dx = toPt.x - fromPt.x;
+        const dz = toPt.z - fromPt.z;
+        const dist = Math.hypot(dx, dz);
+        if (dist < 8) return { x: toPt.x, z: toPt.z, snappedAngle: null };
+
+        const angleRad = Math.atan2(dz, dx);
+        let angleDeg = (angleRad * 180) / Math.PI;
+
+        const snapAngles = [0, 45, 90, 135, 180, -45, -90, -135, -180];
+        const THRESHOLD = 5; // degrees
+
+        for (const sa of snapAngles) {
+            let diff = Math.abs(angleDeg - sa);
+            if (diff > 180) diff = 360 - diff;
+            if (diff <= THRESHOLD) {
+                const snapRad = (sa * Math.PI) / 180;
+                return {
+                    x: Math.round(fromPt.x + Math.cos(snapRad) * dist),
+                    z: Math.round(fromPt.z + Math.sin(snapRad) * dist),
+                    snappedAngle: sa,
+                    angleLabel: `${Math.abs(sa)}° Ortho`
+                };
+            }
+        }
+
+        return { x: toPt.x, z: toPt.z, snappedAngle: null };
+    }
+
     getPlanner() {
         return this.ctx.planner || window.planner?.value || window.planner || (this.ctx.appState && this.ctx.appState.planner) || window.plannerInstance;
     }
@@ -120,7 +383,25 @@ export class Roof3DPlacementSystem {
             return false;
         }
 
-        return tool === 'roof' || tool === 'roof_presets' || tool === 'curved_portal' || tool === 'curved_portal_roof' || tool.startsWith('roof_type_') || tool.startsWith('preset_roof_');
+        if (preset?.drawMode === 'polygon' || tool === 'roof_polygon' || tool === 'roof_polyline') {
+            if (this.drawMode !== 'polygon') {
+                this.drawMode = 'polygon';
+                this._updateModeHUD();
+            }
+        } else if (preset?.drawMode === 'box' || tool === 'roof_box') {
+            if (this.drawMode !== 'box') {
+                this.drawMode = 'box';
+                this._updateModeHUD();
+            }
+        }
+
+        const isTool = tool === 'roof' || tool === 'roof_presets' || tool === 'roof_box' || tool === 'roof_polygon' || tool === 'roof_polyline' || tool === 'curved_portal' || tool === 'curved_portal_roof' || (typeof tool === 'string' && (tool.startsWith('roof_type_') || tool.startsWith('preset_roof_')));
+        if (isTool) {
+            this._showModeHUD();
+        } else {
+            this._hideModeHUD();
+        }
+        return isTool;
     }
 
     getActiveRoofParams() {
@@ -170,6 +451,252 @@ export class Roof3DPlacementSystem {
         this.lastClientY = e.clientY;
     }
 
+    _updateSnapHalo(points) {
+        if (!this.snapHaloGroup) return;
+        while (this.snapHaloGroup.children.length > 0) {
+            const c = this.snapHaloGroup.children[0];
+            if (c.geometry) c.geometry.dispose();
+            this.snapHaloGroup.remove(c);
+        }
+        if (!points || points.length < 2) {
+            this.snapHaloGroup.visible = false;
+            return;
+        }
+        const geo = new THREE.BufferGeometry().setFromPoints(points);
+        const line = new THREE.Line(geo, this.haloMat);
+        line.renderOrder = 10001;
+        line.raycast = () => {};
+        this.snapHaloGroup.add(line);
+        this.snapHaloGroup.visible = true;
+    }
+
+    _findMagneticSnap(planePt, targetElevation, entity, planner) {
+        const px = planePt.x;
+        const pz = planePt.z;
+        const SNAP_RADIUS = 25; // 25cm magnetic snap radius
+
+        // Priority 0: Polygon Start Vertex (Loop Closing Snap for Option B)
+        if (this.drawMode === 'polygon' && this.polygonPoints.length >= 3) {
+            const startV = this.polygonPoints[0];
+            const dStart = Math.hypot(startV.x - px, startV.z - pz);
+            if (dStart < SNAP_RADIUS) {
+                return {
+                    x: Math.round(startV.x),
+                    y: startV.y,
+                    z: Math.round(startV.z),
+                    snapType: 'polygon_close',
+                    snapLabel: '🧲 CLICK TO CLOSE POLYGON ROOF',
+                    color: 0x10b981,
+                    haloPoints: null,
+                    isClosing: true,
+                    hitEntity: startV.hitEntity
+                };
+            }
+        }
+
+        // Priority 0b: Intermediate Placed Polyline Vertices
+        if (this.drawMode === 'polygon' && this.polygonPoints.length > 1) {
+            for (let i = 1; i < this.polygonPoints.length - 1; i++) {
+                const vi = this.polygonPoints[i];
+                const dvi = Math.hypot(vi.x - px, vi.z - pz);
+                if (dvi < 18) {
+                    return {
+                        x: Math.round(vi.x),
+                        y: vi.y,
+                        z: Math.round(vi.z),
+                        snapType: 'polygon_vertex',
+                        snapLabel: `🧲 VERTEX ${i + 1} ALIGNED`,
+                        color: 0x06b6d4,
+                        haloPoints: null,
+                        hitEntity: vi.hitEntity
+                    };
+                }
+            }
+        }
+
+        // Priority 1: Wall Corners (Start and End endpoints of all active planner walls)
+        let closestCornerDist = Infinity;
+        let bestCornerSnap = null;
+
+        if (planner?.walls && planner.walls.length > 0) {
+            for (const w of planner.walls) {
+                if (w.hidden || w.isAutoGable) continue;
+                const p1 = w.startAnchor?.position ? w.startAnchor.position() : { x: w.x1 || w.startX || 0, y: w.y1 || w.startY || 0 };
+                const p2 = w.endAnchor?.position ? w.endAnchor.position() : { x: w.x2 || w.endX || 0, y: w.y2 || w.endY || 0 };
+                const wallBaseY = w.elevation || 0;
+                const wallH = w.height !== undefined ? w.height : (w.config?.height || 120);
+                const wallTop = wallBaseY + wallH;
+
+                const d1 = Math.hypot(p1.x - px, p1.y - pz);
+                if (d1 < SNAP_RADIUS && d1 < closestCornerDist) {
+                    closestCornerDist = d1;
+                    bestCornerSnap = {
+                        x: Math.round(p1.x),
+                        y: wallTop,
+                        z: Math.round(p1.y),
+                        snapType: 'wall_corner',
+                        snapLabel: '🧲 SNAPPED TO WALL CORNER',
+                        color: 0x10b981,
+                        haloPoints: null,
+                        hitEntity: w
+                    };
+                }
+
+                const d2 = Math.hypot(p2.x - px, p2.y - pz);
+                if (d2 < SNAP_RADIUS && d2 < closestCornerDist) {
+                    closestCornerDist = d2;
+                    bestCornerSnap = {
+                        x: Math.round(p2.x),
+                        y: wallTop,
+                        z: Math.round(p2.y),
+                        snapType: 'wall_corner',
+                        snapLabel: '🧲 SNAPPED TO WALL CORNER',
+                        color: 0x10b981,
+                        haloPoints: null,
+                        hitEntity: w
+                    };
+                }
+            }
+        }
+
+        // Priority 2: Existing Roof Corners (all vertices of existing roofs)
+        if (planner?.roofs && planner.roofs.length > 0) {
+            for (const r of planner.roofs) {
+                if (!r.points || r.points.length < 3) continue;
+                const rElev = r.elevation !== undefined ? r.elevation : 120;
+                const rThick = r.config?.thickness !== undefined ? r.config.thickness : 15;
+                const rTop = rElev + rThick;
+
+                for (const pt of r.points) {
+                    const d = Math.hypot(pt.x - px, pt.y - pz);
+                    if (d < SNAP_RADIUS && d < closestCornerDist) {
+                        closestCornerDist = d;
+                        bestCornerSnap = {
+                            x: Math.round(pt.x),
+                            y: rTop,
+                            z: Math.round(pt.y),
+                            snapType: 'roof_corner',
+                            snapLabel: '🧲 SNAPPED TO ROOF CORNER',
+                            color: 0x06b6d4,
+                            haloPoints: null,
+                            hitEntity: r
+                        };
+                    }
+                }
+            }
+        }
+
+        if (bestCornerSnap) {
+            return bestCornerSnap;
+        }
+
+        // Priority 3: Wall Baseline / Edge Snapping (Project onto wall centerline segment)
+        let closestEdgeDist = Infinity;
+        let bestEdgeSnap = null;
+
+        if (planner?.walls && planner.walls.length > 0) {
+            for (const w of planner.walls) {
+                if (w.hidden || w.isAutoGable) continue;
+                const p1 = w.startAnchor?.position ? w.startAnchor.position() : { x: w.x1 || w.startX || 0, y: w.y1 || w.startY || 0 };
+                const p2 = w.endAnchor?.position ? w.endAnchor.position() : { x: w.x2 || w.endX || 0, y: w.y2 || w.endY || 0 };
+                const len2 = (p2.x - p1.x) ** 2 + (p2.y - p1.y) ** 2;
+                if (len2 < 1) continue;
+
+                const t = Math.max(0, Math.min(1, ((px - p1.x) * (p2.x - p1.x) + (pz - p1.y) * (p2.y - p1.y)) / len2));
+                const projX = p1.x + t * (p2.x - p1.x);
+                const projZ = p1.y + t * (p2.y - p1.y);
+                const dist = Math.hypot(px - projX, pz - projZ);
+                const wallBaseY = w.elevation || 0;
+                const wallH = w.height !== undefined ? w.height : (w.config?.height || 120);
+                const wallTop = wallBaseY + wallH;
+                const snapThresh = (w.thickness || 15) + 12;
+
+                if (dist < snapThresh && dist < closestEdgeDist) {
+                    closestEdgeDist = dist;
+                    bestEdgeSnap = {
+                        x: Math.round(projX * 10) / 10,
+                        y: wallTop,
+                        z: Math.round(projZ * 10) / 10,
+                        snapType: 'wall_edge',
+                        snapLabel: '🧱 SNAPPED TO WALL TOP',
+                        color: 0x00f0ff,
+                        haloPoints: [new THREE.Vector3(p1.x, wallTop + 0.3, p1.y), new THREE.Vector3(p2.x, wallTop + 0.3, p2.y)],
+                        hitEntity: w
+                    };
+                }
+            }
+        }
+
+        // Priority 4: Roof Outer Edges Snapping
+        if (planner?.roofs && planner.roofs.length > 0) {
+            for (const r of planner.roofs) {
+                if (!r.points || r.points.length < 3) continue;
+                const rElev = r.elevation !== undefined ? r.elevation : 120;
+                const rThick = r.config?.thickness !== undefined ? r.config.thickness : 15;
+                const rTop = rElev + rThick;
+
+                for (let i = 0; i < r.points.length; i++) {
+                    const j = (i + 1) % r.points.length;
+                    const p1 = r.points[i];
+                    const p2 = r.points[j];
+                    const len2 = (p2.x - p1.x) ** 2 + (p2.y - p1.y) ** 2;
+                    if (len2 < 1) continue;
+
+                    const t = Math.max(0, Math.min(1, ((px - p1.x) * (p2.x - p1.x) + (pz - p1.y) * (p2.y - p1.y)) / len2));
+                    const projX = p1.x + t * (p2.x - p1.x);
+                    const projZ = p1.y + t * (p2.y - p1.y);
+                    const dist = Math.hypot(px - projX, pz - projZ);
+
+                    if (dist < 18 && dist < closestEdgeDist) {
+                        closestEdgeDist = dist;
+                        bestEdgeSnap = {
+                            x: Math.round(projX * 10) / 10,
+                            y: rTop,
+                            z: Math.round(projZ * 10) / 10,
+                            snapType: 'roof_edge',
+                            snapLabel: '🏠 SNAPPED TO ROOF EDGE',
+                            color: 0x38bdf8,
+                            haloPoints: [new THREE.Vector3(p1.x, rTop + 0.3, p1.y), new THREE.Vector3(p2.x, rTop + 0.3, p2.y)],
+                            hitEntity: r
+                        };
+                    }
+                }
+            }
+        }
+
+        if (bestEdgeSnap) {
+            return bestEdgeSnap;
+        }
+
+        // Priority 5: Surface / Slab Snapping (if ray hit a surface or elevated element)
+        if (entity || targetElevation > 5) {
+            const snap = 5;
+            return {
+                x: Math.round(px / snap) * snap,
+                y: targetElevation,
+                z: Math.round(pz / snap) * snap,
+                snapType: 'surface',
+                snapLabel: '🏢 SURFACE / SLAB',
+                color: 0x60a5fa,
+                haloPoints: null,
+                hitEntity: entity
+            };
+        }
+
+        // Priority 6: Ground Plane Fallback
+        const snap = 10;
+        return {
+            x: Math.round(px / snap) * snap,
+            y: targetElevation,
+            z: Math.round(pz / snap) * snap,
+            snapType: 'ground',
+            snapLabel: '🏕️ GROUND LEVEL',
+            color: 0xffffff,
+            haloPoints: null,
+            hitEntity: null
+        };
+    }
+
     _getRaycastIntersection(e) {
         this.updateMouse(e);
         this.raycaster.setFromCamera(this.mouse, this.ctx.camera);
@@ -179,87 +706,103 @@ export class Roof3DPlacementSystem {
 
         // 1. Direct 3D Raycasting against actual wall, floor slab, terrain, and roof meshes (Sims 4 Placement)
         const structureObjects = [];
-        if (this.ctx.structureGroup) {
-            this.ctx.structureGroup.traverse(child => {
+        const scanGroup = (grp) => {
+            if (!grp) return;
+            grp.traverse(child => {
                 if (child.isMesh && child.userData && (
                     child.userData.isWallSide || 
                     child.userData.entity || 
                     child.userData.isRoof || 
                     child.userData.componentType === 'roof_top' ||
                     child.userData.isFloor ||
+                    child.userData.isSlab ||
+                    child.userData.isPlatform ||
                     child.userData.isTerrain
                 )) {
                     structureObjects.push(child);
                 }
             });
+        };
+
+        scanGroup(this.ctx.structureGroup);
+        if (this.ctx.scene && structureObjects.length === 0) {
+            scanGroup(this.ctx.scene);
         }
+
+        let hitEntity = null;
+        let planePt = new THREE.Vector3();
+        let hasHit = false;
 
         if (structureObjects.length > 0) {
             const hits = this.raycaster.intersectObjects(structureObjects, false);
             if (hits.length > 0) {
                 const hit = hits[0];
-                let entity = hit.object.userData?.entity;
-                if (!entity && hit.object.parent) entity = hit.object.parent.userData?.entity;
+                hitEntity = hit.object.userData?.entity;
+                if (!hitEntity && hit.object.parent) hitEntity = hit.object.parent.userData?.entity;
 
-                if (entity && entity.startAnchor && entity.endAnchor) {
-                    const wallBaseY = entity.elevation || 0;
-                    const wallH = entity.height !== undefined ? entity.height : (entity.config?.height || 120);
+                if (this.drawMode === 'polygon' && this.polygonElevation !== null) {
+                    targetElevation = this.polygonElevation;
+                } else if (hitEntity && hitEntity.startAnchor && hitEntity.endAnchor) {
+                    const wallBaseY = hitEntity.elevation || 0;
+                    const wallH = hitEntity.height !== undefined ? hitEntity.height : (hitEntity.config?.height || 120);
                     targetElevation = wallBaseY + wallH;
                 } else if (hit.point && hit.point.y !== undefined) {
                     targetElevation = Math.round(hit.point.y * 10) / 10;
                 }
 
-                // Project hit point onto horizontal plane at targetElevation
-                this.placementPlane.constant = -targetElevation;
-                const planePt = new THREE.Vector3();
-                if (this.raycaster.ray.intersectPlane(this.placementPlane, planePt)) {
-                    // Check for wall anchor snap
-                    let finalX = planePt.x;
-                    let finalZ = planePt.z;
-                    if (planner && planner.anchors) {
-                        for (const anc of planner.anchors) {
-                            const apos = typeof anc.position === 'function' ? anc.position() : anc;
-                            if (Math.hypot(apos.x - planePt.x, apos.y - planePt.z) < 25) {
-                                finalX = apos.x;
-                                finalZ = apos.y;
-                                break;
-                            }
-                        }
-                    } else {
-                        const snap = 10;
-                        finalX = Math.round(planePt.x / snap) * snap;
-                        finalZ = Math.round(planePt.z / snap) * snap;
-                    }
-
-                    return { x: finalX, y: targetElevation, z: finalZ, rawPoint: planePt, hitEntity: entity };
-                }
+                // Direct physical mesh surface hit point (x, z) at targetElevation to eliminate parallax distortion
+                planePt.set(hit.point.x, targetElevation, hit.point.z);
+                hasHit = true;
             }
         }
 
-        // 2. Fallback to Ground / Active Level Elevation Plane (y = 0 for flat ground roof)
-        const groundElev = this.ctx?.activeLevelElevation || 0;
-        this.placementPlane.constant = -groundElev;
-        const planePt = new THREE.Vector3();
-        const hitPlane = this.raycaster.ray.intersectPlane(this.placementPlane, planePt);
-
-        if (hitPlane) {
-            let finalX = planePt.x;
-            let finalZ = planePt.z;
-            if (planner && planner.anchors) {
-                for (const anc of planner.anchors) {
-                    const apos = typeof anc.position === 'function' ? anc.position() : anc;
-                    if (Math.hypot(apos.x - planePt.x, apos.y - planePt.z) < 25) {
-                        finalX = apos.x;
-                        finalZ = apos.y;
-                        break;
-                    }
-                }
-            } else {
-                const snap = 10;
-                finalX = Math.round(planePt.x / snap) * snap;
-                finalZ = Math.round(planePt.z / snap) * snap;
+        if (!hasHit) {
+            // 2. Fallback to Ground / Active Level Elevation Plane (y = 0 for flat ground roof)
+            const groundElev = (this.drawMode === 'polygon' && this.polygonElevation !== null)
+                ? this.polygonElevation
+                : (this.ctx?.activeLevelElevation || 0);
+            targetElevation = groundElev;
+            this.placementPlane.constant = -groundElev;
+            if (this.raycaster.ray.intersectPlane(this.placementPlane, planePt)) {
+                hasHit = true;
             }
-            return { x: finalX, y: groundElev, z: finalZ, rawPoint: planePt };
+        }
+
+        if (hasHit && planePt) {
+            const snap = this._findMagneticSnap(planePt, targetElevation, hitEntity, planner);
+
+            // Update interactive snap indicator cursor position, scale, and colors
+            if (this.snapIndicatorGroup) {
+                this.snapIndicatorGroup.position.set(snap.x, snap.y + 0.6, snap.z);
+                if (this.ctx?.camera) {
+                    const camDist = this.ctx.camera.position.distanceTo(this.snapIndicatorGroup.position);
+                    const scale = Math.max(0.8, Math.min(4.5, camDist / 400));
+                    this.snapIndicatorGroup.scale.setScalar(scale);
+                }
+                if (this.snapRingMat) this.snapRingMat.color.setHex(snap.color);
+                if (this.snapDotMat) this.snapDotMat.color.setHex(snap.color);
+                this.snapIndicatorGroup.visible = true;
+            }
+
+            if (this.startAnchorGroup && this.startAnchorGroup.visible && this.ctx?.camera) {
+                const camDist = this.ctx.camera.position.distanceTo(this.startAnchorGroup.position);
+                const scale = Math.max(0.8, Math.min(4.5, camDist / 400));
+                this.startAnchorGroup.scale.setScalar(scale);
+            }
+
+            // Update snap halo line
+            this._updateSnapHalo(snap.haloPoints);
+
+            return {
+                x: snap.x,
+                y: snap.y,
+                z: snap.z,
+                snapType: snap.snapType,
+                snapLabel: snap.snapLabel,
+                color: snap.color,
+                rawPoint: planePt,
+                hitEntity: snap.hitEntity || hitEntity
+            };
         }
 
         return null;
@@ -272,12 +815,106 @@ export class Roof3DPlacementSystem {
         const hit = this._getRaycastIntersection(e);
         if (!hit) return false;
 
+        const now = Date.now();
+        const isDblClick = (this.lastClickTime && (now - this.lastClickTime < 450)) || (e.detail && e.detail >= 2);
+        this.lastClickTime = now;
+
         e.preventDefault();
         e.stopPropagation();
 
+        // 1. OPTION B: Polyline Polygon Draw Mode
+        if (this.drawMode === 'polygon') {
+            // Check double-click completion
+            if (isDblClick && this.polygonPoints.length >= 3) {
+                this.finishPolygon();
+                return true;
+            }
+
+            // Check click on start vertex to close loop
+            if (this.polygonPoints.length >= 3) {
+                const startV = this.polygonPoints[0];
+                const dStart = Math.hypot(hit.x - startV.x, hit.z - startV.z);
+                if (dStart < 25 || hit.isClosing) {
+                    this.finishPolygon();
+                    return true;
+                }
+            }
+
+            const newPt = {
+                x: hit.x,
+                y: this.polygonElevation !== null ? this.polygonElevation : hit.y,
+                z: hit.z,
+                hitEntity: hit.hitEntity,
+                snapType: hit.snapType
+            };
+
+            if (this.polygonPoints.length === 0) {
+                this.polygonElevation = newPt.y;
+            } else {
+                const lastP = this.polygonPoints[this.polygonPoints.length - 1];
+                if (Math.hypot(newPt.x - lastP.x, newPt.z - lastP.z) < 5) {
+                    return true;
+                }
+            }
+
+            this.polygonPoints.push(newPt);
+            this._updatePolygonVisuals();
+            this.ghostGroup.visible = true;
+            if (this.ctx.controls) this.ctx.controls.enabled = false;
+
+            if (this.ctx && typeof this.ctx.requestRender === 'function') {
+                this.ctx.requestRender();
+            }
+            return true;
+        }
+
+        // 2. OPTION A: Box Mode (Supports Click-Move-Click AND Click-Drag-Release)
+        if (this.drawing && this.startPoint) {
+            // Second click in Click-Move-Click mode!
+            const p1 = this.startPoint;
+            const p2 = { x: hit.x, z: hit.z, y: hit.y, hitEntity: hit.hitEntity, snapType: hit.snapType };
+
+            let minX = Math.min(p1.x, p2.x);
+            let maxX = Math.max(p1.x, p2.x);
+            let minZ = Math.min(p1.z, p2.z);
+            let maxZ = Math.max(p1.z, p2.z);
+
+            const w = maxX - minX;
+            const d = maxZ - minZ;
+
+            if (w >= 10 && d >= 10) {
+                const roofPoints = [
+                    { x: minX, y: minZ },
+                    { x: maxX, y: minZ },
+                    { x: maxX, y: maxZ },
+                    { x: minX, y: maxZ }
+                ];
+                const roofElevation = p1.y;
+                const extraConfig = {};
+                if (p1.hitEntity?.id) extraConfig.connectedWallId = p1.hitEntity.id;
+
+                this.drawing = false;
+                this.startPoint = null;
+                this.currentPoint = null;
+                if (this.startAnchorGroup) this.startAnchorGroup.visible = false;
+                if (this.ctx.controls) this.ctx.controls.enabled = true;
+                this.hideGhost();
+                this._commitRoof(roofPoints, roofElevation, extraConfig);
+                return true;
+            }
+        }
+
+        // Start drawing: Click 1 (locks Corner 1)
+        this.lastHit = hit;
         this.drawing = true;
-        this.startPoint = { x: hit.x, z: hit.z, y: hit.y };
-        this.currentPoint = { x: hit.x, z: hit.z, y: hit.y };
+        this.startPoint = { x: hit.x, z: hit.z, y: hit.y, hitEntity: hit.hitEntity, snapType: hit.snapType };
+        this.currentPoint = { x: hit.x, z: hit.z, y: hit.y, hitEntity: hit.hitEntity, snapType: hit.snapType };
+
+        // Position stationary start anchor marker
+        if (this.startAnchorGroup) {
+            this.startAnchorGroup.position.set(hit.x, hit.y + 0.7, hit.z);
+            this.startAnchorGroup.visible = true;
+        }
 
         this.ghostGroup.visible = true;
         if (this.ctx.controls) this.ctx.controls.enabled = false;
@@ -288,17 +925,102 @@ export class Roof3DPlacementSystem {
 
     onPointerMove(e) {
         if (!this.isPlacementTool()) return false;
+        this._showModeHUD();
+
         const hit = this._getRaycastIntersection(e);
         if (!hit) return false;
 
-        if (!this.drawing) {
-            this.currentPoint = { x: hit.x, z: hit.z, y: hit.y };
-            this.ghostGroup.visible = true;
-            this._renderGhostStamp(hit);
+        this.lastHit = hit;
+
+        // 1. OPTION B: Polyline Polygon Draw Mode
+        if (this.drawMode === 'polygon') {
+            if (this.polygonPoints.length === 0) {
+                this.ghostGroup.visible = false;
+                if (this.startAnchorGroup) this.startAnchorGroup.visible = false;
+                const snapBadge = hit.snapLabel ? `<span style="color: #10b981;">${hit.snapLabel}</span> &bull; ` : '';
+                this._updateDOMBadge(
+                    `${snapBadge}Start Corner: <strong>Click to place first corner</strong>`,
+                    { x: this.lastClientX || 0, y: this.lastClientY || 0 }
+                );
+                if (this.ctx && typeof this.ctx.requestRender === 'function') {
+                    this.ctx.requestRender();
+                }
+                return true;
+            }
+
+            let currX = hit.x;
+            let currZ = hit.z;
+            const lastP = this.polygonPoints[this.polygonPoints.length - 1];
+            let angleInfo = null;
+
+            // Ortho / Angle snap relative to last placed vertex
+            if (!hit.isClosing && !hit.snapType?.startsWith('wall_corner') && !hit.snapType?.startsWith('roof_corner')) {
+                const angleSnap = this._snapAngle(lastP, { x: currX, z: currZ });
+                currX = angleSnap.x;
+                currZ = angleSnap.z;
+                angleInfo = angleSnap.angleLabel;
+            }
+
+            const currentPt = {
+                x: currX,
+                y: this.polygonElevation !== null ? this.polygonElevation : hit.y,
+                z: currZ,
+                hitEntity: hit.hitEntity
+            };
+
+            this._updatePolygonVisuals(currentPt);
+
+            // Render live 3D extruded ghost when >= 2 points placed
+            if (this.polygonPoints.length >= 2) {
+                const previewPts = [...this.polygonPoints.map(p => ({ x: p.x, y: p.z })), { x: currX, y: currZ }];
+                this._buildGhost3DMesh(previewPts, this.polygonElevation !== null ? this.polygonElevation : hit.y);
+                this.ghostGroup.visible = true;
+            }
+
+            // Live HUD badge
+            const segDist = Math.hypot(currX - lastP.x, currZ - lastP.z);
+            const segDistStr = this._formatFeetInches(segDist);
+            const count = this.polygonPoints.length;
+            const angleBadge = angleInfo ? ` &bull; <span style="color: #38bdf8;">${angleInfo}</span>` : '';
+            const snapBadge = hit.snapLabel ? `<span style="color: #10b981;">${hit.snapLabel}</span> &bull; ` : '';
+
+            if (hit.isClosing) {
+                this._updateDOMBadge(
+                    `${snapBadge}<strong>Click or Press [Enter] to CLOSE ROOF POLYGON</strong> (${count} corners)`,
+                    { x: this.lastClientX || 0, y: this.lastClientY || 0 }
+                );
+            } else {
+                this._updateDOMBadge(
+                    `${snapBadge}Corner ${count + 1} &bull; <strong>${segDistStr}</strong> (${Math.round(segDist)} cm)${angleBadge} &bull; Click to place`,
+                    { x: this.lastClientX || 0, y: this.lastClientY || 0 }
+                );
+            }
+
+            if (this.ctx && typeof this.ctx.requestRender === 'function') {
+                this.ctx.requestRender();
+            }
             return true;
         }
 
-        this.currentPoint = { x: hit.x, z: hit.z, y: hit.y };
+        // 2. OPTION A: Box Mode (Click-Move-Click OR Click-Drag-Release)
+        if (!this.drawing) {
+            this.currentPoint = { x: hit.x, z: hit.z, y: hit.y, hitEntity: hit.hitEntity, snapType: hit.snapType };
+            this.ghostGroup.visible = false;
+            if (this.startAnchorGroup) this.startAnchorGroup.visible = false;
+            const snapBadge = hit.snapLabel ? `<span style="color: #10b981;">${hit.snapLabel}</span> &bull; ` : '';
+            const params = this.getActiveRoofParams();
+            const typeLabel = params.roofType.toUpperCase();
+            this._updateDOMBadge(
+                `${snapBadge}Corner 1: <strong>Click or Drag to set first corner</strong> &bull; ${typeLabel}`,
+                { x: this.lastClientX || 0, y: this.lastClientY || 0 }
+            );
+            if (this.ctx && typeof this.ctx.requestRender === 'function') {
+                this.ctx.requestRender();
+            }
+            return true;
+        }
+
+        this.currentPoint = { x: hit.x, z: hit.z, y: hit.y, hitEntity: hit.hitEntity, snapType: hit.snapType };
         this._renderGhost();
         return true;
     }
@@ -318,6 +1040,84 @@ export class Roof3DPlacementSystem {
         const planner = this.getPlanner();
         const pt = { x: hit.x, y: hit.z };
         const cursorElev = hit.y !== undefined ? hit.y : this.getBaseRoofElevation();
+        const params = this.getActiveRoofParams();
+        const isCurvedPortal = params.roofType === 'curved_portal';
+        let hitEntity = hit.hitEntity || this.lastHit?.hitEntity || this.startPoint?.hitEntity;
+
+        if (isCurvedPortal && !hitEntity && planner?.walls) {
+            // Find if cursor is directly on or close to any wall
+            for (const w of planner.walls) {
+                if (w.hidden || w.isAutoGable) continue;
+                const p1 = w.startAnchor?.position ? w.startAnchor.position() : { x: w.x1 || w.startX || 0, y: w.y1 || w.startY || 0 };
+                const p2 = w.endAnchor?.position ? w.endAnchor.position() : { x: w.x2 || w.endX || 0, y: w.y2 || w.endY || 0 };
+                const l2 = (p2.x - p1.x) ** 2 + (p2.y - p1.y) ** 2;
+                if (l2 < 10) continue;
+                const t = Math.max(0, Math.min(1, ((pt.x - p1.x) * (p2.x - p1.x) + (pt.y - p1.y) * (p2.y - p1.y)) / l2));
+                const projX = p1.x + t * (p2.x - p1.x);
+                const projY = p1.y + t * (p2.y - p1.y);
+                const dist = Math.hypot(pt.x - projX, pt.y - projY);
+                if (dist < (w.thickness || 15) + 20) {
+                    hitEntity = w;
+                    break;
+                }
+            }
+        }
+
+        // 0. Dedicated Wall-Attached Curved Portal Canopy Snapping
+        if (isCurvedPortal && hitEntity && (hitEntity.startAnchor || hitEntity.x1 !== undefined)) {
+            const hitW = hitEntity;
+            const p1 = hitW.startAnchor?.position ? hitW.startAnchor.position() : { x: hitW.x1 || hitW.startX || 0, y: hitW.y1 || hitW.startY || 0 };
+            const p2 = hitW.endAnchor?.position ? hitW.endAnchor.position() : { x: hitW.x2 || hitW.endX || 0, y: hitW.y2 || hitW.endY || 0 };
+            const len = Math.hypot(p2.x - p1.x, p2.y - p1.y);
+
+            if (len > 10) {
+                const ux = (p2.x - p1.x) / len;
+                const uy = (p2.y - p1.y) / len;
+                let nx = -uy;
+                let ny = ux;
+
+                // Outward normal detection using camera line of sight
+                const camPos = this.ctx?.camera?.position;
+                const midX = (p1.x + p2.x) / 2;
+                const midY = (p1.y + p2.y) / 2;
+                if (camPos) {
+                    const toCamX = camPos.x - midX;
+                    const toCamZ = camPos.z - midY;
+                    if (toCamX * nx + toCamZ * ny < 0) {
+                        nx = -nx;
+                        ny = -ny;
+                    }
+                } else if ((pt.x - midX) * nx + (pt.y - midY) * ny < 0) {
+                    nx = -nx;
+                    ny = -ny;
+                }
+
+                const depth = 180; // Standard modern portal canopy depth (cm)
+                const wallBaseY = hitW.elevation || 0;
+                const wallH = hitW.height !== undefined ? hitW.height : (hitW.config?.height || 120);
+                const topElev = wallBaseY + wallH;
+                const wallThick = hitW.thickness !== undefined ? hitW.thickness : (hitW.config?.thickness || 15);
+
+                const poly = [
+                    { x: Math.round(p1.x), y: Math.round(p1.y) },
+                    { x: Math.round(p2.x), y: Math.round(p2.y) },
+                    { x: Math.round(p2.x + depth * nx), y: Math.round(p2.y + depth * ny) },
+                    { x: Math.round(p1.x + depth * nx), y: Math.round(p1.y + depth * ny) }
+                ];
+
+                return {
+                    points: poly,
+                    type: 'wall_attached',
+                    width: Math.round(len),
+                    depth: depth,
+                    elevation: topElev,
+                    connectedWall: hitW,
+                    connectedWallId: hitW.id,
+                    thickness: wallThick,
+                    wallSides: { left: false, right: true, front: false, back: false }
+                };
+            }
+        }
 
         // Helper to compute polygon area
         const getPolyArea = (poly) => {
@@ -488,17 +1288,34 @@ export class Roof3DPlacementSystem {
     }
 
     onPointerUp(e) {
-        if (!this.isPlacementTool() || !this.drawing) return false;
+        if (!this.isPlacementTool()) return false;
         if (e.button !== 0) return false;
 
+        // In polygon mode, clicks add vertices; onPointerUp doesn't finish the shape
+        if (this.drawMode === 'polygon') {
+            return true;
+        }
+
+        if (!this.drawing || !this.startPoint) return false;
+
+        const p1 = this.startPoint;
+        const p2 = this.currentPoint || { x: p1.x, z: p1.z, y: p1.y };
+        const dragDist = Math.hypot(p2.x - p1.x, p2.z - p1.z);
+
+        if (dragDist < 15) {
+            // User performed a single click (Corner 1).
+            // Do NOT commit! Keep this.drawing = true for Click-Move-Click CAD workflow.
+            // Move cursor to expand the box, then click Corner 2 to confirm the exact area.
+            if (this.ctx.controls) this.ctx.controls.enabled = false;
+            return true;
+        }
+
+        // Drag release with distance >= 15: Commit the exact drawn rectangle!
         e.preventDefault();
         e.stopPropagation();
 
         this.drawing = false;
         if (this.ctx.controls) this.ctx.controls.enabled = true;
-
-        const p1 = this.startPoint;
-        const p2 = this.currentPoint;
 
         let minX = Math.min(p1.x, p2.x);
         let maxX = Math.max(p1.x, p2.x);
@@ -508,32 +1325,33 @@ export class Roof3DPlacementSystem {
         const w = maxX - minX;
         const d = maxZ - minZ;
 
-        let roofPoints = [];
-        let roofElevation = p1.y;
-        if (w < 40 || d < 40) {
-            const autoShape = this._getAutoRoofShape({ x: p1.x, z: p1.z, y: p1.y });
-            roofPoints = autoShape.points;
-            if (autoShape.elevation !== undefined) roofElevation = autoShape.elevation;
-        } else {
-            roofPoints = [
-                { x: minX, y: minZ },
-                { x: maxX, y: minZ },
-                { x: maxX, y: maxZ },
-                { x: minX, y: maxZ }
-            ];
-        }
+        const roofPoints = [
+            { x: minX, y: minZ },
+            { x: minX + w, y: minZ },
+            { x: minX + w, y: minZ + d },
+            { x: minX, y: minZ + d }
+        ];
+        const roofElevation = p1.y;
+        const extraConfig = {};
+        if (p1.hitEntity?.id) extraConfig.connectedWallId = p1.hitEntity.id;
 
-        this._commitRoof(roofPoints, roofElevation);
+        this.startPoint = null;
+        this.currentPoint = null;
+        if (this.startAnchorGroup) this.startAnchorGroup.visible = false;
         this.hideGhost();
+        this._commitRoof(roofPoints, roofElevation, extraConfig);
         return true;
     }
 
-    _commitRoof(points, elevation) {
+    _commitRoof(points, elevation, extraConfig = {}) {
         const planner = this.getPlanner();
         if (!planner) return;
 
         const params = this.getActiveRoofParams();
         const roofElev = elevation !== undefined ? elevation : this.getBaseRoofElevation();
+        const isCurvedPortal = params.roofType === 'curved_portal';
+        const defaultThickness = isCurvedPortal ? (extraConfig.thickness || params.thick || 15) : (params.thick !== undefined ? params.thick : 10);
+        const defaultOverhang = isCurvedPortal ? 0 : (params.overhang !== undefined ? params.overhang : 8);
 
         planner.executeWithSnapshot(() => {
             const roofConfig = {
@@ -541,12 +1359,13 @@ export class Roof3DPlacementSystem {
                 pitch: params.pitch !== undefined ? params.pitch : 30,
                 curve: params.curve !== undefined ? params.curve : 0,
                 radius: params.radius !== undefined ? params.radius : 0,
-                wallSides: params.wallSides ? { ...params.wallSides } : undefined,
+                wallSides: extraConfig.wallSides || (params.wallSides ? { ...params.wallSides } : undefined),
                 wallDropHeight: params.wallDropHeight !== undefined ? params.wallDropHeight : undefined,
                 hasSpotlights: params.hasSpotlights !== undefined ? params.hasSpotlights : undefined,
                 material: params.material,
-                overhang: params.overhang !== undefined ? params.overhang : 8,
-                thickness: params.thick !== undefined ? params.thick : 10
+                overhang: defaultOverhang,
+                thickness: defaultThickness,
+                connectedWallId: extraConfig.connectedWallId || undefined
             };
 
             const newRoof = RoofEngine.createRoof(planner, points, roofConfig, {
@@ -574,11 +1393,149 @@ export class Roof3DPlacementSystem {
                 const targetMesh = newRoof.mesh3D.children.find(c => c.userData?.isRoof) || newRoof.mesh3D;
                 this.interactions.selectObject(targetMesh, null, true);
             }
-
-            planner.tool = 'select';
-            planner.updateToolStates();
-            if (planner.onToolChange) planner.onToolChange('select');
         });
+    }
+
+    finishPolygon() {
+        if (!this.polygonPoints || this.polygonPoints.length < 3) return;
+
+        const points2D = this.polygonPoints.map(p => ({ x: Math.round(p.x), y: Math.round(p.z) }));
+        const baseElevation = this.polygonElevation !== null ? this.polygonElevation : (this.polygonPoints[0].y || this.getBaseRoofElevation());
+
+        const extraConfig = {};
+        if (this.polygonPoints[0].hitEntity?.id) {
+            extraConfig.connectedWallId = this.polygonPoints[0].hitEntity.id;
+        }
+
+        this._commitRoof(points2D, baseElevation, extraConfig);
+        this.resetPolygon();
+        this.hideGhost();
+    }
+
+    resetPolygon() {
+        this.polygonPoints = [];
+        this.polygonElevation = null;
+        this._clearPolygonVisuals();
+        if (this.ctx.controls) this.ctx.controls.enabled = true;
+        if (this.ctx && typeof this.ctx.requestRender === 'function') {
+            this.ctx.requestRender();
+        }
+    }
+
+    _clearPolygonVisuals() {
+        if (this.polygonMarkersGroup) {
+            while (this.polygonMarkersGroup.children.length > 0) {
+                const c = this.polygonMarkersGroup.children[0];
+                this.polygonMarkersGroup.remove(c);
+                if (c.geometry) c.geometry.dispose();
+                if (c.children) {
+                    c.children.forEach(ch => { if (ch.geometry) ch.geometry.dispose(); });
+                }
+            }
+            this.polygonMarkersGroup.visible = false;
+        }
+        if (this.polygonLineGroup) {
+            while (this.polygonLineGroup.children.length > 0) {
+                const c = this.polygonLineGroup.children[0];
+                this.polygonLineGroup.remove(c);
+                if (c.geometry) c.geometry.dispose();
+            }
+            this.polygonLineGroup.visible = false;
+        }
+    }
+
+    _updatePolygonVisuals(currentPt = null) {
+        if (!this.polygonMarkersGroup || !this.polygonLineGroup) return;
+
+        this._clearPolygonVisuals();
+        if (this.polygonPoints.length === 0) return;
+
+        const elev = this.polygonElevation !== null ? this.polygonElevation : (this.polygonPoints[0].y || 0);
+
+        // 1. Rebuild Placed Vertex Markers
+        this.polygonPoints.forEach((p, idx) => {
+            const isStart = idx === 0;
+            const markerGroup = new THREE.Group();
+            markerGroup.position.set(p.x, elev + 0.8, p.z);
+            markerGroup.raycast = () => {};
+
+            const ringGeo = new THREE.RingGeometry(isStart ? 6 : 4.5, isStart ? 9.5 : 7.5, 32);
+            ringGeo.rotateX(-Math.PI / 2);
+            const ringMat = new THREE.MeshBasicMaterial({
+                color: isStart ? 0x10b981 : 0x06b6d4,
+                depthTest: false,
+                transparent: true,
+                opacity: 0.95,
+                side: THREE.DoubleSide
+            });
+            const ringMesh = new THREE.Mesh(ringGeo, ringMat);
+            ringMesh.renderOrder = 10004;
+            ringMesh.raycast = () => {};
+            markerGroup.add(ringMesh);
+
+            const dotGeo = new THREE.CircleGeometry(isStart ? 4.5 : 3.5, 32);
+            dotGeo.rotateX(-Math.PI / 2);
+            const dotMat = new THREE.MeshBasicMaterial({
+                color: isStart ? 0x059669 : 0x0284c7,
+                depthTest: false,
+                transparent: true,
+                opacity: 0.95,
+                side: THREE.DoubleSide
+            });
+            const dotMesh = new THREE.Mesh(dotGeo, dotMat);
+            dotMesh.renderOrder = 10005;
+            dotMesh.raycast = () => {};
+            markerGroup.add(dotMesh);
+
+            this.polygonMarkersGroup.add(markerGroup);
+        });
+        this.polygonMarkersGroup.visible = true;
+
+        // 2. Rebuild Perimeter Lines
+        const linePoints = this.polygonPoints.map(p => new THREE.Vector3(p.x, elev + 0.5, p.z));
+
+        if (currentPt) {
+            linePoints.push(new THREE.Vector3(currentPt.x, elev + 0.5, currentPt.z));
+        }
+
+        if (linePoints.length >= 2) {
+            const lineGeo = new THREE.BufferGeometry().setFromPoints(linePoints);
+            const lineMat = new THREE.LineBasicMaterial({
+                color: 0x00f0ff,
+                linewidth: 3,
+                depthTest: false,
+                transparent: true,
+                opacity: 0.95
+            });
+            const line = new THREE.Line(lineGeo, lineMat);
+            line.renderOrder = 10001;
+            line.raycast = () => {};
+            this.polygonLineGroup.add(line);
+
+            // Closing guide line from currentPt to start vertex if >= 2 points
+            if (this.polygonPoints.length >= 2 && currentPt) {
+                const closeGuidePoints = [
+                    new THREE.Vector3(currentPt.x, elev + 0.5, currentPt.z),
+                    new THREE.Vector3(this.polygonPoints[0].x, elev + 0.5, this.polygonPoints[0].z)
+                ];
+                const closeGeo = new THREE.BufferGeometry().setFromPoints(closeGuidePoints);
+                const closeMat = new THREE.LineDashedMaterial({
+                    color: 0x38bdf8,
+                    dashSize: 8,
+                    gapSize: 4,
+                    linewidth: 2,
+                    depthTest: false,
+                    transparent: true,
+                    opacity: 0.75
+                });
+                const closeLine = new THREE.Line(closeGeo, closeMat);
+                closeLine.computeLineDistances();
+                closeLine.renderOrder = 10000;
+                closeLine.raycast = () => {};
+                this.polygonLineGroup.add(closeLine);
+            }
+        }
+        this.polygonLineGroup.visible = true;
     }
 
     _renderGhost() {
@@ -592,22 +1549,23 @@ export class Roof3DPlacementSystem {
         const minZ = Math.min(p1.z, p2.z);
         const maxZ = Math.max(p1.z, p2.z);
 
-        const w = Math.max(20, maxX - minX);
-        const d = Math.max(20, maxZ - minZ);
+        const w = Math.max(8, maxX - minX);
+        const d = Math.max(8, maxZ - minZ);
 
         const points = [
             { x: minX, y: minZ },
-            { x: maxX, y: minZ },
-            { x: maxX, y: maxZ },
-            { x: minX, y: maxZ }
+            { x: minX + w, y: minZ },
+            { x: minX + w, y: minZ + d },
+            { x: minX, y: minZ + d }
         ];
 
         this._buildGhost3DMesh(points, p1.y);
 
         const params = this.getActiveRoofParams();
         const roofTypeName = params.roofType.toUpperCase();
+        const snapBadge = this.lastHit?.snapLabel ? `<span style="color: #10b981;">${this.lastHit.snapLabel}</span> &bull; ` : '';
         this._updateDOMBadge(
-            `${roofTypeName} ROOF | ${this._formatFeetInches(w)} x ${this._formatFeetInches(d)} | ${params.pitch}&deg; Pitch`,
+            `${snapBadge}${roofTypeName} ROOF | ${this._formatFeetInches(w)} x ${this._formatFeetInches(d)} | ${params.pitch}&deg; Pitch`,
             { x: this.lastClientX || 0, y: this.lastClientY || 0 }
         );
 
@@ -628,14 +1586,16 @@ export class Roof3DPlacementSystem {
 
         const params = this.getActiveRoofParams();
         const typeLabel = params.roofType.toUpperCase();
+        const snapBadge = hit.snapLabel ? `<span style="color: #10b981;">${hit.snapLabel}</span> &bull; ` : '';
         const isGround = (roofElev <= 5);
-        const targetLabel = isGround ? 'FLAT GROUND' : (autoShape.type === 'room' ? 'ROOM' : (autoShape.type === 'building' ? 'BUILDING' : 'CUSTOM'));
+        const isWall = (autoShape.type === 'wall_attached');
+        const targetLabel = isWall ? 'WALL CONNECTED' : (isGround ? 'FLAT GROUND' : (autoShape.type === 'room' ? 'ROOM' : (autoShape.type === 'building' ? 'BUILDING' : 'CUSTOM')));
         const dimStr = `${this._formatFeetInches(autoShape.width)} \u00d7 ${this._formatFeetInches(autoShape.depth)}`;
-        const icon = isGround ? '🏕️' : '🏠';
-        const color = isGround ? '#38bdf8' : '#34d399';
+        const icon = isWall ? '🧱' : (isGround ? '🏕️' : '🏠');
+        const color = isWall ? '#a855f7' : (isGround ? '#38bdf8' : '#34d399');
 
         this._updateDOMBadge(
-            `<span style="color: ${color};">${icon} ${targetLabel}</span> &bull; ${typeLabel} ROOF (${params.pitch}&deg;) &bull; ${dimStr}`,
+            `${snapBadge}<span style="color: ${color};">${icon} ${targetLabel}</span> &bull; ${typeLabel} ROOF (${params.pitch}&deg;) &bull; ${dimStr}`,
             { x: this.lastClientX || 0, y: this.lastClientY || 0 }
         );
 
@@ -762,19 +1722,72 @@ export class Roof3DPlacementSystem {
         this.startPoint = null;
         this.currentPoint = null;
         this.ghostGroup.visible = false;
+        if (this.snapIndicatorGroup) this.snapIndicatorGroup.visible = false;
+        if (this.startAnchorGroup) this.startAnchorGroup.visible = false;
+        if (this.snapHaloGroup) this.snapHaloGroup.visible = false;
+        this._clearPolygonVisuals();
         while (this.ghostGroup.children.length > 0) {
             const c = this.ghostGroup.children[0];
             if (c.geometry) c.geometry.dispose();
             this.ghostGroup.remove(c);
         }
         this._hideDOMBadge();
+        if (!this.isPlacementTool()) {
+            this._hideModeHUD();
+        }
         if (this.ctx && typeof this.ctx.requestRender === 'function') {
             this.ctx.requestRender();
         }
     }
 
     _onKeyDown(e) {
-        if (e.key === 'Escape' && this.isPlacementTool()) {
+        if (!this.isPlacementTool()) return;
+
+        if (e.key === 'p' || e.key === 'P' || e.key === 'm' || e.key === 'M') {
+            const nextMode = this.drawMode === 'polygon' ? 'box' : 'polygon';
+            this.setDrawMode(nextMode);
+            return;
+        }
+
+        if (e.key === 'Enter' || e.key === ' ') {
+            if (this.drawMode === 'polygon' && this.polygonPoints.length >= 3) {
+                e.preventDefault();
+                this.finishPolygon();
+                return;
+            }
+        }
+
+        if (e.key === 'Backspace' || e.key === 'Delete') {
+            if (this.drawMode === 'polygon' && this.polygonPoints.length > 0) {
+                e.preventDefault();
+                this.polygonPoints.pop();
+                if (this.polygonPoints.length === 0) {
+                    this.resetPolygon();
+                } else {
+                    this._updatePolygonVisuals();
+                }
+                if (this.ctx && typeof this.ctx.requestRender === 'function') {
+                    this.ctx.requestRender();
+                }
+                return;
+            }
+        }
+
+        if (e.key === 'Escape') {
+            if (this.drawing) {
+                this.drawing = false;
+                this.startPoint = null;
+                this.currentPoint = null;
+                if (this.startAnchorGroup) this.startAnchorGroup.visible = false;
+                if (this.ctx.controls) this.ctx.controls.enabled = true;
+                this.hideGhost();
+                return;
+            }
+            if (this.drawMode === 'polygon' && this.polygonPoints.length > 0) {
+                this.resetPolygon();
+                this.hideGhost();
+                return;
+            }
             this.hideGhost();
             const planner = this.getPlanner();
             if (planner) {
@@ -791,6 +1804,24 @@ export class Roof3DPlacementSystem {
         }
         if (this.domBadge && this.domBadge.parentElement) {
             this.domBadge.parentElement.removeChild(this.domBadge);
+        }
+        if (this.modeHUD && this.modeHUD.parentElement) {
+            this.modeHUD.parentElement.removeChild(this.modeHUD);
+        }
+        if (this.snapIndicatorGroup && this.snapIndicatorGroup.parent) {
+            this.snapIndicatorGroup.parent.remove(this.snapIndicatorGroup);
+        }
+        if (this.startAnchorGroup && this.startAnchorGroup.parent) {
+            this.startAnchorGroup.parent.remove(this.startAnchorGroup);
+        }
+        if (this.snapHaloGroup && this.snapHaloGroup.parent) {
+            this.snapHaloGroup.parent.remove(this.snapHaloGroup);
+        }
+        if (this.polygonMarkersGroup && this.polygonMarkersGroup.parent) {
+            this.polygonMarkersGroup.parent.remove(this.polygonMarkersGroup);
+        }
+        if (this.polygonLineGroup && this.polygonLineGroup.parent) {
+            this.polygonLineGroup.parent.remove(this.polygonLineGroup);
         }
         this.hideGhost();
     }

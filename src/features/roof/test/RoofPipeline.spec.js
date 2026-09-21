@@ -1601,5 +1601,500 @@ describe('Roof Pipeline & 3D Addition', () => {
         const gableEndMeshes = roofMesh.children.filter(c => c.userData?.isGable);
         expect(gableEndMeshes.length).toBeGreaterThanOrEqual(1);
     });
+
+    it('23. Option A: should allow piecewise multi-roof placement with magnetic snapping between roofs', async () => {
+        const { Roof3DPlacementSystem } = await import('../../../core/engine3d/Roof3DPlacementSystem.js');
+        const mockCtx = {
+            renderer: { domElement: { addEventListener: vi.fn(), removeEventListener: vi.fn(), getBoundingClientRect: () => ({ left: 0, top: 0, width: 800, height: 600 }), parentElement: null, style: {} } },
+            camera: new THREE.PerspectiveCamera(45, 1, 1, 1000),
+            scene: new THREE.Scene(),
+            structureGroup: new THREE.Group(),
+            controls: { enabled: true, addEventListener: vi.fn(), removeEventListener: vi.fn() },
+            planner: mockPlanner,
+            requestRender: vi.fn()
+        };
+
+        mockPlanner.tool = 'roof';
+        mockPlanner.activePresetParams = { roofType: 'flat' };
+        const placement = new Roof3DPlacementSystem(mockCtx, null);
+
+        // Place Roof 1 (300 x 200 cm)
+        placement.drawing = true;
+        placement.startPoint = { x: 0, z: 0, y: 120 };
+        placement.currentPoint = { x: 300, z: 200, y: 120 };
+        placement.onPointerUp({ button: 0, preventDefault: vi.fn(), stopPropagation: vi.fn() });
+
+        expect(mockPlanner.roofs.length).toBe(1);
+        const r1 = mockPlanner.roofs[0];
+        expect(r1.points[1].x).toBe(300);
+        expect(r1.points[2].y).toBe(200);
+
+        // Place Roof 2: snap starting point near Roof 1's corner (300, 200)
+        mockPlanner.tool = 'roof';
+        const nearR1Corner = new THREE.Vector3(308, 0, 205);
+        const snap = placement._findMagneticSnap(nearR1Corner, 120, null, mockPlanner);
+        expect(snap.snapType).toBe('roof_corner');
+        expect(snap.x).toBe(300);
+        expect(snap.z).toBe(200);
+
+        // Draw Roof 2 extending from (300, 200) to (500, 350)
+        placement.drawing = true;
+        placement.startPoint = { x: snap.x, z: snap.z, y: 120 };
+        placement.currentPoint = { x: 500, z: 350, y: 120 };
+        placement.onPointerUp({ button: 0, preventDefault: vi.fn(), stopPropagation: vi.fn() });
+
+        // Both roofs exist independently in piecewise assembly
+        expect(mockPlanner.roofs.length).toBe(2);
+        const r2 = mockPlanner.roofs[1];
+        expect(r2.points[0].x).toBe(300);
+        expect(r2.points[0].y).toBe(200);
+        expect(r2.points[1].x).toBe(500);
+        expect(r2.points[2].y).toBe(350);
+
+        placement.dispose();
+    });
+
+    it('24. Option A: should route curved_portal roof selection in InteractionSystem directly to CurvedPortalRoofGizmo', async () => {
+        const { createPinia, setActivePinia } = await import('pinia');
+        setActivePinia(createPinia());
+        const { InteractionSystem } = await import('../../../core/engine3d/InteractionSystem.js');
+        const mockCtx = {
+            renderer: { domElement: { addEventListener: vi.fn(), removeEventListener: vi.fn(), getBoundingClientRect: () => ({ left: 0, top: 0, width: 800, height: 600 }), parentElement: null, style: {} } },
+            camera: new THREE.PerspectiveCamera(45, 1, 1, 1000),
+            scene: new THREE.Scene(),
+            controls: { enabled: true, addEventListener: vi.fn(), removeEventListener: vi.fn() },
+            envBuilder: { updateRoofLive: vi.fn(), buildWallGroup: vi.fn() },
+            requestRender: vi.fn(),
+            onEntitySelect: vi.fn(),
+            currentTransformMode: 'none',
+            planner: mockPlanner
+        };
+
+        const interactionSystem = new InteractionSystem(mockCtx);
+        const portalMesh = new THREE.Mesh(new THREE.BufferGeometry());
+        portalMesh.userData = {
+            isRoof: true,
+            entity: {
+                id: 'curved_portal_route_test',
+                type: 'roof',
+                config: { roofType: 'curved_portal', radius: 10 }
+            }
+        };
+
+        interactionSystem.select(portalMesh);
+
+        expect(interactionSystem.curvedPortalRoofGizmo.visible).toBe(true);
+        expect(interactionSystem.curvedPortalRoofGizmo.target).toBe(portalMesh);
+        expect(interactionSystem.roofPitchGizmo.visible).toBe(false);
+        expect(interactionSystem.flatRoofGizmo.visible).toBe(false);
+
+        interactionSystem.deselect();
+        expect(interactionSystem.curvedPortalRoofGizmo.visible).toBe(false);
+        expect(interactionSystem.curvedPortalRoofGizmo.target).toBeNull();
+        interactionSystem.dispose();
+    });
+
+    const createPlacementMockCtx = () => ({
+        renderer: { domElement: { addEventListener: vi.fn(), removeEventListener: vi.fn(), getBoundingClientRect: () => ({ left: 0, top: 0, width: 800, height: 600 }), parentElement: null, style: {} } },
+        camera: new THREE.PerspectiveCamera(45, 1, 1, 1000),
+        scene: new THREE.Scene(),
+        structureGroup: new THREE.Group(),
+        controls: { enabled: true, addEventListener: vi.fn(), removeEventListener: vi.fn() },
+        planner: mockPlanner,
+        helpers: {
+            getDynamicMaterial: vi.fn((key, type) => new THREE.MeshStandardMaterial({ color: 0xcccccc }))
+        },
+        assets: {
+            getTexture: vi.fn(() => Promise.resolve(null))
+        },
+        requestRender: vi.fn()
+    });
+
+    it('25. Option B: should toggle draw mode between box and polygon', async () => {
+        mockPlanner.tool = 'roof';
+        const { Roof3DPlacementSystem } = await import('../../../core/engine3d/Roof3DPlacementSystem.js');
+        const placement = new Roof3DPlacementSystem(createPlacementMockCtx(), null);
+
+        expect(placement.drawMode).toBe('box');
+
+        placement.setDrawMode('polygon');
+        expect(placement.drawMode).toBe('polygon');
+
+        // Test keyboard toggle 'p'
+        placement._onKeyDown({ key: 'p' });
+        expect(placement.drawMode).toBe('box');
+
+        placement._onKeyDown({ key: 'P' });
+        expect(placement.drawMode).toBe('polygon');
+
+        placement.dispose();
+    });
+
+    it('26. Option B: should accumulate vertices and update visual indicators in polygon mode', async () => {
+        const { Roof3DPlacementSystem } = await import('../../../core/engine3d/Roof3DPlacementSystem.js');
+        const placement = new Roof3DPlacementSystem(createPlacementMockCtx(), null);
+        placement.setDrawMode('polygon');
+
+        mockPlanner.tool = 'roof';
+
+        // Point 1
+        placement.polygonPoints.push({ x: 100, y: 120, z: 100, hitEntity: null, snapType: 'ground' });
+        placement.polygonElevation = 120;
+        placement._updatePolygonVisuals();
+
+        expect(placement.polygonPoints.length).toBe(1);
+        expect(placement.polygonMarkersGroup.children.length).toBe(1);
+
+        // Point 2
+        placement.polygonPoints.push({ x: 300, y: 120, z: 100, hitEntity: null, snapType: 'ground' });
+        placement._updatePolygonVisuals();
+        expect(placement.polygonPoints.length).toBe(2);
+        expect(placement.polygonMarkersGroup.children.length).toBe(2);
+
+        // Point 3
+        placement.polygonPoints.push({ x: 300, y: 120, z: 250, hitEntity: null, snapType: 'ground' });
+        placement._updatePolygonVisuals();
+        expect(placement.polygonPoints.length).toBe(3);
+
+        // Point 4
+        placement.polygonPoints.push({ x: 100, y: 120, z: 250, hitEntity: null, snapType: 'ground' });
+        placement._updatePolygonVisuals();
+        expect(placement.polygonPoints.length).toBe(4);
+        expect(placement.polygonMarkersGroup.children.length).toBe(4);
+        expect(placement.polygonLineGroup.visible).toBe(true);
+
+        placement.dispose();
+    });
+
+    it('27. Option B: should accurately snap angles to orthogonal 0, 45, 90, 180 degrees', async () => {
+        const { Roof3DPlacementSystem } = await import('../../../core/engine3d/Roof3DPlacementSystem.js');
+        const placement = new Roof3DPlacementSystem(createPlacementMockCtx(), null);
+
+        const fromPt = { x: 0, z: 0 };
+
+        // Test near 0 deg (horizontal right)
+        const snap0 = placement._snapAngle(fromPt, { x: 100, z: 3 });
+        expect(snap0.snappedAngle).toBe(0);
+        expect(snap0.z).toBe(0);
+
+        // Test near 90 deg (vertical down)
+        const snap90 = placement._snapAngle(fromPt, { x: 3, z: 100 });
+        expect(snap90.snappedAngle).toBe(90);
+        expect(snap90.x).toBe(0);
+
+        // Test near 45 deg (diagonal)
+        const snap45 = placement._snapAngle(fromPt, { x: 100, z: 97 });
+        expect(snap45.snappedAngle).toBe(45);
+
+        // Test non-orthogonal angle (e.g. 25 deg - beyond 5 deg threshold)
+        const noSnap = placement._snapAngle(fromPt, { x: 100, z: 46 });
+        expect(noSnap.snappedAngle).toBeNull();
+
+        placement.dispose();
+    });
+
+    it('28. Option B: should detect magnetic closing snap when hovering near start vertex V1', async () => {
+        const { Roof3DPlacementSystem } = await import('../../../core/engine3d/Roof3DPlacementSystem.js');
+        const placement = new Roof3DPlacementSystem(createPlacementMockCtx(), null);
+        placement.setDrawMode('polygon');
+
+        // Populate 3 existing points
+        placement.polygonPoints = [
+            { x: 100, y: 120, z: 100, hitEntity: null },
+            { x: 300, y: 120, z: 100, hitEntity: null },
+            { x: 300, y: 120, z: 300, hitEntity: null }
+        ];
+
+        // Raycast hit near start point (100, 100) within 25 cm (e.g. at 108, 106)
+        const nearV1 = new THREE.Vector3(108, 0, 106);
+        const snap = placement._findMagneticSnap(nearV1, 120, null, mockPlanner);
+
+        expect(snap.isClosing).toBe(true);
+        expect(snap.snapType).toBe('polygon_close');
+        expect(snap.x).toBe(100);
+        expect(snap.z).toBe(100);
+        expect(snap.color).toBe(0x10b981); // Neon emerald green
+
+        placement.dispose();
+    });
+
+    it('29. Option B: should complete polygon via Enter key and commit arbitrary N-sided roof', async () => {
+        const { Roof3DPlacementSystem } = await import('../../../core/engine3d/Roof3DPlacementSystem.js');
+        const placement = new Roof3DPlacementSystem(createPlacementMockCtx(), null);
+        placement.setDrawMode('polygon');
+
+        mockPlanner.roofs = [];
+        mockPlanner.tool = 'roof';
+
+        // L-shaped roof footprint (6 vertices)
+        placement.polygonPoints = [
+            { x: 0, y: 120, z: 0, hitEntity: null },
+            { x: 300, y: 120, z: 0, hitEntity: null },
+            { x: 300, y: 120, z: 150, hitEntity: null },
+            { x: 150, y: 120, z: 150, hitEntity: null },
+            { x: 150, y: 120, z: 300, hitEntity: null },
+            { x: 0, y: 120, z: 300, hitEntity: null }
+        ];
+        placement.polygonElevation = 120;
+
+        // Press Enter to finish
+        placement._onKeyDown({ key: 'Enter', preventDefault: vi.fn() });
+
+        // Roof committed to planner
+        expect(mockPlanner.roofs.length).toBe(1);
+        const roof = mockPlanner.roofs[0];
+        expect(roof.points.length).toBe(6);
+        expect(roof.points[0].x).toBe(0);
+        expect(roof.points[1].x).toBe(300);
+        expect(roof.points[4].y).toBe(300);
+
+        // Placement state reset cleanly
+        expect(placement.polygonPoints.length).toBe(0);
+
+        placement.dispose();
+    });
+
+    it('30. Option B: should remove last vertex via Backspace key', async () => {
+        mockPlanner.tool = 'roof';
+        const { Roof3DPlacementSystem } = await import('../../../core/engine3d/Roof3DPlacementSystem.js');
+        const placement = new Roof3DPlacementSystem(createPlacementMockCtx(), null);
+        placement.setDrawMode('polygon');
+
+        placement.polygonPoints = [
+            { x: 100, y: 120, z: 100 },
+            { x: 200, y: 120, z: 100 },
+            { x: 200, y: 120, z: 200 }
+        ];
+        placement.polygonElevation = 120;
+        placement._updatePolygonVisuals();
+        expect(placement.polygonPoints.length).toBe(3);
+
+        // Press Backspace once
+        placement._onKeyDown({ key: 'Backspace', preventDefault: vi.fn() });
+        expect(placement.polygonPoints.length).toBe(2);
+        expect(placement.polygonPoints[1].x).toBe(200);
+        expect(placement.polygonPoints[1].z).toBe(100);
+
+        // Press Backspace twice more
+        placement._onKeyDown({ key: 'Backspace', preventDefault: vi.fn() });
+        expect(placement.polygonPoints.length).toBe(1);
+
+        placement._onKeyDown({ key: 'Backspace', preventDefault: vi.fn() });
+        expect(placement.polygonPoints.length).toBe(0);
+        expect(placement.polygonElevation).toBeNull();
+
+        placement.dispose();
+    });
+
+    it('31. Option A & B: should eliminate parallax distortion by using physical mesh surface hit point (x, z)', async () => {
+        mockPlanner.tool = 'roof';
+        const { Roof3DPlacementSystem } = await import('../../../core/engine3d/Roof3DPlacementSystem.js');
+        const ctx = createPlacementMockCtx();
+
+        // Create a wall mesh in structureGroup at x=150, z=250, elevation top = 280
+        const wallMesh = new THREE.Mesh(new THREE.BoxGeometry(100, 280, 20));
+        wallMesh.position.set(150, 140, 250);
+        wallMesh.userData = {
+            isWall: true,
+            entity: { id: 'wall_test_parallax', startAnchor: 'a1', endAnchor: 'a2', elevation: 0, height: 280 }
+        };
+        ctx.structureGroup.add(wallMesh);
+
+        const placement = new Roof3DPlacementSystem(ctx, null);
+
+        // Mock raycaster to hit this wall directly at (150, 280, 250)
+        placement.raycaster = {
+            setFromCamera: vi.fn(),
+            ray: {
+                origin: new THREE.Vector3(150, 500, 500),
+                direction: new THREE.Vector3(0, -0.7071, -0.7071).normalize(),
+                intersectPlane: vi.fn((plane, target) => {
+                    target.set(999, 999, 999);
+                    return target;
+                })
+            },
+            intersectObjects: vi.fn(() => [{
+                point: new THREE.Vector3(150, 280, 250),
+                object: wallMesh
+            }])
+        };
+
+        const hit = placement._getRaycastIntersection({ clientX: 400, clientY: 300 });
+
+        expect(hit).toBeDefined();
+        // Exact physical coordinates must be preserved - ZERO parallax shift
+        expect(hit.x).toBe(150);
+        expect(hit.z).toBe(250);
+        expect(hit.y).toBe(280);
+
+        placement.dispose();
+    });
+
+    it('32. Option A & B: should scale snap indicator dynamically with camera distance', async () => {
+        mockPlanner.tool = 'roof';
+        const { Roof3DPlacementSystem } = await import('../../../core/engine3d/Roof3DPlacementSystem.js');
+        const ctx = createPlacementMockCtx();
+        const placement = new Roof3DPlacementSystem(ctx, null);
+
+        // Position camera 1200cm away
+        ctx.camera.position.set(0, 1200, 0);
+
+        placement.raycaster = {
+            setFromCamera: vi.fn(),
+            ray: {
+                origin: new THREE.Vector3(0, 1200, 0),
+                direction: new THREE.Vector3(0, -1, 0),
+                intersectPlane: vi.fn((plane, target) => {
+                    target.set(0, 0, 0);
+                    return target;
+                })
+            },
+            intersectObjects: vi.fn(() => [])
+        };
+
+        placement._getRaycastIntersection({ clientX: 400, clientY: 300 });
+
+        // Indicator group should have scale > 1.0 (specifically ~3.0 for 1200cm distance)
+        expect(placement.snapIndicatorGroup.scale.x).toBeGreaterThan(2.0);
+        expect(placement.snapIndicatorGroup.visible).toBe(true);
+
+        placement.dispose();
+    });
+
+    it('33. Mode HUD: should provide persistent display, isolated click events, and Done button', async () => {
+        mockPlanner.tool = 'roof';
+        const { Roof3DPlacementSystem } = await import('../../../core/engine3d/Roof3DPlacementSystem.js');
+        const ctx = createPlacementMockCtx();
+        const placement = new Roof3DPlacementSystem(ctx, null);
+
+        placement._createModeHUD();
+        expect(placement.modeHUD).toBeDefined();
+
+        const btnDone = placement.modeHUD.querySelector('#roof-btn-mode-done');
+        expect(btnDone).toBeDefined();
+
+        // Clicking Done should switch tool to 'select' and hide HUD
+        const stopProp = vi.fn();
+        btnDone.onclick({ stopPropagation: stopProp });
+        expect(stopProp).toHaveBeenCalled();
+        expect(mockPlanner.tool).toBe('select');
+
+        placement.dispose();
+    });
+
+    it('34. Continuous Placement: should keep roof tool active after placing a roof', async () => {
+        mockPlanner.tool = 'roof';
+        const { Roof3DPlacementSystem } = await import('../../../core/engine3d/Roof3DPlacementSystem.js');
+        const ctx = createPlacementMockCtx();
+        const placement = new Roof3DPlacementSystem(ctx, null);
+
+        const rectPoints = [
+            { x: 0, y: 0 },
+            { x: 200, y: 0 },
+            { x: 200, y: 150 },
+            { x: 0, y: 150 }
+        ];
+
+        placement._commitRoof(rectPoints, 120, {});
+
+        // Tool remains active as 'roof' for continuous drawing
+        expect(mockPlanner.tool).toBe('roof');
+
+        placement.dispose();
+    });
+
+    it('35. Zero Phantom Hover: should NOT render 3D roof ghost before user clicks start point', async () => {
+        mockPlanner.tool = 'roof';
+        const { Roof3DPlacementSystem } = await import('../../../core/engine3d/Roof3DPlacementSystem.js');
+        const ctx = createPlacementMockCtx();
+        const placement = new Roof3DPlacementSystem(ctx, null);
+
+        // Hover over scene without clicking
+        placement.raycaster = {
+            setFromCamera: vi.fn(),
+            ray: {
+                origin: new THREE.Vector3(100, 500, 100),
+                direction: new THREE.Vector3(0, -1, 0),
+                intersectPlane: vi.fn((plane, target) => {
+                    target.set(100, 0, 100);
+                    return target;
+                })
+            },
+            intersectObjects: vi.fn(() => [])
+        };
+
+        placement.onPointerMove({ clientX: 200, clientY: 200 });
+
+        // Zero 3D ghost roof should be visible on idle hover
+        expect(placement.drawing).toBe(false);
+        expect(placement.ghostGroup.visible).toBe(false);
+        expect(placement.ghostGroup.children.length).toBe(0);
+
+        placement.dispose();
+    });
+
+    it('36. User-Controlled Decided Area: should support Click-Move-Click without accidental auto-commit on single click', async () => {
+        mockPlanner.tool = 'roof';
+        mockPlanner.roofs = [];
+        const { Roof3DPlacementSystem } = await import('../../../core/engine3d/Roof3DPlacementSystem.js');
+        const ctx = createPlacementMockCtx();
+        const placement = new Roof3DPlacementSystem(ctx, null);
+
+        const mockHit1 = { x: 100, y: 120, z: 100, snapType: null, hitEntity: null };
+        const mockHit2 = { x: 400, y: 120, z: 350, snapType: null, hitEntity: null };
+
+        placement._getRaycastIntersection = vi.fn()
+            .mockReturnValueOnce(mockHit1)  // onPointerDown 1 (Corner 1)
+            .mockReturnValueOnce(mockHit2); // onPointerDown 2 (Corner 2)
+
+        // 1. Click Corner 1 (down and up without drag)
+        placement.onPointerDown({ button: 0, preventDefault: vi.fn(), stopPropagation: vi.fn() });
+        expect(placement.drawing).toBe(true);
+        expect(placement.startPoint.x).toBe(100);
+        expect(placement.startPoint.z).toBe(100);
+
+        placement.onPointerUp({ button: 0, preventDefault: vi.fn(), stopPropagation: vi.fn() });
+        // Must NOT commit any roof yet - waiting for Corner 2!
+        expect(mockPlanner.roofs.length).toBe(0);
+        expect(placement.drawing).toBe(true);
+
+        // 2. Click Corner 2 (opposite corner at 400, 350)
+        placement.onPointerDown({ button: 0, preventDefault: vi.fn(), stopPropagation: vi.fn() });
+
+        // Exactly 1 roof committed covering strictly the user's decided 300x250cm area!
+        expect(mockPlanner.roofs.length).toBe(1);
+        const roof = mockPlanner.roofs[0];
+        expect(roof.points[0]).toEqual({ x: 100, y: 100 });
+        expect(roof.points[1]).toEqual({ x: 400, y: 100 });
+        expect(roof.points[2]).toEqual({ x: 400, y: 350 });
+        expect(roof.points[3]).toEqual({ x: 100, y: 350 });
+        expect(placement.drawing).toBe(false);
+
+        placement.dispose();
+    });
+
+    it('37. Escape Cancellation: should cancel active box drawing without creating any roof', async () => {
+        mockPlanner.tool = 'roof';
+        mockPlanner.roofs = [];
+        const { Roof3DPlacementSystem } = await import('../../../core/engine3d/Roof3DPlacementSystem.js');
+        const ctx = createPlacementMockCtx();
+        const placement = new Roof3DPlacementSystem(ctx, null);
+
+        placement._getRaycastIntersection = vi.fn().mockReturnValue({ x: 100, y: 120, z: 100 });
+
+        // Start drawing Corner 1
+        placement.onPointerDown({ button: 0, preventDefault: vi.fn(), stopPropagation: vi.fn() });
+        expect(placement.drawing).toBe(true);
+
+        // User changes mind and presses Escape
+        placement._onKeyDown({ key: 'Escape', preventDefault: vi.fn() });
+
+        // Drawing cancelled cleanly with zero roofs created
+        expect(placement.drawing).toBe(false);
+        expect(placement.startPoint).toBeNull();
+        expect(mockPlanner.roofs.length).toBe(0);
+
+        placement.dispose();
+    });
 });
 

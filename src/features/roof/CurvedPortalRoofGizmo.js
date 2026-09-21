@@ -46,6 +46,10 @@ export class CurvedPortalRoofGizmo extends THREE.Group {
         this.thickMatHover = new THREE.MeshBasicMaterial({ color: 0xfde047, depthTest: false, transparent: true, opacity: 1.0 });
         this.thickMatActive = new THREE.MeshBasicMaterial({ color: 0x10b981, depthTest: false, transparent: true, opacity: 1.0 });
 
+        this.cornerMat = new THREE.MeshBasicMaterial({ color: 0xec4899, depthTest: false, transparent: true, opacity: 0.95 });
+        this.cornerMatHover = new THREE.MeshBasicMaterial({ color: 0xf472b6, depthTest: false, transparent: true, opacity: 1.0 });
+        this.cornerMatActive = new THREE.MeshBasicMaterial({ color: 0x10b981, depthTest: false, transparent: true, opacity: 1.0 });
+
         this.moveMat = new THREE.MeshBasicMaterial({ color: 0x10b981, depthTest: false, transparent: true, opacity: 0.95 });
         this.moveMatHover = new THREE.MeshBasicMaterial({ color: 0x34d399, depthTest: false, transparent: true, opacity: 1.0 });
 
@@ -62,8 +66,14 @@ export class CurvedPortalRoofGizmo extends THREE.Group {
 
         this.initialRadius = 0;
         this.initialThickness = 15;
+        this.initialPoints = [];
+        this.initialMinX = 0;
+        this.initialMaxX = 0;
+        this.initialMinY = 0;
+        this.initialMaxY = 0;
         this.curveHandles = [];
         this.thicknessHandle = null;
+        this.cornerHandles = [];
 
         this._createDOMBadge();
         this._createDOMHUD();
@@ -94,6 +104,17 @@ export class CurvedPortalRoofGizmo extends THREE.Group {
 
                 this.initialRadius = conf.radius !== undefined ? Number(conf.radius) : 0;
                 this.initialThickness = conf.thickness !== undefined ? Number(conf.thickness) : 15;
+                this.initialPoints = (entity.points || []).map(p => ({ x: p.x, y: p.y }));
+
+                let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+                this.initialPoints.forEach(p => {
+                    minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x);
+                    minY = Math.min(minY, p.y); maxY = Math.max(maxY, p.y);
+                });
+                this.initialMinX = minX;
+                this.initialMaxX = maxX;
+                this.initialMinY = minY;
+                this.initialMaxY = maxY;
 
                 const type = handle.userData?.type;
                 if (type === 'curve') {
@@ -154,6 +175,50 @@ export class CurvedPortalRoofGizmo extends THREE.Group {
                             { x: e.clientX, y: e.clientY }
                         );
                         this._updateHUDContent();
+                    } else if (type === 'corner') {
+                        const cIdx = this.activeHandle.userData?.cornerIndex ?? 0;
+                        const deltaX = planeIntersect.x - this.dragStartPos.x;
+                        const deltaZ = planeIntersect.z - this.dragStartPos.z;
+
+                        if (this.initialPoints.length === 4) {
+                            let minX = this.initialMinX, maxX = this.initialMaxX;
+                            let minY = this.initialMinY, maxY = this.initialMaxY;
+
+                            if (cIdx === 0) {
+                                minX = Math.min(maxX - 40, this.initialMinX + deltaX);
+                                minY = Math.min(maxY - 40, this.initialMinY + deltaZ);
+                            } else if (cIdx === 1) {
+                                maxX = Math.max(minX + 40, this.initialMaxX + deltaX);
+                                minY = Math.min(maxY - 40, this.initialMinY + deltaZ);
+                            } else if (cIdx === 2) {
+                                maxX = Math.max(minX + 40, this.initialMaxX + deltaX);
+                                maxY = Math.max(minY + 40, this.initialMaxY + deltaZ);
+                            } else if (cIdx === 3) {
+                                minX = Math.min(maxX - 40, this.initialMinX + deltaX);
+                                maxY = Math.max(minY + 40, this.initialMaxY + deltaZ);
+                            }
+
+                            const newPts = [
+                                { x: minX, y: minY },
+                                { x: maxX, y: minY },
+                                { x: maxX, y: maxY },
+                                { x: minX, y: maxY }
+                            ];
+                            RoofEngine.setPoints(entity, newPts, this.ctx.planner || this.ctx);
+                            const curW = maxX - minX, curD = maxY - minY;
+                            this._updateDOMBadge(
+                                `Portal Footprint: <b>${this._formatFeetInches(curW)} &times; ${this._formatFeetInches(curD)}</b>`,
+                                { x: e.clientX, y: e.clientY }
+                            );
+                        } else if (cIdx !== undefined && this.initialPoints[cIdx]) {
+                            const newPts = this.initialPoints.map((p, idx) => {
+                                if (idx === cIdx) {
+                                    return { x: Math.round(p.x + deltaX), y: Math.round(p.y + deltaZ) };
+                                }
+                                return { x: p.x, y: p.y };
+                            });
+                            RoofEngine.setPoints(entity, newPts, this.ctx.planner || this.ctx);
+                        }
                     }
 
                     this.updateHandlePositions();
@@ -190,14 +255,17 @@ export class CurvedPortalRoofGizmo extends THREE.Group {
                 this._hideDOMBadge();
 
                 const entity = this.target?.userData?.entity;
-                if (entity && this.ctx.planner?.debouncedSaveHistory) {
-                    this.ctx.planner.debouncedSaveHistory();
+                if (entity) {
+                    coreEventBus.emit(EVENTS.ROOF_CORNER_GIZMO_END, { entity });
+                    if (this.ctx.planner?.debouncedSaveHistory) {
+                        this.ctx.planner.debouncedSaveHistory();
+                    }
                 }
                 coreEventBus.emit(EVENTS.SYNC_ENGINE);
             }
         };
 
-        if (dom) {
+        if (dom && typeof dom.addEventListener === 'function') {
             dom.addEventListener('pointerdown', this._onPointerDown, { passive: false });
             dom.addEventListener('pointermove', this._onPointerMove, { passive: false });
             dom.addEventListener('pointerup', this._onPointerUp, { passive: false });
@@ -218,6 +286,7 @@ export class CurvedPortalRoofGizmo extends THREE.Group {
             if (c.isMesh && c.userData?.isMainMesh) {
                 if (type === 'curve') c.material = isHover ? this.curveMatHover : this.curveMat;
                 else if (type === 'thickness') c.material = isHover ? this.thickMatHover : this.thickMat;
+                else if (type === 'corner') c.material = isHover ? this.cornerMatHover : this.cornerMat;
             }
         });
     }
@@ -725,6 +794,20 @@ export class CurvedPortalRoofGizmo extends THREE.Group {
 
         this.handles.add(thickGroup);
         this.thicknessHandle = thickGroup;
+
+        // 3. Footprint Corner Stretch Handles (Pink Octahedron Crystals)
+        this.cornerHandles = [];
+        const cornerGeo = new THREE.OctahedronGeometry(5.5, 0);
+        const numCorners = entity.points?.length || 4;
+        for (let i = 0; i < numCorners; i++) {
+            const cGroup = new THREE.Group();
+            cGroup.userData = { type: 'corner', cornerIndex: i };
+            const cMesh = new THREE.Mesh(cornerGeo, this.cornerMat);
+            cMesh.userData = { isMainMesh: true };
+            cGroup.add(cMesh);
+            this.handles.add(cGroup);
+            this.cornerHandles.push(cGroup);
+        }
     }
 
     updateHandlePositions() {
@@ -767,6 +850,32 @@ export class CurvedPortalRoofGizmo extends THREE.Group {
             this.thicknessHandle.position.set(worldPos.x, h + 2, worldPos.z);
         }
 
+        if (this.cornerHandles && this.cornerHandles.length > 0) {
+            this.cornerHandles.forEach(ch => {
+                const cIdx = ch.userData?.cornerIndex ?? 0;
+                const pt = entity.points[cIdx];
+                if (pt) {
+                    ch.position.set(worldPos.x + (pt.x - cx), h + 2, worldPos.z + (pt.y - cz));
+                }
+            });
+        }
+
         this._updateHUDPosition();
+    }
+
+    dispose() {
+        const dom = this.ctx.renderer?.domElement;
+        if (dom && typeof dom.removeEventListener === 'function') {
+            dom.removeEventListener('pointerdown', this._onPointerDown);
+            dom.removeEventListener('pointermove', this._onPointerMove);
+            dom.removeEventListener('pointerup', this._onPointerUp);
+        }
+        if (this.domBadge && this.domBadge.parentElement) {
+            this.domBadge.parentElement.removeChild(this.domBadge);
+        }
+        if (this.domHUD && this.domHUD.parentElement) {
+            this.domHUD.parentElement.removeChild(this.domHUD);
+        }
+        this.detach();
     }
 }

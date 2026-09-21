@@ -206,8 +206,86 @@ export class PremiumHipRoof {
         const ridgeStroke = '#334155'; // Dark slate for ridges and diagonals
         const hatchStroke = 'rgba(51, 65, 85, 0.2)'; // Subtle slate for hatching
 
-        if (this.config.roofType === 'flat') {
-            // Flat Roof: Render stair cut references directly on the flat roof slab
+        if (this.config.roofType === 'flat' || this.config.roofType === 'curved_portal' || this.config.roofType === 'modern_wrap') {
+            // Flat / Curved Portal Roof:
+            if (this.config.roofType === 'curved_portal' || this.config.roofType === 'modern_wrap') {
+                const wallSides = this.config.wallSides || { left: true, right: true, front: false, back: false };
+                const thick = Number(this.config.thickness) || 15;
+                const bW = maxX - minX;
+                const bD = maxY - minY;
+
+                // Render active portal drop walls along edges
+                if (wallSides.left) {
+                    this.hipLinesGroup.add(new Konva.Rect({
+                        x: minX,
+                        y: minY,
+                        width: thick,
+                        height: bD,
+                        fill: 'rgba(51, 65, 85, 0.45)',
+                        stroke: '#334155',
+                        strokeWidth: 2
+                    }));
+                }
+                if (wallSides.right) {
+                    this.hipLinesGroup.add(new Konva.Rect({
+                        x: maxX - thick,
+                        y: minY,
+                        width: thick,
+                        height: bD,
+                        fill: 'rgba(51, 65, 85, 0.45)',
+                        stroke: '#334155',
+                        strokeWidth: 2
+                    }));
+                }
+                if (wallSides.back) {
+                    this.hipLinesGroup.add(new Konva.Rect({
+                        x: minX,
+                        y: minY,
+                        width: bW,
+                        height: thick,
+                        fill: 'rgba(51, 65, 85, 0.45)',
+                        stroke: '#334155',
+                        strokeWidth: 2
+                    }));
+                }
+                if (wallSides.front) {
+                    this.hipLinesGroup.add(new Konva.Rect({
+                        x: minX,
+                        y: maxY - thick,
+                        width: bW,
+                        height: thick,
+                        fill: 'rgba(51, 65, 85, 0.45)',
+                        stroke: '#334155',
+                        strokeWidth: 2
+                    }));
+                }
+
+                // Render recessed spotlights indicators in 2D
+                if (this.config.hasSpotlights !== false && bW > 40 && bD > 40) {
+                    const spacing = Math.max(60, Number(this.config.spotlightSpacing) || 90);
+                    const numX = Math.max(1, Math.round((bW - 2 * thick) / spacing));
+                    const numZ = Math.max(1, Math.round((bD - 2 * thick) / spacing));
+                    const stepX = (bW - 2 * thick) / (numX + 1);
+                    const stepZ = (bD - 2 * thick) / (numZ + 1);
+
+                    for (let ix = 1; ix <= numX; ix++) {
+                        for (let iz = 1; iz <= numZ; iz++) {
+                            const sx = minX + thick + ix * stepX;
+                            const sz = minY + thick + iz * stepZ;
+                            this.hipLinesGroup.add(new Konva.Circle({
+                                x: sx,
+                                y: sz,
+                                radius: 4,
+                                fill: '#fef08a',
+                                stroke: '#ca8a04',
+                                strokeWidth: 1.5
+                            }));
+                        }
+                    }
+                }
+            }
+
+            // Render stair cut references directly on the flat roof slab
             const allStairs = [
                 ...(this.planner.stairs || []),
                 ...(this.planner.referenceFloorData?.stairs || [])
