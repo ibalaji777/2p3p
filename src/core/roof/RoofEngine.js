@@ -88,7 +88,15 @@ export class RoofEngine {
     }
 
     static setOverhang(roof, overhang, edgeIndex = null, planner = null) {
+        if (edgeIndex !== null && typeof edgeIndex === 'object') {
+            planner = edgeIndex;
+            edgeIndex = null;
+        }
         RoofMutationEngine.setOverhang(roof, overhang, edgeIndex, planner);
+    }
+
+    static setOverhangs(roof, overhangsArray, planner = null) {
+        RoofMutationEngine.setOverhangs(roof, overhangsArray, planner);
     }
 
     static setRoofType(roof, roofType, planner = null) {
@@ -107,8 +115,8 @@ export class RoofEngine {
         RoofMutationEngine.setRotation(roof, angleDeg, planner);
     }
 
-    static setElevation(roof, elevation, planner = null) {
-        RoofMutationEngine.setElevation(roof, elevation, planner);
+    static setElevation(roof, elevation, planner = null, options = {}) {
+        RoofMutationEngine.setElevation(roof, elevation, planner, options);
     }
 
     static setThickness(roof, thickness, planner = null) {
@@ -127,8 +135,16 @@ export class RoofEngine {
         RoofMutationEngine.setWallGap(roof, wallGap, planner);
     }
 
-    static setCornerRadius(roof, radius, planner = null) {
-        RoofMutationEngine.setCornerRadius(roof, radius, planner);
+    static setCornerRadius(roof, radius, cornerIndex = null, planner = null) {
+        if (cornerIndex !== null && typeof cornerIndex === 'object') {
+            planner = cornerIndex;
+            cornerIndex = null;
+        }
+        RoofMutationEngine.setCornerRadius(roof, radius, cornerIndex, planner);
+    }
+
+    static setCornerRadii(roof, radiiArray, planner = null) {
+        RoofMutationEngine.setCornerRadii(roof, radiiArray, planner);
     }
 
     static setWallSide(roof, side, enabled, planner = null) {

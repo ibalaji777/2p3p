@@ -95,11 +95,12 @@ export class CurvedPortalRoofGizmo extends THREE.Group {
                     handle = handle.parent;
                 }
 
-                this.activeHandle = handle;
-                this.isDragging = true;
-
                 const entity = this.target.userData?.entity;
                 if (!entity) return;
+
+                if (this.ctx.controls) this.ctx.controls.enabled = false;
+                this.activeHandle = handle;
+                this.isDragging = true;
                 const conf = entity.config || entity;
 
                 this.initialRadius = conf.radius !== undefined ? Number(conf.radius) : 0;
@@ -177,8 +178,13 @@ export class CurvedPortalRoofGizmo extends THREE.Group {
                         this._updateHUDContent();
                     } else if (type === 'corner') {
                         const cIdx = this.activeHandle.userData?.cornerIndex ?? 0;
-                        const deltaX = planeIntersect.x - this.dragStartPos.x;
-                        const deltaZ = planeIntersect.z - this.dragStartPos.z;
+                        const rot = (entity.group && typeof entity.group.rotation === 'function') ? entity.group.rotation() : (entity.rotation || 0);
+                        const rad = rot * Math.PI / 180;
+                        const worldDeltaX = planeIntersect.x - this.dragStartPos.x;
+                        const worldDeltaZ = planeIntersect.z - this.dragStartPos.z;
+                        // Convert world-space delta into local roof coordinates (inverse rotation matrix)
+                        const deltaX = worldDeltaX * Math.cos(rad) + worldDeltaZ * Math.sin(rad);
+                        const deltaZ = -worldDeltaX * Math.sin(rad) + worldDeltaZ * Math.cos(rad);
 
                         if (this.initialPoints.length === 4) {
                             let minX = this.initialMinX, maxX = this.initialMaxX;
@@ -325,8 +331,8 @@ export class CurvedPortalRoofGizmo extends THREE.Group {
             return;
         }
         this.domBadge.innerHTML = text;
-        this.domBadge.style.left = `${screenPos.x}px`;
-        this.domBadge.style.top = `${screenPos.y - 15}px`;
+        this.domBadge.style.left = `${Math.max(16, screenPos.x)}px`;
+        this.domBadge.style.top = `${Math.max(16, screenPos.y - 15)}px`;
         this.domBadge.style.display = 'block';
     }
 

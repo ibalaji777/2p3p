@@ -713,6 +713,13 @@ onMounted(() => {
                 if (renderer3D.value.interactions?.selectedObject !== entity.mesh3D) {
                     renderer3D.value.selectObject(entity.mesh3D, true);
                 }
+            } else if (type === 'roof' && entity && entity.mesh3D) {
+                const targetMesh = (entity.mesh3D.isGroup && entity.mesh3D.children?.length > 0)
+                    ? (entity.mesh3D.children.find(c => c.isMesh) || entity.mesh3D)
+                    : entity.mesh3D;
+                if (renderer3D.value.interactions?.selectedObject !== targetMesh && renderer3D.value.interactions?.selectedObject !== entity.mesh3D) {
+                    renderer3D.value.selectObject(targetMesh, true);
+                }
             } else if (!entity && renderer3D.value.interactions?.selectedObject) {
                 renderer3D.value.deselectObject();
             }

@@ -108,11 +108,12 @@ export class FlatRoofGizmo extends THREE.Group {
                     handle = handle.parent;
                 }
 
-                this.activeHandle = handle;
-                this.isDragging = true;
-
                 const entity = this.target.userData?.entity;
                 if (!entity) return;
+
+                if (this.ctx.controls) this.ctx.controls.enabled = false;
+                this.activeHandle = handle;
+                this.isDragging = true;
                 const conf = entity.config || entity;
                 const numEdges = entity.points?.length || 4;
 
@@ -206,8 +207,9 @@ export class FlatRoofGizmo extends THREE.Group {
                 const rad = rot * Math.PI / 180;
                 const worldDeltaX = hasIntersect ? (this.planeIntersect.x - this.dragStartPos.x) : 0;
                 const worldDeltaZ = hasIntersect ? (this.planeIntersect.z - this.dragStartPos.z) : 0;
-                const localDeltaX = worldDeltaX * Math.cos(rad) - worldDeltaZ * Math.sin(rad);
-                const localDeltaZ = worldDeltaX * Math.sin(rad) + worldDeltaZ * Math.cos(rad);
+                // Convert world-space delta into local roof coordinates (inverse rotation matrix)
+                const localDeltaX = worldDeltaX * Math.cos(rad) + worldDeltaZ * Math.sin(rad);
+                const localDeltaZ = -worldDeltaX * Math.sin(rad) + worldDeltaZ * Math.cos(rad);
 
                 // World per pixel scaling for stable screen-space delta fallback
                 const dist = this.ctx.camera.position.distanceTo(this.dragStartPos);
@@ -420,8 +422,8 @@ export class FlatRoofGizmo extends THREE.Group {
             return;
         }
         this.domBadge.innerHTML = text;
-        this.domBadge.style.left = `${screenPos.x}px`;
-        this.domBadge.style.top = `${screenPos.y}px`;
+        this.domBadge.style.left = `${Math.max(16, screenPos.x)}px`;
+        this.domBadge.style.top = `${Math.max(16, screenPos.y)}px`;
         this.domBadge.style.display = 'block';
     }
 
@@ -537,9 +539,7 @@ export class FlatRoofGizmo extends THREE.Group {
                 e.stopPropagation();
                 const entity = this.target?.userData?.entity;
                 if (!entity || !this.ctx.planner) return;
-                const newConf = JSON.parse(JSON.stringify(entity.config || {}));
-                const newPts = (entity.points || []).map(p => ({ x: p.x + 30, y: p.y + 30 }));
-                RoofEngine.createRoof(this.ctx.planner, newPts, newConf);
+                RoofEngine.duplicateRoof(this.ctx.planner, entity, { x: 30, y: 30 });
                 coreEventBus.emit(EVENTS.SYNC_ENGINE);
             };
         }

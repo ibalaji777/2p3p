@@ -34,11 +34,22 @@ export class CurvedPortal3DBuilder {
         const T = Math.max(4, Number(conf.thickness) || 15);
 
         // Corner fillet radius (cm)
+        const cornerRadii = conf.cornerRadii || roof?.cornerRadii;
         let R = conf.radius !== undefined ? Math.max(0, Number(conf.radius)) : 0;
         const maxR = Math.min(W / 2 - 1, D / 2 - 1, 150);
         R = Math.min(R, Math.max(0, maxR));
 
-        const rInner = Math.max(0, R - T);
+        const R_left = Math.min(Math.max(0, (cornerRadii?.[0] !== undefined) ? Number(cornerRadii[0]) : R), maxR);
+        const R_right = Math.min(Math.max(0, (cornerRadii?.[1] !== undefined) ? Number(cornerRadii[1]) : R), maxR);
+        const R_front = Math.min(Math.max(0, (cornerRadii?.[2] !== undefined) ? Number(cornerRadii[2]) : R), maxR);
+        const R_back = Math.min(Math.max(0, (cornerRadii?.[3] !== undefined) ? Number(cornerRadii[3]) : R), maxR);
+
+        const rInner_left = Math.max(0, R_left - T);
+        const rInner_right = Math.max(0, R_right - T);
+        const rInner_front = Math.max(0, R_front - T);
+        const rInner_back = Math.max(0, R_back - T);
+
+        const maxRadius = Math.max(R_left, R_right, R_front, R_back);
 
         // Active wall sides
         const wallSides = conf.wallSides || {
@@ -53,7 +64,7 @@ export class CurvedPortal3DBuilder {
         let dropHeight = conf.wallDropHeight !== undefined && Number(conf.wallDropHeight) > 0
             ? Number(conf.wallDropHeight)
             : h;
-        dropHeight = Math.max(R + 5, Math.min(h, dropHeight));
+        dropHeight = Math.max(maxRadius + 5, Math.min(h, dropHeight));
 
         // Detect existing below walls to automatically connect flush with zero overlap
         const allWalls = (ctx?.walls) || (roof.planner?.walls) || (roof._planner?.walls) || (ctx?.helpers?.getPlanner?.()?.walls) || [];
@@ -133,10 +144,10 @@ export class CurvedPortal3DBuilder {
         const hasFront = Boolean(wallSides.front);
         const hasBack = Boolean(wallSides.back);
 
-        const slabMinX = hasLeft ? (minX + R) : minX;
-        const slabMaxX = hasRight ? (maxX - R) : maxX;
-        const slabMinZ = hasBack ? (minY + R) : minY;
-        const slabMaxZ = hasFront ? (maxY - R) : maxY;
+        const slabMinX = hasLeft ? (minX + R_left) : minX;
+        const slabMaxX = hasRight ? (maxX - R_right) : maxX;
+        const slabMinZ = hasBack ? (minY + R_back) : minY;
+        const slabMaxZ = hasFront ? (maxY - R_front) : maxY;
 
         const outerV = [], outerUV = [], outerNorm = [];
         const ceilV = [], ceilUV = [], ceilNorm = [];
@@ -242,22 +253,23 @@ export class CurvedPortal3DBuilder {
 
             // 1. LEFT WALL (-X)
         if (hasLeft) {
+            const arcSubdivsLeft = R_left > 0 ? 16 : 1;
             const z0 = slabMinZ;
             const z1 = slabMaxZ;
-            const xc = minX + R;
-            const yc = -R;
+            const xc = minX + R_left;
+            const yc = -R_left;
 
-            if (R > 0) {
+            if (R_left > 0) {
                 // 90° Fillet Arc from theta = PI/2 (top, Y = 0) to theta = PI (left, Y = -R)
-                for (let i = 0; i < arcSubdivs; i++) {
-                    const a0 = Math.PI / 2 + (i / arcSubdivs) * (Math.PI / 2);
-                    const a1 = Math.PI / 2 + ((i + 1) / arcSubdivs) * (Math.PI / 2);
+                for (let i = 0; i < arcSubdivsLeft; i++) {
+                    const a0 = Math.PI / 2 + (i / arcSubdivsLeft) * (Math.PI / 2);
+                    const a1 = Math.PI / 2 + ((i + 1) / arcSubdivsLeft) * (Math.PI / 2);
 
                     const cos0 = Math.cos(a0), sin0 = Math.sin(a0);
                     const cos1 = Math.cos(a1), sin1 = Math.sin(a1);
 
-                    const xOut0 = xc + R * cos0, yOut0 = yc + R * sin0;
-                    const xOut1 = xc + R * cos1, yOut1 = yc + R * sin1;
+                    const xOut0 = xc + R_left * cos0, yOut0 = yc + R_left * sin0;
+                    const xOut1 = xc + R_left * cos1, yOut1 = yc + R_left * sin1;
 
                     outerV.push(
                         xOut0, yOut0, z0,  xOut1, yOut1, z0,  xOut1, yOut1, z1,
@@ -272,9 +284,9 @@ export class CurvedPortal3DBuilder {
                         z0 / 100, yOut0 / 100,  z1 / 100, yOut1 / 100,  z1 / 100, yOut0 / 100
                     );
 
-                    if (rInner > 0) {
-                        const xIn0 = xc + rInner * cos0, yIn0 = yc + rInner * sin0;
-                        const xIn1 = xc + rInner * cos1, yIn1 = yc + rInner * sin1;
+                    if (rInner_left > 0) {
+                        const xIn0 = xc + rInner_left * cos0, yIn0 = yc + rInner_left * sin0;
+                        const xIn1 = xc + rInner_left * cos1, yIn1 = yc + rInner_left * sin1;
 
                         ceilV.push(
                             xIn0, yIn0, z1,  xIn1, yIn1, z1,  xIn1, yIn1, z0,
@@ -293,8 +305,8 @@ export class CurvedPortal3DBuilder {
                     // Side End Caps of the Fillet Arc (Fascia)
                     if (!hasBack) {
                         fasciaV.push(
-                            xOut0, yOut0, z0,  xOut1, yOut1, z0,  xc + rInner * cos1, yc + rInner * sin1, z0,
-                            xOut0, yOut0, z0,  xc + rInner * cos1, yc + rInner * sin1, z0,  xc + rInner * cos0, yc + rInner * sin0, z0
+                            xOut0, yOut0, z0,  xOut1, yOut1, z0,  xc + rInner_left * cos1, yc + rInner_left * sin1, z0,
+                            xOut0, yOut0, z0,  xc + rInner_left * cos1, yc + rInner_left * sin1, z0,  xc + rInner_left * cos0, yc + rInner_left * sin0, z0
                         );
                         fasciaNorm.push(0, 0, -1, 0, 0, -1, 0, 0, -1, 0, 0, -1, 0, 0, -1, 0, 0, -1);
                         fasciaUV.push(xOut0 / 100, yOut0 / 100, xOut1 / 100, yOut1 / 100, xOut1 / 100, yOut1 / 100, xOut0 / 100, yOut0 / 100, xOut1 / 100, yOut1 / 100, xOut0 / 100, yOut0 / 100);
@@ -302,8 +314,8 @@ export class CurvedPortal3DBuilder {
 
                     if (!hasFront) {
                         fasciaV.push(
-                            xOut0, yOut0, z1,  xc + rInner * cos1, yc + rInner * sin1, z1,  xOut1, yOut1, z1,
-                            xOut0, yOut0, z1,  xc + rInner * cos0, yc + rInner * sin0, z1,  xc + rInner * cos1, yc + rInner * sin1, z1
+                            xOut0, yOut0, z1,  xc + rInner_left * cos1, yc + rInner_left * sin1, z1,  xOut1, yOut1, z1,
+                            xOut0, yOut0, z1,  xc + rInner_left * cos0, yc + rInner_left * sin0, z1,  xc + rInner_left * cos1, yc + rInner_left * sin1, z1
                         );
                         fasciaNorm.push(0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1);
                         fasciaUV.push(xOut0 / 100, yOut0 / 100, xOut1 / 100, yOut1 / 100, xOut1 / 100, yOut1 / 100, xOut0 / 100, yOut0 / 100, xOut1 / 100, yOut1 / 100, xOut0 / 100, yOut0 / 100);
@@ -312,7 +324,7 @@ export class CurvedPortal3DBuilder {
             }
 
             // Vertical Wall Drop
-            const wallTopY = -R;
+            const wallTopY = -R_left;
             const wallOuterX = minX;
             const wallInnerX = minX + T;
 
@@ -366,22 +378,23 @@ export class CurvedPortal3DBuilder {
 
         // 2. RIGHT WALL (+X)
         if (hasRight) {
+            const arcSubdivsRight = R_right > 0 ? 16 : 1;
             const z0 = slabMinZ;
             const z1 = slabMaxZ;
-            const xc = maxX - R;
-            const yc = -R;
+            const xc = maxX - R_right;
+            const yc = -R_right;
 
-            if (R > 0) {
+            if (R_right > 0) {
                 // 90° Fillet Arc from theta = PI/2 (top, Y = 0) to theta = 0 (right, Y = -R)
-                for (let i = 0; i < arcSubdivs; i++) {
-                    const a0 = Math.PI / 2 - (i / arcSubdivs) * (Math.PI / 2);
-                    const a1 = Math.PI / 2 - ((i + 1) / arcSubdivs) * (Math.PI / 2);
+                for (let i = 0; i < arcSubdivsRight; i++) {
+                    const a0 = Math.PI / 2 - (i / arcSubdivsRight) * (Math.PI / 2);
+                    const a1 = Math.PI / 2 - ((i + 1) / arcSubdivsRight) * (Math.PI / 2);
 
                     const cos0 = Math.cos(a0), sin0 = Math.sin(a0);
                     const cos1 = Math.cos(a1), sin1 = Math.sin(a1);
 
-                    const xOut0 = xc + R * cos0, yOut0 = yc + R * sin0;
-                    const xOut1 = xc + R * cos1, yOut1 = yc + R * sin1;
+                    const xOut0 = xc + R_right * cos0, yOut0 = yc + R_right * sin0;
+                    const xOut1 = xc + R_right * cos1, yOut1 = yc + R_right * sin1;
 
                     outerV.push(
                         xOut0, yOut0, z1,  xOut1, yOut1, z1,  xOut1, yOut1, z0,
@@ -396,9 +409,9 @@ export class CurvedPortal3DBuilder {
                         z1 / 100, yOut0 / 100,  z0 / 100, yOut1 / 100,  z0 / 100, yOut0 / 100
                     );
 
-                    if (rInner > 0) {
-                        const xIn0 = xc + rInner * cos0, yIn0 = yc + rInner * sin0;
-                        const xIn1 = xc + rInner * cos1, yIn1 = yc + rInner * sin1;
+                    if (rInner_right > 0) {
+                        const xIn0 = xc + rInner_right * cos0, yIn0 = yc + rInner_right * sin0;
+                        const xIn1 = xc + rInner_right * cos1, yIn1 = yc + rInner_right * sin1;
 
                         ceilV.push(
                             xIn0, yIn0, z0,  xIn1, yIn1, z0,  xIn1, yIn1, z1,
@@ -417,8 +430,8 @@ export class CurvedPortal3DBuilder {
                     // Side End Caps (Fascia)
                     if (!hasBack) {
                         fasciaV.push(
-                            xOut0, yOut0, z0,  xc + rInner * cos1, yc + rInner * sin1, z0,  xOut1, yOut1, z0,
-                            xOut0, yOut0, z0,  xc + rInner * cos0, yc + rInner * sin0, z0,  xc + rInner * cos1, yc + rInner * sin1, z0
+                            xOut0, yOut0, z0,  xc + rInner_right * cos1, yc + rInner_right * sin1, z0,  xOut1, yOut1, z0,
+                            xOut0, yOut0, z0,  xc + rInner_right * cos0, yc + rInner_right * sin0, z0,  xc + rInner_right * cos1, yc + rInner_right * sin1, z0
                         );
                         fasciaNorm.push(0, 0, -1, 0, 0, -1, 0, 0, -1, 0, 0, -1, 0, 0, -1, 0, 0, -1);
                         fasciaUV.push(xOut0 / 100, yOut0 / 100, xOut1 / 100, yOut1 / 100, xOut1 / 100, yOut1 / 100, xOut0 / 100, yOut0 / 100, xOut1 / 100, yOut1 / 100, xOut0 / 100, yOut0 / 100);
@@ -426,8 +439,8 @@ export class CurvedPortal3DBuilder {
 
                     if (!hasFront) {
                         fasciaV.push(
-                            xOut0, yOut0, z1,  xOut1, yOut1, z1,  xc + rInner * cos1, yc + rInner * sin1, z1,
-                            xOut0, yOut0, z1,  xc + rInner * cos0, yc + rInner * sin0, z1,  xc + rInner * cos1, yc + rInner * sin1, z1
+                            xOut0, yOut0, z1,  xOut1, yOut1, z1,  xc + rInner_right * cos1, yc + rInner_right * sin1, z1,
+                            xOut0, yOut0, z1,  xc + rInner_right * cos0, yc + rInner_right * sin0, z1,  xc + rInner_right * cos1, yc + rInner_right * sin1, z1
                         );
                         fasciaNorm.push(0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1);
                         fasciaUV.push(xOut0 / 100, yOut0 / 100, xOut1 / 100, yOut1 / 100, xOut1 / 100, yOut1 / 100, xOut0 / 100, yOut0 / 100, xOut1 / 100, yOut1 / 100, xOut0 / 100, yOut0 / 100);
@@ -435,7 +448,7 @@ export class CurvedPortal3DBuilder {
                 }
             }
 
-            const wallTopY = -R;
+            const wallTopY = -R_right;
             const wallOuterX = maxX;
             const wallInnerX = maxX - T;
 
@@ -489,21 +502,22 @@ export class CurvedPortal3DBuilder {
 
         // 3. BACK WALL (-Z)
         if (hasBack) {
+            const arcSubdivsBack = R_back > 0 ? 16 : 1;
             const x0 = slabMinX;
             const x1 = slabMaxX;
-            const zc = minY + R;
-            const yc = -R;
+            const zc = minY + R_back;
+            const yc = -R_back;
 
-            if (R > 0) {
-                for (let i = 0; i < arcSubdivs; i++) {
-                    const a0 = (i / arcSubdivs) * (Math.PI / 2);
-                    const a1 = ((i + 1) / arcSubdivs) * (Math.PI / 2);
+            if (R_back > 0) {
+                for (let i = 0; i < arcSubdivsBack; i++) {
+                    const a0 = (i / arcSubdivsBack) * (Math.PI / 2);
+                    const a1 = ((i + 1) / arcSubdivsBack) * (Math.PI / 2);
 
                     const sin0 = Math.sin(a0), cos0 = Math.cos(a0);
                     const sin1 = Math.sin(a1), cos1 = Math.cos(a1);
 
-                    const zOut0 = zc - R * sin0, yOut0 = yc + R * cos0;
-                    const zOut1 = zc - R * sin1, yOut1 = yc + R * cos1;
+                    const zOut0 = zc - R_back * sin0, yOut0 = yc + R_back * cos0;
+                    const zOut1 = zc - R_back * sin1, yOut1 = yc + R_back * cos1;
 
                     outerV.push(
                         x0, yOut0, zOut0,  x1, yOut0, zOut0,  x1, yOut1, zOut1,
@@ -518,9 +532,9 @@ export class CurvedPortal3DBuilder {
                         x0 / 100, yOut0 / 100,  x1 / 100, yOut1 / 100,  x0 / 100, yOut1 / 100
                     );
 
-                    if (rInner > 0) {
-                        const zIn0 = zc - rInner * sin0, yIn0 = yc + rInner * cos0;
-                        const zIn1 = zc - rInner * sin1, yIn1 = yc + rInner * cos1;
+                    if (rInner_back > 0) {
+                        const zIn0 = zc - rInner_back * sin0, yIn0 = yc + rInner_back * cos0;
+                        const zIn1 = zc - rInner_back * sin1, yIn1 = yc + rInner_back * cos1;
 
                         ceilV.push(
                             x1, yIn0, zIn0,  x0, yIn0, zIn0,  x0, yIn1, zIn1,
@@ -538,24 +552,24 @@ export class CurvedPortal3DBuilder {
 
                     if (!hasLeft) {
                         fasciaV.push(
-                            x0, yOut0, zOut0,  x0, yOut1, zOut1,  x0, yc + rInner * cos1, zc - rInner * sin1,
-                            x0, yOut0, zOut0,  x0, yc + rInner * cos1, zc - rInner * sin1,  x0, yc + rInner * cos0, zc - rInner * sin0
+                            x0, yOut0, zOut0,  x0, yOut1, zOut1,  x0, yc + rInner_back * cos1, zc - rInner_back * sin1,
+                            x0, yOut0, zOut0,  x0, yc + rInner_back * cos1, zc - rInner_back * sin1,  x0, yc + rInner_back * cos0, zc - rInner_back * sin0
                         );
                         fasciaNorm.push(-1, 0, 0, -1, 0, 0, -1, 0, 0, -1, 0, 0, -1, 0, 0, -1, 0, 0);
-                        fasciaUV.push(zOut0 / 100, yOut0 / 100, zOut1 / 100, yOut1 / 100, (zc - rInner * sin1) / 100, (yc + rInner * cos1) / 100, zOut0 / 100, yOut0 / 100, (zc - rInner * sin1) / 100, (yc + rInner * cos1) / 100, (zc - rInner * sin0) / 100, (yc + rInner * cos0) / 100);
+                        fasciaUV.push(zOut0 / 100, yOut0 / 100, zOut1 / 100, yOut1 / 100, (zc - rInner_back * sin1) / 100, (yc + rInner_back * cos1) / 100, zOut0 / 100, yOut0 / 100, (zc - rInner_back * sin1) / 100, (yc + rInner_back * cos1) / 100, (zc - rInner_back * sin0) / 100, (yc + rInner_back * cos0) / 100);
                     }
                     if (!hasRight) {
                         fasciaV.push(
-                            x1, yOut0, zOut0,  x1, yc + rInner * cos1, zc - rInner * sin1,  x1, yOut1, zOut1,
-                            x1, yOut0, zOut0,  x1, yc + rInner * cos0, zc - rInner * sin0,  x1, yc + rInner * cos1, zc - rInner * sin1
+                            x1, yOut0, zOut0,  x1, yc + rInner_back * cos1, zc - rInner_back * sin1,  x1, yOut1, zOut1,
+                            x1, yOut0, zOut0,  x1, yc + rInner_back * cos0, zc - rInner_back * sin0,  x1, yc + rInner_back * cos1, zc - rInner_back * sin1
                         );
                         fasciaNorm.push(1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0);
-                        fasciaUV.push(zOut0 / 100, yOut0 / 100, (zc - rInner * sin1) / 100, (yc + rInner * cos1) / 100, zOut1 / 100, yOut1 / 100, zOut0 / 100, yOut0 / 100, (zc - rInner * sin0) / 100, (yc + rInner * cos0) / 100, (zc - rInner * sin1) / 100, (yc + rInner * cos1) / 100);
+                        fasciaUV.push(zOut0 / 100, yOut0 / 100, (zc - rInner_back * sin1) / 100, (yc + rInner_back * cos1) / 100, zOut1 / 100, yOut1 / 100, zOut0 / 100, yOut0 / 100, (zc - rInner_back * sin0) / 100, (yc + rInner_back * cos0) / 100, (zc - rInner_back * sin1) / 100, (yc + rInner_back * cos1) / 100);
                     }
                 }
             }
 
-            const wallTopY = -R;
+            const wallTopY = -R_back;
             const wallOuterZ = minY;
             const wallInnerZ = minY + T;
 
@@ -609,21 +623,22 @@ export class CurvedPortal3DBuilder {
 
         // 4. FRONT WALL (+Z)
         if (hasFront) {
+            const arcSubdivsFront = R_front > 0 ? 16 : 1;
             const x0 = slabMinX;
             const x1 = slabMaxX;
-            const zc = maxY - R;
-            const yc = -R;
+            const zc = maxY - R_front;
+            const yc = -R_front;
 
-            if (R > 0) {
-                for (let i = 0; i < arcSubdivs; i++) {
-                    const a0 = (i / arcSubdivs) * (Math.PI / 2);
-                    const a1 = ((i + 1) / arcSubdivs) * (Math.PI / 2);
+            if (R_front > 0) {
+                for (let i = 0; i < arcSubdivsFront; i++) {
+                    const a0 = (i / arcSubdivsFront) * (Math.PI / 2);
+                    const a1 = ((i + 1) / arcSubdivsFront) * (Math.PI / 2);
 
                     const sin0 = Math.sin(a0), cos0 = Math.cos(a0);
                     const sin1 = Math.sin(a1), cos1 = Math.cos(a1);
 
-                    const zOut0 = zc + R * sin0, yOut0 = yc + R * cos0;
-                    const zOut1 = zc + R * sin1, yOut1 = yc + R * cos1;
+                    const zOut0 = zc + R_front * sin0, yOut0 = yc + R_front * cos0;
+                    const zOut1 = zc + R_front * sin1, yOut1 = yc + R_front * cos1;
 
                     outerV.push(
                         x1, yOut0, zOut0,  x0, yOut0, zOut0,  x0, yOut1, zOut1,
@@ -638,9 +653,9 @@ export class CurvedPortal3DBuilder {
                         x1 / 100, yOut0 / 100,  x0 / 100, yOut1 / 100,  x1 / 100, yOut1 / 100
                     );
 
-                    if (rInner > 0) {
-                        const zIn0 = zc + rInner * sin0, yIn0 = yc + rInner * cos0;
-                        const zIn1 = zc + rInner * sin1, yIn1 = yc + rInner * cos1;
+                    if (rInner_front > 0) {
+                        const zIn0 = zc + rInner_front * sin0, yIn0 = yc + rInner_front * cos0;
+                        const zIn1 = zc + rInner_front * sin1, yIn1 = yc + rInner_front * cos1;
 
                         ceilV.push(
                             x0, yIn0, zIn0,  x1, yIn0, zIn0,  x1, yIn1, zIn1,
@@ -658,24 +673,24 @@ export class CurvedPortal3DBuilder {
 
                     if (!hasLeft) {
                         fasciaV.push(
-                            x0, yOut0, zOut0,  x0, yc + rInner * cos1, zc + rInner * sin1,  x0, yOut1, zOut1,
-                            x0, yOut0, zOut0,  x0, yc + rInner * cos0, zc + rInner * sin0,  x0, yc + rInner * cos1, zc + rInner * sin1
+                            x0, yOut0, zOut0,  x0, yc + rInner_front * cos1, zc + rInner_front * sin1,  x0, yOut1, zOut1,
+                            x0, yOut0, zOut0,  x0, yc + rInner_front * cos0, zc + rInner_front * sin0,  x0, yc + rInner_front * cos1, zc + rInner_front * sin1
                         );
                         fasciaNorm.push(-1, 0, 0, -1, 0, 0, -1, 0, 0, -1, 0, 0, -1, 0, 0, -1, 0, 0);
-                        fasciaUV.push(zOut0 / 100, yOut0 / 100, (zc + rInner * sin1) / 100, (yc + rInner * cos1) / 100, zOut1 / 100, yOut1 / 100, zOut0 / 100, yOut0 / 100, (zc + rInner * sin0) / 100, (yc + rInner * cos0) / 100, (zc + rInner * sin1) / 100, (yc + rInner * cos1) / 100);
+                        fasciaUV.push(zOut0 / 100, yOut0 / 100, (zc + rInner_front * sin1) / 100, (yc + rInner_front * cos1) / 100, zOut1 / 100, yOut1 / 100, zOut0 / 100, yOut0 / 100, (zc + rInner_front * sin0) / 100, (yc + rInner_front * cos0) / 100, (zc + rInner_front * sin1) / 100, (yc + rInner_front * cos1) / 100);
                     }
                     if (!hasRight) {
                         fasciaV.push(
-                            x1, yOut0, zOut0,  x1, yOut1, zOut1,  x1, yc + rInner * cos1, zc + rInner * sin1,
-                            x1, yOut0, zOut0,  x1, yc + rInner * cos1, zc + rInner * sin1,  x1, yc + rInner * cos0, zc + rInner * sin0
+                            x1, yOut0, zOut0,  x1, yOut1, zOut1,  x1, yc + rInner_front * cos1, zc + rInner_front * sin1,
+                            x1, yOut0, zOut0,  x1, yc + rInner_front * cos1, zc + rInner_front * sin1,  x1, yc + rInner_front * cos0, zc + rInner_front * sin0
                         );
                         fasciaNorm.push(1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0);
-                        fasciaUV.push(zOut0 / 100, yOut0 / 100, zOut1 / 100, yOut1 / 100, (zc + rInner * sin1) / 100, (yc + rInner * cos1) / 100, zOut0 / 100, yOut0 / 100, (zc + rInner * sin1) / 100, (yc + rInner * cos1) / 100, (zc + rInner * sin0) / 100, (yc + rInner * cos0) / 100);
+                        fasciaUV.push(zOut0 / 100, yOut0 / 100, zOut1 / 100, yOut1 / 100, (zc + rInner_front * sin1) / 100, (yc + rInner_front * cos1) / 100, zOut0 / 100, yOut0 / 100, (zc + rInner_front * sin1) / 100, (yc + rInner_front * cos1) / 100, (zc + rInner_front * sin0) / 100, (yc + rInner_front * cos0) / 100);
                     }
                 }
             }
 
-            const wallTopY = -R;
+            const wallTopY = -R_front;
             const wallOuterZ = maxY;
             const wallInnerZ = maxY - T;
 

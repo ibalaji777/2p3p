@@ -127,21 +127,42 @@ export class RoofMutationEngine {
      */
     static setOverhang(roof, overhang, edgeIndex = null, planner = null) {
         if (!roof) return;
+        if (edgeIndex !== null && typeof edgeIndex === 'object') {
+            planner = edgeIndex;
+            edgeIndex = null;
+        }
         roof.config = roof.config || {};
         const val = Math.max(0, Math.min(500, Number(overhang) || 0));
+        const numEdges = roof.points?.length || 4;
+
+        if (!roof.config.overhangs || !Array.isArray(roof.config.overhangs) || roof.config.overhangs.length !== numEdges) {
+            roof.config.overhangs = Array(numEdges).fill(roof.config.overhang !== undefined ? roof.config.overhang : 8);
+        }
 
         if (edgeIndex === null || edgeIndex === undefined) {
             roof.config.overhang = val;
-            if (roof.config.overhangs && Array.isArray(roof.config.overhangs)) {
-                roof.config.overhangs.fill(val);
-            }
+            roof.config.overhangs.fill(val);
         } else {
-            if (!roof.config.overhangs || !Array.isArray(roof.config.overhangs) || roof.config.overhangs.length !== (roof.points?.length || 4)) {
-                roof.config.overhangs = Array(roof.points?.length || 4).fill(roof.config.overhang || 8);
-            }
             roof.config.overhangs[edgeIndex] = val;
         }
 
+        this.notifyRoofUpdated(roof, planner || roof.planner, 'geometry');
+    }
+
+    /**
+     * Sets per-edge overhang depths array.
+     * @param {Object} roof 
+     * @param {Array<number>} overhangsArray 
+     * @param {Object} [planner] 
+     */
+    static setOverhangs(roof, overhangsArray, planner = null) {
+        if (!roof || !Array.isArray(overhangsArray)) return;
+        roof.config = roof.config || {};
+        const numEdges = roof.points?.length || 4;
+        roof.config.overhangs = overhangsArray.slice(0, numEdges).map(v => Math.max(0, Math.min(500, Number(v) || 0)));
+        while (roof.config.overhangs.length < numEdges) {
+            roof.config.overhangs.push(roof.config.overhang !== undefined ? roof.config.overhang : 8);
+        }
         this.notifyRoofUpdated(roof, planner || roof.planner, 'geometry');
     }
 
@@ -211,10 +232,14 @@ export class RoofMutationEngine {
      * @param {Object} roof 
      * @param {number} elevation 
      * @param {Object} [planner] 
+     * @param {Object} [options={}]
      */
-    static setElevation(roof, elevation, planner = null) {
+    static setElevation(roof, elevation, planner = null, options = {}) {
         if (!roof) return;
         roof.elevation = Number(elevation) || 0;
+        if (!options.fromWallSync) {
+            roof._restingOnWalls = false;
+        }
         this.notifyRoofUpdated(roof, planner || roof.planner, 'transform');
     }
 
@@ -277,12 +302,50 @@ export class RoofMutationEngine {
      * 0 = sharp 90-degree corner, >0 = smooth circular arc fillet.
      * @param {Object} roof 
      * @param {number} radius 
+     * @param {number|null} [cornerIndex=null] 
      * @param {Object} [planner] 
      */
-    static setCornerRadius(roof, radius, planner = null) {
+    static setCornerRadius(roof, radius, cornerIndex = null, planner = null) {
         if (!roof) return;
+        if (cornerIndex !== null && typeof cornerIndex === 'object') {
+            planner = cornerIndex;
+            cornerIndex = null;
+        }
         roof.config = roof.config || {};
-        roof.config.radius = Math.max(0, Math.min(250, Number(radius) || 0));
+        const val = Math.max(0, Math.min(250, Number(radius) || 0));
+        const numCorners = roof.points?.length || 4;
+
+        if (!roof.config.cornerRadii || !Array.isArray(roof.config.cornerRadii) || roof.config.cornerRadii.length !== numCorners) {
+            roof.config.cornerRadii = Array(numCorners).fill(roof.config.radius !== undefined ? roof.config.radius : 0);
+        }
+
+        if (cornerIndex === null || cornerIndex === undefined) {
+            roof.config.radius = val;
+            roof.radius = val;
+            roof.config.cornerRadii.fill(val);
+        } else {
+            roof.config.cornerRadii[cornerIndex] = val;
+        }
+        roof.cornerRadii = [...roof.config.cornerRadii];
+
+        this.notifyRoofUpdated(roof, planner || roof.planner, 'geometry');
+    }
+
+    /**
+     * Sets per-corner fillet curvature radii array [r0, r1, r2, r3, ...] (cm).
+     * @param {Object} roof 
+     * @param {Array<number>} radiiArray 
+     * @param {Object} [planner] 
+     */
+    static setCornerRadii(roof, radiiArray, planner = null) {
+        if (!roof || !Array.isArray(radiiArray)) return;
+        roof.config = roof.config || {};
+        const numCorners = roof.points?.length || 4;
+        roof.config.cornerRadii = radiiArray.slice(0, numCorners).map(r => Math.max(0, Math.min(250, Number(r) || 0)));
+        while (roof.config.cornerRadii.length < numCorners) {
+            roof.config.cornerRadii.push(roof.config.radius !== undefined ? roof.config.radius : 0);
+        }
+        roof.cornerRadii = [...roof.config.cornerRadii];
         this.notifyRoofUpdated(roof, planner || roof.planner, 'geometry');
     }
 
@@ -561,7 +624,13 @@ export class RoofMutationEngine {
 
         if (!roof.config?.autoShapeWalls || roof.config?.roofType !== 'gable') {
             const toDelete = planner.walls.filter(w => w.isAutoGable && w.parentRoofId === roof.id);
-            toDelete.forEach(w => WallEngine.deleteWall(planner, w));
+            toDelete.forEach(w => {
+                try {
+                    WallEngine.deleteWall(planner, w);
+                } catch (e) {
+                    console.warn('[RoofMutationEngine] Failed to delete auto-gable wall:', e);
+                }
+            });
             return;
         }
 
@@ -627,6 +696,8 @@ export class RoofMutationEngine {
                             gableWall.parentWallId = w.id;
                             gableWall.parentRoofId = roof.id;
                             gableWall.description = "Auto Gable Wall";
+                            if (gableWall.wallGroup) gableWall.wallGroup.visible(false);
+                            if (gableWall.labelGroup) gableWall.labelGroup.visible(false);
                         }
                     } else {
                         WallEngine.setElevation(gableWall, elevation, false, planner);
@@ -787,6 +858,16 @@ export class RoofMutationEngine {
                 roof.config.autoShapeWalls = Boolean(val);
             } else if (key === 'autoPlacementMode') {
                 roof.config.autoPlacementMode = val;
+            } else if (key === 'cornerRadii' && Array.isArray(val)) {
+                roof.config.cornerRadii = [...val];
+                roof.cornerRadii = [...val];
+            } else if (key === 'radius') {
+                const r = Math.max(0, Math.min(250, Number(val) || 0));
+                roof.config.radius = r;
+                roof.radius = r;
+                if (roof.config.cornerRadii && Array.isArray(roof.config.cornerRadii)) {
+                    roof.config.cornerRadii.fill(r);
+                }
             } else if (key === 'elevation') {
                 roof.elevation = Number(val) || 0;
             } else if (key === 'rotation') {
@@ -863,9 +944,10 @@ export class RoofMutationEngine {
 
             const curElev = rf.elevation !== undefined ? Number(rf.elevation) : 0;
 
-            // If roof is below wall top, it MUST move up to sit on top of the walls.
-            // If roof was previously resting on the walls, it tracks the wall height change.
-            const wasResting = rf._restingOnWalls || (rf._lastSyncedWallTop && Math.abs(curElev - rf._lastSyncedWallTop) < 2) || (curElev <= maxWallTop);
+            // If the user explicitly detached this roof, do not force it back to wall height
+            if (rf._restingOnWalls === false) return;
+
+            const wasResting = rf._restingOnWalls === true || (rf._lastSyncedWallTop && Math.abs(curElev - rf._lastSyncedWallTop) < 2) || (rf._restingOnWalls === undefined && curElev <= maxWallTop);
 
             if (curElev < maxWallTop || wasResting) {
                 if (curElev !== maxWallTop) {

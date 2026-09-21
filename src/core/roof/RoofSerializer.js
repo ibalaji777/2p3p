@@ -56,6 +56,17 @@ export class RoofSerializer {
             _restingOnWalls: Boolean(roof._restingOnWalls),
             _lastSyncedWallTop: roof._lastSyncedWallTop !== undefined ? roof._lastSyncedWallTop : null,
             hostWallIds: roof.hostWallIds ? [...roof.hostWallIds] : [],
+            radius: roof.radius !== undefined ? roof.radius : (conf.radius !== undefined ? conf.radius : 0),
+            cornerRadii: conf.cornerRadii ? [...conf.cornerRadii] : (roof.cornerRadii ? [...roof.cornerRadii] : undefined),
+            wallSides: conf.wallSides ? { ...conf.wallSides } : (roof.wallSides ? { ...roof.wallSides } : undefined),
+            wallDropHeight: conf.wallDropHeight !== undefined ? conf.wallDropHeight : (roof.wallDropHeight !== undefined ? roof.wallDropHeight : undefined),
+            connectedWallId: roof.connectedWallId || conf.connectedWallId || null,
+            hasSpotlights: conf.hasSpotlights !== undefined ? Boolean(conf.hasSpotlights) : (roof.hasSpotlights !== undefined ? Boolean(roof.hasSpotlights) : undefined),
+            spotlightCount: conf.spotlightCount !== undefined ? conf.spotlightCount : (roof.spotlightCount !== undefined ? roof.spotlightCount : undefined),
+            spotlightSpacing: conf.spotlightSpacing !== undefined ? conf.spotlightSpacing : (roof.spotlightSpacing !== undefined ? roof.spotlightSpacing : undefined),
+            edgeCurves: conf.edgeCurves ? JSON.parse(JSON.stringify(conf.edgeCurves)) : (roof.edgeCurves ? JSON.parse(JSON.stringify(roof.edgeCurves)) : undefined),
+            materials: roof.materials ? JSON.parse(JSON.stringify(roof.materials)) : (conf.materials ? JSON.parse(JSON.stringify(conf.materials)) : undefined),
+            levelId: roof.levelId !== undefined ? roof.levelId : (conf.levelId !== undefined ? conf.levelId : null),
             description: roof.description
         };
     }
@@ -91,6 +102,16 @@ export class RoofSerializer {
             fasciaMaterial: rData.fasciaMaterial || undefined,
             tileSize: rData.tileSize !== undefined ? rData.tileSize : undefined,
             slopes: rData.slopes,
+            radius: rData.radius !== undefined ? rData.radius : 0,
+            cornerRadii: rData.cornerRadii ? [...rData.cornerRadii] : undefined,
+            wallSides: rData.wallSides ? { ...rData.wallSides } : undefined,
+            wallDropHeight: rData.wallDropHeight !== undefined ? rData.wallDropHeight : undefined,
+            connectedWallId: rData.connectedWallId || null,
+            hasSpotlights: rData.hasSpotlights !== undefined ? Boolean(rData.hasSpotlights) : undefined,
+            spotlightCount: rData.spotlightCount !== undefined ? rData.spotlightCount : undefined,
+            spotlightSpacing: rData.spotlightSpacing !== undefined ? rData.spotlightSpacing : undefined,
+            edgeCurves: rData.edgeCurves ? JSON.parse(JSON.stringify(rData.edgeCurves)) : undefined,
+            materials: rData.materials ? JSON.parse(JSON.stringify(rData.materials)) : undefined,
             skylights: rData.skylights || [],
             crestings: rData.crestings || [],
             finials: rData.finials || [],
@@ -105,17 +126,32 @@ export class RoofSerializer {
             rotation: rData.rotation || 0,
             x: rData.x || 0,
             y: rData.y || 0,
+            levelId: rData.levelId !== undefined ? rData.levelId : undefined,
             description: rData.description,
             addToPlanner: shouldAdd,
             select: options.select || false
         });
 
         if (roof) {
+            if (rData.levelId !== undefined) roof.levelId = rData.levelId;
             if (rData.configId) roof.configId = rData.configId;
             if (rData.tileSize !== undefined) roof.tileSize = rData.tileSize;
             if (rData._restingOnWalls !== undefined) roof._restingOnWalls = Boolean(rData._restingOnWalls);
             if (rData._lastSyncedWallTop !== null && rData._lastSyncedWallTop !== undefined) roof._lastSyncedWallTop = rData._lastSyncedWallTop;
             if (rData.hostWallIds && Array.isArray(rData.hostWallIds)) roof.hostWallIds = [...rData.hostWallIds];
+            if (rData.radius !== undefined) roof.radius = rData.radius;
+            if (rData.cornerRadii && Array.isArray(rData.cornerRadii)) {
+                roof.cornerRadii = [...rData.cornerRadii];
+                roof.config.cornerRadii = [...rData.cornerRadii];
+            }
+            if (rData.wallSides) roof.wallSides = { ...rData.wallSides };
+            if (rData.wallDropHeight !== undefined) roof.wallDropHeight = rData.wallDropHeight;
+            if (rData.connectedWallId) roof.connectedWallId = rData.connectedWallId;
+            if (rData.hasSpotlights !== undefined) roof.hasSpotlights = Boolean(rData.hasSpotlights);
+            if (rData.spotlightCount !== undefined) roof.spotlightCount = rData.spotlightCount;
+            if (rData.spotlightSpacing !== undefined) roof.spotlightSpacing = rData.spotlightSpacing;
+            if (rData.edgeCurves) roof.edgeCurves = JSON.parse(JSON.stringify(rData.edgeCurves));
+            if (rData.materials) roof.materials = JSON.parse(JSON.stringify(rData.materials));
         }
 
         return roof;

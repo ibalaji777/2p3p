@@ -75,9 +75,27 @@ export class RoofTopologyEngine {
         roof.configId = mergedConfig.material;
         if (options.description !== undefined) roof.description = options.description;
         if (mergedConfig.tileSize !== undefined) roof.tileSize = mergedConfig.tileSize;
+        if (mergedConfig.radius !== undefined) roof.radius = mergedConfig.radius;
+        if (options.cornerRadii || mergedConfig.cornerRadii) {
+            roof.cornerRadii = [...(options.cornerRadii || mergedConfig.cornerRadii)];
+            mergedConfig.cornerRadii = [...roof.cornerRadii];
+        }
+        if (mergedConfig.wallSides) roof.wallSides = { ...mergedConfig.wallSides };
+        if (mergedConfig.wallDropHeight !== undefined) roof.wallDropHeight = mergedConfig.wallDropHeight;
+        if (mergedConfig.connectedWallId) roof.connectedWallId = mergedConfig.connectedWallId;
+        if (mergedConfig.hasSpotlights !== undefined) roof.hasSpotlights = Boolean(mergedConfig.hasSpotlights);
+        if (mergedConfig.spotlightCount !== undefined) roof.spotlightCount = mergedConfig.spotlightCount;
+        if (mergedConfig.spotlightSpacing !== undefined) roof.spotlightSpacing = mergedConfig.spotlightSpacing;
+        if (mergedConfig.edgeCurves) roof.edgeCurves = JSON.parse(JSON.stringify(mergedConfig.edgeCurves));
+        if (mergedConfig.materials) roof.materials = JSON.parse(JSON.stringify(mergedConfig.materials));
+        if (options.levelId !== undefined) roof.levelId = options.levelId;
+        else if (mergedConfig.levelId !== undefined) roof.levelId = mergedConfig.levelId;
+        else if (planner?.activeLevel?.id) roof.levelId = planner.activeLevel.id;
 
-        if (options.x !== undefined && options.y !== undefined && roof.group && typeof roof.group.position === 'function') {
-            roof.group.position({ x: options.x, y: options.y });
+        roof.x = options.x !== undefined ? options.x : 0;
+        roof.y = options.y !== undefined ? options.y : 0;
+        if (roof.group && typeof roof.group.position === 'function') {
+            roof.group.position({ x: roof.x, y: roof.y });
         }
 
         if (roof.update) roof.update();
@@ -137,6 +155,16 @@ export class RoofTopologyEngine {
             flipSlope: !!origConf.flipSlope,
             autoPlacementMode: origConf.autoPlacementMode || 'manual',
             slopes: origConf.slopes ? JSON.parse(JSON.stringify(origConf.slopes)) : undefined,
+            radius: roof.radius !== undefined ? roof.radius : (origConf.radius !== undefined ? origConf.radius : 0),
+            cornerRadii: origConf.cornerRadii ? [...origConf.cornerRadii] : (roof.cornerRadii ? [...roof.cornerRadii] : undefined),
+            wallSides: origConf.wallSides ? { ...origConf.wallSides } : (roof.wallSides ? { ...roof.wallSides } : undefined),
+            wallDropHeight: origConf.wallDropHeight !== undefined ? origConf.wallDropHeight : (roof.wallDropHeight !== undefined ? roof.wallDropHeight : undefined),
+            connectedWallId: roof.connectedWallId || origConf.connectedWallId || null,
+            hasSpotlights: origConf.hasSpotlights !== undefined ? Boolean(origConf.hasSpotlights) : (roof.hasSpotlights !== undefined ? Boolean(roof.hasSpotlights) : undefined),
+            spotlightCount: origConf.spotlightCount !== undefined ? origConf.spotlightCount : (roof.spotlightCount !== undefined ? roof.spotlightCount : undefined),
+            spotlightSpacing: origConf.spotlightSpacing !== undefined ? origConf.spotlightSpacing : (roof.spotlightSpacing !== undefined ? roof.spotlightSpacing : undefined),
+            edgeCurves: origConf.edgeCurves ? JSON.parse(JSON.stringify(origConf.edgeCurves)) : (roof.edgeCurves ? JSON.parse(JSON.stringify(roof.edgeCurves)) : undefined),
+            materials: roof.materials ? JSON.parse(JSON.stringify(roof.materials)) : (origConf.materials ? JSON.parse(JSON.stringify(origConf.materials)) : undefined),
             skylights: origConf.skylights ? origConf.skylights.map(s => ({
                 ...JSON.parse(JSON.stringify(s)),
                 id: `sky_${Date.now()}_${Math.floor(Math.random() * 1000)}`
@@ -166,14 +194,31 @@ export class RoofTopologyEngine {
             y: gy + oy,
             elevation: roof.elevation !== undefined ? roof.elevation : 120,
             rotation: roof.rotation || 0,
+            levelId: roof.levelId !== undefined ? roof.levelId : origConf.levelId,
             description: roof.description ? `${roof.description} (Copy)` : undefined,
             addToPlanner: true,
             select: true
         });
 
         if (newRoof) {
+            if (roof.levelId !== undefined) newRoof.levelId = roof.levelId;
             if (roof.tileSize !== undefined) newRoof.tileSize = roof.tileSize;
             if (roof.configId) newRoof.configId = roof.configId;
+            if (roof.radius !== undefined || origConf.radius !== undefined) newRoof.radius = roof.radius ?? origConf.radius ?? 0;
+            if (roof.cornerRadii || clonedConfig.cornerRadii) {
+                newRoof.cornerRadii = [...(roof.cornerRadii || clonedConfig.cornerRadii)];
+                newRoof.config.cornerRadii = [...newRoof.cornerRadii];
+            }
+            if (clonedConfig.wallSides) newRoof.wallSides = { ...clonedConfig.wallSides };
+            if (clonedConfig.wallDropHeight !== undefined) newRoof.wallDropHeight = clonedConfig.wallDropHeight;
+            if (clonedConfig.connectedWallId) newRoof.connectedWallId = clonedConfig.connectedWallId;
+            if (clonedConfig.hasSpotlights !== undefined) newRoof.hasSpotlights = Boolean(clonedConfig.hasSpotlights);
+            if (clonedConfig.spotlightCount !== undefined) newRoof.spotlightCount = clonedConfig.spotlightCount;
+            if (clonedConfig.spotlightSpacing !== undefined) newRoof.spotlightSpacing = clonedConfig.spotlightSpacing;
+            if (clonedConfig.edgeCurves) newRoof.edgeCurves = JSON.parse(JSON.stringify(clonedConfig.edgeCurves));
+            if (clonedConfig.materials) newRoof.materials = JSON.parse(JSON.stringify(clonedConfig.materials));
+            if (roof._restingOnWalls !== undefined) newRoof._restingOnWalls = Boolean(roof._restingOnWalls);
+            if (roof.hostWallIds && Array.isArray(roof.hostWallIds)) newRoof.hostWallIds = [...roof.hostWallIds];
             
             RoofMutationEngine.notifyRoofUpdated(newRoof, planner, 'create');
         }
@@ -205,7 +250,11 @@ export class RoofTopologyEngine {
         if (planner && planner.walls) {
             const autoGables = planner.walls.filter(w => w.isAutoGable && w.parentRoofId === roof.id);
             autoGables.forEach(w => {
-                WallEngine.deleteWall(planner, w);
+                try {
+                    WallEngine.deleteWall(planner, w);
+                } catch(e) {
+                    console.warn('[RoofTopologyEngine] Failed to delete auto-gable wall:', e);
+                }
             });
         }
 

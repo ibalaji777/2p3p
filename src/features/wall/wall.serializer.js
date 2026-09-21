@@ -145,7 +145,13 @@ export const WallSerializer = {
         if (wData.hidden !== undefined) wall.hidden = wData.hidden;
         if (wData.description !== undefined) wall.description = wData.description;
         if (wData.elevationLayers) wall.elevationLayers = wData.elevationLayers;
-        if (wData.isAutoGable !== undefined) wall.isAutoGable = wData.isAutoGable;
+        if (wData.isAutoGable !== undefined) {
+            wall.isAutoGable = wData.isAutoGable;
+            if (wall.isAutoGable) {
+                if (wall.wallGroup) wall.wallGroup.visible(false);
+                if (wall.labelGroup) wall.labelGroup.visible(false);
+            }
+        }
         if (wData.parentWallId !== undefined) wall.parentWallId = wData.parentWallId;
         if (wData.parentRoofId !== undefined) wall.parentRoofId = wData.parentRoofId;
         if (wData.hostLevelId !== undefined) wall.hostLevelId = wData.hostLevelId;

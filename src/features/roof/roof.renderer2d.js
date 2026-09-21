@@ -78,6 +78,14 @@ export class PremiumHipRoof {
                 const newPts = this.points.map((pt, idx) => idx === i ? { x: handle.x(), y: handle.y() } : { x: pt.x, y: pt.y });
                 RoofEngine.setPoints(this, newPts, this.planner);
             });
+            handle.on('dragend', (e) => {
+                e.cancelBubble = true;
+                const newPts = this.points.map((pt, idx) => idx === i ? { x: handle.x(), y: handle.y() } : { x: pt.x, y: pt.y });
+                RoofEngine.setPoints(this, newPts, this.planner);
+                if (this.planner?.history?.record) {
+                    this.planner.history.record();
+                }
+            });
             this.handles.push(handle);
             this.group.add(handle);
         });
@@ -133,6 +141,19 @@ export class PremiumHipRoof {
             this.planner.selectEntity(this, 'roof'); 
         });
         this.group.on('dragmove', (e) => { if (this.planner.tool !== 'select' || this.handles.includes(e.target)) return; this.planner.syncAll(); });
+        this.group.on('dragend', (e) => {
+            if (this.planner.tool !== 'select' || this.handles.includes(e.target)) return;
+            const dx = this.group.x();
+            const dy = this.group.y();
+            if (dx === 0 && dy === 0) return;
+            this.group.position({ x: 0, y: 0 });
+            const newPts = this.points.map(pt => ({ x: pt.x + dx, y: pt.y + dy }));
+            RoofEngine.setPoints(this, newPts, this.planner);
+            if (this.planner?.history?.record) {
+                this.planner.history.record();
+            }
+            this.planner.syncAll();
+        });
     }
     
     update() {
@@ -145,9 +166,18 @@ export class PremiumHipRoof {
     }
     
     updateGeometry() {
-        this.handles.forEach(h => h.destroy());
-        this.handles = [];
-        this.initHandles();
+        if (this.handles && this.handles.length === this.points.length) {
+            this.points.forEach((p, i) => {
+                const h = this.handles[i];
+                if (h && (!h.isDragging || !h.isDragging())) {
+                    h.position({ x: p.x, y: p.y });
+                }
+            });
+        } else {
+            this.handles.forEach(h => h.destroy());
+            this.handles = [];
+            this.initHandles();
+        }
         this.update();
         const mode = this.config?.autoPlacementMode || 'manual';
         this.handles.forEach(h => h.visible(mode === 'manual' && this.planner?.selectedEntity === this));

@@ -105,11 +105,12 @@ export class RoofPitchCurvatureGizmo extends THREE.Group {
                     handle = handle.parent;
                 }
 
-                this.activeHandle = handle;
-                this.isDragging = true;
-
                 const entity = this.target.userData?.entity;
                 if (!entity) return;
+
+                if (this.ctx.controls) this.ctx.controls.enabled = false;
+                this.activeHandle = handle;
+                this.isDragging = true;
                 entity._isDragging = true;
                 const conf = entity.config || entity;
                 this.initialPitch = conf.pitch !== undefined ? conf.pitch : 30;
@@ -299,8 +300,9 @@ export class RoofPitchCurvatureGizmo extends THREE.Group {
                     const rad = rot * Math.PI / 180;
                     const worldDeltaX = this.planeIntersect.x - this.dragStartPos.x;
                     const worldDeltaZ = this.planeIntersect.z - this.dragStartPos.z;
-                    const localDeltaX = worldDeltaX * Math.cos(rad) - worldDeltaZ * Math.sin(rad);
-                    const localDeltaZ = worldDeltaX * Math.sin(rad) + worldDeltaZ * Math.cos(rad);
+                    // Convert world-space delta into local roof coordinates (inverse rotation matrix)
+                    const localDeltaX = worldDeltaX * Math.cos(rad) + worldDeltaZ * Math.sin(rad);
+                    const localDeltaZ = -worldDeltaX * Math.sin(rad) + worldDeltaZ * Math.cos(rad);
 
                     const edgeIdx = this.activeHandle.userData?.edgeIndex ?? 0;
                     const nx = this.activeHandle.userData?.nx ?? 0;
@@ -345,8 +347,9 @@ export class RoofPitchCurvatureGizmo extends THREE.Group {
                     const rad = rot * Math.PI / 180;
                     const worldDeltaX = this.planeIntersect.x - this.dragStartPos.x;
                     const worldDeltaZ = this.planeIntersect.z - this.dragStartPos.z;
-                    const deltaX = worldDeltaX * Math.cos(rad) - worldDeltaZ * Math.sin(rad);
-                    const deltaZ = worldDeltaX * Math.sin(rad) + worldDeltaZ * Math.cos(rad);
+                    // Convert world-space delta into local roof coordinates (inverse rotation matrix)
+                    const deltaX = worldDeltaX * Math.cos(rad) + worldDeltaZ * Math.sin(rad);
+                    const deltaZ = -worldDeltaX * Math.sin(rad) + worldDeltaZ * Math.cos(rad);
 
                     const corner = this.activeHandle.userData?.corner;
 
@@ -477,8 +480,8 @@ export class RoofPitchCurvatureGizmo extends THREE.Group {
             return;
         }
         this.domBadge.innerHTML = text;
-        this.domBadge.style.left = `${screenPos.x}px`;
-        this.domBadge.style.top = `${screenPos.y}px`;
+        this.domBadge.style.left = `${Math.max(16, screenPos.x)}px`;
+        this.domBadge.style.top = `${Math.max(16, screenPos.y)}px`;
         this.domBadge.style.display = 'block';
     }
 

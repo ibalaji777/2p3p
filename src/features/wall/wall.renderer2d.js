@@ -698,6 +698,10 @@ export class PremiumWall {
     getClosestT(pos) { const p1 = WallGeometryEngine.getAnchorPosition(this.startAnchor), p2 = WallGeometryEngine.getAnchorPosition(this.endAnchor), dx = p2.x - p1.x, dy = p2.y - p1.y, lenSq = dx*dx + dy*dy; if (lenSq === 0) return 0.5; let t = ((pos.x - p1.x) * dx + (pos.y - p1.y) * dy) / lenSq; return Math.max(0, Math.min(1, t)); }
     
     update() { 
+        if (this.isAutoGable) {
+            if (this.wallGroup) this.wallGroup.visible(false);
+            if (this.labelGroup) this.labelGroup.visible(false);
+        }
         const p1 = WallGeometryEngine.getAnchorPosition(this.startAnchor);
         const p2 = WallGeometryEngine.getAnchorPosition(this.endAnchor);
         const vlen = Math.hypot(p2.x - p1.x, p2.y - p1.y);

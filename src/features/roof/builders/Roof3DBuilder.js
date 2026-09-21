@@ -147,8 +147,12 @@ export class Roof3DBuilder {
                 roof._restingOnWalls = true;
                 roof._lastSyncedWallTop = maxWallTop;
             } else if (roof.elevation !== undefined) {
-                // Manually placed roof: cannot sink below supporting walls
-                baseHeight = maxWallTop > 0 ? Math.max(Number(roof.elevation), maxWallTop) : Number(roof.elevation);
+                // Manually placed roof: if explicitly detached, respect elevation directly
+                if (roof._restingOnWalls === false) {
+                    baseHeight = Number(roof.elevation) || 0;
+                } else {
+                    baseHeight = maxWallTop > 0 ? Math.max(Number(roof.elevation), maxWallTop) : Number(roof.elevation);
+                }
             } else {
                 baseHeight = maxWallTop > 0 ? maxWallTop : (hasWalls ? maxWallHeight : 0);
             }
@@ -665,7 +669,7 @@ export class Roof3DBuilder {
                 const rh = Math.tan(pitchRad) * (maxSpan / 2);
                 let cx = axis === 'x' ? (bMinX + bW / 2) : baseCx;
                 let cy = axis === 'x' ? baseCy : (bMinY + bD / 2);
-                const curve = conf.curve || (conf.roofType === 'curved' ? -20 : 0);
+                const curve = conf.curve !== undefined ? conf.curve : (conf.roofType === 'curved' ? -20 : 0);
                 const gWestX = (baseMinX !== Infinity && !conf.flushGable) ? Math.max(bMinX, Math.min(bMaxX, baseMinX)) : bMinX;
                 const gEastX = (baseMaxX !== -Infinity && !conf.flushGable) ? Math.max(bMinX, Math.min(bMaxX, baseMaxX)) : bMaxX;
                 const gNorthY = (baseMinY !== Infinity && !conf.flushGable) ? Math.max(bMinY, Math.min(bMaxY, baseMinY)) : bMinY;

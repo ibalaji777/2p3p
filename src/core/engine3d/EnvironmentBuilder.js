@@ -20,6 +20,7 @@ import { DEFAULT_UNIVERSAL_TILE_SIZE } from '../registries/material.registry.js'
 import { MaterialFactory } from './MaterialFactory.js';
 import { UniversalMaterialManager } from './UniversalMaterialManager.js';
 import { computeLevelElevations } from './helpers/levelElevations.js';
+import { ComponentRegistry } from './ComponentRegistry.js';
 
 let _sharedPlasterMaterial = null;
 let _plasterUniforms = {
@@ -1971,34 +1972,95 @@ export class EnvironmentBuilder {
             realRoofGroup.position.copy(tempRoofGroup.position);
             realRoofGroup.rotation.copy(tempRoofGroup.rotation);
 
-            // Update local mesh offset (-cx, 0, -cz)
-            oldMesh.position.copy(newMesh.position);
+            const isOldMeshStandard = oldMesh.isMesh && !oldMesh.isGroup;
+            const isNewMeshStandard = newMesh.isMesh && !newMesh.isGroup;
 
-            // Swap geometry
-            if (oldMesh.geometry) oldMesh.geometry.dispose();
-            oldMesh.geometry = newMesh.geometry;
-            
-            // Swap material
-            oldMesh.material = newMesh.material;
-            oldMesh.userData = { ...newMesh.userData, entity: roof };
-            
-            // Swap children (e.g. gableMesh)
-            while(oldMesh.children.length > 0) {
-                const child = oldMesh.children[0];
-                oldMesh.remove(child);
-                if (child.geometry) child.geometry.dispose();
-            }
-            
-            while(newMesh.children.length > 0) {
-                const child = newMesh.children[0];
-                newMesh.remove(child);
-                oldMesh.add(child);
+            if (isOldMeshStandard && isNewMeshStandard) {
+                // Both are standard single-mesh roofs (e.g. flat, hip, gable)
+                oldMesh.position.copy(newMesh.position);
+
+                // High-performance in-place vertex buffer mutation when buffer length matches
+                if (oldMesh.geometry && newMesh.geometry &&
+                    oldMesh.geometry.attributes?.position && newMesh.geometry.attributes?.position &&
+                    oldMesh.geometry.attributes.position.count === newMesh.geometry.attributes.position.count) {
+                    oldMesh.geometry.attributes.position.copy(newMesh.geometry.attributes.position);
+                    oldMesh.geometry.attributes.position.needsUpdate = true;
+                    if (oldMesh.geometry.attributes.normal && newMesh.geometry.attributes.normal) {
+                        oldMesh.geometry.attributes.normal.copy(newMesh.geometry.attributes.normal);
+                        oldMesh.geometry.attributes.normal.needsUpdate = true;
+                    }
+                    if (oldMesh.geometry.attributes.uv && newMesh.geometry.attributes.uv) {
+                        oldMesh.geometry.attributes.uv.copy(newMesh.geometry.attributes.uv);
+                        oldMesh.geometry.attributes.uv.needsUpdate = true;
+                    }
+                    oldMesh.geometry.computeBoundingBox();
+                    oldMesh.geometry.computeBoundingSphere();
+                    if (typeof newMesh.geometry.dispose === 'function') {
+                        newMesh.geometry.dispose();
+                    }
+                } else {
+                    if (oldMesh.geometry) oldMesh.geometry.dispose();
+                    oldMesh.geometry = newMesh.geometry;
+                }
+                oldMesh.material = newMesh.material;
+                oldMesh.userData = { ...newMesh.userData, entity: roof };
+
+                // Swap direct children (e.g. gableMesh attached directly to oldMesh)
+                while (oldMesh.children.length > 0) {
+                    const child = oldMesh.children[0];
+                    oldMesh.remove(child);
+                    if (child.geometry) child.geometry.dispose();
+                }
+                while (newMesh.children.length > 0) {
+                    const child = newMesh.children[0];
+                    newMesh.remove(child);
+                    oldMesh.add(child);
+                }
+            } else if (!isOldMeshStandard && !isNewMeshStandard) {
+                // Both are multi-mesh Groups (e.g. curved_portal with drop walls & spotlights)
+                oldMesh.position.copy(newMesh.position);
+                oldMesh.rotation.copy(newMesh.rotation);
+                oldMesh.userData = { ...newMesh.userData, entity: roof };
+
+                // Dispose old child geometries and materials
+                while (oldMesh.children.length > 0) {
+                    const child = oldMesh.children[0];
+                    oldMesh.remove(child);
+                    if (typeof child.traverse === 'function') {
+                        child.traverse(gc => {
+                            if (gc.geometry) gc.geometry.dispose();
+                        });
+                    }
+                }
+
+                // Transfer new children to persistent oldMesh group
+                while (newMesh.children.length > 0) {
+                    const child = newMesh.children[0];
+                    newMesh.remove(child);
+                    oldMesh.add(child);
+                }
+            } else {
+                // Topology changed between Mesh and Group (e.g. flat -> curved_portal or vice versa)
+                const oldIdx = realRoofGroup.children.indexOf(oldMesh);
+                if (oldIdx !== -1) {
+                    realRoofGroup.remove(oldMesh);
+                    if (typeof oldMesh.traverse === 'function') {
+                        oldMesh.traverse(c => {
+                            if (c.geometry) c.geometry.dispose();
+                        });
+                    }
+                    realRoofGroup.add(newMesh);
+                    newMesh.userData = { ...newMesh.userData, entity: roof };
+                }
             }
 
             // Sync all skylight & sculpture groups from tempRoofGroup to realRoofGroup
             const oldAttached = realRoofGroup.children.filter(c => c.userData && (c.userData.isSkylight || c.userData.isRoofSculpture));
             oldAttached.forEach(item => {
                 realRoofGroup.remove(item);
+                if (typeof item.traverse === 'function') {
+                    item.traverse(c => { if (c.geometry) c.geometry.dispose(); });
+                }
             });
 
             const newAttached = tempRoofGroup.children.filter(c => c.userData && (c.userData.isSkylight || c.userData.isRoofSculpture));
@@ -2007,11 +2069,55 @@ export class EnvironmentBuilder {
                 realRoofGroup.add(item);
             });
 
+            // Re-register with ComponentRegistry so live material changes and picking continue to function
+            if (typeof ComponentRegistry !== 'undefined' && typeof ComponentRegistry.unregisterEntity === 'function') {
+                ComponentRegistry.unregisterEntity(roof);
+                realRoofGroup.traverse(child => {
+                    if (child.isMesh && child.userData?.materialSlot) {
+                        ComponentRegistry.registerMesh(roof, child.userData.materialSlot, child);
+                    }
+                });
+            }
+
+            // Synchronize interactables raycast targets
+            if (Array.isArray(this.ctx.interactables)) {
+                const activeMeshes = new Set();
+                realRoofGroup.traverse(c => { if (c.isMesh) activeMeshes.add(c); });
+
+                for (let i = this.ctx.interactables.length - 1; i >= 0; i--) {
+                    const item = this.ctx.interactables[i];
+                    if (item.userData?.entity === roof || item.userData?.roofId === roof.id) {
+                        if (!activeMeshes.has(item)) {
+                            this.ctx.interactables.splice(i, 1);
+                        }
+                    }
+                }
+                activeMeshes.forEach(m => {
+                    if (!this.ctx.interactables.includes(m)) {
+                        this.ctx.interactables.push(m);
+                    }
+                });
+            }
+
+            // Keep active selection in sync if this roof was currently selected
+            if (this.ctx.interactions) {
+                if (this.ctx.interactions.selectedObject === oldMesh || this.ctx.interactions.selectedObject?.userData?.entity === roof) {
+                    const targetMesh = realRoofGroup.children.find(c => c.userData && c.userData.isRoof) || realRoofGroup;
+                    this.ctx.interactions.selectedObject = targetMesh;
+                }
+            }
+
             if (coreEventBus) {
                 coreEventBus.emit(EVENTS.SYNC_ENGINE);
                 coreEventBus.emit('EntityGeometryUpdated', { entity: roof, object3D: realRoofGroup });
             }
         }
+
+        // Deep dispose temporary build container
+        if (this.ctx && typeof this.ctx.deepDispose === 'function') {
+            this.ctx.deepDispose(tempTarget);
+        }
+
         if (this.ctx && typeof this.ctx.requestRender === 'function') {
             this.ctx.requestRender();
         }
