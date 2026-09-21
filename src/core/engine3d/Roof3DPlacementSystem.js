@@ -154,44 +154,31 @@ export class Roof3DPlacementSystem {
         if (typeof document === 'undefined') return;
         this.domBadge = document.createElement('div');
         this.domBadge.className = 'roof3d-live-dimension-badge';
-        this.domBadge.style.cssText = `
-            position: absolute;
-            display: none;
-            pointer-events: none;
-            transform: translate(-50%, -100%);
-            padding: 7px 16px;
-            border-radius: 20px;
-            background: rgba(15, 23, 42, 0.94);
-            border: 2px solid #38bdf8;
-            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.6), 0 0 16px rgba(56, 189, 248, 0.35);
-            color: #ffffff;
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            font-size: 14px;
-            font-weight: 700;
-            letter-spacing: 0.5px;
-            white-space: nowrap;
-            z-index: 9999;
-            backdrop-filter: blur(10px);
-            user-select: none;
-            transition: border-color 0.12s ease, color 0.12s ease;
-        `;
+        this.domBadge.style.cssText = `display: none; pointer-events: none;`;
         const container = this.ctx.renderer?.domElement?.parentElement || document.body;
         container.appendChild(this.domBadge);
     }
 
     _updateDOMBadge(text, screenPos) {
-        if (!this.domBadge) return;
-        if (!text || !screenPos) {
-            this.domBadge.style.display = 'none';
-            return;
+        if (this.modeHUD) {
+            const statusEl = this.modeHUD.querySelector('#roof-hud-status');
+            if (statusEl && text) {
+                statusEl.innerHTML = text;
+            }
         }
-        this.domBadge.innerHTML = text;
-        this.domBadge.style.left = `${screenPos.x}px`;
-        this.domBadge.style.top = `${screenPos.y - 18}px`;
-        this.domBadge.style.display = 'block';
+        // Zero mouse-tracking DOM element to prevent cursor interruption and viewport clutter
+        if (this.domBadge) {
+            this.domBadge.style.display = 'none';
+        }
     }
 
     _hideDOMBadge() {
+        if (this.modeHUD) {
+            const statusEl = this.modeHUD.querySelector('#roof-hud-status');
+            if (statusEl) {
+                statusEl.innerText = 'Click 1st corner';
+            }
+        }
         if (this.domBadge) this.domBadge.style.display = 'none';
     }
 
@@ -199,42 +186,48 @@ export class Roof3DPlacementSystem {
         if (typeof document === 'undefined') return;
         this.modeHUD = document.createElement('div');
         this.modeHUD.className = 'roof3d-draw-mode-hud';
+        this.modeHUD.title = 'Roof Drawing | [P] Switch Mode • [Enter] Close Polygon • [Esc] Cancel';
         this.modeHUD.style.cssText = `
             position: fixed;
-            top: 24px;
+            top: 72px;
             left: 50%;
             transform: translateX(-50%);
             display: none;
             align-items: center;
-            gap: 8px;
-            padding: 6px 16px;
-            background: rgba(15, 23, 42, 0.94);
-            border: 1.5px solid rgba(56, 189, 248, 0.45);
-            border-radius: 9999px;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.65), 0 0 18px rgba(56, 189, 248, 0.25);
+            gap: 6px;
+            padding: 3px 6px;
+            height: 32px;
+            box-sizing: border-box;
+            background: rgba(15, 23, 42, 0.92);
+            border: 1px solid rgba(255, 255, 255, 0.16);
+            border-radius: 16px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
             color: #ffffff;
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-            font-size: 13px;
-            font-weight: 700;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            font-size: 11.5px;
+            font-weight: 600;
             z-index: 100000;
-            backdrop-filter: blur(14px);
-            -webkit-backdrop-filter: blur(14px);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
             user-select: none;
             pointer-events: auto;
+            width: max-content;
+            max-width: calc(100vw - 32px);
         `;
         this.modeHUD.innerHTML = `
-            <span style="color: #94a3b8; font-size: 11px; text-transform: uppercase; letter-spacing: 0.8px; margin-right: 4px;">Draw Mode:</span>
-            <button id="roof-btn-mode-box" style="display: inline-flex; align-items: center; gap: 5px; padding: 5px 12px; border-radius: 20px; border: 1px solid rgba(56, 189, 248, 0.5); background: ${this.drawMode === 'box' ? '#0284c7' : 'rgba(30, 41, 59, 0.8)'}; color: #fff; cursor: pointer; font-size: 12px; font-weight: 700; transition: all 0.15s ease;">
-                <span>◻</span> Box (Drag)
-            </button>
-            <button id="roof-btn-mode-polygon" style="display: inline-flex; align-items: center; gap: 5px; padding: 5px 12px; border-radius: 20px; border: 1px solid rgba(56, 189, 248, 0.5); background: ${this.drawMode === 'polygon' ? '#0284c7' : 'rgba(30, 41, 59, 0.8)'}; color: #fff; cursor: pointer; font-size: 12px; font-weight: 700; transition: all 0.15s ease;">
-                <span>✏</span> Polyline (Click-by-Click)
-            </button>
-            <span style="color: #64748b; font-size: 11px; margin-left: 6px; border-left: 1px solid rgba(148, 163, 184, 0.25); padding-left: 8px;">
-                [P] Toggle &bull; [Enter] Finish &bull; [Backspace] Undo
-            </span>
-            <button id="roof-btn-mode-done" style="display: inline-flex; align-items: center; gap: 4px; padding: 5px 12px; margin-left: 6px; border-radius: 20px; border: 1px solid rgba(239, 68, 68, 0.5); background: rgba(239, 68, 68, 0.2); color: #fca5a5; cursor: pointer; font-size: 12px; font-weight: 700; transition: all 0.15s ease;">
-                <span>✕</span> Done
+            <div style="display: inline-flex; align-items: center; gap: 2px; background: rgba(30, 41, 59, 0.7); padding: 2px; border-radius: 12px; border: 1px solid rgba(255, 255, 255, 0.08);">
+                <button id="roof-btn-mode-box" style="display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; border-radius: 10px; border: none; background: ${this.drawMode === 'box' ? '#0284c7' : 'transparent'}; color: ${this.drawMode === 'box' ? '#fff' : '#94a3b8'}; cursor: pointer; font-size: 11px; font-weight: 600; transition: all 0.15s ease;">
+                    <span>◻</span> Box
+                </button>
+                <button id="roof-btn-mode-polygon" style="display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; border-radius: 10px; border: none; background: ${this.drawMode === 'polygon' ? '#0284c7' : 'transparent'}; color: ${this.drawMode === 'polygon' ? '#fff' : '#94a3b8'}; cursor: pointer; font-size: 11px; font-weight: 600; transition: all 0.15s ease;">
+                    <span>✏</span> Polyline
+                </button>
+            </div>
+            <div id="roof-hud-status" style="display: inline-flex; align-items: center; gap: 4px; color: #38bdf8; font-size: 11px; font-weight: 600; padding: 2px 8px; background: rgba(56, 189, 248, 0.1); border-radius: 10px; border: 1px solid rgba(56, 189, 248, 0.2); white-space: nowrap;">
+                Click 1st corner
+            </div>
+            <button id="roof-btn-mode-done" style="display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; border-radius: 50%; border: 1px solid rgba(255, 255, 255, 0.15); background: rgba(239, 68, 68, 0.2); color: #fca5a5; font-size: 10px; font-weight: 700; cursor: pointer; padding: 0; transition: all 0.15s ease;" title="Done / Cancel (Esc)">
+                ✕
             </button>
         `;
 
@@ -289,12 +282,12 @@ export class Roof3DPlacementSystem {
         const btnBox = this.modeHUD.querySelector('#roof-btn-mode-box');
         const btnPoly = this.modeHUD.querySelector('#roof-btn-mode-polygon');
         if (btnBox) {
-            btnBox.style.background = this.drawMode === 'box' ? '#0284c7' : 'rgba(30, 41, 59, 0.8)';
-            btnBox.style.boxShadow = this.drawMode === 'box' ? '0 0 10px rgba(56, 189, 248, 0.5)' : 'none';
+            btnBox.style.background = this.drawMode === 'box' ? '#0284c7' : 'transparent';
+            btnBox.style.color = this.drawMode === 'box' ? '#ffffff' : '#94a3b8';
         }
         if (btnPoly) {
-            btnPoly.style.background = this.drawMode === 'polygon' ? '#0284c7' : 'rgba(30, 41, 59, 0.8)';
-            btnPoly.style.boxShadow = this.drawMode === 'polygon' ? '0 0 10px rgba(56, 189, 248, 0.5)' : 'none';
+            btnPoly.style.background = this.drawMode === 'polygon' ? '#0284c7' : 'transparent';
+            btnPoly.style.color = this.drawMode === 'polygon' ? '#ffffff' : '#94a3b8';
         }
     }
 
@@ -398,6 +391,9 @@ export class Roof3DPlacementSystem {
         const isTool = tool === 'roof' || tool === 'roof_presets' || tool === 'roof_box' || tool === 'roof_polygon' || tool === 'roof_polyline' || tool === 'curved_portal' || tool === 'curved_portal_roof' || (typeof tool === 'string' && (tool.startsWith('roof_type_') || tool.startsWith('preset_roof_')));
         if (isTool) {
             this._showModeHUD();
+            if (this.interactions && this.interactions.selectedObject) {
+                this.interactions.deselect();
+            }
         } else {
             this._hideModeHUD();
         }
@@ -937,9 +933,9 @@ export class Roof3DPlacementSystem {
             if (this.polygonPoints.length === 0) {
                 this.ghostGroup.visible = false;
                 if (this.startAnchorGroup) this.startAnchorGroup.visible = false;
-                const snapBadge = hit.snapLabel ? `<span style="color: #10b981;">${hit.snapLabel}</span> &bull; ` : '';
+                const snapBadge = hit.snapLabel ? `${hit.snapLabel} &bull; ` : '';
                 this._updateDOMBadge(
-                    `${snapBadge}Start Corner: <strong>Click to place first corner</strong>`,
+                    `${snapBadge}Click 1st corner`,
                     { x: this.lastClientX || 0, y: this.lastClientY || 0 }
                 );
                 if (this.ctx && typeof this.ctx.requestRender === 'function') {
@@ -986,12 +982,14 @@ export class Roof3DPlacementSystem {
 
             if (hit.isClosing) {
                 this._updateDOMBadge(
-                    `${snapBadge}<strong>Click or Press [Enter] to CLOSE ROOF POLYGON</strong> (${count} corners)`,
+                    `Click to close (${count} pts)`,
                     { x: this.lastClientX || 0, y: this.lastClientY || 0 }
                 );
             } else {
+                const snapBadge = hit.snapLabel ? `${hit.snapLabel} &bull; ` : '';
+                const angleBadge = angleInfo ? ` (${angleInfo})` : '';
                 this._updateDOMBadge(
-                    `${snapBadge}Corner ${count + 1} &bull; <strong>${segDistStr}</strong> (${Math.round(segDist)} cm)${angleBadge} &bull; Click to place`,
+                    `${snapBadge}Pt ${count + 1}: ${segDistStr}${angleBadge}`,
                     { x: this.lastClientX || 0, y: this.lastClientY || 0 }
                 );
             }
@@ -1007,11 +1005,9 @@ export class Roof3DPlacementSystem {
             this.currentPoint = { x: hit.x, z: hit.z, y: hit.y, hitEntity: hit.hitEntity, snapType: hit.snapType };
             this.ghostGroup.visible = false;
             if (this.startAnchorGroup) this.startAnchorGroup.visible = false;
-            const snapBadge = hit.snapLabel ? `<span style="color: #10b981;">${hit.snapLabel}</span> &bull; ` : '';
-            const params = this.getActiveRoofParams();
-            const typeLabel = params.roofType.toUpperCase();
+            const snapBadge = hit.snapLabel ? `${hit.snapLabel} &bull; ` : '';
             this._updateDOMBadge(
-                `${snapBadge}Corner 1: <strong>Click or Drag to set first corner</strong> &bull; ${typeLabel}`,
+                `${snapBadge}Click 1st corner`,
                 { x: this.lastClientX || 0, y: this.lastClientY || 0 }
             );
             if (this.ctx && typeof this.ctx.requestRender === 'function') {
@@ -1561,11 +1557,9 @@ export class Roof3DPlacementSystem {
 
         this._buildGhost3DMesh(points, p1.y);
 
-        const params = this.getActiveRoofParams();
-        const roofTypeName = params.roofType.toUpperCase();
-        const snapBadge = this.lastHit?.snapLabel ? `<span style="color: #10b981;">${this.lastHit.snapLabel}</span> &bull; ` : '';
+        const snapBadge = this.lastHit?.snapLabel ? `${this.lastHit.snapLabel} &bull; ` : '';
         this._updateDOMBadge(
-            `${snapBadge}${roofTypeName} ROOF | ${this._formatFeetInches(w)} x ${this._formatFeetInches(d)} | ${params.pitch}&deg; Pitch`,
+            `${snapBadge}${this._formatFeetInches(w)} &times; ${this._formatFeetInches(d)}`,
             { x: this.lastClientX || 0, y: this.lastClientY || 0 }
         );
 
@@ -1584,18 +1578,9 @@ export class Roof3DPlacementSystem {
         const roofElev = autoShape.elevation !== undefined ? autoShape.elevation : hit.y;
         this._buildGhost3DMesh(autoShape.points, roofElev, true);
 
-        const params = this.getActiveRoofParams();
-        const typeLabel = params.roofType.toUpperCase();
-        const snapBadge = hit.snapLabel ? `<span style="color: #10b981;">${hit.snapLabel}</span> &bull; ` : '';
-        const isGround = (roofElev <= 5);
-        const isWall = (autoShape.type === 'wall_attached');
-        const targetLabel = isWall ? 'WALL CONNECTED' : (isGround ? 'FLAT GROUND' : (autoShape.type === 'room' ? 'ROOM' : (autoShape.type === 'building' ? 'BUILDING' : 'CUSTOM')));
         const dimStr = `${this._formatFeetInches(autoShape.width)} \u00d7 ${this._formatFeetInches(autoShape.depth)}`;
-        const icon = isWall ? '🧱' : (isGround ? '🏕️' : '🏠');
-        const color = isWall ? '#a855f7' : (isGround ? '#38bdf8' : '#34d399');
-
         this._updateDOMBadge(
-            `${snapBadge}<span style="color: ${color};">${icon} ${targetLabel}</span> &bull; ${typeLabel} ROOF (${params.pitch}&deg;) &bull; ${dimStr}`,
+            dimStr,
             { x: this.lastClientX || 0, y: this.lastClientY || 0 }
         );
 
@@ -1781,14 +1766,18 @@ export class Roof3DPlacementSystem {
                 if (this.startAnchorGroup) this.startAnchorGroup.visible = false;
                 if (this.ctx.controls) this.ctx.controls.enabled = true;
                 this.hideGhost();
+                this._hideDOMBadge();
                 return;
             }
             if (this.drawMode === 'polygon' && this.polygonPoints.length > 0) {
                 this.resetPolygon();
                 this.hideGhost();
+                this._hideDOMBadge();
                 return;
             }
             this.hideGhost();
+            this._hideDOMBadge();
+            this._hideModeHUD();
             const planner = this.getPlanner();
             if (planner) {
                 planner.tool = 'select';

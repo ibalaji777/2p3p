@@ -434,11 +434,13 @@ export class FlatRoofGizmo extends THREE.Group {
         this.domHUD = document.createElement('div');
         this.domHUD.className = 'flat-roof-floating-hud';
         this.domHUD.style.cssText = `
-            position: absolute;
+            position: fixed;
             display: none;
             flex-direction: column;
             pointer-events: auto;
-            transform: translate(-50%, -100%);
+            bottom: 130px;
+            left: 50%;
+            transform: translateX(-50%);
             padding: 5px 8px;
             border-radius: 8px;
             background: rgba(15, 23, 42, 0.94);
@@ -451,7 +453,7 @@ export class FlatRoofGizmo extends THREE.Group {
             z-index: 99999;
             backdrop-filter: blur(10px);
             user-select: none;
-            transition: opacity 0.2s ease, transform 0.2s ease;
+            transition: opacity 0.2s ease;
             width: max-content;
             max-width: 320px;
         `;
@@ -615,6 +617,12 @@ export class FlatRoofGizmo extends THREE.Group {
     }
 
     _updateHUDPosition() {
+        const planner = this.ctx.planner || window.planner?.value || window.planner;
+        if (planner?.tool && planner.tool !== 'select') {
+            if (this.domHUD) this.domHUD.style.display = 'none';
+            return;
+        }
+
         if (!this.domHUD || !this.target || !this.visible || this.mode !== 'corners') {
             if (this.domHUD) this.domHUD.style.display = 'none';
             return;
@@ -622,34 +630,12 @@ export class FlatRoofGizmo extends THREE.Group {
 
         const entity = this.target.userData?.entity;
         if (!entity) return;
-        const conf = entity.config || entity;
-        const slabThickness = conf.thickness !== undefined ? conf.thickness : 15;
 
-        // Position directly above the slab center
-        const worldPos = new THREE.Vector3();
-        let targetGroup = this.target;
-        while (targetGroup.parent && targetGroup.parent !== this.ctx.structureGroup && targetGroup.parent !== this.ctx.scene) {
-            targetGroup = targetGroup.parent;
-        }
-        targetGroup.getWorldPosition(worldPos);
-
-        const hudWorldPos = new THREE.Vector3(worldPos.x, worldPos.y + slabThickness + 20, worldPos.z);
-        const screenPos = hudWorldPos.clone().project(this.ctx.camera);
-
-        if (screenPos.z > 1) {
-            this.domHUD.style.display = 'none';
-            return;
-        }
-
-        const dom = this.ctx.renderer?.domElement;
-        if (!dom) return;
-        const rect = dom.getBoundingClientRect();
-
-        const x = (screenPos.x * 0.5 + 0.5) * rect.width + rect.left;
-        const y = (-screenPos.y * 0.5 + 0.5) * rect.height + rect.top - 15;
-
-        this.domHUD.style.left = `${Math.max(160, Math.min(window.innerWidth - 160, x))}px`;
-        this.domHUD.style.top = `${Math.max(20, y)}px`;
+        this.domHUD.style.position = 'fixed';
+        this.domHUD.style.bottom = '130px';
+        this.domHUD.style.left = '50%';
+        this.domHUD.style.transform = 'translateX(-50%)';
+        this.domHUD.style.top = 'auto';
         this.domHUD.style.display = 'flex';
     }
 

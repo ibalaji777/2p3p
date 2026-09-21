@@ -514,11 +514,13 @@ export class GableRoofGizmo extends THREE.Group {
         this.domHUD = document.createElement('div');
         this.domHUD.className = 'gable-roof-floating-hud';
         this.domHUD.style.cssText = `
-            position: absolute;
+            position: fixed;
             display: none;
             flex-direction: column;
             pointer-events: auto;
-            transform: translate(-50%, -100%);
+            bottom: 130px;
+            left: 50%;
+            transform: translateX(-50%);
             padding: 5px 8px;
             border-radius: 8px;
             background: rgba(15, 23, 42, 0.94);
@@ -531,7 +533,7 @@ export class GableRoofGizmo extends THREE.Group {
             z-index: 99999;
             backdrop-filter: blur(10px);
             user-select: none;
-            transition: opacity 0.2s ease, transform 0.2s ease;
+            transition: opacity 0.2s ease;
             width: max-content;
             max-width: 360px;
         `;
@@ -817,6 +819,12 @@ export class GableRoofGizmo extends THREE.Group {
     }
 
     _updateHUDPosition() {
+        const planner = this.ctx.planner || window.planner?.value || window.planner;
+        if (planner?.tool && planner.tool !== 'select') {
+            if (this.domHUD) this.domHUD.style.display = 'none';
+            return;
+        }
+
         if (!this.domHUD || !this.target || !this.visible || this.mode !== 'corners') {
             if (this.domHUD) this.domHUD.style.display = 'none';
             return;
@@ -824,48 +832,12 @@ export class GableRoofGizmo extends THREE.Group {
 
         const entity = this.target.userData?.entity;
         if (!entity) return;
-        const conf = entity.config || entity;
-        const pitch = conf.pitch !== undefined ? conf.pitch : 30;
-        const axis = conf.ridgeAxis || 'x';
 
-        let basePts = entity.points;
-        if (!basePts || !Array.isArray(basePts) || basePts.length < 3) {
-            basePts = [{ x: -100, y: -80 }, { x: 100, y: -80 }, { x: 100, y: 80 }, { x: -100, y: 80 }];
-        }
-        let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
-        basePts.forEach(p => {
-            minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x);
-            minY = Math.min(minY, p.y); maxY = Math.max(maxY, p.y);
-        });
-        const w = maxX - minX, d = maxY - minY;
-        const span = (axis === 'x' ? d : w);
-        const rh = Math.tan(pitch * Math.PI / 180) * (span / 2);
-
-        // Position above the ridge apex
-        const worldPos = new THREE.Vector3();
-        let targetGroup = this.target;
-        while (targetGroup.parent && targetGroup.parent !== this.ctx.structureGroup && targetGroup.parent !== this.ctx.scene) {
-            targetGroup = targetGroup.parent;
-        }
-        targetGroup.getWorldPosition(worldPos);
-
-        const hudWorldPos = new THREE.Vector3(worldPos.x, worldPos.y + rh + 28, worldPos.z);
-        const screenPos = hudWorldPos.clone().project(this.ctx.camera);
-
-        if (screenPos.z > 1) {
-            this.domHUD.style.display = 'none';
-            return;
-        }
-
-        const dom = this.ctx.renderer?.domElement;
-        if (!dom) return;
-        const rect = dom.getBoundingClientRect();
-
-        const x = (screenPos.x * 0.5 + 0.5) * rect.width + rect.left;
-        const y = (-screenPos.y * 0.5 + 0.5) * rect.height + rect.top - 15;
-
-        this.domHUD.style.left = `${Math.max(180, Math.min(window.innerWidth - 180, x))}px`;
-        this.domHUD.style.top = `${Math.max(20, y)}px`;
+        this.domHUD.style.position = 'fixed';
+        this.domHUD.style.bottom = '130px';
+        this.domHUD.style.left = '50%';
+        this.domHUD.style.transform = 'translateX(-50%)';
+        this.domHUD.style.top = 'auto';
         this.domHUD.style.display = 'flex';
     }
 

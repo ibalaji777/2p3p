@@ -309,6 +309,12 @@ export function useAppTools({
             planner.value.selectEntity(null); 
             planner.value.updateToolStates(); 
         }
+        if (tool !== 'select') {
+            if (handleDeselect) handleDeselect();
+            if (renderer3D?.value?.interactions?.deselect) {
+                renderer3D.value.interactions.deselect();
+            }
+        }
         debouncedSaveHistory();
     };
 
