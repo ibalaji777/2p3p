@@ -9,15 +9,51 @@
                 <button style="flex: 1; padding: 6px; display: flex; align-items: center; justify-content: center; border: 1px solid #d1d5db; border-radius: 4px; background: white; cursor: pointer; transition: all 0.2s;" :style="{ background: roofConfig.autoPlacementMode === 'outer' ? '#e5e7eb' : 'white', borderColor: roofConfig.autoPlacementMode === 'outer' ? '#9ca3af' : '#d1d5db' }" @click="setAutoPlacementMode('outer')" title="Outer Edge Detection"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path></svg></button>
             </div>
         </div>
-        <div class="control-group" v-if="roofConfig && roofConfig.roofType === 'flat'">
+        <div class="control-group" v-if="roofConfig && (roofConfig.roofType === 'flat' || roofConfig.roofType === 'curved_portal')">
             <label>Slab Thickness</label>
             <div class="input-wrap">
                 <input type="range" :value="roofConfig.thickness !== undefined ? roofConfig.thickness : 15" min="2" max="60" @input="updateThickness($event.target.value)">
                 <DimensionInput :modelValue="roofConfig.thickness !== undefined ? roofConfig.thickness : 15" @change="updateThickness($event)" />
             </div>
         </div>
-        <div class="control-group" v-if="roofConfig && roofConfig.roofType !== 'flat'"><label>Pitch (°)</label><div class="input-wrap"><input type="range" :value="roofConfig.pitch" min="0" max="75" @input="updatePitch($event.target.value)"><input type="number" :value="roofConfig.pitch" min="0" max="75" @input="updatePitch($event.target.value)"></div></div>
-        <div class="control-group" v-if="roofConfig && roofConfig.roofType !== 'flat'"><label>Peak Height</label><div class="input-wrap"><DimensionInput :modelValue="calculateRoofPeakHeight(selectedEntity)" @change="(val) => updateRoofPitchFromHeight({ target: { value: val } }, selectedEntity)" /></div></div>
+        <div class="control-group" v-if="roofConfig && roofConfig.roofType === 'curved_portal'">
+            <label>Corner Fillet Radius</label>
+            <div class="input-wrap">
+                <input type="range" :value="roofConfig.radius || 0" min="0" max="150" @input="updateCornerRadius($event.target.value)">
+                <DimensionInput :modelValue="roofConfig.radius || 0" @change="updateCornerRadius($event)" />
+            </div>
+        </div>
+        <div class="control-group" v-if="roofConfig && roofConfig.roofType === 'curved_portal'">
+            <label>Active Wall Sides</label>
+            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                <label style="display: flex; align-items: center; gap: 4px; font-size: 11px;">
+                    <input type="checkbox" :checked="roofConfig.wallSides ? roofConfig.wallSides.left : true" @change="updateWallSide('left', $event.target.checked)"> Left
+                </label>
+                <label style="display: flex; align-items: center; gap: 4px; font-size: 11px;">
+                    <input type="checkbox" :checked="roofConfig.wallSides ? roofConfig.wallSides.right : true" @change="updateWallSide('right', $event.target.checked)"> Right
+                </label>
+                <label style="display: flex; align-items: center; gap: 4px; font-size: 11px;">
+                    <input type="checkbox" :checked="roofConfig.wallSides ? !!roofConfig.wallSides.front : false" @change="updateWallSide('front', $event.target.checked)"> Front
+                </label>
+                <label style="display: flex; align-items: center; gap: 4px; font-size: 11px;">
+                    <input type="checkbox" :checked="roofConfig.wallSides ? !!roofConfig.wallSides.back : false" @change="updateWallSide('back', $event.target.checked)"> Back
+                </label>
+            </div>
+        </div>
+        <div class="control-group" v-if="roofConfig && roofConfig.roofType === 'curved_portal'">
+            <label>Wall Drop Height</label>
+            <div class="input-wrap">
+                <DimensionInput :modelValue="roofConfig.wallDropHeight || 0" @change="updateWallDropHeight($event)" />
+            </div>
+        </div>
+        <div class="control-group" v-if="roofConfig && roofConfig.roofType === 'curved_portal'">
+            <label>Recessed LED Spotlights</label>
+            <div class="input-wrap" style="justify-content: flex-end;">
+                <input type="checkbox" :checked="roofConfig.hasSpotlights !== false" @change="updateSpotlights($event.target.checked)">
+            </div>
+        </div>
+        <div class="control-group" v-if="roofConfig && !['flat', 'curved_portal'].includes(roofConfig.roofType)"><label>Pitch (°)</label><div class="input-wrap"><input type="range" :value="roofConfig.pitch" min="0" max="75" @input="updatePitch($event.target.value)"><input type="number" :value="roofConfig.pitch" min="0" max="75" @input="updatePitch($event.target.value)"></div></div>
+        <div class="control-group" v-if="roofConfig && !['flat', 'curved_portal'].includes(roofConfig.roofType)"><label>Peak Height</label><div class="input-wrap"><DimensionInput :modelValue="calculateRoofPeakHeight(selectedEntity)" @change="(val) => updateRoofPitchFromHeight({ target: { value: val } }, selectedEntity)" /></div></div>
         
         <div class="control-group" v-if="roofConfig && ['gable', 'shed', 'half_gable', 'curved', 'gambrel', 'mansard', 'turret_round', 'turret_octagonal', 'turret_hexagonal'].includes(roofConfig.roofType)">
             <label>Curvature / Arch</label>
@@ -544,6 +580,26 @@ const setAutoPlacementMode = (mode) => {
 
 const updateThickness = (val) => {
     RoofEngine.setThickness(props.selectedEntity, val);
+    emit('sync-engine');
+};
+
+const updateCornerRadius = (val) => {
+    RoofEngine.setCornerRadius(props.selectedEntity, val);
+    emit('sync-engine');
+};
+
+const updateWallSide = (side, enabled) => {
+    RoofEngine.setWallSide(props.selectedEntity, side, enabled);
+    emit('sync-engine');
+};
+
+const updateWallDropHeight = (val) => {
+    RoofEngine.setWallDropHeight(props.selectedEntity, val);
+    emit('sync-engine');
+};
+
+const updateSpotlights = (enabled) => {
+    RoofEngine.setSpotlights(props.selectedEntity, enabled);
     emit('sync-engine');
 };
 

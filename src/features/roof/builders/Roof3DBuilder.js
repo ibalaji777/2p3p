@@ -3,6 +3,7 @@ import { WALL_HEIGHT, ROOF_DECOR_REGISTRY, WALL_DECOR_REGISTRY, offsetPolygon } 
 import { ComponentRegistry } from '../../../core/engine3d/ComponentRegistry.js';
 import { Skylight3DBuilder } from './Skylight3DBuilder.js';
 import { RoofSculpture3DBuilder } from './RoofSculpture3DBuilder.js';
+import { CurvedPortal3DBuilder } from './CurvedPortal3DBuilder.js';
 import { RoofGeometryEngine } from '../../../core/roof/RoofGeometryEngine.js';
 
 export class Roof3DBuilder {
@@ -220,7 +221,9 @@ export class Roof3DBuilder {
             };
 
             let mesh;
-            if (conf.roofType === 'flat') {
+            if (conf.roofType === 'curved_portal' || conf.roofType === 'modern_wrap') {
+                mesh = CurvedPortal3DBuilder.build(roof, conf, pts, h, this.ctx, resolveRoofMaterial);
+            } else if (conf.roofType === 'flat') {
                 const shape = new THREE.Shape();
                 shape.moveTo(pts[0].x, pts[0].y);
                 for (let i = 1; i < pts.length; i++) shape.lineTo(pts[i].x, pts[i].y);
@@ -1773,25 +1776,35 @@ export class Roof3DBuilder {
             mesh.castShadow = true;
             mesh.receiveShadow = true;
             
+            const isCurvedPortal = conf.roofType === 'curved_portal' || conf.roofType === 'modern_wrap';
             mesh.userData = { 
                 isRoof: true, 
                 isFlatRoof: conf.roofType === 'flat',
+                isCurvedPortal: isCurvedPortal,
                 entity: roof, 
-                materialSlot: 'top', 
-                componentType: 'roof_top',
+                materialSlot: isCurvedPortal ? 'outer' : 'top', 
+                componentType: isCurvedPortal ? 'curved_portal' : 'roof_top',
                 levelIndex: activeIndex,
                 roofId: roof.id
             }; 
             if (Array.isArray(this.ctx.interactables) && targetGroup === this.ctx.structureGroup) {
-                this.ctx.interactables.push(mesh);
+                if (isCurvedPortal) {
+                    mesh.traverse(c => {
+                        if (c.isMesh) this.ctx.interactables.push(c);
+                    });
+                } else {
+                    this.ctx.interactables.push(mesh);
+                }
             }
             
             roofGroup.add(mesh);
-            ComponentRegistry.registerMesh(roof, "top", mesh, { componentId: `${roof.id}_top`, componentType: 'roof_top' });
-            if (conf.roofType === 'flat') {
-                ComponentRegistry.registerMesh(roof, "fascia", mesh, { componentId: `${roof.id}_fascia`, componentType: 'fascia' });
-                mesh.userData.materialSlot = 'top';
-                mesh.userData.componentType = 'roof_top';
+            if (!isCurvedPortal) {
+                ComponentRegistry.registerMesh(roof, "top", mesh, { componentId: `${roof.id}_top`, componentType: 'roof_top' });
+                if (conf.roofType === 'flat') {
+                    ComponentRegistry.registerMesh(roof, "fascia", mesh, { componentId: `${roof.id}_fascia`, componentType: 'fascia' });
+                    mesh.userData.materialSlot = 'top';
+                    mesh.userData.componentType = 'roof_top';
+                }
             }
 
             // Render embedded 3D Skylight Windows & Glass Regions

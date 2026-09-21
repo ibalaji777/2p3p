@@ -148,6 +148,20 @@ export function useAppTools({
                 };
                 planner.value.activePresetParams = activePresetParams.value;
             }
+        } else if (tool === 'curved_portal' || tool === 'curved_portal_roof') {
+            if (!activePresetParams.value || activePresetParams.value.roofType !== 'curved_portal') {
+                activePresetParams.value = {
+                    roofType: 'curved_portal',
+                    radius: 0,
+                    wallSides: { left: true, right: true, front: false, back: false },
+                    wallDropHeight: 0,
+                    hasSpotlights: true,
+                    thickness: 15,
+                    overhang: 0,
+                    material: 'white_plaster_wall'
+                };
+                planner.value.activePresetParams = activePresetParams.value;
+            }
         } else if (tool === 'roof_cresting' || tool.startsWith('ridge_cresting_')) {
             if (!activePresetParams.value || !activePresetParams.value.type?.startsWith('ridge_cresting_')) {
                 activePresetParams.value = {

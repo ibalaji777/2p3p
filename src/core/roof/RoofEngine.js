@@ -127,6 +127,26 @@ export class RoofEngine {
         RoofMutationEngine.setWallGap(roof, wallGap, planner);
     }
 
+    static setCornerRadius(roof, radius, planner = null) {
+        RoofMutationEngine.setCornerRadius(roof, radius, planner);
+    }
+
+    static setWallSide(roof, side, enabled, planner = null) {
+        RoofMutationEngine.setWallSide(roof, side, enabled, planner);
+    }
+
+    static setWallSides(roof, sidesObj, planner = null) {
+        RoofMutationEngine.setWallSides(roof, sidesObj, planner);
+    }
+
+    static setWallDropHeight(roof, height, planner = null) {
+        RoofMutationEngine.setWallDropHeight(roof, height, planner);
+    }
+
+    static setSpotlights(roof, enabled, planner = null) {
+        RoofMutationEngine.setSpotlights(roof, enabled, planner);
+    }
+
     static setFlipSlope(roof, flipSlope, planner = null) {
         RoofMutationEngine.setFlipSlope(roof, flipSlope, planner);
     }

@@ -273,6 +273,77 @@ export class RoofMutationEngine {
     }
 
     /**
+     * Sets corner fillet curvature radius (cm) for modern curved portal/wrap roof.
+     * 0 = sharp 90-degree corner, >0 = smooth circular arc fillet.
+     * @param {Object} roof 
+     * @param {number} radius 
+     * @param {Object} [planner] 
+     */
+    static setCornerRadius(roof, radius, planner = null) {
+        if (!roof) return;
+        roof.config = roof.config || {};
+        roof.config.radius = Math.max(0, Math.min(250, Number(radius) || 0));
+        this.notifyRoofUpdated(roof, planner || roof.planner, 'geometry');
+    }
+
+    /**
+     * Toggles a specific wall side (left, right, front, back) for curved portal/wrap roof.
+     * @param {Object} roof 
+     * @param {'left'|'right'|'front'|'back'} side 
+     * @param {boolean} enabled 
+     * @param {Object} [planner] 
+     */
+    static setWallSide(roof, side, enabled, planner = null) {
+        if (!roof || !side) return;
+        roof.config = roof.config || {};
+        roof.config.wallSides = roof.config.wallSides ? { ...roof.config.wallSides } : { left: true, right: true, front: false, back: false };
+        roof.config.wallSides[side] = Boolean(enabled);
+        this.notifyRoofUpdated(roof, planner || roof.planner, 'geometry');
+    }
+
+    /**
+     * Sets all wall sides simultaneously (e.g. for presets like Cantilever, Portal, Box Frame).
+     * @param {Object} roof 
+     * @param {{ left?: boolean, right?: boolean, front?: boolean, back?: boolean }} sidesObj 
+     * @param {Object} [planner] 
+     */
+    static setWallSides(roof, sidesObj, planner = null) {
+        if (!roof || !sidesObj) return;
+        roof.config = roof.config || {};
+        roof.config.wallSides = {
+            ...(roof.config.wallSides || { left: true, right: true, front: false, back: false }),
+            ...sidesObj
+        };
+        this.notifyRoofUpdated(roof, planner || roof.planner, 'geometry');
+    }
+
+    /**
+     * Sets downward wall drop height in cm (or 0 for floor-level drop).
+     * @param {Object} roof 
+     * @param {number} height 
+     * @param {Object} [planner] 
+     */
+    static setWallDropHeight(roof, height, planner = null) {
+        if (!roof) return;
+        roof.config = roof.config || {};
+        roof.config.wallDropHeight = Math.max(0, Number(height) || 0);
+        this.notifyRoofUpdated(roof, planner || roof.planner, 'geometry');
+    }
+
+    /**
+     * Toggles under-soffit recessed LED spotlights (downlights).
+     * @param {Object} roof 
+     * @param {boolean} enabled 
+     * @param {Object} [planner] 
+     */
+    static setSpotlights(roof, enabled, planner = null) {
+        if (!roof) return;
+        roof.config = roof.config || {};
+        roof.config.hasSpotlights = Boolean(enabled);
+        this.notifyRoofUpdated(roof, planner || roof.planner, 'structure');
+    }
+
+    /**
      * Sets material texture assignment.
      * Supports Sims 4-style scope ('single' vs 'all') and per-slope slots.
      * @param {Object} roof 

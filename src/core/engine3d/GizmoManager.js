@@ -3152,6 +3152,9 @@ export class GizmoManager {
         if (this.ctx.interactions.wallPushPullGizmo) {
             this.ctx.interactions.wallPushPullGizmo.detach();
         }
+        if (this.ctx.interactions.curvedPortalRoofGizmo) {
+            this.ctx.interactions.curvedPortalRoofGizmo.detach();
+        }
         if (this.ctx.interactions.universalMoveGizmo && mode !== 'translate' && mode !== 'move') {
             this.ctx.interactions.universalMoveGizmo.detach();
         }
@@ -3239,9 +3242,60 @@ export class GizmoManager {
                 this.roofSpinPanel.style.display = 'none';
             }
 
+            const isCurvedPortal = ['curved_portal', 'modern_wrap'].includes(selectedObj?.userData?.entity?.config?.roofType || selectedObj?.userData?.entity?.roofType);
             const isFlat = selectedObj?.userData?.entity?.config?.roofType === 'flat' || selectedObj?.userData?.entity?.roofType === 'flat';
             const isGable = selectedObj?.userData?.entity?.config?.roofType === 'gable' || selectedObj?.userData?.entity?.roofType === 'gable';
             const isHalfGable = ['shed', 'half_gable'].includes(selectedObj?.userData?.entity?.config?.roofType || selectedObj?.userData?.entity?.roofType);
+
+            if (isCurvedPortal) {
+                if (this.ctx.interactions.roofPitchGizmo) this.ctx.interactions.roofPitchGizmo.detach();
+                if (this.ctx.interactions.gableRoofGizmo) this.ctx.interactions.gableRoofGizmo.detach();
+                if (this.ctx.interactions.halfGableRoofGizmo) this.ctx.interactions.halfGableRoofGizmo.detach();
+                if (this.ctx.interactions.flatRoofGizmo) this.ctx.interactions.flatRoofGizmo.detach();
+
+                if (mode === 'material') {
+                    if (this.ctx.interactions.curvedPortalRoofGizmo) {
+                        this.ctx.interactions.curvedPortalRoofGizmo.detach();
+                    }
+                    if (this.ctx.interactions.materialGizmo) {
+                        this.ctx.interactions.materialGizmo.attach(selectedObj);
+                    }
+                    this.onMaterialFaceSelected('outer', -1, selectedObj, 0, 'categories');
+                    return;
+                }
+
+                if (this.materialPanel) {
+                    this.materialPanel.classList.remove('active');
+                    this.materialPanel.style.display = 'none';
+                }
+
+                if (mode === 'translate' || mode === 'move') {
+                    if (this.ctx.interactions.curvedPortalRoofGizmo) {
+                        this.ctx.interactions.curvedPortalRoofGizmo.attach(selectedObj, 'move');
+                    }
+                    return;
+                }
+
+                if (mode === 'rotateY' || mode === 'spin') {
+                    if (this.roofSpinPanel && selectedObj) {
+                        this.roofSpinPanel.style.display = 'flex';
+                        this.syncRoofSpinPanel(selectedObj.userData.entity);
+                    }
+                    if (this.ctx.interactions.universalSpinGizmo && selectedObj) {
+                        this.ctx.interactions.universalSpinGizmo.attach(selectedObj);
+                    }
+                    if (this.ctx.interactions.curvedPortalRoofGizmo) {
+                        this.ctx.interactions.curvedPortalRoofGizmo.attach(selectedObj, 'spin');
+                    }
+                    return;
+                }
+
+                if (this.ctx.interactions.curvedPortalRoofGizmo) {
+                    this.ctx.interactions.curvedPortalRoofGizmo.attach(selectedObj, 'corners');
+                }
+                return;
+            }
+
             if (isFlat) {
                 if (this.ctx.interactions.roofPitchGizmo) {
                     this.ctx.interactions.roofPitchGizmo.detach();

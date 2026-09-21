@@ -120,18 +120,23 @@ export class Roof3DPlacementSystem {
             return false;
         }
 
-        return tool === 'roof' || tool === 'roof_presets' || tool.startsWith('roof_type_') || tool.startsWith('preset_roof_');
+        return tool === 'roof' || tool === 'roof_presets' || tool === 'curved_portal' || tool === 'curved_portal_roof' || tool.startsWith('roof_type_') || tool.startsWith('preset_roof_');
     }
 
     getActiveRoofParams() {
         const planner = this.getPlanner();
         const presetParams = planner?.activePresetParams || {};
+        const isPortal = presetParams.roofType === 'curved_portal' || presetParams.toolId === 'curved_portal' || planner?.tool === 'curved_portal';
         return {
-            roofType: presetParams.roofType || 'gable',
+            roofType: isPortal ? 'curved_portal' : (presetParams.roofType || 'gable'),
             pitch: presetParams.pitch !== undefined ? presetParams.pitch : 30,
             curve: presetParams.curve !== undefined ? presetParams.curve : (presetParams.roofType === 'curved' ? -20 : 0),
-            material: presetParams.material || 'terracotta_tiles_roof',
-            overhang: presetParams.overhang !== undefined ? presetParams.overhang : 8,
+            radius: presetParams.radius !== undefined ? presetParams.radius : 0,
+            wallSides: presetParams.wallSides || { left: true, right: true, front: false, back: false },
+            wallDropHeight: presetParams.wallDropHeight !== undefined ? presetParams.wallDropHeight : 0,
+            hasSpotlights: presetParams.hasSpotlights !== undefined ? presetParams.hasSpotlights : true,
+            material: presetParams.material || (isPortal ? 'white_plaster_wall' : 'terracotta_tiles_roof'),
+            overhang: presetParams.overhang !== undefined ? presetParams.overhang : (isPortal ? 0 : 8),
             thick: presetParams.thick || 15
         };
     }
@@ -535,6 +540,10 @@ export class Roof3DPlacementSystem {
                 roofType: params.roofType || 'gable',
                 pitch: params.pitch !== undefined ? params.pitch : 30,
                 curve: params.curve !== undefined ? params.curve : 0,
+                radius: params.radius !== undefined ? params.radius : 0,
+                wallSides: params.wallSides ? { ...params.wallSides } : undefined,
+                wallDropHeight: params.wallDropHeight !== undefined ? params.wallDropHeight : undefined,
+                hasSpotlights: params.hasSpotlights !== undefined ? params.hasSpotlights : undefined,
                 material: params.material,
                 overhang: params.overhang !== undefined ? params.overhang : 8,
                 thickness: params.thick !== undefined ? params.thick : 10
@@ -718,6 +727,10 @@ export class Roof3DPlacementSystem {
                 roofType: params.roofType,
                 pitch: params.pitch,
                 curve: params.curve,
+                radius: params.radius,
+                wallSides: params.wallSides,
+                wallDropHeight: params.wallDropHeight,
+                hasSpotlights: params.hasSpotlights,
                 material: params.material,
                 overhang: params.overhang,
                 thickness: params.thick

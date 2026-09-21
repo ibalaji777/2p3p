@@ -11,6 +11,7 @@ import { RoofCornerGizmo } from '../../features/roof/RoofCornerGizmo.js';
 import { RoofOverhangGizmo } from '../../features/roof/RoofOverhangGizmo.js';
 import { RoofPitchCurvatureGizmo } from '../../features/roof/RoofPitchCurvatureGizmo.js';
 import { FlatRoofGizmo } from '../../features/roof/FlatRoofGizmo.js';
+import { CurvedPortalRoofGizmo } from '../../features/roof/CurvedPortalRoofGizmo.js';
 import { GableRoofGizmo } from '../../features/roof/GableRoofGizmo.js';
 import { HalfGableRoofGizmo } from '../../features/roof/HalfGableRoofGizmo.js';
 import { PolygonGizmo } from './PolygonGizmo.js';
@@ -534,6 +535,9 @@ export class InteractionSystem {
 
         this.flatRoofGizmo = new FlatRoofGizmo(ctx);
         this.ctx.scene.add(this.flatRoofGizmo);
+
+        this.curvedPortalRoofGizmo = new CurvedPortalRoofGizmo(ctx);
+        this.ctx.scene.add(this.curvedPortalRoofGizmo);
 
         this.gableRoofGizmo = new GableRoofGizmo(ctx);
         this.ctx.scene.add(this.gableRoofGizmo);
