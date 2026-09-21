@@ -248,5 +248,34 @@ All vertical dependencies, parametric wall-rise propagation, building rise, mult
 7. **Full Serialization & Persistence Integrity**:
    - All vertical dependency metadata (`hostLevelId`, `relativeElevation`, `anchorMode`, `_restingOnWalls`, `_lastSyncedWallTop`, `hostPlatformId`) MUST be preserved across 2D/3D serialization and deserialization.
 
+# Universal CAD/BIM Roof Architecture & In-Place Performance Rule
+
+**CRITICAL MANDATE**
+
+All roof creation, modification, live 3D reconciliation, overhangs, corner fillets, 3D gizmos, 2D rendering, and auto-gable infill MUST strictly adhere to the unified architecture defined in `RoofEngine` (`src/core/roof/RoofEngine.js`) and the `roof_expert` skill:
+
+## Required Behavior
+1. **Public Façade Authority (`RoofEngine`)**:
+   - All tools, gizmos, and UI MUST route roof mutations through `RoofEngine` (`setPitch`, `setOverhangs`, `setCornerRadii`, `setCornerRadius`, `setThickness`, `setElevation`, `setPoints`, `setRotation`). NEVER directly write to `roof.config` or domain properties.
+2. **In-Place GPU Vertex Buffer Mutation (60 FPS Performance)**:
+   - In `EnvironmentBuilder.js:updateRoofLive()`, when vertex counts match between existing and new single-mesh roofs, copy `position`, `normal`, and `uv` buffer arrays in place (`BufferAttribute.copy()`), set `.needsUpdate = true`, recompute bounds, and dispose temporary geometries. NEVER replace `mesh.geometry` or thrash VBOs during active slider drags.
+   - For multi-mesh groups (`THREE.Group`, e.g. `curved_portal`), reconcile child sub-meshes in place, re-registering with `ComponentRegistry` and preserving `interactables`.
+3. **Architectural Detachment Invariance (`_restingOnWalls`)**:
+   - Manual elevation adjustments MUST set `_restingOnWalls = false`. Detached roofs MUST never be recaptured or forcibly moved by wall height sweeps in `syncRoofsWithWalls`.
+4. **Rotated Coordinate Inversion Math**:
+   - All 3D roof gizmo delta drags MUST project world-space movement $(\Delta x_w, \Delta z_w)$ into local roof space using the exact inverse 2D rotation:
+     $$\Delta x_l = \Delta x_w \cos\theta + \Delta z_w \sin\theta$$
+     $$\Delta z_l = -\Delta x_w \sin\theta + \Delta z_w \cos\theta$$
+5. **First-Class BIM Overhangs & Corner Radii**:
+   - Support both master values (`overhang`, `radius`) and per-edge/corner arrays (`roof.config.overhangs`, `roof.config.cornerRadii`).
+   - Deep clone array properties in `duplicateRoof()` to prevent shared reference mutations.
+6. **Safe Cascading Deletion & 2D Auto-Gable Suppression**:
+   - Deleting a roof via `RoofTopologyEngine.deleteRoof` MUST ONLY delete child walls matching `w.roofId === roof.id`. NEVER run global sweeps on `isAutoGable`.
+   - Auto-gable walls MUST remain hidden on 2D floor plans.
+7. **Mobile & Cross-Device Input Isolation**:
+   - All 3D roof gizmo handles MUST disable `OrbitControls` on handle pointerdown and re-enable on pointerup.
+   - Floating badges and HUDs MUST clamp coordinates within screen viewport boundaries ($\ge 16\text{px}$).
+
+
 
 
