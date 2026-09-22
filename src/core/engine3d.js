@@ -1214,6 +1214,10 @@ export class Preview3D {
         this.structureGroup.position.y = targetY;
 
         const activeLevelConfig = levelsConfigArray[activeIndex];
+        const minElev = Math.min(0, ...levelElevations);
+        if (this.envBuilder && typeof this.envBuilder.updateGroundElevation === 'function') {
+            this.envBuilder.updateGroundElevation(targetY, minElev, activeLevelConfig);
+        }
         const isActiveVisible = activeLevelConfig ? activeLevelConfig.isVisible : true;
 
         let stairsBelow = [];

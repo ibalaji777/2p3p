@@ -398,16 +398,26 @@ export class VerticalPropagationEngine {
         const activeIdx = planner.activeLevelIndex !== undefined ? planner.activeLevelIndex : 0;
 
         // 1. Update Active Structure Group position
-        if (c3d.structureGroup && levelElevations[activeIdx] !== undefined) {
-            c3d.structureGroup.position.y = levelElevations[activeIdx];
+        const targetY = levelElevations[activeIdx] !== undefined ? levelElevations[activeIdx] : 0;
+        if (c3d.structureGroup) {
+            c3d.structureGroup.position.y = targetY;
         }
 
-        // 2. Update Static Floor Groups
+        // 2. Update Ground Elevation if sub-structure levels exist or active level is underground
+        const activeLevel = levels[activeIdx] || planner.activeLevel;
+        const minElev = Math.min(0, ...levelElevations);
+        if (c3d.envBuilder && typeof c3d.envBuilder.updateGroundElevation === 'function') {
+            c3d.envBuilder.updateGroundElevation(targetY, minElev, activeLevel);
+        }
+
+        // 3. Update Static Floor Groups deterministically via userData.levelIndex
         if (c3d.staticStructureGroup && c3d.staticStructureGroup.children) {
             c3d.staticStructureGroup.children.forEach((floorGroup, idx) => {
-                const targetIdx = idx >= activeIdx ? idx + 1 : idx;
-                if (levelElevations[targetIdx] !== undefined) {
-                    floorGroup.position.y = levelElevations[targetIdx];
+                const levelIdx = floorGroup.userData?.levelIndex !== undefined 
+                    ? floorGroup.userData.levelIndex 
+                    : (idx >= activeIdx ? idx + 1 : idx);
+                if (levelElevations[levelIdx] !== undefined) {
+                    floorGroup.position.y = levelElevations[levelIdx];
                 }
             });
         }

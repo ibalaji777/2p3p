@@ -92,6 +92,7 @@ export class StaticFloors {
                 const data = typeof levelConfig.data === 'string' ? JSON.parse(levelConfig.data) : levelConfig.data;
                 const floorGroup = new THREE.Group();
                 floorGroup.position.y = levelElevations[index] !== undefined ? levelElevations[index] : (index * WALL_HEIGHT);
+                floorGroup.userData = { isFloorGroup: true, levelIndex: index };
 
                 if (data.stairs) {
                     const maxWallHeight2 = (data.walls && data.walls.length > 0) ? Math.max(...data.walls.map(w => w.height || w.config?.height || WALL_HEIGHT)) : WALL_HEIGHT;

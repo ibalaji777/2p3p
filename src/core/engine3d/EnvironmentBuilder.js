@@ -21,6 +21,7 @@ import { MaterialFactory } from './MaterialFactory.js';
 import { UniversalMaterialManager } from './UniversalMaterialManager.js';
 import { computeLevelElevations } from './helpers/levelElevations.js';
 import { ComponentRegistry } from './ComponentRegistry.js';
+import { FloorSlabEngine } from '../floor/FloorSlabEngine.js';
 
 let _sharedPlasterMaterial = null;
 let _plasterUniforms = {
@@ -124,6 +125,19 @@ export class EnvironmentBuilder {
         skyUniforms['mieCoefficient'].value = 0.005;
         skyUniforms['mieDirectionalG'].value = 0.8;
         skyUniforms['sunPosition'].value.copy(sunLight.position);
+    }
+
+    updateGroundElevation(activeLevelElev = 0, minElev = 0, activeLevelConfig = null) {
+        if (!this.ground || !this.grid) return;
+        const isSub = (activeLevelElev < -0.1) || 
+                      (activeLevelConfig?.type === 'foundation' || activeLevelConfig?.type === 'basement');
+        if (isSub) {
+            this.ground.position.y = activeLevelElev - 0.5;
+            this.grid.position.y = activeLevelElev - 0.05;
+        } else {
+            this.ground.position.y = -0.5;
+            this.grid.position.y = -0.05;
+        }
     }
 
     setEnvironment(skyKey, groundKey) {
@@ -1183,6 +1197,7 @@ export class EnvironmentBuilder {
                 if (!data) return;
                 const floorGroup = new THREE.Group();
                 floorGroup.position.y = levelElevations[index] !== undefined ? levelElevations[index] : (index * WALL_HEIGHT);
+                floorGroup.userData = { isFloorGroup: true, levelIndex: index };
 
                 if (data.stairs) {
                     let maxWallHeight2 = WALL_HEIGHT;
@@ -1199,151 +1214,57 @@ export class EnvironmentBuilder {
 
                 const isStaticSub = levelConfig?.type === 'plinth' || levelConfig?.type === 'foundation';
                 const subH = Number(levelConfig?.height) || (levelConfig?.type === 'plinth' ? 18 : 40);
+
+                let stairsBelow = [];
+                if (index > 0 && levelsConfigArray[index - 1] && levelsConfigArray[index - 1].data) {
+                    try {
+                        const prevData = typeof levelsConfigArray[index - 1].data === 'string' 
+                            ? JSON.parse(levelsConfigArray[index - 1].data) 
+                            : levelsConfigArray[index - 1].data;
+                        if (prevData && prevData.stairs) stairsBelow = prevData.stairs;
+                    } catch (e) {}
+                }
+
                 if (data.rooms) {
                     data.rooms.forEach(room => {
-                        if (room.isDeleted || room.isHidden) return;
-                        const path = room.path;
-                        if (!path || path.length < 3) return;
-                        const floorShape = new THREE.Shape();
-                        floorShape.moveTo(path[0].x, path[0].y);
-                        for (let i = 1; i < path.length; i++) floorShape.lineTo(path[i].x, path[i].y);
-                        
-                        let stairsBelow = [];
-                        if (index > 0 && levelsConfigArray[index - 1] && levelsConfigArray[index - 1].data) {
-                            try {
-                                const prevData = typeof levelsConfigArray[index - 1].data === 'string' 
-                                    ? JSON.parse(levelsConfigArray[index - 1].data) 
-                                    : levelsConfigArray[index - 1].data;
-                                if (prevData && prevData.stairs) stairsBelow = prevData.stairs;
-                            } catch (e) {}
-                        }
-                        
-                        if (stairsBelow && stairsBelow.length > 0) {
-                            stairsBelow.forEach(stair => {
-                                const rotPts = StairGeometryEngine.getCutoutPolygon(stair);
-                                if (rotPts && rotPts.length >= 3) {
-                                    let minRx = Infinity, maxRx = -Infinity, minRy = Infinity, maxRy = -Infinity;
-                                    path.forEach(p => {
-                                        minRx = Math.min(minRx, p.x); maxRx = Math.max(maxRx, p.x);
-                                        minRy = Math.min(minRy, p.y); maxRy = Math.max(maxRy, p.y);
-                                    });
-
-                                    const overlaps = rotPts.some(c => c.x >= minRx && c.x <= maxRx && c.y >= minRy && c.y <= maxRy);
-                                    if (overlaps) {
-                                        const hole = new THREE.Path();
-                                        hole.moveTo(rotPts[0].x, rotPts[0].y);
-                                        for (let i = 1; i < rotPts.length; i++) {
-                                            hole.lineTo(rotPts[i].x, rotPts[i].y);
-                                        }
-                                        hole.lineTo(rotPts[0].x, rotPts[0].y);
-                                        floorShape.holes.push(hole);
-                                    }
-                                }
-                            });
-                        }
-
-                        if (data.shapes) {
-                            data.shapes.forEach(shape => {
-                                if (shape.type === 'shape_floor_cut') {
-                                    const rot = (shape.rotation || 0) * Math.PI / 180;
-                                    const sx = shape.x || shape.params?.x || 0;
-                                    const sy = shape.y || shape.params?.y || 0;
-                                    let pts;
-                                    if (shape.params?.points && shape.params.points.length >= 3) {
-                                        pts = shape.params.points;
-                                    } else {
-                                        const w = shape.params?.width || shape.width || 100;
-                                        const h = shape.params?.height || shape.height || 100;
-                                        pts = [
-                                            { x: -w/2, y: -h/2 }, { x: w/2, y: -h/2 },
-                                            { x: w/2, y: h/2 }, { x: -w/2, y: h/2 }
-                                        ];
-                                    }
-                                    
-                                    const rotC = pts.map(c => ({
-                                        x: sx + (c.x * Math.cos(rot) - c.y * Math.sin(rot)),
-                                        y: sy + (c.x * Math.sin(rot) + c.y * Math.cos(rot))
-                                    }));
-
-                                    let minRx = Infinity, maxRx = -Infinity, minRy = Infinity, maxRy = -Infinity;
-                                    path.forEach(p => {
-                                        minRx = Math.min(minRx, p.x); maxRx = Math.max(maxRx, p.x);
-                                        minRy = Math.min(minRy, p.y); maxRy = Math.max(maxRy, p.y);
-                                    });
-
-                                    const overlaps = rotC.some(c => c.x >= minRx && c.x <= maxRx && c.y >= minRy && c.y <= maxRy);
-
-                                    if (overlaps) {
-                                        const hole = new THREE.Path();
-                                        hole.moveTo(rotC[0].x, rotC[0].y);
-                                        hole.lineTo(rotC[1].x, rotC[1].y);
-                                        hole.lineTo(rotC[2].x, rotC[2].y);
-                                        hole.lineTo(rotC[3].x, rotC[3].y);
-                                        hole.lineTo(rotC[0].x, rotC[0].y);
-                                        floorShape.holes.push(hole);
-                                    }
-                                }
-                            });
-                        }
-
-                        const slabDepth = isStaticSub ? subH : 2;
-                        const floorGeo = new THREE.ExtrudeGeometry(floorShape, { depth: slabDepth, bevelEnabled: false });
-                        floorGeo.rotateX(Math.PI / 2);
-                        
-                        const pos = floorGeo.attributes.position;
-                        const uvs = new Float32Array(pos.count * 2);
-                        for (let i = 0; i < pos.count; i++) {
-                            uvs[i * 2] = pos.getX(i) / 100;
-                            uvs[i * 2 + 1] = -pos.getZ(i) / 100;
-                        }
-                        floorGeo.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
-                        
-                        const configId = room.configId || 'hardwood';
-                        const config = FLOOR_REGISTRY[configId];
-                        
-                        const matFloor = isStaticSub ? getPlasterMaterial() : new THREE.MeshStandardMaterial({ 
-                            color: config?.color || 0xd1d5db, 
-                            roughness: config?.roughness || 0.7 
+                        const floorMesh = FloorSlabEngine.buildFloorSlabMesh(room, {
+                            stairsBelow,
+                            shapes: data.shapes || [],
+                            isSub: isStaticSub,
+                            subH,
+                            ctx: this.ctx
                         });
-                        const floorMesh = new THREE.Mesh(floorGeo, matFloor);
-                        const roomElev = Number(room.elevation) || 0;
-                        floorMesh.position.y = isStaticSub ? (subH - 0.01) : (roomElev + 0.05);
-                        floorMesh.receiveShadow = true;
-                        
-                        if (config && config.texture && !isStaticSub) {
-                            this.ctx.assets.getTexture(config).then(tex => {
-                                const texClone = tex.clone();
-                                texClone.wrapS = texClone.wrapT = THREE.RepeatWrapping;
-                                const { repeatX, repeatY } = MaterialFactory.calculateTexelDensity({ width: 100, height: 100 }, config);
-                                texClone.repeat.set(repeatX, repeatY);
-                                matFloor.map = texClone;
-                                matFloor.needsUpdate = true;
-                            });
+
+                        if (floorMesh) {
+                            const roomElev = Number(room.elevation) || 0;
+                            if (roomElev !== 0) floorMesh.position.y += roomElev;
+                            floorMesh.receiveShadow = true;
+
+                            if (!isPreview) {
+                                floorMesh.userData = { ...floorMesh.userData, isFloorTrigger: true, levelIndex: index };
+                                this.ctx.interactables.push(floorMesh);
+                            }
+                            floorGroup.add(floorMesh);
                         }
-                        
-                        if (!isPreview) {
-                            floorMesh.userData = { isFloorTrigger: true, levelIndex: index };
-                            this.ctx.interactables.push(floorMesh);
-                        }
-                        floorGroup.add(floorMesh);
                     });
                 } else if (data.roomPaths) {
                     data.roomPaths.forEach(path => {
-                        const floorShape = new THREE.Shape();
-                        floorShape.moveTo(path[0].x, path[0].y);
-                        for (let i = 1; i < path.length; i++) floorShape.lineTo(path[i].x, path[i].y);
-                        
-                        const floorGeo = new THREE.ExtrudeGeometry(floorShape, { depth: 2, bevelEnabled: false });
-                        floorGeo.rotateX(Math.PI / 2);
-                        const floorMesh = new THREE.Mesh(floorGeo, new THREE.MeshStandardMaterial({ color: 0xd1d5db, roughness: 0.7 }));
-                        floorMesh.position.y = 0.05;
-                        floorMesh.receiveShadow = true;
-                        
-                        if (!isPreview) {
-                            floorMesh.userData = { isFloorTrigger: true, levelIndex: index };
-                            this.ctx.interactables.push(floorMesh);
+                        const floorMesh = FloorSlabEngine.buildFloorSlabMesh({ path, configId: 'hardwood', thickness: 2 }, {
+                            stairsBelow,
+                            shapes: data.shapes || [],
+                            isSub: false,
+                            subH: 2,
+                            ctx: this.ctx
+                        });
+                        if (floorMesh) {
+                            floorMesh.position.y = 0.05;
+                            floorMesh.receiveShadow = true;
+                            if (!isPreview) {
+                                floorMesh.userData = { ...floorMesh.userData, isFloorTrigger: true, levelIndex: index };
+                                this.ctx.interactables.push(floorMesh);
+                            }
+                            floorGroup.add(floorMesh);
                         }
-                        floorGroup.add(floorMesh);
                     });
                 }
 
