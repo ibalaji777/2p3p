@@ -5,6 +5,7 @@ import { StairEngine } from '../stairs/StairEngine.js';
 import { WallEngine } from '../wall/WallEngine.js';
 import { RoofEngine } from '../roof/RoofEngine.js';
 import { OutdoorZoneEngine } from '../outdoor/OutdoorZoneEngine.js';
+import { PlatformEngine } from '../platform/PlatformEngine.js';
 
 export class DuplicateEntityCommand extends Command {
     constructor(planner, entityId, id) {
@@ -20,6 +21,7 @@ export class DuplicateEntityCommand extends Command {
         this.serializedMolding = null;
         this.serializedFurniture = null;
         this.serializedOutdoorZone = null;
+        this.serializedPlatform = null;
     }
 
     execute() {
@@ -73,6 +75,16 @@ export class DuplicateEntityCommand extends Command {
 
         if (this.serializedOutdoorZone) {
             const restored = OutdoorZoneEngine.deserialize(this.planner, this.serializedOutdoorZone, { addToPlanner: true });
+            if (restored) {
+                this.createdEntity = restored;
+                if (this.id) this.createdEntity.id = this.id;
+            }
+            this.planner.syncAll();
+            return;
+        }
+
+        if (this.serializedPlatform) {
+            const restored = PlatformEngine.deserialize(this.planner, this.serializedPlatform, { addToPlanner: true });
             if (restored) {
                 this.createdEntity = restored;
                 if (this.id) this.createdEntity.id = this.id;
@@ -188,8 +200,13 @@ export class DuplicateEntityCommand extends Command {
                 this.createdEntity = OutdoorZoneEngine.duplicateOutdoorZone(this.planner, sourceEntity, offset);
                 if (this.id) this.createdEntity.id = this.id;
                 this.serializedOutdoorZone = OutdoorZoneEngine.serialize(this.createdEntity);
+            } else if (sourceEntity.constructor?.name === 'PremiumPlatform' || sourceEntity.type === 'platform' || (this.planner?.platforms && this.planner.platforms.includes(sourceEntity))) {
+                const offset = { x: 30, y: 30 };
+                this.createdEntity = PlatformEngine.duplicatePlatform(this.planner, sourceEntity, offset);
+                if (this.id) this.createdEntity.id = this.id;
+                this.serializedPlatform = PlatformEngine.serialize(this.createdEntity);
             } else {
-                throw new Error('Duplication currently only supports PremiumFurniture, Staircases, Roofs, OutdoorZones, and Attached Wall Openings/Widgets/Moldings via AutomationAPI');
+                throw new Error('Duplication currently only supports PremiumFurniture, Staircases, Roofs, OutdoorZones, Platforms, and Attached Wall Openings/Widgets/Moldings via AutomationAPI');
             }
         }
         
@@ -234,6 +251,10 @@ export class DuplicateEntityCommand extends Command {
         } else if (this.createdEntity.constructor?.name === 'PremiumOutdoorZone' || this.createdEntity.type === 'outdoor_zone' || (this.planner?.outdoorZones && this.planner.outdoorZones.includes(this.createdEntity))) {
             this.serializedOutdoorZone = OutdoorZoneEngine.serialize(this.createdEntity);
             OutdoorZoneEngine.deleteOutdoorZone(this.planner, this.createdEntity);
+            this.createdEntity = null;
+        } else if (this.createdEntity.constructor?.name === 'PremiumPlatform' || this.createdEntity.type === 'platform' || (this.planner?.platforms && this.planner.platforms.includes(this.createdEntity))) {
+            this.serializedPlatform = PlatformEngine.serialize(this.createdEntity);
+            PlatformEngine.deletePlatform(this.planner, this.createdEntity);
             this.createdEntity = null;
         } else if (typeof this.createdEntity.remove === 'function') {
             this.createdEntity.remove();

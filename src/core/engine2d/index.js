@@ -38,13 +38,14 @@ import { PremiumStaircase } from '../../features/stairs/stairs.renderer2d.js';
 import { StairEngine } from '../stairs/StairEngine.js';
 import { PremiumMolding } from './PremiumMolding.js';
 import { PremiumPlatform } from './PremiumPlatform.js';
+import { PlatformEngine } from '../platform/PlatformEngine.js';
 import { PRESET_REGISTRY, autoAlign } from './presetRegistry.js';
 import { PresetGroup } from './PresetGroup.js';
 import { computeCorridorPolygon } from './corridorUtils.js';
 import { syncElevationSegments2D } from '../../features/elevation/elevationSegment.renderer2d.js';
 
 // Export the specific classes that App.vue needs to spawn items
-export { FurnitureEngine, PremiumFurniture, PremiumHipRoof, StairV4Flight, StairV4Landing, PremiumMolding, PremiumOutdoorZone, OutdoorZoneEngine, PremiumPlatform };
+export { FurnitureEngine, PremiumFurniture, PremiumHipRoof, StairV4Flight, StairV4Landing, PremiumMolding, PremiumOutdoorZone, OutdoorZoneEngine, PremiumPlatform, PlatformEngine };
 
 /**
  * The core orchestrator for the 2D layout engine. Manages application state, entities, rendering layers, and integrations with input sub-systems.
@@ -506,10 +507,7 @@ export class FloorPlanner {
             }
         }
         if (type === 'platform') {
-            const item = new PremiumPlatform(this, 'platform', state);
-            this.platforms.push(item);
-            this.syncAll();
-            return item;
+            return PlatformEngine.deserialize(this, state, { addToPlanner: true, sync: true });
         }
     }
 
@@ -1954,7 +1952,7 @@ export class FloorPlanner {
             })) : [],
             shapes: this.shapes ? this.shapes.map(s => ({ type: s.type, x: s.group.x(), y: s.group.y(), rotation: s.rotation, scaleX: s.group.scaleX(), scaleY: s.group.scaleY(), params: s.params, description: s.description })) : [],
             outdoorZones: this.outdoorZones ? this.outdoorZones.map(z => OutdoorZoneEngine.serialize(z)).filter(Boolean) : [],
-            platforms: this.platforms ? this.platforms.map(p => (typeof p.exportState === 'function' ? p.exportState() : (typeof p.export === 'function' ? p.export() : (typeof p.toJSON === 'function' ? p.toJSON() : p)))) : [],
+            platforms: this.platforms ? this.platforms.map(p => PlatformEngine.serialize(p)).filter(Boolean) : [],
             rooms: this.rooms ? this.rooms.map(r => ({ path: r.path.map(p => ({ x: p.x, y: p.y })), cx: r.cx, cy: r.cy, elevation: r.elevation || 0, configId: r.configId, isHidden: r.isHidden, isDeleted: r.isDeleted, materialRepeat: r.materialRepeat, description: r.description })) : [],
             roomPaths: this.roomPaths ? this.roomPaths.map(path => path.map(p => ({ x: p.x, y: p.y }))) : [],
             presetGroups: this.presetGroups ? this.presetGroups.map(g => g.export()) : [],
@@ -2116,21 +2114,7 @@ export class FloorPlanner {
             if (state.platforms) {
                 if (!this.platforms) this.platforms = [];
                 state.platforms.forEach(pData => {
-                    const platform = new PremiumPlatform(this, 'platform', pData);
-                    if (pData.isBuildingFoundation) {
-                        platform.isBuildingFoundation = true;
-                        platform.associatedRoomId = pData.associatedRoomId || null;
-                        if (platform.group) {
-                            platform.group.visible(false);
-                            platform.group.listening(false);
-                            platform.group.draggable(false);
-                        }
-                        if (platform.badgeGroup) platform.badgeGroup.visible(false);
-                    }
-                    if (pData.isRoomInteriorPlatform) {
-                        platform.isRoomInteriorPlatform = true;
-                    }
-                    this.platforms.push(platform);
+                    PlatformEngine.deserialize(this, pData, { addToPlanner: true, sync: false });
                 });
             }
             if (state.presetGroups) {

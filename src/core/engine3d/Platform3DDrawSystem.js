@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { PremiumPlatform } from '../engine2d/PremiumPlatform.js';
+import { PlatformEngine } from '../platform/PlatformEngine.js';
 import { Platform3DBuilder } from './Platform3DBuilder.js';
 
 /**
@@ -409,7 +409,7 @@ export class Platform3DDrawSystem {
             const height = Number(params.height) || 20;
             const elevation = this.startHitPlatform ? (this.startHitPlatform.elevation || 0) + (this.startHitPlatform.height || 0) : 0;
 
-            const newPlatform = new PremiumPlatform(planner, 'platform', {
+            const newPlatform = PlatformEngine.createPlatform(planner, {
                 x: Math.round(cx),
                 y: Math.round(cz),
                 width: Math.round(w),
@@ -419,10 +419,7 @@ export class Platform3DDrawSystem {
                 elevation: elevation,
                 trimStyle: params.trimStyle || 'flat',
                 materials: params.materials || null
-            });
-
-            if (!planner.platforms) planner.platforms = [];
-            planner.platforms.push(newPlatform);
+            }, { addToPlanner: true });
 
             // Build 3D mesh
             this.builder.buildPlatform(newPlatform, this.ctx.structureGroup);
@@ -462,7 +459,7 @@ export class Platform3DDrawSystem {
 
         const relPts = rawPts.map(p => ({ x: p.x - cx, y: p.y - cz }));
 
-        const newPlatform = new PremiumPlatform(planner, 'platform', {
+        const newPlatform = PlatformEngine.createPlatform(planner, {
             x: Math.round(cx),
             y: Math.round(cz),
             shapeType: 'polygon',
@@ -471,10 +468,7 @@ export class Platform3DDrawSystem {
             stepHeight: params.stepHeight || 15,
             trimStyle: params.trimStyle || 'flat',
             materials: params.materials || null
-        });
-
-        if (!planner.platforms) planner.platforms = [];
-        planner.platforms.push(newPlatform);
+        }, { addToPlanner: true });
 
         this.builder.buildPlatform(newPlatform, this.ctx.structureGroup);
 

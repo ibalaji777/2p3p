@@ -184,7 +184,8 @@
 <script setup>
 import { ref, computed } from 'vue';
 import DimensionInput from '../common/DimensionInput.vue';
-import { PremiumPlatform } from '../../core/engine2d/PremiumPlatform.js';
+import { PlatformEngine } from '../../core/platform/PlatformEngine.js';
+import { DuplicateEntityCommand } from '../../core/commands/DuplicateEntityCommand.js';
 
 const props = defineProps({
     selectedEntity: { type: Object, required: true }
@@ -288,15 +289,14 @@ const rotate90 = () => {
 
 const setTrimStyle = (trimId) => {
     if (!props.selectedEntity) return;
-    props.selectedEntity.trimStyle = trimId;
+    PlatformEngine.setTrimStyle(props.selectedEntity, trimId);
     syncPlatform();
 };
 
 const setSlotMaterial = (matId) => {
     const e = props.selectedEntity;
     if (!e) return;
-    if (!e.materials) e.materials = {};
-    e.materials[activeSlot.value] = { id: matId };
+    PlatformEngine.setMaterial(e, activeSlot.value, matId);
     
     // Also sync 3D live material manager if present
     const pl = e.planner || window.planner?.value || window.planner;
@@ -309,33 +309,21 @@ const setSlotMaterial = (matId) => {
 const stepUp = () => {
     const e = props.selectedEntity;
     if (!e) return;
-    const step = Number(e.stepHeight) || 15;
-    if (typeof e.stepUp === 'function') {
-        e.stepUp(step);
-    } else {
-        e.height = Math.round(((e.height || 0) + step) * 10) / 10;
-        syncPlatform();
-    }
-    emit('sync-engine');
+    PlatformEngine.raisePlatform(e);
+    syncPlatform();
 };
 
 const stepDown = () => {
     const e = props.selectedEntity;
     if (!e) return;
-    const step = Number(e.stepHeight) || 15;
-    if (typeof e.stepDown === 'function') {
-        e.stepDown(step);
-    } else {
-        e.height = Math.round(((e.height || 0) - step) * 10) / 10;
-        syncPlatform();
-    }
-    emit('sync-engine');
+    PlatformEngine.lowerPlatform(e);
+    syncPlatform();
 };
 
 const syncPlatform = () => {
     const e = props.selectedEntity;
     if (e) {
-        if (typeof e.update2D === 'function') e.update2D();
+        PlatformEngine.update2D(e);
         if (typeof e.update3D === 'function') e.update3D();
         if (e.planner && typeof e.planner.syncAll === 'function') {
             e.planner.syncAll();
@@ -347,26 +335,18 @@ const syncPlatform = () => {
 const duplicatePlatform = () => {
     const p = props.selectedEntity;
     if (!p || !p.planner) return;
-    const state = typeof p.exportState === 'function' ? p.exportState() : {
-        width: p.width,
-        depth: p.depth,
-        height: p.height,
-        stepHeight: p.stepHeight,
-        elevation: p.elevation,
-        trimStyle: p.trimStyle,
-        rotation: p.rotation,
-        materials: JSON.parse(JSON.stringify(p.materials || {})),
-        shapeType: p.shapeType,
-        points: p.points ? JSON.parse(JSON.stringify(p.points)) : null
-    };
-    state.id = 'platform_' + Math.random().toString(36).substr(2, 9);
-    state.x = (p.group && typeof p.group.x === 'function' ? p.group.x() : (p.x || 100)) + 30;
-    state.y = (p.group && typeof p.group.y === 'function' ? p.group.y() : (p.y || 100)) + 30;
-    
-    const newPlat = new PremiumPlatform(p.planner, 'platform', state);
-    if (!p.planner.platforms) p.planner.platforms = [];
-    p.planner.platforms.push(newPlat);
-    p.planner.selectEntity(newPlat, 'platform');
+    if (p.planner.commandManager) {
+        const cmd = new DuplicateEntityCommand(p.planner, p.id);
+        p.planner.commandManager.execute(cmd);
+        if (cmd.createdEntity) {
+            p.planner.selectEntity(cmd.createdEntity, 'platform');
+        }
+    } else {
+        const newPlat = PlatformEngine.duplicatePlatform(p.planner, p, { x: 30, y: 30 });
+        if (newPlat) {
+            p.planner.selectEntity(newPlat, 'platform');
+        }
+    }
     p.planner.syncAll();
     emit('sync-engine');
 };

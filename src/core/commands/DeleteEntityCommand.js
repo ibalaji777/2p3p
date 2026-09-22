@@ -8,6 +8,7 @@ import { WallEngine } from '../wall/WallEngine.js';
 import { RoofEngine } from '../roof/RoofEngine.js';
 import { FurnitureEngine } from '../furniture/FurnitureEngine.js';
 import { OutdoorZoneEngine } from '../outdoor/OutdoorZoneEngine.js';
+import { PlatformEngine } from '../platform/PlatformEngine.js';
 
 export class DeleteEntityCommand extends Command {
     constructor(planner, entityId) {
@@ -21,6 +22,7 @@ export class DeleteEntityCommand extends Command {
         this.serializedMolding = null;
         this.serializedFurniture = null;
         this.serializedOutdoorZone = null;
+        this.serializedPlatform = null;
         this.hostWall = null;
         this.hostWallId = null;
     }
@@ -65,6 +67,9 @@ export class DeleteEntityCommand extends Command {
             } else if (this.deletedEntity.constructor?.name === 'PremiumOutdoorZone' || this.deletedEntity.type === 'outdoor_zone' || (this.planner?.outdoorZones && this.planner.outdoorZones.includes(this.deletedEntity))) {
                 this.serializedOutdoorZone = OutdoorZoneEngine.serialize(this.deletedEntity);
                 OutdoorZoneEngine.deleteOutdoorZone(this.planner, this.deletedEntity);
+            } else if (this.deletedEntity.constructor?.name === 'PremiumPlatform' || this.deletedEntity.type === 'platform' || (this.planner?.platforms && this.planner.platforms.includes(this.deletedEntity))) {
+                this.serializedPlatform = PlatformEngine.serialize(this.deletedEntity);
+                PlatformEngine.deletePlatform(this.planner, this.deletedEntity);
             } else if (typeof this.deletedEntity.remove === 'function') {
                 this.deletedEntity.remove();
             } else if (typeof this.deletedEntity.destroy === 'function') {
@@ -141,6 +146,16 @@ export class DeleteEntityCommand extends Command {
                 if (!this.planner.outdoorZones) this.planner.outdoorZones = [];
                 if (!this.planner.outdoorZones.includes(this.deletedEntity)) {
                     this.planner.outdoorZones.push(this.deletedEntity);
+                }
+            } else if (this.serializedPlatform) {
+                const restored = PlatformEngine.deserialize(this.planner, this.serializedPlatform, { addToPlanner: true });
+                if (restored) {
+                    this.deletedEntity = restored;
+                }
+            } else if (this.deletedEntity.constructor?.name === 'PremiumPlatform' || this.deletedEntity.type === 'platform') {
+                if (!this.planner.platforms) this.planner.platforms = [];
+                if (!this.planner.platforms.includes(this.deletedEntity)) {
+                    this.planner.platforms.push(this.deletedEntity);
                 }
             }
             if (this.deletedEntity.group && typeof this.deletedEntity.group.visible === 'function') {

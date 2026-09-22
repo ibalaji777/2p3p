@@ -2,7 +2,7 @@ import Konva from 'konva';
 import { WALL_REGISTRY, WIDGET_REGISTRY, MOLDING_REGISTRY, SNAP_DIST } from '../registry.js';
 import { PRESET_REGISTRY, autoAlign } from './presetRegistry.js';
 import { PremiumShape } from './PremiumShape.js';
-import { PremiumPlatform } from './PremiumPlatform.js';
+import { PlatformEngine } from '../platform/PlatformEngine.js';
 
 /**
  * Handles core pointer events (mousedown, mousemove, mouseup) for the 2D Engine.
@@ -755,7 +755,7 @@ export function setupPointerEvents(planner) {
                     const h = targetPos.y - planner.shapeStartPos.y;
                     if (Math.abs(w) > 5 && Math.abs(h) > 5) {
                         const params = planner.activePresetParams || {};
-                        const newPlatform = new PremiumPlatform(planner, 'platform', {
+                        const newPlatform = PlatformEngine.createPlatform(planner, {
                             x: cx,
                             y: cy,
                             width: Math.abs(w),
@@ -765,13 +765,10 @@ export function setupPointerEvents(planner) {
                             elevation: params.elevation || 0,
                             trimStyle: params.trimStyle || 'flat',
                             materials: params.materials || null
-                        });
-                        if (!planner.platforms) planner.platforms = [];
-                        planner.platforms.push(newPlatform);
+                        }, { addToPlanner: true, select: true });
                         planner.tool = 'select';
                         planner.updateToolStates();
                         if (planner.onToolChange) planner.onToolChange('select');
-                        planner.selectEntity(newPlatform, 'platform');
                     }
                     planner.shapePreviewRect.visible(false);
                 } else if (planner.drawingShapeType === 'shape_circle') {

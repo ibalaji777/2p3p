@@ -411,6 +411,10 @@ export class PremiumPlatform {
     /*                              UPDATE & RENDER                               */
     /* -------------------------------------------------------------------------- */
 
+    update2D() {
+        this.update();
+    }
+
     update() {
         if (this.isBuildingFoundation) {
             if (this.group) {
@@ -573,15 +577,21 @@ export class PremiumPlatform {
         return this.export();
     }
 
+    remove() {
+        this.destroy();
+    }
+
     destroy() {
         if (this.group) {
             this.group.destroy();
+            this.group = null;
         }
         if (this.mesh3D && this.mesh3D.parent) {
             this.mesh3D.parent.remove(this.mesh3D);
+            this.mesh3D = null;
         }
         if (this.planner && this.planner.platforms) {
-            this.planner.platforms = this.planner.platforms.filter(p => p !== this);
+            this.planner.platforms = this.planner.platforms.filter(p => p !== this && p.id !== this.id);
         }
     }
 }

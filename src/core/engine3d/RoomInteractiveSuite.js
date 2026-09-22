@@ -5,7 +5,7 @@ import { SnapshotCommand } from '../commands/SnapshotCommand.js';
 import { WallEngine } from '../wall/WallEngine.js';
 import { WallHeightPolicy } from '../wall/WallHeightPolicy.js';
 import { getRoomWallsAndSides, getRoomForWallFace, getRoomsList } from './WallPaintSystem.js';
-import { PremiumPlatform } from '../engine2d/PremiumPlatform.js';
+import { PlatformEngine } from '../platform/PlatformEngine.js';
 import { Platform3DBuilder } from './Platform3DBuilder.js';
 import { offsetPolygon } from '../registry.js';
 import { RoofMutationEngine } from '../roof/RoofMutationEngine.js';
@@ -2030,10 +2030,7 @@ export class RoomInteractiveSuite extends THREE.Group {
                         isBuildingFoundation: true,
                         associatedRoomId: rId
                     };
-                    platform = new PremiumPlatform(planner, 'platform', pParams);
-                    platform.associatedRoomId = rId;
-                    platform.isBuildingFoundation = true;
-                    planner.platforms.push(platform);
+                    platform = PlatformEngine.createPlatform(planner, pParams, { addToPlanner: true, sync: false });
 
                     if (builder && targetGroup) {
                         builder.buildPlatform(platform, targetGroup);
@@ -2118,12 +2115,11 @@ export class RoomInteractiveSuite extends THREE.Group {
                     materials: {
                         top: { id: r.material || r.configId || 'wood_golden_teak' },
                         side: { id: 'wood_oak_natural' }
-                    }
+                    },
+                    isRoomInteriorPlatform: true,
+                    associatedRoomId: rId
                 };
-                platform = new PremiumPlatform(planner, 'platform', pParams);
-                platform.associatedRoomId = rId;
-                platform.isRoomInteriorPlatform = true;
-                planner.platforms.push(platform);
+                platform = PlatformEngine.createPlatform(planner, pParams, { addToPlanner: true, sync: false });
 
                 if (builder && targetGroup) {
                     builder.buildPlatform(platform, targetGroup);
