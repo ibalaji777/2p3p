@@ -1053,12 +1053,6 @@ const rotateCameraRight = () => {
     }
 };
 
-const setWallCutawayMode = (mode) => {
-    if (viewMode.value === '3d' && renderer3D.value) {
-        ViewportEngine.setWallCutawayMode(renderer3D.value, mode);
-    }
-};
-
 
 
 const set3DMode = (mode) => { mode3D.value = mode; if (renderer3D.value) renderer3D.value.setInteractionMode(mode); };
