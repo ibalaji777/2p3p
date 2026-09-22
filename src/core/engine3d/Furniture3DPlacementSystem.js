@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { FURNITURE_REGISTRY } from '../../features/furniture/furniture.registry.js';
-import { PremiumFurniture } from '../../features/furniture/furniture.renderer2d.js';
+import { FurnitureEngine } from '../furniture/FurnitureEngine.js';
 import { SnapshotCommand } from '../commands/SnapshotCommand.js';
 import { VerticalPropagationEngine } from '../vertical/VerticalPropagationEngine.js';
 
@@ -532,34 +532,21 @@ export class Furniture3DPlacementSystem {
             snapshotCmd = new SnapshotCommand(planner);
         }
 
-        // 2. Instantiate and Position PremiumFurniture Entity
-        const newFurn = new PremiumFurniture(
-            planner,
-            this.activePos.x,
-            this.activePos.z,
-            configId
-        );
-
-        if (preset.width) newFurn.width = Number(preset.width);
-        if (preset.depth) newFurn.depth = Number(preset.depth);
-        if (preset.height) newFurn.height = Number(preset.height);
-        newFurn.elevation = this.activeElevation + (Number(preset.elevation) || 0);
-        newFurn.rotation = this.activeRotation;
-
-        if (this._lastHostPlatformId) {
-            newFurn.hostPlatformId = this._lastHostPlatformId;
-            newFurn.relativeElevation = Number(preset.elevation) || 0;
-        }
-
-        if (preset.materials) {
-            newFurn.materials = JSON.parse(JSON.stringify(preset.materials));
-        }
-        if (newFurn.update) newFurn.update();
-
-        if (!planner.furniture) planner.furniture = [];
-        if (!planner.furniture.includes(newFurn)) {
-            planner.furniture.push(newFurn);
-        }
+        // 2. Instantiate and Position PremiumFurniture Entity via FurnitureEngine
+        const newFurn = FurnitureEngine.createFurniture(planner, {
+            x: this.activePos.x,
+            y: this.activePos.z,
+            configId,
+            width: preset.width ? Number(preset.width) : undefined,
+            depth: preset.depth ? Number(preset.depth) : undefined,
+            height: preset.height ? Number(preset.height) : undefined,
+            elevation: this.activeElevation + (Number(preset.elevation) || 0),
+            rotation: this.activeRotation,
+            hostPlatformId: this._lastHostPlatformId || undefined,
+            relativeElevation: this._lastHostPlatformId ? (Number(preset.elevation) || 0) : undefined,
+            materials: preset.materials ? JSON.parse(JSON.stringify(preset.materials)) : undefined,
+            addToPlanner: true
+        });
 
         // 3. Finalize Undo Command
         if (snapshotCmd && snapshotCmd.finalize() && planner.commandManager) {

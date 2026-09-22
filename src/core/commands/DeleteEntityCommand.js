@@ -6,6 +6,7 @@ import { ValidationLayer } from '../api/ValidationLayer.js';
 import { StairEngine } from '../stairs/StairEngine.js';
 import { WallEngine } from '../wall/WallEngine.js';
 import { RoofEngine } from '../roof/RoofEngine.js';
+import { FurnitureEngine } from '../furniture/FurnitureEngine.js';
 
 export class DeleteEntityCommand extends Command {
     constructor(planner, entityId) {
@@ -17,6 +18,7 @@ export class DeleteEntityCommand extends Command {
         this.serializedRoof = null;
         this.serializedWidget = null;
         this.serializedMolding = null;
+        this.serializedFurniture = null;
         this.hostWall = null;
         this.hostWallId = null;
     }
@@ -43,7 +45,10 @@ export class DeleteEntityCommand extends Command {
                 (this.deletedEntity.type && this.deletedEntity.type.startsWith('molding_')) ||
                 (hostWall && hostWall.attachedMoldings && hostWall.attachedMoldings.includes(this.deletedEntity));
 
-            if (this.deletedEntity.constructor?.name === 'PremiumStaircase' || (this.deletedEntity.type && (this.deletedEntity.type.startsWith('stair_') || this.deletedEntity.type === 'stair'))) {
+            if (this.deletedEntity.constructor?.name === 'PremiumFurniture' || this.deletedEntity.type === 'furniture') {
+                this.serializedFurniture = FurnitureEngine.serialize(this.deletedEntity);
+                FurnitureEngine.deleteFurniture(this.planner, this.deletedEntity);
+            } else if (this.deletedEntity.constructor?.name === 'PremiumStaircase' || (this.deletedEntity.type && (this.deletedEntity.type.startsWith('stair_') || this.deletedEntity.type === 'stair'))) {
                 this.serializedStair = StairEngine.serialize(this.deletedEntity);
                 StairEngine.deleteStair(this.planner, this.deletedEntity);
             } else if (this.deletedEntity.constructor?.name === 'PremiumHipRoof' || (this.deletedEntity.type && this.deletedEntity.type === 'roof')) {
@@ -96,6 +101,11 @@ export class DeleteEntityCommand extends Command {
                 const wall = this.hostWall || (this.planner?.walls && this.planner.walls.find(w => w.id === this.hostWallId));
                 if (wall) {
                     WallEngine.attachWidget(wall, this.deletedEntity, false, this.planner);
+                }
+            } else if (this.serializedFurniture) {
+                const restored = FurnitureEngine.deserialize(this.planner, this.serializedFurniture, { addToPlanner: true });
+                if (restored) {
+                    this.deletedEntity = restored;
                 }
             } else if (this.deletedEntity.constructor?.name === 'PremiumFurniture') {
                 this.planner.furniture.push(this.deletedEntity);

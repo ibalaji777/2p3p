@@ -12,6 +12,7 @@ export class PremiumFurniture {
         this.config = FURNITURE_REGISTRY[configId] || { default: { width: 100, depth: 100, height: 100 } };
         this.materialMode = 'MULTI_MESH';
         this.supportsLiveMaterialPipeline = false;
+        this.materials = {};
         this.width = this.config.default.width; 
         this.depth = this.config.default.depth; 
         this.height = this.config.default.height; 
@@ -145,6 +146,10 @@ export class PremiumFurniture {
         }
         this.group.rotation(this.rotation); 
         this.rotHandle.x(this.width / 2); 
+    }
+
+    update2D() {
+        this.update();
     }
 
     remove() { 

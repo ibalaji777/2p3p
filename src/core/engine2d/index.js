@@ -23,6 +23,7 @@ import { WallEngine } from '../wall/WallEngine.js';
 import { WallFactory } from '../../features/wall/wall.factory.js';
 import { PremiumWall } from '../../features/wall/wall.renderer2d.js';
 import { PremiumFurniture } from '../../features/furniture/furniture.renderer2d.js';
+import { FurnitureEngine } from '../furniture/FurnitureEngine.js';
 import { PremiumOutdoorZone } from './PremiumOutdoorZone.js';
 import { WallSerializer } from '../../features/wall/wall.serializer.js';
 
@@ -42,7 +43,7 @@ import { computeCorridorPolygon } from './DrawingEvents.js';
 import { syncElevationSegments2D } from '../../features/elevation/elevationSegment.renderer2d.js';
 
 // Export the specific classes that App.vue needs to spawn items
-export { PremiumFurniture, PremiumHipRoof, StairV4Flight, StairV4Landing, PremiumMolding, PremiumOutdoorZone, PremiumPlatform };
+export { FurnitureEngine, PremiumFurniture, PremiumHipRoof, StairV4Flight, StairV4Landing, PremiumMolding, PremiumOutdoorZone, PremiumPlatform };
 
 /**
  * The core orchestrator for the 2D layout engine. Manages application state, entities, rendering layers, and integrations with input sub-systems.
@@ -361,6 +362,11 @@ export class FloorPlanner {
             return;
         }
 
+        if (entity.type === 'furniture' || entity.constructor?.name === 'PremiumFurniture') {
+            FurnitureEngine.deleteFurniture(this, entity);
+            return;
+        }
+
         if (typeof entity.remove === 'function') {
             entity.remove();
         } else if (typeof entity.destroy === 'function') {
@@ -435,19 +441,8 @@ export class FloorPlanner {
             return entity[field] ?? 0;
         };
 
-        if (entity.type === 'furniture') {
-            return {
-                id: entity.id || (entity.group && typeof entity.group.id === 'function' ? entity.group.id() : undefined),
-                type: 'furniture',
-                x: getCoord('x'),
-                y: getCoord('y'),
-                rotation: entity.rotation ?? (entity.group && typeof entity.group.rotation === 'function' ? entity.group.rotation() : 0),
-                width: entity.width,
-                depth: entity.depth,
-                height: entity.height,
-                configId: entity.config ? entity.config.id : undefined,
-                description: entity.description
-            };
+        if (entity.type === 'furniture' || entity.constructor?.name === 'PremiumFurniture') {
+            return FurnitureEngine.serialize(entity);
         }
 
         const state = {
@@ -481,29 +476,22 @@ export class FloorPlanner {
 
     _applyCreate(type, config) {
         if (type === 'furniture') {
-            const center = { x: this.stage.width() / 2, y: this.stage.height() / 2 };
-            const item = new PremiumFurniture(this, center.x, center.y, config.id);
-            this.furniture.push(item);
-            this.selectEntity(item, 'furniture');
-            this.syncAll();
-            return item;
+            const center = this.stage ? { x: this.stage.width() / 2, y: this.stage.height() / 2 } : { x: 0, y: 0 };
+            return FurnitureEngine.createFurniture(this, {
+                x: center.x,
+                y: center.y,
+                configId: config?.id || config?.configId || 'chair',
+                addToPlanner: true,
+                select: true
+            });
         }
         return null;
     }
 
     _applyRestore(type, state) {
         if (!state) return null;
-        // Mocking restore for furniture specifically since it's commonly tested
         if (type === 'furniture') {
-            const item = new PremiumFurniture(this, state.x, state.y, state.configId);
-            item.rotation = state.rotation;
-            if (state.width) item.width = state.width;
-            if (state.depth) item.depth = state.depth;
-            if (state.height) item.height = state.height;
-            item.update2D();
-            this.furniture.push(item);
-            this.syncAll();
-            return item;
+            return FurnitureEngine.deserialize(this, state, { addToPlanner: true });
         }
         if (type === 'stair' || (type && type.startsWith('stair_'))) {
             const stair = StairTopologyEngine.deserialize(this, state);
@@ -1942,21 +1930,7 @@ export class FloorPlanner {
             unit: this.currentUnit,
             anchors: this.anchors.map(a => ({ id: a._id, x: a.x, y: a.y })),
             walls: standardWalls.map(w => WallSerializer.serialize(w)),
-            furniture: this.furniture.map(f => ({ 
-                x: f.group.x(), 
-                y: f.group.y(), 
-                rotation: f.rotation, 
-                width: f.width, 
-                depth: f.depth, 
-                height: f.height, 
-                elevation: f.elevation || 0,
-                hostPlatformId: f.hostPlatformId || null,
-                hostFurnitureId: f.hostFurnitureId || null,
-                relativeElevation: f.relativeElevation || 0,
-                configId: f.config.id, 
-                description: f.description, 
-                params: f.params ? JSON.parse(JSON.stringify(f.params)) : null 
-            })),
+            furniture: this.furniture ? this.furniture.map(f => FurnitureEngine.serialize(f)).filter(Boolean) : [],
             stairs: this.stairs ? this.stairs.map(s => StairEngine.serialize(s)).filter(Boolean) : [],
             roofs: this.roofs ? this.roofs.map(r => RoofEngine.serialize(r)).filter(Boolean) : [],
             arcs: this.arcs ? this.arcs.map(a => ({ 
@@ -2057,15 +2031,7 @@ export class FloorPlanner {
             }
             if (state.furniture) {
                 state.furniture.forEach(fData => {
-                    const furn = new PremiumFurniture(this, fData.x, fData.y, fData.configId);
-                    furn.rotation = fData.rotation; furn.width = fData.width; furn.depth = fData.depth; furn.height = fData.height;
-                    if (fData.elevation !== undefined) furn.elevation = fData.elevation;
-                    if (fData.hostPlatformId !== undefined) furn.hostPlatformId = fData.hostPlatformId;
-                    if (fData.hostFurnitureId !== undefined) furn.hostFurnitureId = fData.hostFurnitureId;
-                    if (fData.relativeElevation !== undefined) furn.relativeElevation = fData.relativeElevation;
-                    if (fData.description !== undefined) furn.description = fData.description;
-                    if (fData.params) furn.params = JSON.parse(JSON.stringify(fData.params));
-                    this.furniture.push(furn);
+                    FurnitureEngine.deserialize(this, fData, { addToPlanner: true });
                 });
             }
             if (state.stairs) {

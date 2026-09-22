@@ -3,7 +3,6 @@ import { PremiumWall } from '../../features/wall/wall.renderer2d.js';
 import { WallEngine } from '../wall/WallEngine.js';
 import { Anchor } from './Anchor.js';
 import { RoofEngine } from '../roof/RoofEngine.js';
-import { PremiumFurniture } from '../../features/furniture/furniture.renderer2d.js';
 import { PresetGroup } from './PresetGroup.js';
 
 // --- Math Helpers ---

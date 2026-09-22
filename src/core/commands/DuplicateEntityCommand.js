@@ -1,6 +1,6 @@
 import { Command } from './Command.js';
 import { ValidationLayer } from '../api/ValidationLayer.js';
-import { PremiumFurniture } from '../../features/furniture/furniture.renderer2d.js';
+import { FurnitureEngine } from '../furniture/FurnitureEngine.js';
 import { StairEngine } from '../stairs/StairEngine.js';
 import { WallEngine } from '../wall/WallEngine.js';
 import { RoofEngine } from '../roof/RoofEngine.js';
@@ -17,6 +17,7 @@ export class DuplicateEntityCommand extends Command {
         this.serializedStair = null;
         this.serializedWidget = null;
         this.serializedMolding = null;
+        this.serializedFurniture = null;
     }
 
     execute() {
@@ -58,6 +59,16 @@ export class DuplicateEntityCommand extends Command {
             return;
         }
 
+        if (this.serializedFurniture) {
+            const restored = FurnitureEngine.deserialize(this.planner, this.serializedFurniture, { addToPlanner: true });
+            if (restored) {
+                this.createdEntity = restored;
+                if (this.id) this.createdEntity.id = this.id;
+            }
+            this.planner.syncAll();
+            return;
+        }
+
         if (!this.createdEntity) {
             const sourceEntity = ValidationLayer.findEntity(this.planner, this.entityId);
             if (!sourceEntity) throw new Error('Source entity not found for duplication');
@@ -73,21 +84,12 @@ export class DuplicateEntityCommand extends Command {
                 (sourceEntity.type && sourceEntity.type.startsWith('molding_')) ||
                 (hostWall && hostWall.attachedMoldings && hostWall.attachedMoldings.includes(sourceEntity));
 
-            // Quick deep copy simulation for the duplicated entity based on serialized state
-            if (sourceEntity.constructor?.name === 'PremiumFurniture') {
-                this.createdEntity = new PremiumFurniture(
-                    this.planner, 
-                    sourceEntity.group ? sourceEntity.group.x() + 20 : 0, 
-                    sourceEntity.group ? sourceEntity.group.y() + 20 : 0, 
-                    sourceEntity.config?.id
-                );
-                this.createdEntity.id = this.id;
-                this.createdEntity.rotation = sourceEntity.rotation;
-                this.createdEntity.width = sourceEntity.width;
-                this.createdEntity.depth = sourceEntity.depth;
-                this.createdEntity.height = sourceEntity.height;
-                this.createdEntity.elevation = sourceEntity.elevation;
-                if (sourceEntity.params) this.createdEntity.params = JSON.parse(JSON.stringify(sourceEntity.params));
+            if (sourceEntity.constructor?.name === 'PremiumFurniture' || sourceEntity.type === 'furniture') {
+                this.createdEntity = FurnitureEngine.duplicateFurniture(this.planner, sourceEntity, { x: 20, y: 20 });
+                if (this.id) this.createdEntity.id = this.id;
+                this.serializedFurniture = FurnitureEngine.serialize(this.createdEntity);
+                this.planner.syncAll();
+                return;
             } else if (sourceEntity.constructor?.name === 'PremiumStaircase' || (sourceEntity.type && sourceEntity.type.startsWith('stair_'))) {
                 this.createdEntity = StairEngine.duplicateStair(this.planner, sourceEntity, { x: 30, y: 30 });
                 if (this.id) this.createdEntity.id = this.id;
@@ -207,6 +209,10 @@ export class DuplicateEntityCommand extends Command {
         } else if (this.createdEntity.constructor?.name === 'PremiumHipRoof' || this.createdEntity.type === 'roof' || (this.planner?.roofs && this.planner.roofs.includes(this.createdEntity))) {
             this.serializedRoof = RoofEngine.serialize(this.createdEntity);
             RoofEngine.deleteRoof(this.planner, this.createdEntity);
+            this.createdEntity = null;
+        } else if (this.createdEntity.constructor?.name === 'PremiumFurniture' || this.createdEntity.type === 'furniture' || (this.planner?.furniture && this.planner.furniture.includes(this.createdEntity))) {
+            this.serializedFurniture = FurnitureEngine.serialize(this.createdEntity);
+            FurnitureEngine.deleteFurniture(this.planner, this.createdEntity);
             this.createdEntity = null;
         } else if (typeof this.createdEntity.remove === 'function') {
             this.createdEntity.remove();

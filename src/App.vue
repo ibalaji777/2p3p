@@ -371,7 +371,7 @@ import { SmartWizardManager } from './core/plugins/SmartWizardManager.js';
 import { SmartFacingPlugin } from './core/plugins/SmartFacingPlugin.js';
 import { SmartWallResizePlugin } from './core/plugins/SmartWallResizePlugin.js';
 
-import { FloorPlanner, PremiumFurniture, PremiumOutdoorZone } from './core/engine2d/index.js';
+import { FloorPlanner, PremiumOutdoorZone } from './core/engine2d/index.js';
 import { Preview3D } from './core/engine3d.js'; 
 import { WorkspaceControls } from '/src/core/engine3d/WorkspaceControls.js';
 import { ServerClass } from './core/ServerClass.js';
