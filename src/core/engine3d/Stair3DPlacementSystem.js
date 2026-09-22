@@ -722,13 +722,7 @@ export class Stair3DPlacementSystem {
                     stairData.hostPlatformId = targetHost.id;
                 }
 
-                const hostTransform = {
-                    x: targetHost.group && typeof targetHost.group.x === 'function' ? targetHost.group.x() : (Number(targetHost.x) || 0),
-                    y: targetHost.group && typeof targetHost.group.y === 'function' ? targetHost.group.y() : (Number(targetHost.y) || 0),
-                    elevation: Number(targetHost.elevation) || 0,
-                    height: Number(targetHost.height) || 0,
-                    rotation: targetHost.group && typeof targetHost.group.rotation === 'function' ? targetHost.group.rotation() : (Number(targetHost.rotation) || 0)
-                };
+                const hostTransform = SpatialDependencyEngine.getEntityTransform(targetHost);
 
                 const stairWorld = {
                     x: stairData.x,
