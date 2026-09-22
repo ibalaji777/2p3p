@@ -1,6 +1,6 @@
 import { EVENTS, offsetPolygon } from '../../core/registry.js';
 import { coreEventBus } from '../../core/EventBus.js';
-import { getStairCutoutPolygon } from '../stairs/stairs.renderer2d.js';
+import { StairEngine } from '../../core/stairs/StairEngine.js';
 import { WallEngine } from '../../core/wall/WallEngine.js';
 import { RoofGeometryEngine } from '../../core/roof/RoofGeometryEngine.js';
 import { RoofEngine } from '../../core/roof/RoofEngine.js';
@@ -322,7 +322,7 @@ export class PremiumHipRoof {
             ];
             
             allStairs.forEach(stair => {
-                const worldPts = getStairCutoutPolygon(stair);
+                const worldPts = StairEngine.getCutoutPolygon(stair);
                 if (worldPts && worldPts.length > 0) {
                     const gx = this.group.x() || 0;
                     const gy = this.group.y() || 0;

@@ -19,6 +19,7 @@
 import { computeLevelElevations } from '../engine3d/helpers/levelElevations.js';
 import { RoofMutationEngine } from '../roof/RoofMutationEngine.js';
 import { StairHeightDetector } from '../../features/stairs/StairHeightDetector.js';
+import { StairEngine } from '../stairs/StairEngine.js';
 
 export class VerticalPropagationEngine {
     /**
@@ -192,7 +193,7 @@ export class VerticalPropagationEngine {
         if (p && p.stairs && Array.isArray(p.stairs)) {
             p.stairs.forEach(s => {
                 if (s.hostPlatformId === platform.id || s.targetPlatformId === platform.id) {
-                    this.recalculateStairForPlatform(s, platform, pTop);
+                    this.recalculateStairForPlatform(s, platform, pTop, p);
                 }
             });
         }
@@ -445,12 +446,7 @@ export class VerticalPropagationEngine {
                 const targetHeight = nextElev - curElev;
 
                 if (targetHeight > 10 && Math.abs(stair.height - targetHeight) > 1) {
-                    stair.height = targetHeight;
-                    const optimal = StairHeightDetector.calculateOptimalSteps(targetHeight, stair.shape);
-                    if (optimal) {
-                        stair.totalSteps = optimal.totalSteps;
-                        stair.stepHeight = optimal.riserHeight;
-                    }
+                    StairEngine.setHeight(planner, stair, targetHeight);
                 }
             }
         });
@@ -459,16 +455,12 @@ export class VerticalPropagationEngine {
     /**
      * Recalculates a stair's height when its host platform changes.
      */
-    static recalculateStairForPlatform(stair, platform, platformTop) {
+    static recalculateStairForPlatform(stair, platform, platformTop, planner = null) {
         const stairBase = Number(stair.elevation) || 0;
         const targetH = Math.abs(platformTop - stairBase);
         if (targetH > 4) {
-            stair.height = targetH;
-            const optimal = StairHeightDetector.calculateOptimalSteps(targetH, stair.shape);
-            if (optimal) {
-                stair.totalSteps = optimal.totalSteps;
-                stair.stepHeight = optimal.riserHeight;
-            }
+            const p = planner || stair.planner;
+            StairEngine.setHeight(p, stair, targetH);
         }
     }
 

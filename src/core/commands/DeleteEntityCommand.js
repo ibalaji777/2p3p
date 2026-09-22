@@ -3,7 +3,7 @@
  */
 import { Command } from './Command.js';
 import { ValidationLayer } from '../api/ValidationLayer.js';
-import { StairTopologyEngine } from '../stairs/StairTopologyEngine.js';
+import { StairEngine } from '../stairs/StairEngine.js';
 import { WallEngine } from '../wall/WallEngine.js';
 import { RoofEngine } from '../roof/RoofEngine.js';
 
@@ -37,8 +37,8 @@ export class DeleteEntityCommand extends Command {
             }
 
             if (this.deletedEntity.constructor?.name === 'PremiumStaircase' || (this.deletedEntity.type && (this.deletedEntity.type.startsWith('stair_') || this.deletedEntity.type === 'stair'))) {
-                this.serializedStair = StairTopologyEngine.serialize(this.deletedEntity);
-                StairTopologyEngine.deleteStair(this.planner, this.deletedEntity);
+                this.serializedStair = StairEngine.serialize(this.deletedEntity);
+                StairEngine.deleteStair(this.planner, this.deletedEntity);
             } else if (this.deletedEntity.constructor?.name === 'PremiumHipRoof' || (this.deletedEntity.type && this.deletedEntity.type === 'roof')) {
                 this.serializedRoof = RoofEngine.serialize(this.deletedEntity);
                 RoofEngine.deleteRoof(this.planner, this.deletedEntity);
@@ -80,7 +80,7 @@ export class DeleteEntityCommand extends Command {
                     this.planner.roofs.push(this.deletedEntity);
                 }
             } else if (this.serializedStair) {
-                const restored = StairTopologyEngine.deserialize(this.planner, this.serializedStair);
+                const restored = StairEngine.deserialize(this.planner, this.serializedStair);
                 if (restored) {
                     if (!this.planner.stairs) this.planner.stairs = [];
                     if (!this.planner.stairs.includes(restored)) {

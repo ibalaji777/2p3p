@@ -168,6 +168,28 @@ export class StairTopologyEngine {
     static serialize(stair) {
         if (!stair) return null;
 
+        if (stair.type === 'stair_v4_flight' || stair.type === 'stair_v4_landing') {
+            return {
+                id: stair.id,
+                type: stair.type,
+                systemId: stair.systemId,
+                x: stair.group && typeof stair.group.x === 'function' ? stair.group.x() : (Number(stair.x) || 0),
+                y: stair.group && typeof stair.group.y === 'function' ? stair.group.y() : (Number(stair.y) || 0),
+                rotation: stair.group && typeof stair.group.rotation === 'function' ? stair.group.rotation() : (Number(stair.rotation) || 0),
+                elevation: Number(stair.elevation) || 0,
+                direction: stair.direction || 'up',
+                stepCount: stair.stepCount,
+                stepDepth: stair.stepDepth,
+                stepHeight: stair.stepHeight,
+                width: stair.width,
+                length: stair.length,
+                shape: stair.shape,
+                innerRadius: stair.innerRadius,
+                description: stair.description,
+                connections: stair.connections ? JSON.parse(JSON.stringify(stair.connections)) : []
+            };
+        }
+
         return {
             id: stair.id,
             type: stair.type || `stair_v5_${stair.shape || 'straight'}`,

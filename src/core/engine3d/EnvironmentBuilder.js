@@ -7,7 +7,6 @@ import { HDRLoader } from 'three/examples/jsm/loaders/HDRLoader.js';
 import { Sky } from 'three/examples/jsm/objects/Sky.js';
 import { Molding3DBuilder } from './Molding3DBuilder.js';
 import { Stair3DBuilder } from '../../features/stairs/stairs.renderer3d.js';
-import { StairGeometryEngine } from '../stairs/StairGeometryEngine.js';
 import { Railing3DBuilder } from '../../features/railing/builders/Railing3DBuilder.js';
 import { Wall3DBuilder } from '../../features/wall/wall.renderer3d.js';
 import { WallGeometryEngine } from '../wall/WallGeometryEngine.js';

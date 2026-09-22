@@ -1,7 +1,6 @@
 import * as THREE from 'three';
 import { WALL_HEIGHT } from '../constants/units.js';
 import { Stair3DBuilder } from '../../features/stairs/stairs.renderer3d.js';
-import { PremiumStaircase, getStairCutoutPolygon } from '../../features/stairs/stairs.renderer2d.js';
 import { StairEngine } from '../stairs/StairEngine.js';
 import { SnapshotCommand } from '../commands/SnapshotCommand.js';
 import { StairHeightDetector } from '../../features/stairs/StairHeightDetector.js';
@@ -567,8 +566,8 @@ export class Stair3DPlacementSystem {
     }
 
     updateFootprintGeometry(stairPayload) {
-        // getStairCutoutPolygon returns [{x, y}, {x, y}, ...] in local coordinates (rotation=0, x=0, y=0)
-        const pts = getStairCutoutPolygon(stairPayload);
+        // StairEngine.getCutoutPolygon returns [{x, y}, {x, y}, ...] in local coordinates (rotation=0, x=0, y=0)
+        const pts = StairEngine.getCutoutPolygon(stairPayload);
         const cx = this.localCenterOffset.x;
         const cz = this.localCenterOffset.z;
 

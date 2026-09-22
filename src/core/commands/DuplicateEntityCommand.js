@@ -3,7 +3,6 @@ import { ValidationLayer } from '../api/ValidationLayer.js';
 import { PremiumFurniture } from '../../features/furniture/furniture.renderer2d.js';
 import { PremiumWidget } from '../engine2d/PremiumWidget.js';
 import { StairEngine } from '../stairs/StairEngine.js';
-import { StairTopologyEngine } from '../stairs/StairTopologyEngine.js';
 import { WallEngine } from '../wall/WallEngine.js';
 import { RoofEngine } from '../roof/RoofEngine.js';
 
@@ -16,9 +15,24 @@ export class DuplicateEntityCommand extends Command {
         this.createdEntity = null;
         this.hostWall = null;
         this.serializedRoof = null;
+        this.serializedStair = null;
     }
 
     execute() {
+        if (this.serializedStair) {
+            const restored = StairEngine.deserialize(this.planner, this.serializedStair);
+            if (restored) {
+                this.createdEntity = restored;
+                if (this.id) this.createdEntity.id = this.id;
+                if (!this.planner.stairs) this.planner.stairs = [];
+                if (!this.planner.stairs.includes(restored)) {
+                    this.planner.stairs.push(restored);
+                }
+            }
+            this.planner.syncAll();
+            return;
+        }
+
         if (this.serializedRoof) {
             const restored = RoofEngine.deserialize(this.serializedRoof, this.planner, { addToPlanner: true });
             if (restored) {
@@ -57,6 +71,8 @@ export class DuplicateEntityCommand extends Command {
             } else if (sourceEntity.constructor?.name === 'PremiumStaircase' || (sourceEntity.type && sourceEntity.type.startsWith('stair_'))) {
                 this.createdEntity = StairEngine.duplicateStair(this.planner, sourceEntity, { x: 30, y: 30 });
                 if (this.id) this.createdEntity.id = this.id;
+                this.serializedStair = StairEngine.serialize(this.createdEntity);
+                this.planner.syncAll();
                 return;
             } else if (sourceEntity.constructor?.name === 'PremiumHipRoof' || sourceEntity.type === 'roof' || (this.planner?.roofs && this.planner.roofs.includes(sourceEntity))) {
                 this.createdEntity = RoofEngine.duplicateRoof(this.planner, sourceEntity, { x: 30, y: 30 });
@@ -110,10 +126,6 @@ export class DuplicateEntityCommand extends Command {
             WallEngine.attachWidget(this.hostWall, this.createdEntity, false, this.planner);
         } else if (this.createdEntity.constructor?.name === 'PremiumFurniture') {
             this.planner.furniture.push(this.createdEntity);
-        } else if (this.createdEntity.constructor?.name === 'PremiumStaircase' || (this.createdEntity.type && this.createdEntity.type.startsWith('stair_'))) {
-            if (!this.planner.stairs.includes(this.createdEntity)) {
-                this.planner.stairs.push(this.createdEntity);
-            }
         }
         
         if (this.createdEntity.group && typeof this.createdEntity.group.show === 'function') {
@@ -130,7 +142,9 @@ export class DuplicateEntityCommand extends Command {
                 this.createdEntity.remove();
             }
         } else if (this.createdEntity.constructor?.name === 'PremiumStaircase' || (this.createdEntity.type && (this.createdEntity.type.startsWith('stair_') || this.createdEntity.type === 'stair'))) {
-            StairTopologyEngine.deleteStair(this.planner, this.createdEntity);
+            this.serializedStair = StairEngine.serialize(this.createdEntity);
+            StairEngine.deleteStair(this.planner, this.createdEntity);
+            this.createdEntity = null;
         } else if (this.createdEntity.constructor?.name === 'PremiumHipRoof' || this.createdEntity.type === 'roof' || (this.planner?.roofs && this.planner.roofs.includes(this.createdEntity))) {
             this.serializedRoof = RoofEngine.serialize(this.createdEntity);
             RoofEngine.deleteRoof(this.planner, this.createdEntity);

@@ -36,8 +36,6 @@ import { PremiumArc } from './PremiumArc.js';
 import { StairV4Flight, StairV4Landing, StaircaseV4Solver } from '../../features/stairs/StaircaseV4.js';
 import { PremiumStaircase } from '../../features/stairs/stairs.renderer2d.js';
 import { StairEngine } from '../stairs/StairEngine.js';
-import { StairTopologyEngine } from '../stairs/StairTopologyEngine.js';
-import { StairGeometryEngine } from '../stairs/StairGeometryEngine.js';
 import { PremiumMolding } from './PremiumMolding.js';
 import { PremiumPlatform } from './PremiumPlatform.js';
 import { PRESET_REGISTRY, autoAlign } from './presetRegistry.js';
@@ -1961,29 +1959,7 @@ export class FloorPlanner {
                 description: f.description, 
                 params: f.params ? JSON.parse(JSON.stringify(f.params)) : null 
             })),
-            stairs: this.stairs.map(s => {
-                if (s.type === 'stair_v4_flight' || s.type === 'stair_v4_landing') {
-                    return { type: s.type, x: s.x, y: s.y, rotation: s.rotation, elevation: s.elevation, direction: s.direction, stepCount: s.stepCount, stepDepth: s.stepDepth, stepHeight: s.stepHeight, width: s.width, length: s.length, shape: s.shape, innerRadius: s.innerRadius, systemId: s.systemId, id: s.id, description: s.description, connections: s.connections ? JSON.parse(JSON.stringify(s.connections)) : [] };
-                } else if (s.type.startsWith('stair_v5_')) {
-                    return { 
-                        type: s.type, shape: s.shape, x: s.x, y: s.y, rotation: s.rotation, elevation: s.elevation, direction: s.direction, 
-                        width: s.width, stepDepth: s.stepDepth, stepHeight: s.stepHeight, totalSteps: s.totalSteps, 
-                        flight1Steps: s.flight1Steps, flight2Steps: s.flight2Steps, turnDirection: s.turnDirection, 
-                        landingSize: s.landingSize, gapWidth: s.gapWidth, id: s.id, description: s.description,
-                        hasTopLanding: s.hasTopLanding, hasBottomLanding: s.hasBottomLanding,
-                        stringerType: s.stringerType, stringerWidth: s.stringerWidth, stringerThickness: s.stringerThickness,
-                        beamOffset: s.beamOffset, landingSupports: s.landingSupports, columnSupports: s.columnSupports,
-                        railingLayout: s.railingLayout, linkRailings: s.linkRailings,
-                        leftRailing: JSON.parse(JSON.stringify(s.leftRailing)),
-                        rightRailing: JSON.parse(JSON.stringify(s.rightRailing)),
-                        useUnifiedMaterial: s.useUnifiedMaterial, primaryMaterial: s.primaryMaterial, primaryColor: s.primaryColor,
-                        treadMaterial: s.treadMaterial, treadColor: s.treadColor,
-                        riserMaterial: s.riserMaterial, riserColor: s.riserColor,
-                        landingMaterial: s.landingMaterial, landingColor: s.landingColor,
-                        structureMaterial: s.structureMaterial, structureColor: s.structureColor
-                    };
-                }
-            }),
+            stairs: this.stairs ? this.stairs.map(s => StairEngine.serialize(s)).filter(Boolean) : [],
             roofs: this.roofs ? this.roofs.map(r => RoofSerializer.serialize(r)).filter(Boolean) : [],
             arcs: this.arcs ? this.arcs.map(a => ({ 
                 id: a.id,
@@ -2114,7 +2090,7 @@ export class FloorPlanner {
             }
             if (state.stairs) {
                 state.stairs.forEach(sData => {
-                    const stair = StairTopologyEngine.deserialize(this, sData);
+                    const stair = StairEngine.deserialize(this, sData);
                     if (stair) {
                         this.stairs.push(stair);
                     }

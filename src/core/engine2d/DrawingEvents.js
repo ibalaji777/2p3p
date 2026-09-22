@@ -4,7 +4,6 @@ import { SnapshotCommand } from '../commands/SnapshotCommand.js';
 import { WallFactory } from '../../features/wall/wall.factory.js';
 import { PremiumWall } from '../../features/wall/wall.renderer2d.js';
 import Konva from 'konva';
-import { PremiumStaircase, getStairCutoutPolygon } from '../../features/stairs/stairs.renderer2d.js';
 import { PremiumShape } from './PremiumShape.js';
 import { Railing } from '../../features/railing/objects/Railing.js';
 import { PremiumHipRoof } from '../../features/roof/roof.renderer2d.js';
@@ -506,7 +505,7 @@ export function setupDrawingEvents(planner) {
                 ];
                 if (allStairsToSnap.length > 0) {
                     for (let stair of allStairsToSnap) {
-                        let pts = getStairCutoutPolygon(stair);
+                        let pts = StairEngine.getCutoutPolygon(stair);
                         for (let i = 0; i < pts.length; i++) {
                             let p1 = pts[i], p2 = pts[(i+1)%pts.length];
                             if (Math.hypot(pos.x - p1.x, pos.y - p1.y) < closestDist) { closestDist = Math.hypot(pos.x - p1.x, pos.y - p1.y); snap = {x: p1.x, y: p1.y}; }
@@ -1058,7 +1057,7 @@ export function setupDrawingEvents(planner) {
                     ];
                     if (allStairsToSnap.length > 0) {
                         for (let stair of allStairsToSnap) {
-                            let pts = getStairCutoutPolygon(stair);
+                            let pts = StairEngine.getCutoutPolygon(stair);
                             for (let i = 0; i < pts.length; i++) {
                                 let p1 = pts[i], p2 = pts[(i+1)%pts.length];
                                 if (Math.hypot(pos.x - p1.x, pos.y - p1.y) < closestDist) { closestDist = Math.hypot(pos.x - p1.x, pos.y - p1.y); snap = {x: p1.x, y: p1.y}; snappedObj = true; }

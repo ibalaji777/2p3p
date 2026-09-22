@@ -2,7 +2,6 @@ import * as THREE from 'three';
 import { Wall3DBuilder } from '../../features/wall/wall.renderer3d.js';
 import { Railing3DBuilder } from '../../features/railing/builders/Railing3DBuilder.js';
 import { Stair3DBuilder } from '../../features/stairs/stairs.renderer3d.js';
-import { StairGeometryEngine } from '../stairs/StairGeometryEngine.js';
 import { Roof3DBuilder } from '../../features/roof/builders/Roof3DBuilder.js';
 import { WALL_HEIGHT, ROOF_DECOR_REGISTRY, FLOOR_REGISTRY, WIDGET_REGISTRY, DOOR_MATERIALS, WINDOW_FRAME_MATERIALS, GLASS_REGISTRY, WALL_DECOR_REGISTRY, offsetPolygon } from '../registry.js';
 import { DEFAULT_UNIVERSAL_TILE_SIZE } from '../registries/material.registry.js';
