@@ -252,190 +252,19 @@ export class EnvironmentBuilder {
             rooms.forEach(room => {
                 try {
                     if (room.isDeleted || room.isHidden) return;
-                    const cleanPolygonPts = (p) => {
-                        if (!p || p.length < 3) return [];
-                        const res = [];
-                        for (let i = 0; i < p.length; i++) {
-                            const pt = { x: p[i].x, y: p[i].y };
-                            if (res.length === 0 || Math.hypot(pt.x - res[res.length - 1].x, pt.y - res[res.length - 1].y) > 0.5) {
-                                res.push(pt);
-                            }
-                        }
-                        if (res.length > 2 && Math.hypot(res[res.length - 1].x - res[0].x, res[res.length - 1].y - res[0].y) < 0.5) {
-                            res.pop();
-                        }
-                        return res;
-                    };
-
-                    const cleanPath = cleanPolygonPts(room.path);
-                    if (cleanPath.length < 3) return;
-
-                    // THREE.Shape outer contour MUST be Counter-Clockwise (CCW)
-                    const isOuterCW = THREE.ShapeUtils.isClockWise(cleanPath);
-                    const outerPts = isOuterCW ? [...cleanPath].reverse() : cleanPath;
-
-                    const floorShape = new THREE.Shape();
-                    floorShape.moveTo(outerPts[0].x, outerPts[0].y);
-                    for (let i = 1; i < outerPts.length; i++) floorShape.lineTo(outerPts[i].x, outerPts[i].y);
-                    floorShape.closePath();
-                    
-                    // Auto-hole carving for interior rooms contained inside an outer courtyard / compound floor
-                    const getPolyArea = (p) => {
-                        if (!p || p.length < 3) return 0;
-                        let a = 0;
-                        for (let i = 0; i < p.length; i++) {
-                            const next = p[(i + 1) % p.length];
-                            a += (p[i].x * next.y - next.x * p[i].y);
-                        }
-                        return Math.abs(a / 2);
-                    };
-
-                    const pointInPoly = (p, poly) => {
-                        let inside = false;
-                        for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
-                            const xi = poly[i].x, yi = poly[i].y;
-                            const xj = poly[j].x, yj = poly[j].y;
-                            const intersect = ((yi > p.y) !== (yj > p.y)) && (p.x < (xj - xi) * (p.y - yi) / (yj - yi) + xi);
-                            if (intersect) inside = !inside;
-                        }
-                        return inside;
-                    };
-
-                    const areaSelf = getPolyArea(cleanPath);
-                    let isContainerRoom = false;
-
-                    rooms.forEach(otherRoom => {
-                        if (otherRoom === room || otherRoom.isDeleted || otherRoom.isHidden) return;
-                        const roomElev = Number(room.elevation) || 0;
-                        const otherElev = Number(otherRoom.elevation) || 0;
-                        if (Math.abs(roomElev - otherElev) >= 5) return;
-                        const otherClean = cleanPolygonPts(otherRoom.path);
-                        if (otherClean.length < 3) return;
-
-                        const areaOther = getPolyArea(otherClean);
-
-                        // If other room is smaller and its center is inside our polygon, it is an enclosed room
-                        if (areaOther < areaSelf * 0.98) {
-                            let cx = 0, cy = 0;
-                            otherClean.forEach(p => { cx += p.x; cy += p.y; });
-                            cx /= otherClean.length;
-                            cy /= otherClean.length;
-
-                            if (pointInPoly({ x: cx, y: cy }, cleanPath)) {
-                                isContainerRoom = true;
-                                // THREE.Shape holes MUST be Clockwise (CW)
-                                const isHoleCW = THREE.ShapeUtils.isClockWise(otherClean);
-                                const holePts = isHoleCW ? otherClean : [...otherClean].reverse();
-
-                                const hole = new THREE.Path();
-                                hole.moveTo(holePts[0].x, holePts[0].y);
-                                for (let i = 1; i < holePts.length; i++) {
-                                    hole.lineTo(holePts[i].x, holePts[i].y);
-                                }
-                                hole.closePath();
-                                floorShape.holes.push(hole);
-                            }
-                        }
+                    const floorMesh = FloorSlabEngine.buildFloorSlabMesh(room, {
+                        allRooms: rooms,
+                        shapes,
+                        stairsBelow,
+                        isSub: isSubStructure,
+                        subH,
+                        ctx: this.ctx
                     });
 
-                // Auto-cutting for stairs removed as per user request (User relies on manual polygon floor cuts)
-                if (shapes) {
-                    shapes.forEach(shape => {
-                        if (shape.type === 'shape_floor_cut') {
-                            const roomElev = Number(room.elevation) || 0;
-                            if (shape.elevation !== undefined && Math.abs(Number(shape.elevation) - roomElev) >= 5) return;
-                            const rot = (shape.group ? shape.group.rotation() : (shape.rotation || 0)) * Math.PI / 180;
-                            const sx = shape.group ? shape.group.x() : (shape.x || shape.params?.x || 0);
-                            const sy = shape.group ? shape.group.y() : (shape.y || shape.params?.y || 0);
-                            let pts;
-                            if (shape.params?.points && shape.params.points.length >= 3) {
-                                pts = shape.params.points;
-                            } else {
-                                const w = shape.params?.width || shape.width || 100;
-                                const h = shape.params?.height || shape.height || 100;
-                                pts = [
-                                    { x: -w/2, y: -h/2 }, { x: w/2, y: -h/2 },
-                                    { x: w/2, y: h/2 }, { x: -w/2, y: h/2 }
-                                ];
-                            }
-                            
-                            const rotC = pts.map(c => ({
-                                x: sx + (c.x * Math.cos(rot) - c.y * Math.sin(rot)),
-                                y: sy + (c.x * Math.sin(rot) + c.y * Math.cos(rot))
-                            }));
-
-                            // Bounding overlap check with room
-                            let minRx = Infinity, maxRx = -Infinity, minRy = Infinity, maxRy = -Infinity;
-                            cleanPath.forEach(p => {
-                                if (p.x < minRx) minRx = p.x; if (p.x > maxRx) maxRx = p.x;
-                                if (p.y < minRy) minRy = p.y; if (p.y > maxRy) maxRy = p.y;
-                            });
-                            let minHx = Infinity, maxHx = -Infinity, minHy = Infinity, maxHy = -Infinity;
-                            rotC.forEach(p => {
-                                if (p.x < minHx) minHx = p.x; if (p.x > maxHx) maxHx = p.x;
-                                if (p.y < minHy) minHy = p.y; if (p.y > maxHy) maxHy = p.y;
-                            });
-
-                            if (!(maxRx < minHx || minRx > maxHx || maxRy < minHy || minRy > maxHy)) {
-                                const holeIsCW = THREE.ShapeUtils.isClockWise(rotC);
-                                const finalHolePts = holeIsCW ? rotC : [...rotC].reverse();
-
-                                const hole = new THREE.Path();
-                                hole.moveTo(finalHolePts[0].x, finalHolePts[0].y);
-                                for (let i = 1; i < finalHolePts.length; i++) {
-                                    hole.lineTo(finalHolePts[i].x, finalHolePts[i].y);
-                                }
-                                hole.lineTo(finalHolePts[0].x, finalHolePts[0].y);
-                                floorShape.holes.push(hole);
-                            }
-                        }
-                    });
-                }
-                
-                const slabDepth = isSubStructure ? subH : 2;
-                const floorGeo = new THREE.ExtrudeGeometry(floorShape, { depth: slabDepth, bevelEnabled: false });
-                floorGeo.rotateX(Math.PI / 2);
-                
-                const pos = floorGeo.attributes.position;
-                const uvs = new Float32Array(pos.count * 2);
-                for (let i = 0; i < pos.count; i++) {
-                    uvs[i * 2] = pos.getX(i) / 100;
-                    uvs[i * 2 + 1] = -pos.getZ(i) / 100;
-                }
-                floorGeo.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
-
-                const configId = room.configId || 'hardwood';
-                const baseConfig = FLOOR_REGISTRY[configId];
-                
-                const matFloor = isSubStructure ? getPlasterMaterial() : new THREE.MeshStandardMaterial({ 
-                    color: baseConfig?.color || 0xd1d5db, 
-                    roughness: baseConfig?.roughness || 0.7
-                });
-                const floorMesh = new THREE.Mesh(floorGeo, matFloor);
-                const roomElev = Number(room.elevation) || 0;
-                floorMesh.position.y = isSubStructure ? (subH - 0.01) : (roomElev + 0.05);
-                floorMesh.receiveShadow = true;
-                floorMesh.userData = { isFloor: true, entity: room };
-
-                if (baseConfig && !isSubStructure) {
-                    const config = { ...baseConfig };
-                    if (room.materialScale) {
-                        config.tileSize = room.materialScale;
+                    if (floorMesh) {
+                        this.ctx.interactables.push(floorMesh);
+                        this.ctx.structureGroup.add(floorMesh);
                     }
-                    MaterialFactory.buildPBRMaterial({
-                        material: matFloor,
-                        config: config,
-                        ctx: this.ctx,
-                        dimensions: { width: 100, height: 100 },
-                        faceName: 'floor'
-                    }).then(() => {
-                        if (this.ctx && this.ctx.requestRender) this.ctx.requestRender('material_loaded', 2);
-                    });
-                }
-
-                this.ctx.interactables.push(floorMesh);
-                this.ctx.structureGroup.add(floorMesh);
-                room.mesh3D = floorMesh;
                 } catch(err) {
                     console.error("Error building individual room 3D floor:", err);
                 }
@@ -1227,6 +1056,7 @@ export class EnvironmentBuilder {
                 if (data.rooms) {
                     data.rooms.forEach(room => {
                         const floorMesh = FloorSlabEngine.buildFloorSlabMesh(room, {
+                            allRooms: data.rooms,
                             stairsBelow,
                             shapes: data.shapes || [],
                             isSub: isStaticSub,

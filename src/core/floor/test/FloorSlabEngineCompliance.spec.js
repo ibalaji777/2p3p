@@ -232,4 +232,80 @@ describe('FloorSlabEngine CAD/BIM Compliance & Architecture Suite', () => {
             expect(upperWall.mesh3D.position.y).toBe(20);
         });
     });
+
+    describe('Courtyard Hole Extraction & Nested Room Voids', () => {
+        it('extracts nested courtyard voids when a smaller room is enclosed inside a larger room', () => {
+            const containerRoom = {
+                id: 'room_courtyard_container',
+                elevation: 0,
+                path: [
+                    { x: 0, y: 0 },
+                    { x: 1000, y: 0 },
+                    { x: 1000, y: 1000 },
+                    { x: 0, y: 1000 }
+                ]
+            };
+
+            const innerCourtyard = {
+                id: 'room_inner_courtyard',
+                elevation: 0,
+                path: [
+                    { x: 300, y: 300 },
+                    { x: 700, y: 300 },
+                    { x: 700, y: 700 },
+                    { x: 300, y: 700 }
+                ]
+            };
+
+            const holes = FloorSlabEngine.extractCourtyardHoles(containerRoom, [containerRoom, innerCourtyard]);
+            expect(holes.length).toBe(1);
+            expect(holes[0]).toBeInstanceOf(THREE.Path);
+
+            const mesh = FloorSlabEngine.buildFloorSlabMesh(containerRoom, { allRooms: [containerRoom, innerCourtyard] });
+            expect(mesh).toBeDefined();
+            expect(mesh.geometry).toBeInstanceOf(THREE.ExtrudeGeometry);
+        });
+
+        it('ignores nested rooms if their elevation differs by 5cm or more', () => {
+            const containerRoom = {
+                id: 'room_container',
+                elevation: 0,
+                path: [{ x: 0, y: 0 }, { x: 1000, y: 0 }, { x: 1000, y: 1000 }, { x: 0, y: 1000 }]
+            };
+            const upperRoom = {
+                id: 'room_upper',
+                elevation: 280,
+                path: [{ x: 300, y: 300 }, { x: 700, y: 300 }, { x: 700, y: 700 }, { x: 300, y: 700 }]
+            };
+
+            const holes = FloorSlabEngine.extractCourtyardHoles(containerRoom, [containerRoom, upperRoom]);
+            expect(holes.length).toBe(0);
+        });
+    });
+
+    describe('CAD-Style In-Place Geometry Updates', () => {
+        it('updates floor mesh geometry in place without creating a new mesh reference', () => {
+            const mesh = FloorSlabEngine.buildFloorSlabMesh(sampleRoom);
+            const originalMeshRef = mesh;
+            const originalGeo = mesh.geometry;
+
+            // Enlarge the room
+            sampleRoom.path = [
+                { x: 0, y: 0 },
+                { x: 800, y: 0 },
+                { x: 800, y: 600 },
+                { x: 0, y: 600 }
+            ];
+
+            const updated = FloorSlabEngine.updateFloorMeshGeometry(mesh, sampleRoom);
+            expect(updated).toBe(true);
+            expect(mesh).toBe(originalMeshRef);
+            expect(mesh.geometry).not.toBe(originalGeo);
+
+            mesh.geometry.computeBoundingBox();
+            const bbox = mesh.geometry.boundingBox;
+            expect(Math.round(bbox.max.x - bbox.min.x)).toBe(800);
+            expect(Math.round(bbox.max.z - bbox.min.z)).toBe(600);
+        });
+    });
 });

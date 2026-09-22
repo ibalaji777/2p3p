@@ -32,6 +32,7 @@ import { STAIRCASE_REGISTRY } from '../features/stairs/stairs.registry.js';
 import { UniversalRealtimeUpdate } from './sync/UniversalRealtimeUpdate.js';
 import { WallCutawaySystem } from './engine3d/WallCutawaySystem.js';
 import { ThreeLifecycleManager } from './engine3d/ThreeLifecycleManager.js';
+import { FloorSlabEngine } from './floor/FloorSlabEngine.js';
 
 export class Preview3D {
     constructor(containerEl) {
@@ -1012,42 +1013,6 @@ export class Preview3D {
             return;
         }
 
-        const cleanPolygonPts = (p) => {
-            if (!p || p.length < 3) return [];
-            const res = [];
-            for (let i = 0; i < p.length; i++) {
-                const pt = { x: p[i].x, y: p[i].y };
-                if (res.length === 0 || Math.hypot(pt.x - res[res.length - 1].x, pt.y - res[res.length - 1].y) > 0.5) {
-                    res.push(pt);
-                }
-            }
-            if (res.length > 2 && Math.hypot(res[res.length - 1].x - res[0].x, res[res.length - 1].y - res[0].y) < 0.5) {
-                res.pop();
-            }
-            return res;
-        };
-
-        const getPolyArea = (p) => {
-            if (!p || p.length < 3) return 0;
-            let a = 0;
-            for (let i = 0; i < p.length; i++) {
-                const next = p[(i + 1) % p.length];
-                a += (p[i].x * next.y - next.x * p[i].y);
-            }
-            return Math.abs(a / 2);
-        };
-
-        const pointInPoly = (p, poly) => {
-            let inside = false;
-            for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
-                const xi = poly[i].x, yi = poly[i].y;
-                const xj = poly[j].x, yj = poly[j].y;
-                const intersect = ((yi > p.y) !== (yj > p.y)) && (p.x < (xj - xi) * (p.y - yi) / (yj - yi) + xi);
-                if (intersect) inside = !inside;
-            }
-            return inside;
-        };
-
         floorMeshes.forEach((floorMesh, idx) => {
             let room = floorMesh.userData?.entity;
             const canonicalRoom = (room && rooms.find(r => r === room))
@@ -1070,94 +1035,11 @@ export class Preview3D {
                     }
                 }
             }
-            
-            const cleanPath = cleanPolygonPts(room.path);
-            if (cleanPath.length < 3) return;
 
-            const isOuterCW = THREE.ShapeUtils.isClockWise(cleanPath);
-            const outerPts = isOuterCW ? [...cleanPath].reverse() : cleanPath;
-
-            const floorShape = new THREE.Shape();
-            floorShape.moveTo(outerPts[0].x, outerPts[0].y);
-            for (let i = 1; i < outerPts.length; i++) floorShape.lineTo(outerPts[i].x, outerPts[i].y);
-            floorShape.closePath();
-
-            const areaSelf = getPolyArea(cleanPath);
-
-            floorMeshes.forEach(otherMesh => {
-                const otherRoom = otherMesh.userData?.entity;
-                if (!otherRoom || otherRoom === room || otherRoom.isDeleted || otherRoom.isHidden) return;
-                const roomElev = Number(room.elevation) || 0;
-                const otherElev = Number(otherRoom.elevation) || 0;
-                if (Math.abs(roomElev - otherElev) >= 5) return;
-                const otherClean = cleanPolygonPts(otherRoom.path);
-                if (otherClean.length < 3) return;
-
-                const areaOther = getPolyArea(otherClean);
-                if (areaOther < areaSelf * 0.98) {
-                    let cx = 0, cy = 0;
-                    otherClean.forEach(p => { cx += p.x; cy += p.y; });
-                    cx /= otherClean.length;
-                    cy /= otherClean.length;
-
-                    if (pointInPoly({ x: cx, y: cy }, cleanPath)) {
-                        const isHoleCW = THREE.ShapeUtils.isClockWise(otherClean);
-                        const holePts = isHoleCW ? otherClean : [...otherClean].reverse();
-
-                        const hole = new THREE.Path();
-                        hole.moveTo(holePts[0].x, holePts[0].y);
-                        for (let i = 1; i < holePts.length; i++) {
-                            hole.lineTo(holePts[i].x, holePts[i].y);
-                        }
-                        hole.closePath();
-                        floorShape.holes.push(hole);
-                    }
-                }
+            FloorSlabEngine.updateFloorMeshGeometry(floorMesh, room, {
+                allRooms: rooms,
+                shapes
             });
-            
-            floorCuts.forEach(shape => {
-                const roomElev = Number(room.elevation) || 0;
-                if (shape.elevation !== undefined && Math.abs(Number(shape.elevation) - roomElev) >= 5) return;
-                const rot = (shape.group ? shape.group.rotation() : (shape.rotation || 0)) * Math.PI / 180;
-                const sx = shape.group ? shape.group.x() : (shape.x || shape.params?.x || 0);
-                const sy = shape.group ? shape.group.y() : (shape.y || shape.params?.y || 0);
-                let pts = shape.params?.points;
-                if (!pts) {
-                    const w = shape.params?.width || shape.width || 100;
-                    const h = shape.params?.height || shape.height || 100;
-                    pts = [ { x: -w/2, y: -h/2 }, { x: w/2, y: -h/2 }, { x: w/2, y: h/2 }, { x: -w/2, y: h/2 } ];
-                }
-                const rotC = pts.map(c => {
-                    return {
-                        x: sx + (c.x * Math.cos(rot) - c.y * Math.sin(rot)),
-                        y: sy + (c.x * Math.sin(rot) + c.y * Math.cos(rot))
-                    };
-                });
-                const isHoleCW = THREE.ShapeUtils.isClockWise(rotC);
-                const holePts = isHoleCW ? rotC : [...rotC].reverse();
-
-                const hole = new THREE.Path();
-                hole.moveTo(holePts[0].x, holePts[0].y);
-                for (let i = 1; i < holePts.length; i++) hole.lineTo(holePts[i].x, holePts[i].y);
-                hole.closePath();
-                floorShape.holes.push(hole);
-            });
-            
-            if (floorMesh.geometry && !floorMesh.geometry.userData?.keepAlive) floorMesh.geometry.dispose();
-            floorMesh.geometry = new THREE.ExtrudeGeometry(floorShape, { depth: 2, bevelEnabled: false });
-            floorMesh.geometry.rotateX(Math.PI / 2);
-            const roomElev = Number(room.elevation) || 0;
-            floorMesh.position.x = 0;
-            floorMesh.position.z = 0;
-            floorMesh.position.y = roomElev + 0.05;
-            
-            const pos = floorMesh.geometry.attributes.position;
-            const uvs = new Float32Array(pos.count * 2);
-            for (let i = 0; i < pos.count; i++) {
-                uvs[i * 2] = pos.getX(i) / 100;
-                uvs[i * 2 + 1] = -pos.getZ(i) / 100;
-            }
-            floorMesh.geometry.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
         });
 
         if (this.requestRender) this.requestRender('floor_rebuild', 2);
