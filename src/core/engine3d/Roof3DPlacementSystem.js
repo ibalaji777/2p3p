@@ -517,7 +517,7 @@ export class Roof3DPlacementSystem {
 
         if (planner?.walls && planner.walls.length > 0) {
             for (const w of planner.walls) {
-                if (w.hidden || w.isAutoGable) continue;
+                if (w.hidden || w.isAutoGable || w.parentRoofId) continue;
                 const p1 = w.startAnchor?.position ? w.startAnchor.position() : { x: w.x1 || w.startX || 0, y: w.y1 || w.startY || 0 };
                 const p2 = w.endAnchor?.position ? w.endAnchor.position() : { x: w.x2 || w.endX || 0, y: w.y2 || w.endY || 0 };
                 const wallBaseY = w.elevation || 0;
@@ -593,7 +593,7 @@ export class Roof3DPlacementSystem {
 
         if (planner?.walls && planner.walls.length > 0) {
             for (const w of planner.walls) {
-                if (w.hidden || w.isAutoGable) continue;
+                if (w.hidden || w.isAutoGable || w.parentRoofId) continue;
                 const p1 = w.startAnchor?.position ? w.startAnchor.position() : { x: w.x1 || w.startX || 0, y: w.y1 || w.startY || 0 };
                 const p2 = w.endAnchor?.position ? w.endAnchor.position() : { x: w.x2 || w.endX || 0, y: w.y2 || w.endY || 0 };
                 const len2 = (p2.x - p1.x) ** 2 + (p2.y - p1.y) ** 2;
@@ -1044,7 +1044,7 @@ export class Roof3DPlacementSystem {
         if (isCurvedPortal && !hitEntity && planner?.walls) {
             // Find if cursor is directly on or close to any wall
             for (const w of planner.walls) {
-                if (w.hidden || w.isAutoGable) continue;
+                if (w.hidden || w.isAutoGable || w.parentRoofId) continue;
                 const p1 = w.startAnchor?.position ? w.startAnchor.position() : { x: w.x1 || w.startX || 0, y: w.y1 || w.startY || 0 };
                 const p2 = w.endAnchor?.position ? w.endAnchor.position() : { x: w.x2 || w.endX || 0, y: w.y2 || w.endY || 0 };
                 const l2 = (p2.x - p1.x) ** 2 + (p2.y - p1.y) ** 2;

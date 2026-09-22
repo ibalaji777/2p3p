@@ -640,7 +640,7 @@ export class RoofMutationEngine {
         const roofH = RoofGeometryEngine.getPeakHeight(roof);
 
         planner.walls.forEach(w => {
-            if (w.isAutoGable) return;
+            if (w.isAutoGable || w.parentRoofId) return;
 
             const p1 = (w.startAnchor && typeof w.startAnchor.position === 'function')
                 ? w.startAnchor.position()
@@ -671,6 +671,7 @@ export class RoofMutationEngine {
                     const baseHeight = w.height !== undefined ? w.height : (w.config?.height || 180);
                     const elevation = (w.elevation || 0) + baseHeight;
                     const thickness = w.thickness !== undefined ? w.thickness : (w.config?.thickness || 16);
+                    const gMat = roof.config?.gableMaterial || 'white_plaster_wall';
 
                     if (!gableWall) {
                         gableWall = WallEngine.createWall(planner, {
@@ -684,10 +685,13 @@ export class RoofMutationEngine {
                             startHeight: 0,
                             endHeight: 0,
                             peakHeight: roofH,
+                            isAutoGable: true,
+                            parentWallId: w.id,
+                            parentRoofId: roof.id,
                             params: {
-                                texture: roof.config?.gableMaterial || 'white_plaster_wall',
-                                textureFront: roof.config?.gableMaterial || 'white_plaster_wall',
-                                textureBack: roof.config?.gableMaterial || 'white_plaster_wall'
+                                texture: gMat,
+                                textureFront: gMat,
+                                textureBack: gMat
                             },
                             addToPlanner: true
                         });
@@ -708,6 +712,15 @@ export class RoofMutationEngine {
                             endHeight: 0,
                             peakHeight: roofH
                         }, false, planner);
+
+                        // Sync gable material if changed
+                        if (gableWall.params?.textureFront !== gMat || gableWall.params?.texture !== gMat) {
+                            WallEngine.applyMaterial(gableWall, {
+                                target: 'all',
+                                key: gMat,
+                                ctx: planner?.engine3d || (typeof window !== 'undefined' ? window.engine3d : null)
+                            }, planner);
+                        }
                     }
                     if (gableWall && typeof gableWall.updateGeometry === 'function') {
                         gableWall.updateGeometry();

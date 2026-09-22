@@ -45,7 +45,7 @@ export class VerticalPropagationEngine {
         this.syncWallSurfaceElements(wall, newHeight, deltaH);
 
         // 4. Attached Roofs Tracking Wall Top
-        if (p && p.roofs && p.roofs.length > 0) {
+        if (!wall.isAutoGable && !wall.parentRoofId && p && p.roofs && p.roofs.length > 0) {
             RoofMutationEngine.syncRoofsWithWalls([wall], p);
         }
 
@@ -79,7 +79,7 @@ export class VerticalPropagationEngine {
         }
 
         // 2. Attached Roofs Synchronization
-        if (p && p.roofs && p.roofs.length > 0) {
+        if (!wall.isAutoGable && !wall.parentRoofId && p && p.roofs && p.roofs.length > 0) {
             RoofMutationEngine.syncRoofsWithWalls([wall], p);
         }
 
@@ -107,8 +107,9 @@ export class VerticalPropagationEngine {
                 this.syncWallSurfaceElements(w, updates.height, 0);
             });
 
-            if (p && p.roofs && p.roofs.length > 0) {
-                RoofMutationEngine.syncRoofsWithWalls(walls, p);
+            const nonGableWalls = walls.filter(w => !w.isAutoGable && !w.parentRoofId);
+            if (p && p.roofs && p.roofs.length > 0 && nonGableWalls.length > 0) {
+                RoofMutationEngine.syncRoofsWithWalls(nonGableWalls, p);
             }
 
             if (walls.length > 0) {
@@ -122,8 +123,9 @@ export class VerticalPropagationEngine {
                 if (w.mesh3D) w.mesh3D.position.y = updates.elevation;
             });
 
-            if (p && p.roofs && p.roofs.length > 0) {
-                RoofMutationEngine.syncRoofsWithWalls(walls, p);
+            const nonGableWalls = walls.filter(w => !w.isAutoGable && !w.parentRoofId);
+            if (p && p.roofs && p.roofs.length > 0 && nonGableWalls.length > 0) {
+                RoofMutationEngine.syncRoofsWithWalls(nonGableWalls, p);
             }
 
             if (walls.length > 0) {

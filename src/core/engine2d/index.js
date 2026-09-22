@@ -1459,7 +1459,7 @@ export class FloorPlanner {
         };
 
         const anyCompoundHasFloor = (this.walls || []).some(w => w.type === 'compound' && w.hasFloor);
-        const roomWalls = (this.walls || []).filter(w => (w.type !== 'compound' || anyCompoundHasFloor || w.hasFloor) && !w.hidden && w.type !== 'railing');
+        const roomWalls = (this.walls || []).filter(w => (w.type !== 'compound' || anyCompoundHasFloor || w.hasFloor) && !w.hidden && w.type !== 'railing' && !w.isAutoGable && !w.parentRoofId);
 
         // Partition walls by vertical elevation tier (tolerance: 5 cm)
         const elevationTiers = [];
@@ -1843,10 +1843,10 @@ export class FloorPlanner {
                     
                     // Register corner if angle change is more than ~5.7 degrees (0.1 rad)
                     if (diff > 0.1) {
-                        let w1s = this.walls.filter(w => w.type !== 'railing' && this.getDistanceToWall(pPrev, w) < 2 && this.getDistanceToWall(pCurr, w) < 2);
+                        let w1s = this.walls.filter(w => w.type !== 'railing' && !w.isAutoGable && !w.parentRoofId && this.getDistanceToWall(pPrev, w) < 2 && this.getDistanceToWall(pCurr, w) < 2);
                         let w1 = w1s[0];
                         
-                        let w2s = this.walls.filter(w => w.type !== 'railing' && this.getDistanceToWall(pCurr, w) < 2 && this.getDistanceToWall(pNext, w) < 2);
+                        let w2s = this.walls.filter(w => w.type !== 'railing' && !w.isAutoGable && !w.parentRoofId && this.getDistanceToWall(pCurr, w) < 2 && this.getDistanceToWall(pNext, w) < 2);
                         let w2 = w2s[0];
                         
                         let t1 = w1 ? (w1.thickness || (w1.config && w1.config.thickness) || 10) : 10;

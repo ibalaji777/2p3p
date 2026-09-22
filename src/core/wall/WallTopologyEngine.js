@@ -31,12 +31,18 @@ export class WallTopologyEngine {
             endHeight,
             peakHeight,
             flipSlope = false,
+            isAutoGable = false,
+            parentRoofId = null,
+            parentWallId = null,
             id,
             addToPlanner = true
         } = options;
 
         const wall = new PremiumWall(planner, startAnchor, endAnchor, type);
         if (id) wall.id = id;
+        if (isAutoGable) wall.isAutoGable = true;
+        if (parentRoofId) wall.parentRoofId = parentRoofId;
+        if (parentWallId) wall.parentWallId = parentWallId;
 
         if (thickness !== undefined) {
             wall.thickness = Number(thickness);

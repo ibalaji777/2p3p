@@ -112,7 +112,7 @@ export class WallMutationEngine {
             });
         }
 
-        if (p && p.roofs && p.roofs.length > 0) {
+        if (!wall.isAutoGable && !wall.parentRoofId && p && p.roofs && p.roofs.length > 0) {
             RoofMutationEngine.syncRoofsWithWalls([wall], p);
         }
 
@@ -158,7 +158,7 @@ export class WallMutationEngine {
             });
         }
 
-        if (p && p.roofs && p.roofs.length > 0) {
+        if (!wall.isAutoGable && !wall.parentRoofId && p && p.roofs && p.roofs.length > 0) {
             RoofMutationEngine.syncRoofsWithWalls([wall], p);
         }
 
@@ -262,7 +262,7 @@ export class WallMutationEngine {
             });
         }
 
-        if (p && p.roofs && p.roofs.length > 0) {
+        if (!wall.isAutoGable && !wall.parentRoofId && p && p.roofs && p.roofs.length > 0) {
             RoofMutationEngine.syncRoofsWithWalls([wall], p);
         }
 
@@ -300,6 +300,14 @@ export class WallMutationEngine {
             wall.params.textureRight = key;
             wall.params.textureTop = key;
             wall.params.textureBottom = key;
+        }
+
+        if (wall.isAutoGable && wall.parentRoofId && p?.roofs) {
+            const parentRoof = p.roofs.find(r => r.id === wall.parentRoofId);
+            if (parentRoof) {
+                parentRoof.config = parentRoof.config || {};
+                parentRoof.config.gableMaterial = key;
+            }
         }
 
         // Apply in-place to Three.js mesh if active

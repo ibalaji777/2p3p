@@ -35,7 +35,7 @@ export class Roof3DBuilder {
         const hasWalls = wallList && wallList.length > 0;
         let maxWallHeight = 120;
         if (hasWalls) {
-            const mainWalls = wallList.filter(w => !w.parentGroup);
+            const mainWalls = wallList.filter(w => !w.parentGroup && !w.isAutoGable && !w.parentRoofId);
             if (mainWalls.length > 0) maxWallHeight = Math.max(...mainWalls.map(w => w.height !== undefined ? w.height : (w.config?.height || 120)));
         }
 
@@ -137,7 +137,7 @@ export class Roof3DBuilder {
             const wallsUnderRoof = hasWalls ? RoofGeometryEngine.getWallsUnderRoof(roof, wallList) : [];
             const maxWallTop = (hasWalls && wallsUnderRoof.length > 0)
                 ? RoofGeometryEngine.getMaxWallTopUnderRoof(roof, wallsUnderRoof)
-                : (hasWalls ? RoofGeometryEngine.getMaxWallTopUnderRoof(roof, wallList) : 0);
+                : 0;
 
             const isResting = roof._restingOnWalls !== false && (
                 roof._restingOnWalls ||

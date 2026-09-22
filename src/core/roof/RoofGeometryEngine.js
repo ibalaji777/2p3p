@@ -294,7 +294,7 @@ export class RoofGeometryEngine {
         const bounds = this.getBounds(pts, { x: gx, y: gy });
 
         return walls.filter(w => {
-            if (w.hidden || w.isAutoGable) return false;
+            if (w.hidden || w.isAutoGable || w.parentRoofId) return false;
             const p1 = (w.startAnchor && typeof w.startAnchor.position === 'function')
                 ? w.startAnchor.position()
                 : (w.startAnchor || { x: w.startX || 0, y: w.startY || 0 });

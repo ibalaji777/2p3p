@@ -90,7 +90,7 @@ export class CurvedPortal3DBuilder {
 
             // 2. Spatial scan across all walls in scene
             for (const w of allWalls) {
-                if (w.hidden || w.isAutoGable) continue;
+                if (w.hidden || w.isAutoGable || w.parentRoofId) continue;
                 const p1 = w.startAnchor?.position ? w.startAnchor.position() : { x: w.x1 || w.startX || 0, y: w.y1 || w.startY || 0 };
                 const p2 = w.endAnchor?.position ? w.endAnchor.position() : { x: w.x2 || w.endX || 0, y: w.y2 || w.endY || 0 };
                 const wTop = (Number(w.elevation) || 0) + (w.height !== undefined ? Number(w.height) : (Number(w.config?.height) || 120));

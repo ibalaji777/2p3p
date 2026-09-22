@@ -1068,7 +1068,7 @@ export class GizmoManager {
 
                             if (entity.type === 'roof' || selectedObj.userData?.isRoof) {
                                 const isFascia = (this.activeFace === 'sides' || this.activeFace === 'fascia' || this.activeMatIndex === 1 || this.activeDescriptor?.slotName === 'fascia');
-                                const isGable = (this.activeFace === 'gable' || this.activeDescriptor?.slotName === 'gable');
+                                const isGable = (this.activeFace === 'gable' || this.activeDescriptor?.slotName === 'gable' || selectedObj.userData?.isGable || selectedObj.userData?.materialSlot === 'gable');
                                 const slot = isFascia ? 'fascia' : (isGable ? 'gable' : 'single');
                                 const slopeKey = isFascia ? 'fascia' : (isGable ? 'gable' : null);
                                 RoofEngine.setMaterial(entity, key, slot, slopeKey, this.ctx.planner || window.plannerInstance);

@@ -41,6 +41,9 @@ describe('Roof Pipeline & 3D Addition', () => {
             roomPaths: [],
             stage: { width: () => 1000, height: () => 800 },
             roofLayer: { add: vi.fn() },
+            wallLayer: { add: vi.fn(), batchDraw: vi.fn() },
+            uiLayer: { add: vi.fn(), batchDraw: vi.fn() },
+            mainLayer: { batchDraw: vi.fn() },
             executeWithSnapshot: (fn) => fn(),
             syncAll: vi.fn(),
             selectEntity: vi.fn((entity, type) => {
@@ -2141,6 +2144,74 @@ describe('Roof Pipeline & 3D Addition', () => {
         expect(mockPlanner.roofs.length).toBe(0);
 
         placement.dispose();
+    });
+
+    it('38. Auto-Gable Wall Independence: applying materials to auto-gable walls or syncing roofs must preserve resting roof elevation', async () => {
+        const { WallEngine } = await import('../../../core/wall/WallEngine.js');
+        const { RoofMutationEngine } = await import('../../../core/roof/RoofMutationEngine.js');
+        const { RoofGeometryEngine } = await import('../../../core/roof/RoofGeometryEngine.js');
+
+        const pts = [{ x: 0, y: 0 }, { x: 300, y: 0 }, { x: 300, y: 200 }, { x: 0, y: 200 }];
+        const w1 = WallEngine.createWall(mockPlanner, { startAnchor: { x: 0, y: 0 }, endAnchor: { x: 300, y: 0 }, height: 300, elevation: 0, addToPlanner: false });
+        const w2 = WallEngine.createWall(mockPlanner, { startAnchor: { x: 300, y: 0 }, endAnchor: { x: 300, y: 200 }, height: 300, elevation: 0, addToPlanner: false });
+        const w3 = WallEngine.createWall(mockPlanner, { startAnchor: { x: 300, y: 200 }, endAnchor: { x: 0, y: 200 }, height: 300, elevation: 0, addToPlanner: false });
+        const w4 = WallEngine.createWall(mockPlanner, { startAnchor: { x: 0, y: 200 }, endAnchor: { x: 0, y: 0 }, height: 300, elevation: 0, addToPlanner: false });
+        w1.id = 'w1'; w2.id = 'w2'; w3.id = 'w3'; w4.id = 'w4';
+
+        const gableRoof = {
+            id: 'test_gable_roof',
+            points: pts,
+            elevation: 300,
+            _restingOnWalls: true,
+            _lastSyncedWallTop: 300,
+            config: {
+                roofType: 'gable',
+                pitch: 25,
+                overhang: 8,
+                ridgeAxis: 'x',
+                autoShapeWalls: true,
+                showGableWalls: true,
+                gableMaterial: 'white_plaster_wall'
+            }
+        };
+
+        mockPlanner.walls = [w1, w2, w3, w4];
+        mockPlanner.roofs = [gableRoof];
+
+        // 1. Generate auto-gable CAD walls under gable roof
+        RoofMutationEngine.syncGableWalls(gableRoof, mockPlanner);
+        const gableWalls = mockPlanner.walls.filter(w => w.isAutoGable && w.parentRoofId === gableRoof.id);
+        expect(gableWalls.length).toBe(2);
+
+        // Verify gable wall properties
+        const gw1 = gableWalls[0];
+        expect(gw1.isAutoGable).toBe(true);
+        expect(gw1.parentRoofId).toBe(gableRoof.id);
+        expect(gw1.elevation).toBe(300); // Sits on top of base wall
+        expect(gw1.topProfileType).toBe('gable');
+        expect(gw1.peakHeight).toBeGreaterThan(0);
+
+        // 2. getWallsUnderRoof must ignore auto-gable walls
+        const wallsUnder = RoofGeometryEngine.getWallsUnderRoof(gableRoof, mockPlanner.walls);
+        expect(wallsUnder.length).toBe(4);
+        expect(wallsUnder.some(w => w.isAutoGable)).toBe(false);
+
+        // 3. getMaxWallTopUnderRoof must strictly return base wall top (300), NOT base + peakHeight (e.g. ~554)
+        const maxWallTop = RoofGeometryEngine.getMaxWallTopUnderRoof(gableRoof, mockPlanner.walls);
+        expect(maxWallTop).toBe(300);
+
+        // 4. Applying material to auto-gable wall directly must not reposition the roof
+        WallEngine.applyMaterial(gw1, { target: 'all', key: 'stone_slate' }, mockPlanner);
+        expect(gw1.params.textureFront).toBe('stone_slate');
+        expect(gableRoof.config.gableMaterial).toBe('stone_slate');
+
+        // 5. Syncing roofs with walls must preserve elevation 300
+        RoofMutationEngine.syncRoofsWithWalls([gw1], mockPlanner);
+        expect(gableRoof.elevation).toBe(300);
+
+        RoofMutationEngine.syncRoofsWithWalls(mockPlanner.walls, mockPlanner);
+        expect(gableRoof.elevation).toBe(300);
+        expect(gableRoof._restingOnWalls).toBe(true);
     });
 });
 
