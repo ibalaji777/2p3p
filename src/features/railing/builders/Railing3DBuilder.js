@@ -2,7 +2,7 @@
 import * as THREE from 'three';
 import { PathGenerator } from '../generators/PathGenerator.js';
 import { UniversalRailingGenerator } from '../generators/UniversalRailingGenerator.js';
-import { MaterialManager } from '../materials/MaterialManager.js';
+import { MaterialEngine } from '../../../core/materials/MaterialEngine.js';
 import { ComponentRegistry } from '../../../core/engine3d/ComponentRegistry.js';
 import { RAILING_REGISTRY } from '../registry/railing.registry.js';
 
@@ -49,7 +49,7 @@ export class Railing3DBuilder {
 
         // 2. Fetch Materials
         const getMat = (subConfig, defaultMat) => {
-            return MaterialManager.getMaterial(subConfig?.material || defaultMat);
+            return MaterialEngine.getThreeMaterial(subConfig?.material || defaultMat, 'railing');
         };
 
         const postMat = getMat(config.post, 'metal_black');

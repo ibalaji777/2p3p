@@ -1,6 +1,5 @@
 import * as THREE from 'three';
 import { WALL_HEIGHT } from '../../core/registry.js';
-import { MaterialManager } from '../railing/materials/MaterialManager.js';
 import { Railing3DBuilder } from '../railing/builders/Railing3DBuilder.js';
 import { getRailingConfig } from '../railing/registry/railing.registry.js';
 import { ComponentRegistry } from '../../core/engine3d/ComponentRegistry.js';

@@ -23,6 +23,7 @@ import { MaterialSlots, SLOT_DEFINITIONS } from '../../core/constants/materialSl
 import MaterialCategorySelector from './MaterialCategorySelector.vue';
 import { MaterialManager } from '../../core/engine3d/MaterialManager.js';
 import { ComponentRegistry } from '../../core/engine3d/ComponentRegistry.js';
+import { MaterialEngine } from '../../core/materials/MaterialEngine.js';
 
 const props = defineProps({
     entity: { type: Object, required: true }
@@ -143,11 +144,8 @@ const getSlotMaterialId = (slotId) => {
     return props.entity.materials?.[slotId]?.id || '';
 };
 
-const setSlotMaterial = (slotId, matId) => {
-    if (!props.entity.materials) {
-        props.entity.materials = {};
-    }
-    props.entity.materials[slotId] = { id: matId };
+const setSlotMaterial = async (slotId, matId) => {
+    await MaterialEngine.applyMaterial(props.entity, slotId, matId);
     emit('sync-engine');
 };
 </script>

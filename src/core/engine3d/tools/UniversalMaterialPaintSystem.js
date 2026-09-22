@@ -12,6 +12,7 @@ import { ComponentRegistry } from '../ComponentRegistry.js';
 import { MaterialManager } from '../MaterialManager.js';
 import { WallEngine } from '../../wall/WallEngine.js';
 import { RoofEngine } from '../../roof/RoofEngine.js';
+import { MaterialEngine } from '../../materials/MaterialEngine.js';
 import { applyWallPaintWithScope } from '../WallPaintSystem.js';
 import { coreEventBus } from '../../EventBus.js';
 import { EVENTS } from '../../registry.js';
@@ -194,7 +195,7 @@ export class UniversalMaterialPaintSystem {
      * @param {string|Object} materialConfig - Material id or config object.
      * @param {Object} descriptor - Target descriptor resolved by BIMMaterialSystem.
      */
-    applyMaterialToDescriptor(materialConfig, descriptor = this.activeTargetDescriptor) {
+    async applyMaterialToDescriptor(materialConfig, descriptor = this.activeTargetDescriptor) {
         if (!descriptor || !descriptor.entity) return;
 
         const matKey = typeof materialConfig === 'string' ? materialConfig : materialConfig.id || materialConfig.key;
@@ -206,53 +207,17 @@ export class UniversalMaterialPaintSystem {
         console.info(`%c[UniversalMaterialPaint] %cApplying ${matKey} to %c${type} -> ${faceName} (${slotName})`,
             'color: #10b981; font-weight: bold;', 'color: #9ca3af;', 'color: #3b82f6; font-weight: bold;');
 
-        // 1. Base Wall (outer, inner, compound, wall, arc)
-        if (type === 'outer' || type === 'inner' || type === 'compound' || type === 'wall' || type === 'wallDecor' || type === 'arc' || entity.parentArc) {
-            const targetWall = entity.parentArc ? entity.parentArc : entity;
-            if (targetWall.walls && Array.isArray(targetWall.walls)) {
-                // Curved wall arc
-                targetWall.walls.forEach(w => {
-                    WallEngine.applyMaterial(w, { target: faceName, key: matKey, ctx: this.ctx }, this.ctx.planner);
-                });
-            } else {
-                WallEngine.applyMaterial(entity, { target: faceName, key: matKey, ctx: this.ctx }, this.ctx.planner);
-            }
-        }
-        // 2. Component Slot-Based Asset (Doors, Windows, Stairs, Railings, Moldings, Elevation Elements, Furniture)
-        else if (slotName && entity.materials) {
-            MaterialManager.updateEntityMaterialSlot(entity, slotName, matKey, this.ctx);
-        }
-        // 3. Roofs
-        else if (type === 'roof' || entity.config?.roofType) {
-            const slopeKey = (descriptor.isGable || faceName === 'gable') ? 'gable' : (faceName === 'fascia' ? 'fascia' : null);
-            RoofEngine.setMaterial(entity, matKey, 'single', slopeKey, this.ctx.planner || this.ctx);
-        }
-        // 4. Floors & Rooms
-        else if (type === 'room' || type === 'floor' || entity.isFloor || entity.isRoom) {
-            entity.configId = matKey;
-            if (this.ctx.updateMaterialLive) {
-                this.ctx.updateMaterialLive(entity);
-            }
-        }
-        // 5. Shapes & Protrusions
-        else {
-            if (!entity.params) entity.params = {};
-            if (faceName === 'all' || !faceName) {
-                entity.params.texture = matKey;
-            } else {
-                const paramName = 'texture' + faceName.charAt(0).toUpperCase() + faceName.slice(1);
-                entity.params[paramName] = matKey;
-            }
-            if (this.ctx.updateMaterialLive) {
-                this.ctx.updateMaterialLive(entity);
-            }
-        }
+        const targetSlotOrFace = (descriptor.isGable || faceName === 'gable') ? 'gable' : (slotName || faceName);
+        await MaterialEngine.applyMaterial(entity, targetSlotOrFace, matKey, {
+            ctx: this.ctx,
+            planner: this.ctx?.planner
+        });
 
         // Notify scene & history
-        if (this.ctx.requestRender) this.ctx.requestRender('material_painted');
+        if (this.ctx?.requestRender) this.ctx.requestRender('material_painted');
         coreEventBus.emit(EVENTS.MATERIAL_GIZMO_APPLY, { entity, face: faceName, material: matKey });
         
-        if (window.plannerInstance && window.plannerInstance.syncAll) {
+        if (typeof window !== 'undefined' && window.plannerInstance && window.plannerInstance.syncAll) {
             window.plannerInstance.syncAll();
         }
     }

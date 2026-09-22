@@ -166,7 +166,15 @@ export class BIMMaterialSystem {
      * @param {Object} [ctx=null] - 3D engine context.
      */
     static setBIMHighlight(target, active = true, color = 0x00ff00, ctx = null) {
-        let mesh = target?.mesh || target;
+        if (!target) return;
+
+        // Support direct { entity, slotName } targets
+        if (target.entity?.id && target.slotName && !target.isMesh && !target.mesh) {
+            ComponentRegistry.setSlotHighlight(target.entity.id, target.slotName, active, color, ctx);
+            return;
+        }
+
+        let mesh = target?.isMesh ? target : target?.mesh;
         if (!mesh || !mesh.material) return;
 
         const descriptor = target?.componentType ? target : BIMMaterialSystem.resolveBIMTarget(mesh);

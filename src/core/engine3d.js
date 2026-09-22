@@ -646,49 +646,6 @@ export class Preview3D {
             return true;
         }
 
-        let renderFunc = null;
-
-        if (renderFunc) {
-            const oldMesh = obj;
-            // Generate a fresh mesh using the same registry function
-            const newMesh = renderFunc(new THREE.Group(), entity, this.helpers);
-            
-            // The newMesh is attached to the temporary THREE.Group() inside render3D!
-            // We need to pull it out and replace the old one
-            
-            parent.add(newMesh);
-            parent.remove(oldMesh);
-            
-            // Dispose old resources
-            oldMesh.traverse(child => {
-                if (child.isMesh && child.geometry) child.geometry.dispose();
-                if (child.isMesh && child.material) {
-                    if (Array.isArray(child.material)) child.material.forEach(m => { if (m && m.dispose) m.dispose(); });
-                    else if (child.material.dispose) child.material.dispose();
-                }
-            });
-
-            entity.mesh3D = newMesh;
-
-            // Maintain interaction state
-            const interactions = this.interactions;
-            if (interactions.selectedObject === oldMesh) {
-                interactions.selectedObject = newMesh;
-                
-                // Update interactables array
-                const idx = this.interactables.indexOf(oldMesh);
-                if (idx > -1) this.interactables[idx] = newMesh;
-                
-                if (this.currentTransformMode === 'material' && interactions.materialGizmo) {
-                    interactions.materialGizmo.attach(newMesh);
-                }
-
-                if (interactions.refreshSelectionHighlight) {
-                    interactions.refreshSelectionHighlight(newMesh);
-                }
-            }
-            return true;
-        }
         return false;
     }
 
