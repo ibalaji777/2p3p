@@ -488,6 +488,9 @@ export class Wall3DBuilder {
             return dx_pt * Math.cos(angle) + dy_pt * Math.sin(angle);
         };
 
+        const polyPoints = typeof w.poly?.points === 'function' ? w.poly.points() : (w.poly?.points || null);
+        const pts = Array.isArray(polyPoints) ? polyPoints : null;
+
         const sTrueL = w.wallShapeData?.startData?.trueCorners?.[0] || (pts && pts.length >= 8 ? { x: pts[0], y: pts[1] } : null);
         const sTrueR = w.wallShapeData?.startData?.trueCorners?.[1] || (pts && pts.length >= 8 ? { x: pts[6], y: pts[7] } : null);
         const eTrueL = w.wallShapeData?.endData?.trueCorners?.[0] || (pts && pts.length >= 8 ? { x: pts[2], y: pts[3] } : null);

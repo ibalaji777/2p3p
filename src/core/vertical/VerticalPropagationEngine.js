@@ -330,16 +330,34 @@ export class VerticalPropagationEngine {
 
         // 1. Update any in-memory walls dependent on sourceWall
         const walls = planner.walls || [];
+        const levels = planner.levels || [];
+        const activeIdx = planner.activeLevelIndex !== undefined ? planner.activeLevelIndex : 0;
+        const activeLvl = levels[activeIdx] || planner.activeLevel;
+        const activeLvlElev = (activeLvl && activeLvl.elevation !== undefined) ? Number(activeLvl.elevation) : 0;
+
         for (const w of walls) {
             if (w.parentWallId === sourceWall.id) {
-                w.elevation = (Number(sourceWall.elevation) || 0) + (Number(sourceWall.height) || 0) + (Number(w.relativeElevation) || 0);
+                let sourceLvlElev = 0;
+                if (sourceWall.hostLevelId && levels.length > 0) {
+                    const sLvl = levels.find(l => l.id === sourceWall.hostLevelId);
+                    if (sLvl && sLvl.elevation !== undefined) {
+                        sourceLvlElev = Number(sLvl.elevation);
+                    }
+                }
+                const sourceWorldTop = sourceLvlElev + (Number(sourceWall.elevation) || 0) + (Number(sourceWall.height) || 0);
+                const isCrossLevel = (w.hostLevelId && sourceWall.hostLevelId && w.hostLevelId !== sourceWall.hostLevelId) || (activeLvlElev > 0);
+
+                if (isCrossLevel && sourceWorldTop >= activeLvlElev) {
+                    w.elevation = Math.max(0, sourceWorldTop - activeLvlElev) + (Number(w.relativeElevation) || 0);
+                } else {
+                    w.elevation = (Number(sourceWall.elevation) || 0) + (Number(sourceWall.height) || 0) + (Number(w.relativeElevation) || 0);
+                }
+
                 if (w.mesh3D) w.mesh3D.position.y = w.elevation;
             }
         }
 
         if (!planner.levels || planner.levels.length <= 1) return;
-        const levels = planner.levels;
-        const activeIdx = planner.activeLevelIndex !== undefined ? planner.activeLevelIndex : 0;
 
         // Check for upper levels (index > activeIdx)
         for (let i = activeIdx + 1; i < levels.length; i++) {

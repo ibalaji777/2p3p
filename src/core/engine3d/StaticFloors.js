@@ -7,6 +7,7 @@ import { Railing3DBuilder } from '../../features/railing/builders/Railing3DBuild
 import { Stair3DBuilder } from '../../features/stairs/stairs.renderer3d.js';
 import { Roof3DBuilder } from '../../features/roof/builders/Roof3DBuilder.js';
 import { computeLevelElevations } from './helpers/levelElevations.js';
+import { FloorSlabEngine } from '../floor/FloorSlabEngine.js';
 
 export class StaticFloors {
     constructor(assets, decorManager, interactables, callbacks = {}) {
@@ -101,116 +102,34 @@ export class StaticFloors {
                 const isSub = levelConfig?.type === 'plinth' || levelConfig?.type === 'foundation';
                 const subH = Number(levelConfig?.height) || (levelConfig?.type === 'plinth' ? 18 : 40);
                 if (data.rooms) {
+                    let stairsBelow = [];
+                    if (index > 0 && levelsConfigArray[index - 1] && levelsConfigArray[index - 1].data) {
+                        try {
+                            const prevData = typeof levelsConfigArray[index - 1].data === 'string' ? JSON.parse(levelsConfigArray[index - 1].data) : levelsConfigArray[index - 1].data;
+                            if (prevData.stairs) stairsBelow = prevData.stairs;
+                        } catch (e) {}
+                    }
+
                     data.rooms.forEach(room => {
-                        if (room.isDeleted || room.isHidden) return;
-                        const path = room.path;
-                        if (!path || path.length < 3) return;
-                        const floorShape = new THREE.Shape();
-                        floorShape.moveTo(path[0].x, path[0].y);
-                        for (let i = 1; i < path.length; i++) floorShape.lineTo(path[i].x, path[i].y);
-                        
-                        let stairsBelow = [];
-                        if (index > 0 && levelsConfigArray[index - 1] && levelsConfigArray[index - 1].data) {
-                            try {
-                                const prevData = typeof levelsConfigArray[index - 1].data === 'string' ? JSON.parse(levelsConfigArray[index - 1].data) : levelsConfigArray[index - 1].data;
-                                if (prevData.stairs) stairsBelow = prevData.stairs;
-                            } catch (e) {}
-                        }
-                        
-                        if (data.shapes) {
-                            data.shapes.forEach(shape => {
-                                if (shape.type === 'shape_floor_cut') {
-                                    const rot = (shape.rotation || 0) * Math.PI / 180;
-                                    const sx = shape.x || shape.params?.x || 0;
-                                    const sy = shape.y || shape.params?.y || 0;
-                                    let pts;
-                                    if (shape.params?.points) {
-                                        pts = shape.params.points;
-                                    } else {
-                                        const w = shape.params?.width || shape.width || 100;
-                                        const h = shape.params?.height || shape.height || 100;
-                                        pts = [
-                                            { x: -w/2, y: -h/2 }, { x: w/2, y: -h/2 },
-                                            { x: w/2, y: h/2 }, { x: -w/2, y: h/2 }
-                                        ];
-                                    }
-                                    
-                                    const rotC = pts.map(c => {
-                                        return {
-                                            x: sx + (c.x * Math.cos(rot) - c.y * Math.sin(rot)),
-                                            y: sy + (c.x * Math.sin(rot) + c.y * Math.cos(rot))
-                                        };
-                                    });
-                                    
-                                    const hole = new THREE.Path();
-                                    hole.moveTo(rotC[0].x, rotC[0].y);
-                                    for (let i = 1; i < rotC.length; i++) {
-                                        hole.lineTo(rotC[i].x, rotC[i].y);
-                                    }
-                                    hole.lineTo(rotC[0].x, rotC[0].y);
-                                    floorShape.holes.push(hole);
-                                }
-                            });
-                        }
-                        
-                        const slabDepth = isSub ? subH : 2;
-                        const floorGeo = new THREE.ExtrudeGeometry(floorShape, { depth: slabDepth, bevelEnabled: false });
-                        floorGeo.rotateX(Math.PI / 2);
-                        floorGeo.translate(0, isSub ? (subH - 0.01) : 0.2, 0);
-                        
-                        // UV Fix for Floor (ExtrudeGeometry) - World Space Projection
-                        const uvs = floorGeo.attributes.uv;
-                        const pos = floorGeo.attributes.position;
-                        floorGeo.computeVertexNormals();
-                        const norms = floorGeo.attributes.normal;
-                        for (let i = 0; i < uvs.count; i++) {
-                            const nx = Math.abs(norms.getX(i));
-                            const ny = Math.abs(norms.getY(i));
-                            const nz = Math.abs(norms.getZ(i));
-                            const vx = pos.getX(i) / 100;
-                            const vy = pos.getY(i) / 100;
-                            const vz = pos.getZ(i) / 100;
-                            
-                            if (ny > 0.5) uvs.setXY(i, vx, vz); // Top/Bottom
-                            else if (nx > nz) uvs.setXY(i, vz, vy); // Side X
-                            else uvs.setXY(i, vx, vy); // Side Z
-                        }
-
-                        let mat = new THREE.MeshStandardMaterial({ 
-                            color: isSub ? 0xffffff : 0xffffff, 
-                            roughness: isSub ? 0.85 : 0.7, 
-                            metalness: isSub ? 0.05 : 0, 
-                            side: THREE.DoubleSide 
+                        const floorMesh = FloorSlabEngine.buildFloorSlabMesh(room, {
+                            stairsBelow,
+                            shapes: data.shapes || [],
+                            isSub,
+                            subH,
+                            ctx: this.ctx
                         });
-                        const configId = room.configId || 'hardwood';
-                        const baseConfig = FLOOR_REGISTRY[configId];
-                        
-                        if (baseConfig && !isSub) {
-                            const config = { ...baseConfig };
-                            if (room.materialScale) config.tileSize = room.materialScale;
-                            MaterialFactory.buildPBRMaterial({
-                                material: mat,
-                                config: config,
-                                ctx: this.ctx,
-                                dimensions: { width: 100, height: 100 },
-                                faceName: 'floor'
-                            }).then(() => {
-                                if (this.ctx && this.ctx.requestRender) this.ctx.requestRender('material_loaded', 2);
-                            });
-                        } else {
-                            mat.color.setHex(0xd1d5db);
-                        }
 
-                        const floorMesh = new THREE.Mesh(floorGeo, mat);
-                        const roomElev = Number(room.elevation) || 0;
-                        floorMesh.position.y = isSub ? (subH - 0.01) : (roomElev + 0.05);
-                        floorMesh.receiveShadow = true;
-                        
-                        if (!isPreview) {
-                            floorMesh.userData = { isFloorTrigger: true, levelIndex: index };
-                            this.interactables.push(floorMesh);
+                        if (floorMesh) {
+                            const roomElev = Number(room.elevation) || 0;
+                            if (roomElev !== 0) floorMesh.position.y += roomElev;
+                            floorMesh.receiveShadow = true;
+                            
+                            if (!isPreview) {
+                                floorMesh.userData = { ...floorMesh.userData, isFloorTrigger: true, levelIndex: index };
+                                this.interactables.push(floorMesh);
+                            }
+                            floorGroup.add(floorMesh);
                         }
-                        floorGroup.add(floorMesh);
                     });
                 }
 

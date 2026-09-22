@@ -9,6 +9,7 @@ import { DEFAULT_UNIVERSAL_TILE_SIZE } from '../registries/material.registry.js'
 import { MaterialFactory } from './MaterialFactory.js';
 import { UniversalMaterialManager } from './UniversalMaterialManager.js';
 import { Platform3DBuilder } from './Platform3DBuilder.js';
+import { FloorSlabEngine } from '../floor/FloorSlabEngine.js';
 
 
 export class ActiveFloor {
@@ -84,7 +85,7 @@ export class ActiveFloor {
     }
 
     build(walls, rooms, roofs, shapes, stairs = [], activeIndex = 0, targetGroup = this.structureGroup, stairsBelow = [], outdoorZones = []) {
-        this._buildSlabs(rooms, stairs, targetGroup, stairsBelow);
+        this._buildSlabs(rooms, stairs, targetGroup, stairsBelow, shapes);
         if (outdoorZones && outdoorZones.length > 0) {
             this._buildOutdoorZones(outdoorZones, targetGroup);
         }
@@ -271,79 +272,25 @@ export class ActiveFloor {
         });
     }
 
-    _buildSlabs(rooms, stairs = [], targetGroup = this.structureGroup, stairsBelow = []) {
+    _buildSlabs(rooms, stairs = [], targetGroup = this.structureGroup, stairsBelow = [], shapes = []) {
         if (!rooms) return;
 
+        const effectiveShapes = (shapes && shapes.length > 0)
+            ? shapes
+            : ((window.planner?.value || window.plannerInstance)?.shapes || []);
+
         rooms.forEach(room => {
-            if (room.isDeleted || room.isHidden) return;
-            const path = room.path;
-            if (!path || path.length < 3) return;
-            const floorShape = new THREE.Shape();
-            floorShape.moveTo(path[0].x, path[0].y);
-            for (let i = 1; i < path.length; i++) floorShape.lineTo(path[i].x, path[i].y);
-            
-            if (stairsBelow && stairsBelow.length > 0) {
-                stairsBelow.forEach(stair => {
-                    const rotPts = StairGeometryEngine.getCutoutPolygon(stair);
-                    if (rotPts && rotPts.length >= 3) {
-                        const hole = new THREE.Path();
-                        hole.moveTo(rotPts[0].x, rotPts[0].y);
-                        for (let i = 1; i < rotPts.length; i++) {
-                            hole.lineTo(rotPts[i].x, rotPts[i].y);
-                        }
-                        hole.lineTo(rotPts[0].x, rotPts[0].y);
-                        floorShape.holes.push(hole);
-                    }
-                });
-            }
-            
-            const floorGeo = new THREE.ExtrudeGeometry(floorShape, { depth: 2, bevelEnabled: false });
-            floorGeo.rotateX(Math.PI / 2);
-            floorGeo.translate(0, 0.2, 0);
-            
-            // UV Fix for Floor (ExtrudeGeometry) - World Space Projection
-            const uvs = floorGeo.attributes.uv;
-            const pos = floorGeo.attributes.position;
-            floorGeo.computeVertexNormals();
-            const norms = floorGeo.attributes.normal;
-            for (let i = 0; i < uvs.count; i++) {
-                const nx = Math.abs(norms.getX(i));
-                const ny = Math.abs(norms.getY(i));
-                const nz = Math.abs(norms.getZ(i));
-                const vx = pos.getX(i) / 100;
-                const vy = pos.getY(i) / 100;
-                const vz = pos.getZ(i) / 100;
-                
-                if (ny > 0.5) uvs.setXY(i, vx, vz); // Top/Bottom
-                else if (nx > nz) uvs.setXY(i, vz, vy); // Side X
-                else uvs.setXY(i, vx, vy); // Side Z
-            }
+            const floorMesh = FloorSlabEngine.buildFloorSlabMesh(room, {
+                stairsBelow,
+                shapes: effectiveShapes,
+                isSub: false,
+                ctx: this.ctx || this
+            });
 
-            
-            let mat = new THREE.MeshStandardMaterial({ side: THREE.DoubleSide });
-            const configId = room.configId || 'hardwood';
-            const floorConfig = FLOOR_REGISTRY[configId];
-            if (floorConfig) {
-                const config = { ...floorConfig };
-                if (room.materialScale) config.tileSize = room.materialScale;
-                MaterialFactory.buildPBRMaterial({
-                    material: mat,
-                    config: config,
-                    ctx: this.ctx,
-                    dimensions: { width: 100, height: 100 },
-                    faceName: 'floor'
-                }).then(() => {
-                    if (this.ctx && this.ctx.requestRender) this.ctx.requestRender('material_loaded', 2);
-                });
-            } else {
-                mat.color.setHex(0xd1d5db);
+            if (floorMesh) {
+                this.interactables.push(floorMesh);
+                targetGroup.add(floorMesh);
             }
-
-            const floorMesh = new THREE.Mesh(floorGeo, mat);
-            floorMesh.receiveShadow = true;
-            floorMesh.userData = { entity: room, isRoom: true };
-            this.interactables.push(floorMesh);
-            targetGroup.add(floorMesh);
         });
     }
 
