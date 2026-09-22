@@ -2,7 +2,6 @@ import * as THREE from 'three';
 import { WIDGET_REGISTRY } from '../registry.js';
 import { MOLDING_REGISTRY } from '../../features/wall/wall.registry.js';
 import { DOOR_HEIGHT, WINDOW_SILL, WINDOW_HEIGHT } from '../constants/units.js';
-import { PremiumWidget } from '../engine2d/PremiumWidget.js';
 import { PremiumMolding } from '../engine2d/PremiumMolding.js';
 import { Molding3DBuilder } from './Molding3DBuilder.js';
 import { coreEventBus } from '../EventBus.js';
@@ -1558,29 +1557,19 @@ export class WallPlugin3DPlacementSystem {
             const itemH = preset.height || (isDoor ? DOOR_HEIGHT : (isWindow ? WINDOW_HEIGHT : (isJali ? 80 : (isSunshade ? 12 : (isFascia ? 120 : (isCurtain ? 95 : (isAdvOpening ? (widgetType === 'circular_opening' ? 40 : (widgetType === 'arch_opening' || widgetType === 'opening' ? DOOR_HEIGHT : 60)) : 35)))))));
             const depth = preset.depth || (isSunshade ? 40 : (isFascia ? 40 : (isCurtain ? 8 : (isWallArt ? 3 : (widgetType === 'niche_recess' ? 6 : 10)))));
 
-            createdEntity = new PremiumWidget(planner, wall, t, widgetType);
-            const wallThick = wall.thickness || wall.config?.thickness || 20;
-            createdEntity.thick = wallThick;
-            createdEntity.facing = (side === 'back') ? -1 : 1;
-            createdEntity.elevation = elev;
-            
-            if (planner.activePresetParams) {
-                Object.assign(createdEntity, JSON.parse(JSON.stringify(planner.activePresetParams)));
-            }
-            createdEntity.type = widgetType;
-            createdEntity.configId = widgetType;
-            createdEntity.config = WIDGET_REGISTRY[widgetType];
-            createdEntity.wall = wall;
-            createdEntity.wallThick = wallThick;
-            createdEntity.thick = wallThick;
-            createdEntity.facing = (side === 'back') ? -1 : 1;
-            createdEntity.elevation = elev;
-            if (itemW) createdEntity.width = itemW;
-            if (itemH) createdEntity.height = itemH;
-            if (depth) createdEntity.depth = depth;
-            
-            if (createdEntity.update) createdEntity.update();
-            WallEngine.attachWidget(wall, createdEntity, false, planner);
+            const widgetOptions = {
+                ...(planner.activePresetParams ? JSON.parse(JSON.stringify(planner.activePresetParams)) : {}),
+                type: widgetType,
+                configId: widgetType,
+                facing: (side === 'back') ? -1 : 1,
+                elevation: elev,
+                width: itemW,
+                height: itemH,
+                depth: depth,
+                attach: true,
+                shouldSync: false
+            };
+            createdEntity = WallEngine.createWidget(planner, wall, t, widgetType, widgetOptions);
             wall.wallShapeData = null;
             planner.selectEntity(createdEntity, isDoor ? 'door' : (isWindow ? 'window' : (isSunshade ? 'sunshade' : (isJali ? 'jali_panel' : (isAdvOpening ? 'advance_openings' : 'widget')))));
         }

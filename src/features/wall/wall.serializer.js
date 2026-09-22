@@ -1,5 +1,5 @@
 import { WallFactory } from './wall.factory.js';
-import { PremiumWidget } from '../../core/engine2d/PremiumWidget.js';
+import { WallEngine } from '../../core/wall/WallEngine.js';
 import { PremiumMolding } from '../../core/engine2d/PremiumMolding.js';
 
 /**
@@ -65,30 +65,7 @@ export const WallSerializer = {
                 endProfile: w.wallShapeData.endProfile
             } : null,
             elevationLayers: w.elevationLayers ? safeClone(w.elevationLayers) : null,
-            widgets: w.attachedWidgets ? w.attachedWidgets.map(wid => {
-                if (typeof wid.serialize === 'function') return wid.serialize();
-                return { 
-                    t: wid.t, type: wid.type, configId: wid.type, width: wid.width, height: wid.height, depth: wid.depth, elevation: wid.elevation,
-                    thick: wid.thick, facing: wid.facing, side: wid.side, 
-                    profileType: wid.profileType, fasciaMat: wid.fasciaMat, topArm: wid.topArm, bottomArm: wid.bottomArm,
-                    sunshadeType: wid.sunshadeType, pattern: wid.pattern, jaliMount: wid.jaliMount,
-                    rows: wid.rows, cols: wid.cols, spacing: wid.spacing, patternStyle: wid.patternStyle, decorConfigId: wid.decorConfigId,
-                    doorType: wid.doorType, 
-                    doorShape: wid.doorShape || wid.params?.doorShape,
-                    doorStyle: wid.doorStyle || wid.params?.doorStyle,
-                    doorMat: wid.doorMat,
-                    windowType: wid.windowType,
-                    windowShape: wid.windowShape || wid.params?.windowShape,
-                    frameMat: wid.frameMat,
-                    glassMat: wid.glassMat,
-                    grillePattern: wid.grillePattern,
-                    grilleProfile: wid.grilleProfile,
-                    description: wid.description,
-                    anchorMode: wid.anchorMode || 'bottom',
-                    materials: wid.materials ? safeClone(wid.materials) : {},
-                    params: wid.params ? safeClone(wid.params) : {}
-                };
-            }) : [],
+            widgets: w.attachedWidgets ? w.attachedWidgets.map(wid => WallEngine.serializeWidget(wid)) : [],
             decors: w.attachedDecor ? safeClone(w.attachedDecor) : [],
             moldings: w.attachedMoldings ? w.attachedMoldings.map(m => (typeof m.serialize === 'function' ? m.serialize() : { 
                 t: m.t, type: m.type, configId: m.type, width: m.width, depth: m.depth, heightOffset: m.heightOffset, 
@@ -160,12 +137,8 @@ export const WallSerializer = {
         // Restore Widgets
         if (wData.widgets && Array.isArray(wData.widgets)) {
             wall.attachedWidgets = wData.widgets.map(widData => {
-                const wid = new PremiumWidget(planner, wall, widData.t, widData.type || widData.configId);
-                Object.assign(wid, widData);
-                wid.wall = wall;
-                if (widData.anchorMode) wid.anchorMode = widData.anchorMode;
-                return wid;
-            });
+                return WallEngine.deserializeWidget(planner, wall, widData);
+            }).filter(Boolean);
         }
 
         // Restore Moldings

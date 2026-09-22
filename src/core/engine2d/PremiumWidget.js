@@ -7,14 +7,17 @@ export class PremiumWidget {
         this.planner = planner; this.wall = wall; this.t = t; this.type = configId; this.isDragging = false; 
         this.materialMode = 'PROCEDURAL';
         this.supportsLiveMaterialPipeline = true;
-        this.config = WIDGET_REGISTRY[configId];
-        Object.assign(this, JSON.parse(JSON.stringify(this.config.defaultConfig)));
+        this.config = WIDGET_REGISTRY[configId] || WIDGET_REGISTRY['door'] || { defaultConfig: {}, events: [] };
+        if (this.config.defaultConfig) {
+            Object.assign(this, JSON.parse(JSON.stringify(this.config.defaultConfig)));
+        }
         if (isFloorAnchoredDoor(this)) {
             this.elevation = 0;
         }
         
-        this.cutter = new Konva.Rect({ height: (wall.thickness || wall.config.thickness) + 4, fill: 'black', globalCompositeOperation: 'destination-out', listening: false }); 
-        if (this.config.cutsWall !== false) this.planner.wallLayer.add(this.cutter);
+        const thick = (wall.thickness || wall.config?.thickness || 20);
+        this.cutter = new Konva.Rect({ height: thick + 4, fill: 'black', globalCompositeOperation: 'destination-out', listening: false }); 
+        if (this.config.cutsWall !== false && this.planner?.wallLayer?.add) this.planner.wallLayer.add(this.cutter);
         
         this.visualGroup = new Konva.Group({ draggable: true }); 
         this.hitBox = new Konva.Rect({ fill: 'transparent', listening: true });
@@ -32,14 +35,14 @@ export class PremiumWidget {
                 handle.on('mouseenter', () => document.body.style.cursor = 'ew-resize'); 
                 handle.on('mouseleave', () => document.body.style.cursor = 'pointer'); 
                 handle.on('dragstart', (e) => { e.cancelBubble = true; }); 
-                handle.on('dragmove', (e) => { e.cancelBubble = true; const pos = this.planner.getPointerPos ? this.planner.getPointerPos() : this.planner.stage.getPointerPosition(); this.requestResize(pos, idx === 0); }); 
-                handle.on('dragend', (e) => { e.cancelBubble = true; this.planner.syncAll(); }); 
+                handle.on('dragmove', (e) => { e.cancelBubble = true; const pos = this.planner.getPointerPos ? this.planner.getPointerPos() : (this.planner.stage?.getPointerPosition ? this.planner.stage.getPointerPosition() : { x: 0, y: 0 }); this.requestResize(pos, idx === 0); }); 
+                handle.on('dragend', (e) => { e.cancelBubble = true; if (this.planner?.syncAll) this.planner.syncAll(); }); 
             }); 
-            this.planner.uiLayer.add(this.leftHandle, this.rightHandle);
+            if (this.planner?.uiLayer?.add) this.planner.uiLayer.add(this.leftHandle, this.rightHandle);
         }
         
         this.initEvents(); 
-        this.planner.widgetLayer.add(this.visualGroup); 
+        if (this.planner?.widgetLayer?.add) this.planner.widgetLayer.add(this.visualGroup); 
         this.update();
     }
 
@@ -132,31 +135,59 @@ export class PremiumWidget {
     
     remove() { 
         if (this.dragTimeout) clearTimeout(this.dragTimeout);
-        this.cutter.destroy(); this.visualGroup.destroy(); if (this.leftHandle) { this.leftHandle.destroy(); this.rightHandle.destroy(); } if (this.wall) { WallEngine.removeWidget(this.wall, this, false, this.planner); } this.planner.selectEntity(null); this.planner.syncAll(); 
+        if (this.cutter && typeof this.cutter.destroy === 'function') this.cutter.destroy();
+        if (this.visualGroup && typeof this.visualGroup.destroy === 'function') this.visualGroup.destroy();
+        if (this.leftHandle && typeof this.leftHandle.destroy === 'function') this.leftHandle.destroy();
+        if (this.rightHandle && typeof this.rightHandle.destroy === 'function') this.rightHandle.destroy();
+        if (this.wall) { WallEngine.removeWidget(this.wall, this, false, this.planner); }
+        if (this.planner && typeof this.planner.selectEntity === 'function' && this.planner.selectedEntity === this) {
+            this.planner.selectEntity(null);
+        }
+        if (this.planner && typeof this.planner.syncAll === 'function') this.planner.syncAll(); 
     }
     
     update() {
+        if (!this.wall) return;
         if (isFloorAnchoredDoor(this)) {
             this.elevation = 0;
         }
-        const p1 = this.wall.startAnchor.position(), p2 = this.wall.endAnchor.position(), dx = p2.x - p1.x, dy = p2.y - p1.y, angle = Math.atan2(dy, dx) * 180 / Math.PI, absPos = { x: p1.x + dx * this.t, y: p1.y + dy * this.t }, thick = this.wall.thickness || this.wall.config.thickness, hw = this.width / 2;
-        this.cutter.width(this.width); this.cutter.height(thick + 4); this.cutter.offsetX(this.width / 2); this.cutter.offsetY((thick + 4) / 2); this.cutter.position(absPos); this.cutter.rotation(angle);
-        this.visualGroup.position(absPos); this.visualGroup.rotation(angle); this.frameL.setAttrs({ height: thick, x: -hw, y: -thick/2 }); this.frameR.setAttrs({ height: thick, x: hw - 4, y: -thick/2 });
+        const p1 = typeof this.wall.startAnchor?.position === 'function' 
+            ? this.wall.startAnchor.position() 
+            : (this.wall.startAnchor || { x: this.wall.startX || 0, y: this.wall.startY || 0 });
+        const p2 = typeof this.wall.endAnchor?.position === 'function' 
+            ? this.wall.endAnchor.position() 
+            : (this.wall.endAnchor || { x: this.wall.endX || 0, y: this.wall.endY || 0 });
+        const dx = p2.x - p1.x, dy = p2.y - p1.y, angle = Math.atan2(dy, dx) * 180 / Math.PI, absPos = { x: p1.x + dx * this.t, y: p1.y + dy * this.t }, thick = this.wall.thickness || this.wall.config?.thickness || 20, hw = this.width / 2;
+        if (this.cutter) {
+            this.cutter.width(this.width); this.cutter.height(thick + 4); this.cutter.offsetX(this.width / 2); this.cutter.offsetY((thick + 4) / 2); this.cutter.position(absPos); this.cutter.rotation(angle);
+        }
+        if (this.visualGroup) {
+            this.visualGroup.position(absPos); this.visualGroup.rotation(angle);
+        }
+        if (this.frameL && this.frameR) {
+            this.frameL.setAttrs({ height: thick, x: -hw, y: -thick/2 }); this.frameR.setAttrs({ height: thick, x: hw - 4, y: -thick/2 });
+        }
         const hitHeight = Math.max(thick + 20, this.width * 2);
-        this.hitBox.setAttrs({ x: -hw, y: -hitHeight / 2, width: this.width, height: hitHeight });
-        this.innerParts.destroyChildren(); this.config.render2D(this.innerParts, this);
+        if (this.hitBox) {
+            this.hitBox.setAttrs({ x: -hw, y: -hitHeight / 2, width: this.width, height: hitHeight });
+        }
+        if (this.innerParts) {
+            this.innerParts.destroyChildren();
+            if (this.config?.render2D) this.config.render2D(this.innerParts, this);
+        }
         if (this.leftHandle && this.rightHandle) { const rad = angle * Math.PI / 180, cosA = Math.cos(rad), sinA = Math.sin(rad); this.leftHandle.position({ x: absPos.x - hw * cosA, y: absPos.y - hw * sinA }); this.rightHandle.position({ x: absPos.x + hw * cosA, y: absPos.y + hw * sinA }); }
     }
 
     serialize() {
         return {
+            id: this.id,
             t: this.t,
             type: this.type || this.configId,
             configId: this.type || this.configId,
             width: this.width,
             height: this.height,
             depth: this.depth,
-            elevation: this.elevation,
+            elevation: isFloorAnchoredDoor(this) ? 0 : this.elevation,
             thick: this.thick,
             facing: this.facing,
             side: this.side,
@@ -183,6 +214,8 @@ export class PremiumWidget {
             spacing: this.spacing,
             decorConfigId: this.decorConfigId,
             description: this.description,
+            anchorMode: this.anchorMode || 'bottom',
+            parentWallId: this.parentWallId || this.wall?.id,
             materials: this.materials ? JSON.parse(JSON.stringify(this.materials)) : undefined,
             params: this.params ? JSON.parse(JSON.stringify(this.params)) : undefined
         };

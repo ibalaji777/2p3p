@@ -235,8 +235,7 @@ export class PremiumWall {
         this.pulseHighlight();
 
         if (isAdvancedOpening) {
-            // Note: advance_openings requires the class to exist globally, fallback to PremiumOpening if needed
-            widget = typeof advance_openings !== 'undefined' ? new advance_openings(this.planner, this, t, tool) : new PremiumOpening(this.planner, this, tool);
+            widget = new advance_openings(this.planner, this, t, tool);
             this.planner.selectEntity(widget, 'opening');
             WallEngine.attachWidget(this, widget, false, this.planner);
         } else if (isMolding) {

@@ -22,7 +22,6 @@ import { Anchor } from './Anchor.js';
 import { WallEngine } from '../wall/WallEngine.js';
 import { WallFactory } from '../../features/wall/wall.factory.js';
 import { PremiumWall } from '../../features/wall/wall.renderer2d.js';
-import { PremiumWidget } from './PremiumWidget.js';
 import { PremiumFurniture } from '../../features/furniture/furniture.renderer2d.js';
 import { PremiumOutdoorZone } from './PremiumOutdoorZone.js';
 import { WallSerializer } from '../../features/wall/wall.serializer.js';

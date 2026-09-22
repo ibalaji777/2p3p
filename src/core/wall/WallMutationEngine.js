@@ -16,6 +16,8 @@ import { WallHeightPolicy } from './WallHeightPolicy.js';
 import { WallTopologyEngine } from './WallTopologyEngine.js';
 import { RoofMutationEngine } from '../roof/RoofMutationEngine.js';
 import { VerticalPropagationEngine } from '../vertical/VerticalPropagationEngine.js';
+import { PremiumWidget } from '../engine2d/PremiumWidget.js';
+import { advance_openings } from '../engine2d/advance_openings.js';
 
 export class WallMutationEngine {
     /**
@@ -704,6 +706,188 @@ export class WallMutationEngine {
         });
 
         VerticalPropagationEngine.onBatchWallsUpdated(p, walls, updates);
+    }
+
+    /**
+     * Authoritative widget creator and factory.
+     * @param {Object} planner
+     * @param {Object} wall
+     * @param {number} t - Distance or normalized ratio along wall
+     * @param {string} configId - Widget type or identifier
+     * @param {Object} options - Parameter overrides and initial configuration
+     * @returns {Object}
+     */
+    static createWidget(planner, wall, t = 0.5, configId = 'door', options = {}) {
+        if (!wall) return null;
+        const p = planner || wall.planner || (typeof window !== 'undefined' ? (window.plannerInstance || window.planner?.value || window.planner) : null);
+
+        let normalizedT = Number(t);
+        if (isNaN(normalizedT)) normalizedT = 0.5;
+        if (normalizedT > 1 && typeof wall.getLength === 'function') {
+            const len = wall.getLength();
+            if (len > 0) normalizedT = normalizedT / len;
+        }
+        normalizedT = Math.max(0, Math.min(1, normalizedT));
+
+        const type = configId || options.type || options.configId || 'door';
+        const isAdvancedOpening = ['arch_opening', 'circular_opening', 'custom_shape_opening', 'niche_recess', 'pattern_opening', 'boolean_cut'].includes(type);
+
+        let widget = null;
+        if (isAdvancedOpening && typeof advance_openings !== 'undefined') {
+            widget = new advance_openings(p, wall, normalizedT, type);
+        } else {
+            widget = new PremiumWidget(p, wall, normalizedT, type);
+        }
+
+        const wallThick = wall.thickness || wall.config?.thickness || 20;
+        widget.thick = wallThick;
+        widget.wallThick = wallThick;
+        widget.wall = wall;
+        widget.parentWall = wall;
+        widget.parentWallId = wall.id;
+
+        if (options && typeof options === 'object') {
+            const { wall: _w, parentWall: _pw, attach: _att, shouldSync: _ss, ...cleanOptions } = options;
+            Object.assign(widget, cleanOptions);
+        }
+
+        if (isFloorAnchoredDoor(widget)) {
+            widget.elevation = 0;
+        }
+
+        if (typeof widget.update === 'function') {
+            widget.update();
+        }
+
+        if (options.attach !== false) {
+            this.attachWidget(wall, widget, !!options.shouldSync, p);
+        }
+
+        return widget;
+    }
+
+    /**
+     * Authoritative widget serializer.
+     * Extracts canonical JSON representation.
+     * @param {Object} widget
+     * @returns {Object|null}
+     */
+    static serializeWidget(widget) {
+        if (!widget) return null;
+        if (typeof widget.serialize === 'function') {
+            const data = widget.serialize();
+            if (widget.id && !data.id) data.id = widget.id;
+            if (widget.parentWallId && !data.parentWallId) data.parentWallId = widget.parentWallId;
+            if (isFloorAnchoredDoor(widget)) data.elevation = 0;
+            return data;
+        }
+        return {
+            id: widget.id,
+            t: widget.t,
+            type: widget.type || widget.configId,
+            configId: widget.configId || widget.type,
+            width: widget.width,
+            height: widget.height,
+            depth: widget.depth,
+            elevation: isFloorAnchoredDoor(widget) ? 0 : widget.elevation,
+            thick: widget.thick,
+            facing: widget.facing,
+            side: widget.side,
+            profileType: widget.profileType,
+            fasciaMat: widget.fasciaMat,
+            topArm: widget.topArm,
+            bottomArm: widget.bottomArm,
+            sunshadeType: widget.sunshadeType,
+            pattern: widget.pattern,
+            jaliMount: widget.jaliMount,
+            doorType: widget.doorType,
+            doorShape: widget.doorShape || widget.params?.doorShape,
+            doorStyle: widget.doorStyle || widget.params?.doorStyle,
+            doorMat: widget.doorMat,
+            windowType: widget.windowType,
+            windowShape: widget.windowShape || widget.params?.windowShape,
+            frameMat: widget.frameMat,
+            glassMat: widget.glassMat,
+            grillePattern: widget.grillePattern,
+            grilleProfile: widget.grilleProfile,
+            patternStyle: widget.patternStyle,
+            rows: widget.rows,
+            cols: widget.cols,
+            spacing: widget.spacing,
+            decorConfigId: widget.decorConfigId,
+            description: widget.description,
+            anchorMode: widget.anchorMode || 'bottom',
+            parentWallId: widget.parentWallId || widget.wall?.id,
+            materials: widget.materials ? JSON.parse(JSON.stringify(widget.materials)) : undefined,
+            params: widget.params ? JSON.parse(JSON.stringify(widget.params)) : undefined
+        };
+    }
+
+    /**
+     * Authoritative widget deserializer.
+     * Restores widget on the host wall.
+     * @param {Object} planner
+     * @param {Object} wall
+     * @param {Object} widData
+     * @returns {Object|null}
+     */
+    static deserializeWidget(planner, wall, widData) {
+        if (!wall || !widData) return null;
+        const p = planner || wall.planner || (typeof window !== 'undefined' ? (window.plannerInstance || window.planner?.value || window.planner) : null);
+        const configId = widData.type || widData.configId || 'door';
+        const t = widData.t !== undefined ? widData.t : 0.5;
+
+        const isAdvancedOpening = ['arch_opening', 'circular_opening', 'custom_shape_opening', 'niche_recess', 'pattern_opening', 'boolean_cut'].includes(configId);
+        let widget = null;
+        if (isAdvancedOpening && typeof advance_openings !== 'undefined') {
+            widget = new advance_openings(p, wall, t, configId);
+        } else {
+            widget = new PremiumWidget(p, wall, t, configId);
+        }
+
+        const { wall: _w, parentWall: _pw, ...cleanData } = widData;
+        Object.assign(widget, cleanData);
+        widget.wall = wall;
+        widget.parentWall = wall;
+        widget.parentWallId = wall.id;
+
+        if (isFloorAnchoredDoor(widget)) {
+            widget.elevation = 0;
+        }
+
+        if (typeof widget.update === 'function') {
+            widget.update();
+        }
+
+        return widget;
+    }
+
+    /**
+     * Authoritative widget deleter.
+     * Removes from wall, destroys display nodes, and cleans up.
+     * @param {Object} planner
+     * @param {Object} wall
+     * @param {Object|string} widgetOrId
+     * @param {boolean} shouldSync
+     */
+    static deleteWidget(planner, wall, widgetOrId, shouldSync = true) {
+        if (!wall) return;
+        const p = planner || wall.planner || (typeof window !== 'undefined' ? (window.plannerInstance || window.planner?.value || window.planner) : null);
+        const widget = typeof widgetOrId === 'object' ? widgetOrId : (wall.attachedWidgets || []).find(w => w.id === widgetOrId);
+
+        this.removeWidget(wall, widgetOrId, false, p);
+
+        if (widget) {
+            if (typeof widget.remove === 'function') {
+                widget.remove();
+            } else if (typeof widget.destroy === 'function') {
+                widget.destroy();
+            }
+        }
+
+        if (shouldSync && p && typeof p.syncAll === 'function') {
+            p.syncAll();
+        }
     }
 
     /**

@@ -341,6 +341,22 @@ export class WallEngine {
         WallMutationEngine.batchMutateOnly(walls, updates);
     }
 
+    static createWidget(planner, wall, t, configId, options = {}) {
+        return WallMutationEngine.createWidget(planner, wall, t, configId, options);
+    }
+
+    static serializeWidget(widget) {
+        return WallMutationEngine.serializeWidget(widget);
+    }
+
+    static deserializeWidget(planner, wall, widData) {
+        return WallMutationEngine.deserializeWidget(planner, wall, widData);
+    }
+
+    static deleteWidget(planner, wall, widgetOrId, shouldSync = true) {
+        WallMutationEngine.deleteWidget(planner, wall, widgetOrId, shouldSync);
+    }
+
     static attachWidget(wall, widget, shouldSync = true, planner = null) {
         WallMutationEngine.attachWidget(wall, widget, shouldSync, planner);
     }

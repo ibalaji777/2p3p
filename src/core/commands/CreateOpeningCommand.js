@@ -2,7 +2,6 @@
  * src/core/commands/CreateOpeningCommand.js
  */
 import { Command } from './Command.js';
-import { PremiumWidget } from '../engine2d/PremiumWidget.js';
 import { WallEngine } from '../wall/WallEngine.js';
 
 export class CreateOpeningCommand extends Command {
@@ -15,42 +14,42 @@ export class CreateOpeningCommand extends Command {
         this.configId = configId;
         this.id = id;
         this.createdEntity = null;
+        this.serializedState = null;
         this.wall = null;
     }
 
     execute() {
         if (!this.wall) {
             const allEntities = this.planner.getEntities ? this.planner.getEntities() : [];
-            this.wall = allEntities.find(e => e.id === this.wallId);
+            this.wall = allEntities.find(e => e.id === this.wallId) || (this.planner.walls && this.planner.walls.find(w => w.id === this.wallId));
             if (!this.wall) throw new Error('Wall not found for opening');
         }
 
-        if (!this.createdEntity) {
-            // Determine the class based on type
-            const wallLength = this.wall.getLength();
-            const t = this.x > 1 ? this.x / wallLength : this.x; // if x > 1 assume it's distance, else it's ratio
-            this.createdEntity = new PremiumWidget(this.planner, this.wall, t, this.configId);
-            this.createdEntity.id = this.id;
-            this.createdEntity.parentWallId = this.wallId;
-            this.createdEntity.parentWall = this.wall;
-            
-            // Calculate absolute position based on wall and local x
-            // A simple approximation for the command if the engine handles attaching automatically
+        if (this.serializedState) {
+            this.createdEntity = WallEngine.deserializeWidget(this.planner, this.wall, this.serializedState);
+            WallEngine.attachWidget(this.wall, this.createdEntity, false, this.planner);
+        } else if (!this.createdEntity) {
+            const wallLength = typeof this.wall.getLength === 'function' ? this.wall.getLength() : 400;
+            const t = this.x > 1 ? this.x / wallLength : this.x;
+            const config = this.configId || this.type;
+            this.createdEntity = WallEngine.createWidget(this.planner, this.wall, t, config, {
+                id: this.id,
+                attach: true,
+                shouldSync: false
+            });
+            this.serializedState = WallEngine.serializeWidget(this.createdEntity);
+        } else {
+            WallEngine.attachWidget(this.wall, this.createdEntity, false, this.planner);
         }
-        
-        // Attach to wall via WallEngine
-        WallEngine.attachWidget(this.wall, this.createdEntity, false, this.planner);
         
         this.planner.syncAll();
     }
 
     undo() {
         if (!this.createdEntity) return;
-        this.createdEntity.remove();
-        // Remove from wall via WallEngine
-        if (this.wall) {
-            WallEngine.removeWidget(this.wall, this.createdEntity, false, this.planner);
-        }
+        this.serializedState = WallEngine.serializeWidget(this.createdEntity);
+        WallEngine.deleteWidget(this.planner, this.wall, this.createdEntity, false);
+        this.createdEntity = null;
         this.planner.syncAll();
     }
 }

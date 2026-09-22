@@ -1,9 +1,38 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, beforeAll } from 'vitest';
 import * as THREE from 'three';
 import { WallGeometryEngine } from '../WallGeometryEngine.js';
 import { WallEngine } from '../WallEngine.js';
 import { DeleteEntityCommand } from '../../commands/DeleteEntityCommand.js';
 import { DuplicateEntityCommand } from '../../commands/DuplicateEntityCommand.js';
+import { CreateOpeningCommand } from '../../commands/CreateOpeningCommand.js';
+
+beforeAll(() => {
+    if (typeof HTMLCanvasElement !== 'undefined') {
+        HTMLCanvasElement.prototype.getContext = () => ({
+            clearRect: () => {},
+            fillRect: () => {},
+            getImageData: () => ({ data: new Uint8ClampedArray(4) }),
+            putImageData: () => {},
+            createImageData: () => ({ data: new Uint8ClampedArray(4) }),
+            setTransform: () => {},
+            drawImage: () => {},
+            save: () => {},
+            fillText: () => {},
+            restore: () => {},
+            beginPath: () => {},
+            moveTo: () => {},
+            lineTo: () => {},
+            closePath: () => {},
+            stroke: () => {},
+            fill: () => {},
+            arc: () => {},
+            rect: () => {},
+            measureText: () => ({ width: 0 }),
+            transform: () => {},
+            resetTransform: () => {}
+        });
+    }
+});
 
 describe('Door & Window Centralization Remediation Suite', () => {
     let mockPlanner;
@@ -161,7 +190,7 @@ describe('Door & Window Centralization Remediation Suite', () => {
             expect(mockWall.attachedWidgets).not.toContain(door);
 
             cmd.undo();
-            expect(mockWall.attachedWidgets).toContain(door);
+            expect(mockWall.attachedWidgets.some(w => w.id === 'door_to_delete')).toBe(true);
         });
     });
 
@@ -210,6 +239,76 @@ describe('Door & Window Centralization Remediation Suite', () => {
             expect(doors.length).toBe(1);
             expect(windows).toContain(win);
             expect(windows.length).toBe(1);
+        });
+    });
+
+    describe('5. WallEngine Widget Lifecycle Authority', () => {
+        it('should create and attach widget with normalized t', () => {
+            const wid = WallEngine.createWidget(mockPlanner, mockWall, 200, 'door', {
+                id: 'wid_123',
+                width: 90,
+                height: 210,
+                elevation: 40 // Should be forced to 0 for floor-anchored door
+            });
+
+            expect(wid).toBeDefined();
+            expect(wid.id).toBe('wid_123');
+            expect(wid.t).toBeCloseTo(0.5, 2);
+            expect(wid.elevation).toBe(0);
+            expect(mockWall.attachedWidgets).toContain(wid);
+        });
+
+        it('should serialize and deserialize widget correctly', () => {
+            const wid = WallEngine.createWidget(mockPlanner, mockWall, 0.3, 'window', {
+                id: 'wid_win',
+                width: 120,
+                height: 140,
+                elevation: 90,
+                params: { frameMat: 'aluminum_black' }
+            });
+
+            const serialized = WallEngine.serializeWidget(wid);
+            expect(serialized).toBeDefined();
+            expect(serialized.id).toBe('wid_win');
+            expect(serialized.width).toBe(120);
+            expect(serialized.elevation).toBe(90);
+            expect(serialized.params.frameMat).toBe('aluminum_black');
+
+            const restored = WallEngine.deserializeWidget(mockPlanner, mockWall, serialized);
+            expect(restored).toBeDefined();
+            expect(restored.id).toBe('wid_win');
+            expect(restored.width).toBe(120);
+            expect(restored.params.frameMat).toBe('aluminum_black');
+            expect(restored.wall).toBe(mockWall);
+        });
+
+        it('should delete widget cleanly from wall', () => {
+            const wid = WallEngine.createWidget(mockPlanner, mockWall, 0.4, 'door', { id: 'wid_del' });
+            expect(mockWall.attachedWidgets).toContain(wid);
+
+            WallEngine.deleteWidget(mockPlanner, mockWall, wid, false);
+            expect(mockWall.attachedWidgets).not.toContain(wid);
+        });
+    });
+
+    describe('6. CreateOpeningCommand Execute -> Undo -> Redo Lifecycle', () => {
+        it('should create widget on execute, remove on undo, and recreate fresh instance on redo', () => {
+            const cmd = new CreateOpeningCommand(mockPlanner, 'door', 'wall_test_1', 0.5, 'door', 'cmd_door_1');
+            cmd.execute();
+
+            expect(mockWall.attachedWidgets.length).toBe(1);
+            const firstInstance = mockWall.attachedWidgets[0];
+            expect(firstInstance.id).toBe('cmd_door_1');
+            expect(firstInstance.elevation).toBe(0);
+
+            cmd.undo();
+            expect(mockWall.attachedWidgets.length).toBe(0);
+
+            cmd.execute();
+            expect(mockWall.attachedWidgets.length).toBe(1);
+            const secondInstance = mockWall.attachedWidgets[0];
+            expect(secondInstance.id).toBe('cmd_door_1');
+            expect(secondInstance.elevation).toBe(0);
         });
     });
 });

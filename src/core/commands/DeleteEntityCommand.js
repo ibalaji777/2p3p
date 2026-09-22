@@ -15,6 +15,7 @@ export class DeleteEntityCommand extends Command {
         this.deletedEntity = null;
         this.serializedStair = null;
         this.serializedRoof = null;
+        this.serializedWidget = null;
         this.hostWall = null;
         this.hostWallId = null;
     }
@@ -42,11 +43,9 @@ export class DeleteEntityCommand extends Command {
             } else if (this.deletedEntity.constructor?.name === 'PremiumHipRoof' || (this.deletedEntity.type && this.deletedEntity.type === 'roof')) {
                 this.serializedRoof = RoofEngine.serialize(this.deletedEntity);
                 RoofEngine.deleteRoof(this.planner, this.deletedEntity);
-            } else if (hostWall && (this.deletedEntity.type === 'door' || this.deletedEntity.type === 'window' || this.deletedEntity.doorType || this.deletedEntity.windowType || this.deletedEntity.type?.startsWith('door_') || this.deletedEntity.type?.startsWith('window_') || this.deletedEntity.constructor?.name === 'PremiumWidget')) {
-                if (typeof this.deletedEntity.remove === 'function') {
-                    this.deletedEntity.remove();
-                }
-                WallEngine.removeWidget(hostWall, this.deletedEntity, false, this.planner);
+            } else if (hostWall && (this.deletedEntity.type === 'door' || this.deletedEntity.type === 'window' || this.deletedEntity.doorType || this.deletedEntity.windowType || this.deletedEntity.type?.startsWith('door_') || this.deletedEntity.type?.startsWith('window_') || this.deletedEntity.constructor?.name === 'PremiumWidget' || this.deletedEntity.constructor?.name === 'advance_openings' || this.deletedEntity.type === 'sunshade' || this.deletedEntity.type === 'jali_panel')) {
+                this.serializedWidget = WallEngine.serializeWidget(this.deletedEntity);
+                WallEngine.deleteWidget(this.planner, hostWall, this.deletedEntity, false);
             } else if (typeof this.deletedEntity.remove === 'function') {
                 this.deletedEntity.remove();
             } else if (typeof this.deletedEntity.destroy === 'function') {
@@ -62,6 +61,17 @@ export class DeleteEntityCommand extends Command {
         if (this.deletedEntity) {
             if (this.deletedEntity.type === 'outer' || this.deletedEntity.type === 'inner' || this.deletedEntity.type === 'compound') {
                 this.planner.walls.push(this.deletedEntity);
+            } else if (this.serializedWidget && (this.hostWall || this.hostWallId)) {
+                const wall = this.hostWall || (this.planner?.walls && this.planner.walls.find(w => w.id === this.hostWallId));
+                if (wall) {
+                    const restored = WallEngine.deserializeWidget(this.planner, wall, this.serializedWidget);
+                    if (restored) {
+                        WallEngine.attachWidget(wall, restored, false, this.planner);
+                        this.deletedEntity = restored;
+                    } else {
+                        WallEngine.attachWidget(wall, this.deletedEntity, false, this.planner);
+                    }
+                }
             } else if (this.hostWall || this.hostWallId) {
                 const wall = this.hostWall || (this.planner?.walls && this.planner.walls.find(w => w.id === this.hostWallId));
                 if (wall) {

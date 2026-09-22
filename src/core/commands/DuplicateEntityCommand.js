@@ -1,7 +1,6 @@
 import { Command } from './Command.js';
 import { ValidationLayer } from '../api/ValidationLayer.js';
 import { PremiumFurniture } from '../../features/furniture/furniture.renderer2d.js';
-import { PremiumWidget } from '../engine2d/PremiumWidget.js';
 import { StairEngine } from '../stairs/StairEngine.js';
 import { WallEngine } from '../wall/WallEngine.js';
 import { RoofEngine } from '../roof/RoofEngine.js';
@@ -16,9 +15,17 @@ export class DuplicateEntityCommand extends Command {
         this.hostWall = null;
         this.serializedRoof = null;
         this.serializedStair = null;
+        this.serializedWidget = null;
     }
 
     execute() {
+        if (this.serializedWidget && this.hostWall) {
+            this.createdEntity = WallEngine.deserializeWidget(this.planner, this.hostWall, this.serializedWidget);
+            WallEngine.attachWidget(this.hostWall, this.createdEntity, false, this.planner);
+            this.planner.syncAll();
+            return;
+        }
+
         if (this.serializedStair) {
             const restored = StairEngine.deserialize(this.planner, this.serializedStair);
             if (restored) {
@@ -80,43 +87,46 @@ export class DuplicateEntityCommand extends Command {
                 this.serializedRoof = RoofEngine.serialize(this.createdEntity);
                 this.planner.syncAll();
                 return;
-            } else if (hostWall && (sourceEntity.type === 'door' || sourceEntity.type === 'window' || sourceEntity.doorType || sourceEntity.windowType || sourceEntity.type?.startsWith('door_') || sourceEntity.type?.startsWith('window_') || sourceEntity.constructor?.name === 'PremiumWidget' || sourceEntity.type === 'jali_panel' || sourceEntity.type === 'sunshade')) {
+            } else if (hostWall && (sourceEntity.type === 'door' || sourceEntity.type === 'window' || sourceEntity.doorType || sourceEntity.windowType || sourceEntity.type?.startsWith('door_') || sourceEntity.type?.startsWith('window_') || sourceEntity.constructor?.name === 'PremiumWidget' || sourceEntity.constructor?.name === 'advance_openings' || sourceEntity.type === 'jali_panel' || sourceEntity.type === 'sunshade')) {
                 this.hostWall = hostWall;
                 const baseT = sourceEntity.t !== undefined ? sourceEntity.t : 0.5;
                 const newT = Math.min(0.9, Math.max(0.1, baseT + 0.15));
                 const newId = this.id || ('w_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5));
 
-                const { wall: _w, parentWall: _pw, mesh3D: _m, group: _g, poly: _p, ...clonedProps } = sourceEntity;
-                const safeClone = {
-                    ...clonedProps,
+                const configId = sourceEntity.configId || sourceEntity.type || 'door';
+                const options = {
                     id: newId,
-                    t: newT,
-                    wall: hostWall,
-                    parentWall: hostWall,
-                    parentWallId: hostWall.id,
+                    width: sourceEntity.width,
+                    height: sourceEntity.height,
+                    depth: sourceEntity.depth,
+                    elevation: sourceEntity.elevation,
+                    facing: sourceEntity.facing !== undefined ? sourceEntity.facing : 1,
+                    side: sourceEntity.side,
+                    flip: sourceEntity.flip || false,
+                    doorType: sourceEntity.doorType,
+                    doorShape: sourceEntity.doorShape || sourceEntity.params?.doorShape,
+                    doorStyle: sourceEntity.doorStyle || sourceEntity.params?.doorStyle,
+                    windowType: sourceEntity.windowType,
+                    windowShape: sourceEntity.windowShape || sourceEntity.params?.windowShape,
                     params: sourceEntity.params ? JSON.parse(JSON.stringify(sourceEntity.params)) : {},
-                    materials: sourceEntity.materials ? JSON.parse(JSON.stringify(sourceEntity.materials)) : {}
+                    materials: sourceEntity.materials ? JSON.parse(JSON.stringify(sourceEntity.materials)) : {},
+                    attach: false
                 };
 
-                if (sourceEntity.constructor?.name === 'PremiumWidget' && this.planner?.wallLayer && typeof window !== 'undefined' && typeof document !== 'undefined') {
-                    try {
-                        this.createdEntity = new PremiumWidget(this.planner, hostWall, newT, sourceEntity.configId || sourceEntity.type);
-                        this.createdEntity.id = newId;
-                        this.createdEntity.parentWallId = hostWall.id;
-                        this.createdEntity.parentWall = hostWall;
-                        this.createdEntity.width = sourceEntity.width;
-                        this.createdEntity.height = sourceEntity.height;
-                        this.createdEntity.elevation = sourceEntity.elevation;
-                        this.createdEntity.facing = sourceEntity.facing !== undefined ? sourceEntity.facing : 1;
-                        this.createdEntity.flip = sourceEntity.flip || false;
-                        if (sourceEntity.params) this.createdEntity.params = JSON.parse(JSON.stringify(sourceEntity.params));
-                        if (sourceEntity.materials) this.createdEntity.materials = JSON.parse(JSON.stringify(sourceEntity.materials));
-                    } catch (e) {
-                        this.createdEntity = safeClone;
-                    }
-                } else {
-                    this.createdEntity = safeClone;
+                try {
+                    this.createdEntity = WallEngine.createWidget(this.planner, hostWall, newT, configId, options);
+                } catch (e) {
+                    const { wall: _w, parentWall: _pw, mesh3D: _m, group: _g, poly: _p, ...clonedProps } = sourceEntity;
+                    this.createdEntity = {
+                        ...clonedProps,
+                        ...options,
+                        t: newT,
+                        wall: hostWall,
+                        parentWall: hostWall,
+                        parentWallId: hostWall.id
+                    };
                 }
+                this.serializedWidget = WallEngine.serializeWidget(this.createdEntity);
             } else {
                 throw new Error('Duplication currently only supports PremiumFurniture, Staircases, Roofs, and Attached Wall Openings/Widgets via AutomationAPI');
             }
@@ -137,10 +147,9 @@ export class DuplicateEntityCommand extends Command {
     undo() {
         if (!this.createdEntity) return;
         if (this.hostWall) {
-            WallEngine.removeWidget(this.hostWall, this.createdEntity, false, this.planner);
-            if (typeof this.createdEntity.remove === 'function') {
-                this.createdEntity.remove();
-            }
+            this.serializedWidget = WallEngine.serializeWidget(this.createdEntity);
+            WallEngine.deleteWidget(this.planner, this.hostWall, this.createdEntity, false);
+            this.createdEntity = null;
         } else if (this.createdEntity.constructor?.name === 'PremiumStaircase' || (this.createdEntity.type && (this.createdEntity.type.startsWith('stair_') || this.createdEntity.type === 'stair'))) {
             this.serializedStair = StairEngine.serialize(this.createdEntity);
             StairEngine.deleteStair(this.planner, this.createdEntity);

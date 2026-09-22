@@ -38,7 +38,7 @@ export class advance_openings {
             globalCompositeOperation: 'destination-out',
             listening: false
         });
-        if (this.type !== 'solid_protrusion') {
+        if (this.type !== 'solid_protrusion' && this.planner?.wallLayer?.add) {
             this.planner.wallLayer.add(this.cutter);
         }
         
@@ -47,7 +47,9 @@ export class advance_openings {
         
         this.group.add(this.hitBox);
         this.group.add(this.shapeGroup);
-        this.planner.widgetLayer.add(this.group);
+        if (this.planner?.widgetLayer?.add) {
+            this.planner.widgetLayer.add(this.group);
+        }
         
         this.initEvents();
         this.update();
@@ -291,16 +293,18 @@ export class advance_openings {
     }
 
     remove() {
-        window.removeEventListener('keydown', this.handleKeyDown);
+        if (typeof window !== 'undefined' && this.handleKeyDown) {
+            window.removeEventListener('keydown', this.handleKeyDown);
+        }
         if (this.cutter && typeof this.cutter.destroy === 'function') this.cutter.destroy();
         if (this.group && typeof this.group.destroy === 'function') this.group.destroy();
         if (this.wall) {
             WallEngine.removeWidget(this.wall, this, false, this.planner);
         }
-        if (this.planner && this.planner.selectedEntity === this) {
+        if (this.planner && this.planner.selectedEntity === this && typeof this.planner.selectEntity === 'function') {
             this.planner.selectEntity(null);
         }
-        if (this.planner && this.planner.syncAll) {
+        if (this.planner && typeof this.planner.syncAll === 'function') {
             this.planner.syncAll();
         }
     }
