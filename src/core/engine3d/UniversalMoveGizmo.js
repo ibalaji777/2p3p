@@ -15,6 +15,7 @@ import * as THREE from 'three';
 import { ObjectCapabilityEvaluator } from './tools/ObjectCapabilityEvaluator.js';
 import { WallEngine, isFloorAnchoredDoor } from '../wall/WallEngine.js';
 import { StairHeightDetector } from '../../features/stairs/StairHeightDetector.js';
+import { globalSpatialDependencyEngine } from '../spatial/SpatialDependencyEngine.js';
 
 export class UniversalMoveGizmo extends THREE.Group {
     /**
@@ -692,6 +693,10 @@ export class UniversalMoveGizmo extends THREE.Group {
                 this.ctx.realtimeUpdate.markDirty(ent, 'transform');
             }
 
+            if (planner) {
+                globalSpatialDependencyEngine.onHostTransformed(ent, planner);
+            }
+
             // Always lock gizmo position strictly to the object's bottom center
             const bbox = new THREE.Box3().setFromObject(this.attachedObject);
             const center = new THREE.Vector3();
@@ -782,7 +787,7 @@ export class UniversalMoveGizmo extends THREE.Group {
         }
 
         const id = ent.id || (ent.group && typeof ent.group.id === 'function' ? ent.group.id() : null);
-        const plannerInst = window.planner?.value || window.planner || window.plannerInstance;
+        const plannerInst = window.planner?.value || window.planner || window.plannerInstance || this.ctx.planner;
 
         if (plannerInst) {
             if (typeof plannerInst.move === 'function' && id) {
@@ -790,6 +795,7 @@ export class UniversalMoveGizmo extends THREE.Group {
             } else if (typeof plannerInst.setEntityPosition === 'function' && id) {
                 plannerInst.setEntityPosition(id, ent.x, ent.y, ent.elevation);
             }
+            globalSpatialDependencyEngine.onHostTransformed(ent, plannerInst);
         }
     }
 

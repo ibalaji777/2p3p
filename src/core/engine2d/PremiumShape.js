@@ -1,5 +1,6 @@
 import Konva from 'konva';
 import { SNAP_DIST } from '../registry.js';
+import { globalSpatialDependencyEngine, RELATIONSHIP_TYPES } from '../spatial/SpatialDependencyEngine.js';
 
 export class PremiumShape {
     constructor(planner, type, params) {
@@ -14,6 +15,14 @@ export class PremiumShape {
         if (!this.params.fill) this.params.fill = '#f0f4f8';
         if (!this.params.stroke) this.params.stroke = '#9ca3af';
         if (this.params.height3D === undefined) this.params.height3D = 100;
+
+        this.id = this.params.id || ('shape_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5));
+        this.elevation = Number(this.params.elevation) || 0;
+        this.parentWallId = this.params.parentWallId || null;
+        this.hostId = this.params.hostId || this.params.parentWallId || null;
+        this.hostType = this.params.hostType || (this.parentWallId ? 'wall' : null);
+        this.relationshipType = this.params.relationshipType || (this.parentWallId ? RELATIONSHIP_TYPES.SURFACE_ATTACHED : null);
+        this.localTransform = this.params.localTransform || null;
         
         // Ensure newly drawn polygons have their group centered and points relative
         // This prevents wild erratic movement when dragging a freshly drawn prism
@@ -28,6 +37,7 @@ export class PremiumShape {
         }
 
         this.group = new Konva.Group({
+            id: this.id,
             x: this.params.x || 0,
             y: this.params.y || 0,
             rotation: this.rotation,
@@ -185,8 +195,8 @@ export class PremiumShape {
 
             if (targetWall) {
                 let outNorm = { ...this.planner.getOutwardNormal(targetWall) };
-                const wallP1 = targetWall.startAnchor.position();
-                const wallP2 = targetWall.endAnchor.position();
+                const wallP1 = typeof targetWall.startAnchor?.position === 'function' ? targetWall.startAnchor.position() : (targetWall.startAnchor || { x: targetWall.startX || 0, y: targetWall.startY || 0 });
+                const wallP2 = typeof targetWall.endAnchor?.position === 'function' ? targetWall.endAnchor.position() : (targetWall.endAnchor || { x: targetWall.endX || 0, y: targetWall.endY || 0 });
                 const proj = this.planner.getClosestPointOnSegment(center, wallP1, wallP2);
                 const toCenterX = center.x - proj.x; const toCenterY = center.y - proj.y;
                 if (toCenterX * outNorm.x + toCenterY * outNorm.y < 0) { outNorm.x *= -1; outNorm.y *= -1; }
@@ -230,6 +240,24 @@ export class PremiumShape {
         this.group.on('dragend', (e) => {
             this.isDragging = false;
 
+            if (this.attachedWall) {
+                this.parentWallId = this.attachedWall.id;
+                this.hostId = this.attachedWall.id;
+                this.hostType = 'wall';
+                this.relationshipType = RELATIONSHIP_TYPES.SURFACE_ATTACHED;
+                globalSpatialDependencyEngine.attach(this, this.attachedWall, {
+                    relationshipType: RELATIONSHIP_TYPES.SURFACE_ATTACHED,
+                    computeFromCurrentWorld: true
+                });
+            } else if (this.parentWallId || this.hostId) {
+                globalSpatialDependencyEngine.detach(this);
+                this.parentWallId = null;
+                this.hostId = null;
+                this.hostType = null;
+                this.relationshipType = null;
+                this.localTransform = null;
+            }
+
             if (this.planner.shapeTransformer && this.planner.selectedEntity === this) {
                 this.planner.shapeTransformer.visible(true);
             }
@@ -244,6 +272,7 @@ export class PremiumShape {
             }
             this.update();
             this.planner.mainLayer.batchDraw();
+            if (this.planner.debouncedSaveHistory) this.planner.debouncedSaveHistory();
         });
 
         this.rotHandle.on('mousedown touchstart', (e) => { e.cancelBubble = true; });
@@ -308,6 +337,37 @@ export class PremiumShape {
             this.rebuildHandles();
         }
     }
+    get x() {
+        return this.group && typeof this.group.x === 'function' ? this.group.x() : (this.params.x || 0);
+    }
+    set x(val) {
+        this.params.x = val;
+        if (this.group && typeof this.group.x === 'function') this.group.x(val);
+    }
+    get y() {
+        return this.group && typeof this.group.y === 'function' ? this.group.y() : (this.params.y || 0);
+    }
+    set y(val) {
+        this.params.y = val;
+        if (this.group && typeof this.group.y === 'function') this.group.y(val);
+    }
+
+    update2D() {
+        this.update();
+    }
+
+    update3D() {
+        if (this.mesh3D) {
+            const curX = this.group && typeof this.group.x === 'function' ? this.group.x() : (this.x || 0);
+            const curY = this.group && typeof this.group.y === 'function' ? this.group.y() : (this.y || 0);
+            this.mesh3D.position.set(curX, Number(this.elevation) || 0, curY);
+            this.mesh3D.rotation.y = (-(Number(this.rotation) || 0) * Math.PI) / 180;
+            if (typeof this.mesh3D.updateMatrixWorld === 'function') {
+                this.mesh3D.updateMatrixWorld(true);
+            }
+        }
+    }
+
     setHighlight(isActive) { this.shape.strokeWidth(isActive ? 2 : 0); this.shape.stroke(isActive ? '#3b82f6' : this.params.stroke); if (this.handlesGroup) this.handlesGroup.visible(isActive); if (this.rotHandle) this.rotHandle.visible(isActive); this.planner.stage.batchDraw(); }
     update() {
         if (this.type === 'shape_rect' || (this.type === 'shape_floor_cut' && !this.params.points)) {
@@ -329,7 +389,8 @@ export class PremiumShape {
         // Calculate and position the glowing edge seal dynamically
         if (this.attachedWall) {
             const w = this.attachedWall;
-            const wallP1 = w.startAnchor.position(), wallP2 = w.endAnchor.position();
+            const wallP1 = typeof w.startAnchor?.position === 'function' ? w.startAnchor.position() : (w.startAnchor || { x: w.startX || 0, y: w.startY || 0 });
+            const wallP2 = typeof w.endAnchor?.position === 'function' ? w.endAnchor.position() : (w.endAnchor || { x: w.endX || 0, y: w.endY || 0 });
             const center = this.group.position();
             const proj = this.planner.getClosestPointOnSegment(center, wallP1, wallP2);
             

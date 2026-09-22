@@ -1941,7 +1941,11 @@ export class RoomInteractiveSuite extends THREE.Group {
         targetRooms.forEach(r => {
             if (!r.path || r.path.length < 3) return;
             const rId = r.id || r._id || ('room_' + Math.round(r.cx ?? 0) + '_' + Math.round(r.cy ?? 0));
-            let platform = planner.platforms.find(p => p.isBuildingFoundation && p.associatedRoomId === rId);
+            r.id = rId;
+            let platform = planner.platforms.find(p => p.isBuildingFoundation && (p.associatedRoomId === rId || (r.id && p.associatedRoomId === r.id) || (r._id && p.associatedRoomId === r._id)));
+            if (!platform && planner.platforms.filter(p => p.isBuildingFoundation).length === 1 && targetRooms.length === 1) {
+                platform = planner.platforms.find(p => p.isBuildingFoundation);
+            }
 
             // Clean polygon points to remove consecutive duplicates or duplicate closing vertex
             const raw = r.path || [];
@@ -2058,14 +2062,22 @@ export class RoomInteractiveSuite extends THREE.Group {
         const r = this.room;
         if (!r.path || r.path.length < 3) return;
         const rId = r.id || r._id || ('room_' + Math.round(r.cx ?? 0) + '_' + Math.round(r.cy ?? 0));
+        r.id = rId;
         const builder = this._getPlatformBuilder();
         const targetGroup = this.ctx.structureGroup || this.ctx.scene;
         const roomElev = Number(r.elevation) || 0;
 
-        let platform = planner.platforms.find(p => p.isRoomInteriorPlatform && p.associatedRoomId === rId);
+        let platform = planner.platforms.find(p => p.isRoomInteriorPlatform && (p.associatedRoomId === rId || (r.id && p.associatedRoomId === r.id) || (r._id && p.associatedRoomId === r._id)));
+        if (!platform && planner.platforms.filter(p => p.isRoomInteriorPlatform).length === 1 && (!planner.rooms || planner.rooms.length <= 1)) {
+            platform = planner.platforms.find(p => p.isRoomInteriorPlatform);
+        }
 
         if (pltH === 0) {
-            if (platform) {
+            // Only destroy if room explicitly stepped down to 0, not if platformHeight was undefined
+            if (this.room && this.room.platformHeight === undefined && platform && platform.height) {
+                pltH = platform.height;
+                this.room.platformHeight = platform.height;
+            } else if (platform) {
                 const idx = planner.platforms.indexOf(platform);
                 if (idx !== -1) planner.platforms.splice(idx, 1);
                 if (platform.mesh3D) {
@@ -2082,9 +2094,12 @@ export class RoomInteractiveSuite extends THREE.Group {
                 if (typeof platform.destroy === 'function') {
                     try { platform.destroy(); } catch (err) {}
                 }
+                if (this.ctx.requestRender) this.ctx.requestRender('interior_platforms_synced');
+                return;
+            } else {
+                if (this.ctx.requestRender) this.ctx.requestRender('interior_platforms_synced');
+                return;
             }
-            if (this.ctx.requestRender) this.ctx.requestRender('interior_platforms_synced');
-            return;
         }
 
         let cx = 0, cy = 0;
@@ -2131,6 +2146,32 @@ export class RoomInteractiveSuite extends THREE.Group {
 
         if (this.ctx.requestRender) {
             this.ctx.requestRender('interior_platforms_synced');
+        }
+    }
+
+    /**
+     * Synchronizes 3D representation for all room-associated platforms (interior and foundation).
+     */
+    syncAllRoomPlatforms() {
+        const planner = this.planner;
+        if (!planner || !planner.platforms || planner.platforms.length === 0) return;
+        const builder = this._getPlatformBuilder();
+        const targetGroup = this.ctx.structureGroup || this.ctx.scene;
+        if (!builder) return;
+
+        planner.platforms.forEach(platform => {
+            if (!platform || platform.isDeleted) return;
+            if (platform.isRoomInteriorPlatform || platform.isBuildingFoundation || platform.associatedRoomId) {
+                try {
+                    builder.buildPlatform(platform, targetGroup);
+                } catch (err) {
+                    console.warn('[RoomInteractiveSuite] Could not build platform 3D:', err);
+                }
+            }
+        });
+
+        if (this.ctx.requestRender) {
+            this.ctx.requestRender('all_room_platforms_synced');
         }
     }
 

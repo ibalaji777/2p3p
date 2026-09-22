@@ -37,8 +37,20 @@ export class WallTopologyEngine {
             id,
             addToPlanner = true
         } = options;
+        let sAnchor = startAnchor;
+        let eAnchor = endAnchor;
+        if (!sAnchor && options.startX !== undefined && options.startY !== undefined) {
+            sAnchor = planner?.getOrCreateAnchor ? planner.getOrCreateAnchor(options.startX, options.startY) : { x: options.startX, y: options.startY };
+        }
+        if (!eAnchor && options.endX !== undefined && options.endY !== undefined) {
+            eAnchor = planner?.getOrCreateAnchor ? planner.getOrCreateAnchor(options.endX, options.endY) : { x: options.endX, y: options.endY };
+        }
 
-        const wall = new PremiumWall(planner, startAnchor, endAnchor, type);
+        const wall = new PremiumWall(planner, sAnchor, eAnchor, type);
+        if (options.startX !== undefined) wall.startX = options.startX;
+        if (options.startY !== undefined) wall.startY = options.startY;
+        if (options.endX !== undefined) wall.endX = options.endX;
+        if (options.endY !== undefined) wall.endY = options.endY;
         if (id) wall.id = id;
         if (configId) {
             wall.configId = configId;

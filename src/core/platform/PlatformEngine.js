@@ -14,6 +14,7 @@
  */
 import { PremiumPlatform, PLATFORM_TRIM_STYLES } from '../engine2d/PremiumPlatform.js';
 import { VerticalPropagationEngine } from '../vertical/VerticalPropagationEngine.js';
+import { globalSpatialDependencyEngine, RELATIONSHIP_TYPES } from '../spatial/SpatialDependencyEngine.js';
 
 export class PlatformEngine {
     /**
@@ -186,6 +187,8 @@ export class PlatformEngine {
             planner.platforms = planner.platforms.filter(p => p !== platform && p.id !== platform.id);
         }
 
+        globalSpatialDependencyEngine.onHostDeleted(platform, planner);
+
         if (typeof platform.destroy === 'function') {
             platform.destroy();
         }
@@ -218,7 +221,7 @@ export class PlatformEngine {
     }
 
     /**
-     * Update 2D/3D geometry of a platform.
+     * Update 2D geometry of a platform.
      * @param {Object} platform
      */
     static update2D(platform) {
@@ -227,6 +230,43 @@ export class PlatformEngine {
             platform.update2D();
         } else if (typeof platform.update === 'function') {
             platform.update();
+        }
+    }
+
+    /**
+     * Updates 3D geometry and transform for a platform in place.
+     * @param {Object} platform
+     * @param {Object} [renderer3D]
+     */
+    static update3D(platform, renderer3D) {
+        if (!platform) return;
+        if (typeof platform.update3D === 'function') {
+            platform.update3D();
+            return;
+        }
+        const r3D = renderer3D || platform.planner?.renderer3D;
+        const builder = r3D?.builder?.platformBuilder || r3D?.platformBuilder || r3D?.envBuilder?.platformBuilder;
+        if (builder) {
+            if (typeof builder.updatePlatformGeometry === 'function') {
+                builder.updatePlatformGeometry(platform);
+            }
+            if (typeof builder.updatePlatformTransform === 'function') {
+                builder.updatePlatformTransform(platform);
+            }
+        }
+    }
+
+    /**
+     * Synchronizes both 2D and 3D representations for a platform in place.
+     * @param {Object} platform
+     * @param {Object} [options]
+     */
+    static sync(platform, options = {}) {
+        if (!platform) return;
+        PlatformEngine.update2D(platform);
+        PlatformEngine.update3D(platform, options.renderer3D);
+        if (options.syncAll !== false && platform.planner && typeof platform.planner.syncAll === 'function') {
+            platform.planner.syncAll();
         }
     }
 
@@ -240,8 +280,13 @@ export class PlatformEngine {
         if (typeof platform.setHeight === 'function') {
             return platform.setHeight(height);
         }
+        const oldH = platform.height;
         platform.height = Number(height);
-        PlatformEngine.update2D(platform);
+        PlatformEngine.sync(platform);
+        if (platform.planner) {
+            VerticalPropagationEngine.onPlatformHeightChanged(platform, platform.height, oldH, platform.planner);
+            globalSpatialDependencyEngine.onHostTransformed(platform, platform.planner);
+        }
         return platform.height;
     }
 
@@ -255,8 +300,16 @@ export class PlatformEngine {
         if (typeof platform.setElevation === 'function') {
             return platform.setElevation(elevation);
         }
+        const oldElev = platform.elevation;
         platform.elevation = Number(elevation);
-        PlatformEngine.update2D(platform);
+        PlatformEngine.sync(platform);
+        if (platform.planner) {
+            const deltaElev = platform.elevation - oldElev;
+            if (Math.abs(deltaElev) > 0.001) {
+                VerticalPropagationEngine.onPlatformHeightChanged(platform, platform.height, platform.height - deltaElev, platform.planner);
+                globalSpatialDependencyEngine.onHostTransformed(platform, platform.planner);
+            }
+        }
     }
 
     /**
@@ -278,7 +331,27 @@ export class PlatformEngine {
         } else {
             if (w !== undefined) platform.width = Math.max(10, Number(w));
             if (d !== undefined) platform.depth = Math.max(10, Number(d));
-            PlatformEngine.update2D(platform);
+            PlatformEngine.sync(platform);
+        }
+    }
+
+    /**
+     * Set rotation angle.
+     * @param {Object} platform
+     * @param {number} angle
+     */
+    static setRotation(platform, angle) {
+        if (!platform) return;
+        if (typeof platform.setRotation === 'function') {
+            platform.setRotation(angle);
+        } else {
+            platform.rotation = Number(angle) || 0;
+            if (platform.group && typeof platform.group.rotation === 'function') {
+                platform.group.rotation(platform.rotation);
+            }
+            if (typeof platform._sync3DTransform === 'function') {
+                platform._sync3DTransform();
+            }
         }
     }
 
@@ -293,6 +366,7 @@ export class PlatformEngine {
             platform.setTrimStyle(style);
         } else {
             platform.trimStyle = style;
+            PlatformEngine.sync(platform);
         }
     }
 
@@ -309,7 +383,67 @@ export class PlatformEngine {
         } else {
             if (!platform.materials) platform.materials = {};
             platform.materials[slot] = { id: matId };
+            PlatformEngine.sync(platform);
         }
+    }
+
+    /**
+     * Conforms a platform's boundary to match the path of an enclosing room.
+     * Converts rectangular platforms to polygonal boundary matching room walls.
+     * @param {Object} platform
+     * @param {Object} room
+     * @returns {boolean}
+     */
+    static fitToRoom(platform, room) {
+        if (!platform || !room || !room.path || room.path.length < 3) return false;
+
+        const cleanPts = [];
+        for (let i = 0; i < room.path.length; i++) {
+            const pt = room.path[i];
+            if (!pt || typeof pt.x !== 'number' || typeof pt.y !== 'number') continue;
+            if (cleanPts.length > 0) {
+                const prev = cleanPts[cleanPts.length - 1];
+                if (Math.hypot(pt.x - prev.x, pt.y - prev.y) < 1e-4) continue;
+            }
+            cleanPts.push({ x: pt.x, y: pt.y });
+        }
+        if (cleanPts.length > 2 && Math.hypot(cleanPts[0].x - cleanPts[cleanPts.length - 1].x, cleanPts[0].y - cleanPts[cleanPts.length - 1].y) < 1e-4) {
+            cleanPts.pop();
+        }
+        if (cleanPts.length < 3) return false;
+
+        let cx = 0, cy = 0;
+        cleanPts.forEach(pt => { cx += pt.x; cy += pt.y; });
+        cx /= cleanPts.length;
+        cy /= cleanPts.length;
+
+        platform.x = cx;
+        platform.y = cy;
+        platform.shapeType = 'polygon';
+        platform.points = cleanPts.map(pt => ({ x: pt.x - cx, y: pt.y - cy }));
+        platform.associatedRoomId = room.id || room._id;
+        platform.relationshipType = 'bounded';
+
+        if (platform.group) {
+            if (typeof platform.group.position === 'function') {
+                platform.group.position({ x: cx, y: cy });
+            }
+            if (typeof platform.group.rotation === 'function') {
+                platform.group.rotation(0);
+            }
+        }
+        platform.rotation = 0;
+
+        PlatformEngine.sync(platform);
+
+        if (platform.planner) {
+            globalSpatialDependencyEngine.attach(platform, room, {
+                relationshipType: RELATIONSHIP_TYPES.BOUNDED,
+                computeFromCurrentWorld: false
+            });
+            if (platform.planner.debouncedSaveHistory) platform.planner.debouncedSaveHistory();
+        }
+        return true;
     }
 
     /**

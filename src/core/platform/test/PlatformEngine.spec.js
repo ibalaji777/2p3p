@@ -365,5 +365,45 @@ describe('PlatformEngine - Canonical Domain Architecture', () => {
             platform.remove();
             expect(mockPlanner.platforms).not.toContain(platform);
         });
+
+        it('should conform a rectangular platform to room boundaries via fitToRoom', () => {
+            const platform = PlatformEngine.createPlatform(mockPlanner, {
+                x: 100, y: 100, width: 200, depth: 200, shapeType: 'rect'
+            });
+
+            const room = {
+                id: 'room_101',
+                path: [
+                    { x: 0, y: 0 },
+                    { x: 300, y: 0 },
+                    { x: 350, y: 250 },
+                    { x: 50, y: 250 }
+                ]
+            };
+
+            const result = PlatformEngine.fitToRoom(platform, room);
+            expect(result).toBe(true);
+            expect(platform.shapeType).toBe('polygon');
+            expect(platform.associatedRoomId).toBe('room_101');
+            expect(platform.relationshipType).toBe('bounded');
+            expect(platform.points).toHaveLength(4);
+            expect(platform.x).toBeCloseTo(175);
+            expect(platform.y).toBeCloseTo(125);
+        });
+
+        it('should sync platform 2D and 3D representations cleanly via PlatformEngine.sync', () => {
+            let sync3DGeoCalled = false;
+            let sync3DTransCalled = false;
+            const platform = PlatformEngine.createPlatform(mockPlanner, {
+                x: 100, y: 100, width: 150, depth: 150
+            });
+            platform._sync3DGeometry = () => { sync3DGeoCalled = true; };
+            platform._sync3DTransform = () => { sync3DTransCalled = true; };
+
+            PlatformEngine.sync(platform);
+            expect(sync3DGeoCalled).toBe(true);
+            expect(sync3DTransCalled).toBe(true);
+        });
     });
 });
+

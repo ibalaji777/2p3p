@@ -84,6 +84,11 @@ export class PremiumFurniture {
         });
         this.group.on('dragmove', (e) => { 
             if (e.target === this.rotHandle) return; 
+            this.x = this.group.x();
+            this.y = this.group.y();
+            if (this.mesh3D) {
+                this.mesh3D.position.set(this.x, Number(this.elevation) || 0, this.y);
+            }
             if (this.planner && this.planner.syncAll) this.planner.syncAll(); 
             coreEventBus.emit('EntityTransformUpdated2D', { id: this.id, x: this.group.x(), y: this.group.y(), rotation: this.rotation });
         });
@@ -150,6 +155,18 @@ export class PremiumFurniture {
 
     update2D() {
         this.update();
+    }
+
+    update3D() {
+        if (this.mesh3D) {
+            const curX = this.group && typeof this.group.x === 'function' ? this.group.x() : (this.x || 0);
+            const curY = this.group && typeof this.group.y === 'function' ? this.group.y() : (this.y || 0);
+            this.mesh3D.position.set(curX, Number(this.elevation) || 0, curY);
+            this.mesh3D.rotation.y = (-(Number(this.rotation) || 0) * Math.PI) / 180;
+            if (typeof this.mesh3D.updateMatrixWorld === 'function') {
+                this.mesh3D.updateMatrixWorld(true);
+            }
+        }
     }
 
     remove() { 

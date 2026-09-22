@@ -11,6 +11,7 @@ import { ObjectCapabilityEvaluator } from './ObjectCapabilityEvaluator.js';
 import { coreEventBus } from '../../EventBus.js';
 import { usePlannerStore } from '../../../stores/usePlannerStore.js';
 import { RoofEngine } from '../../roof/RoofEngine.js';
+import { globalSpatialDependencyEngine } from '../../spatial/SpatialDependencyEngine.js';
 
 /**
  * Helper to compute local geometric center of any 3D object/group in its own local coordinate space.
@@ -282,6 +283,11 @@ export class CommonTransformEngine {
                 const store = usePlannerStore();
                 store.updateEntityTransform(entId, entity.x, entity.y, entity.rotation, entity.elevation);
             } catch (e) {}
+        }
+
+        const planner = this.ctx?.planner || (typeof window !== 'undefined' ? (window.plannerInstance || window.planner?.value || window.planner) : null);
+        if (planner) {
+            globalSpatialDependencyEngine.onHostTransformed(entity, planner);
         }
 
         if (window.plannerInstance && window.plannerInstance.syncAll) {

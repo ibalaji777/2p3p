@@ -39,6 +39,8 @@ import { StairEngine } from '../stairs/StairEngine.js';
 import { PremiumMolding } from './PremiumMolding.js';
 import { PremiumPlatform } from './PremiumPlatform.js';
 import { PlatformEngine } from '../platform/PlatformEngine.js';
+import { globalSpatialDependencyEngine, RELATIONSHIP_TYPES } from '../spatial/SpatialDependencyEngine.js';
+import { SpatialHostResolver } from '../spatial/SpatialHostResolver.js';
 import { PRESET_REGISTRY, autoAlign } from './presetRegistry.js';
 import { PresetGroup } from './PresetGroup.js';
 import { computeCorridorPolygon } from './corridorUtils.js';
@@ -293,13 +295,57 @@ export class FloorPlanner {
     _applyMove(entityId, x, y) {
         const entity = this.getEntities().find(e => e.id === entityId || (e.group && typeof e.group.id === 'function' && e.group.id() === entityId));
         if (!entity) return;
+
+        entity.x = x;
+        entity.y = y;
         if (entity.group && typeof entity.group.position === 'function') {
             entity.group.position({ x, y });
-        } else {
-            entity.x = x;
-            entity.y = y;
         }
+
+        // Host resolution for movable entities (furniture, shapes)
+        const isMovableChild = entity.type === 'furniture' || entity.type === 'shape' || (typeof entity.type === 'string' && entity.type.startsWith('shape_'));
+        if (isMovableChild) {
+            const hostRes = SpatialHostResolver.findHostAt(this, x, y, entity.type, {
+                rotation: entity.rotation,
+                elevation: entity.elevation,
+                ignoreEntity: entity
+            });
+
+            if (hostRes && hostRes.host) {
+                if (hostRes.hostType === 'platform') {
+                    entity.elevation = hostRes.surfaceElevation;
+                    entity.hostPlatformId = hostRes.hostId;
+                } else if (hostRes.hostType === 'wall') {
+                    entity.parentWallId = hostRes.hostId;
+                }
+                globalSpatialDependencyEngine.attach(entity, hostRes.host, {
+                    relationshipType: hostRes.relationshipType,
+                    localTransform: hostRes.localTransform
+                });
+            } else if (entity.hostPlatformId || entity.hostId || entity.parentWallId) {
+                globalSpatialDependencyEngine.detach(entity);
+                if (entity.type === 'furniture') {
+                    entity.elevation = 0;
+                    entity.hostPlatformId = null;
+                }
+                if (entity.parentWallId) entity.parentWallId = null;
+            }
+        }
+
+        // Notify dependents if this entity is a host (e.g. platform, furniture table)
+        if (entity.type === 'platform' || globalSpatialDependencyEngine.getDependents(entity.id).length > 0) {
+            globalSpatialDependencyEngine.onHostTransformed(entity, this);
+        }
+
         if (typeof entity.update3D === 'function') entity.update3D();
+        else if (entity.mesh3D) {
+            entity.mesh3D.position.set(x, entity.elevation || 0, y);
+            if (typeof entity.mesh3D.updateMatrixWorld === 'function') entity.mesh3D.updateMatrixWorld(true);
+        }
+
+        if (typeof entity.update2D === 'function') entity.update2D();
+        else if (typeof entity.update === 'function') entity.update();
+
         if (typeof window !== 'undefined') {
             coreEventBus.emit('EntityTransformUpdated2D', { id: entityId, x, y, rotation: entity.rotation });
         }
@@ -311,6 +357,26 @@ export class FloorPlanner {
         if (!entity) return;
         entity.rotation = angle;
         if (entity.group && typeof entity.group.rotation === 'function') entity.group.rotation(angle);
+
+        // Update local transform relative to host if attached
+        if (entity.hostId) {
+            const hostRecord = globalSpatialDependencyEngine.getHostRecord(entity.id);
+            if (hostRecord) {
+                const hostEntity = this.getEntities().find(e => e && e.id === hostRecord.hostId);
+                if (hostEntity) {
+                    globalSpatialDependencyEngine.attach(entity, hostEntity, {
+                        relationshipType: hostRecord.relationshipType,
+                        computeFromCurrentWorld: true
+                    });
+                }
+            }
+        }
+
+        // Notify dependents if this entity is a host
+        if (globalSpatialDependencyEngine.getDependents(entity.id).length > 0) {
+            globalSpatialDependencyEngine.onHostTransformed(entity, this);
+        }
+
         if (typeof entity.update3D === 'function') entity.update3D();
         if (typeof window !== 'undefined') {
             const curX = entity.group && typeof entity.group.x === 'function' ? entity.group.x() : entity.x;
@@ -1181,11 +1247,17 @@ export class FloorPlanner {
     getOutwardNormal(wall) {
         if (!this.buildingCenter) {
             let totalX = 0, totalY = 0, count = 0;
-            this.walls.forEach(w => { totalX += w.startAnchor.x; totalY += w.startAnchor.y; count++; });
+            this.walls.forEach(w => {
+                const s = typeof w.startAnchor?.position === 'function' ? w.startAnchor.position() : (w.startAnchor || { x: w.startX || 0, y: w.startY || 0 });
+                totalX += (s.x || 0);
+                totalY += (s.y || 0);
+                count++;
+            });
             if (count > 0) { this.buildingCenter = { x: totalX / count, y: totalY / count }; } 
-            else { this.buildingCenter = { x: this.stage.width() / 2, y: this.stage.height() / 2 }; }
+            else { this.buildingCenter = { x: (this.stage ? this.stage.width() : 1000) / 2, y: (this.stage ? this.stage.height() : 800) / 2 }; }
         }
-        const p1 = wall.startAnchor.position(), p2 = wall.endAnchor.position();
+        const p1 = typeof wall.startAnchor?.position === 'function' ? wall.startAnchor.position() : (wall.startAnchor || { x: wall.startX || 0, y: wall.startY || 0 });
+        const p2 = typeof wall.endAnchor?.position === 'function' ? wall.endAnchor.position() : (wall.endAnchor || { x: wall.endX || 0, y: wall.endY || 0 });
         const wallCenter = { x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 };
         const dx = p2.x - p1.x, dy = p2.y - p1.y;
         const normal = { x: -dy, y: dx };
@@ -1587,46 +1659,48 @@ export class FloorPlanner {
                 cx /= uniquePoints.length;
                 cy /= uniquePoints.length;
 
+                const roomWalls = [...new Set(face.map(e => e.wall).filter(Boolean))];
                 const roomElevation = tier.elevation;
 
                 let existingRoom = (this.rooms || []).find(r => {
                     if (newRooms.includes(r)) return false;
                     if (Math.abs((Number(r.elevation) || 0) - roomElevation) > 5) return false;
-                    if (Math.hypot(r.cx - cx, r.cy - cy) >= 30) return false;
-                    if (!r.path || r.path.length < 3) return false;
-                    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
-                    r.path.forEach(p => { minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x); minY = Math.min(minY, p.y); maxY = Math.max(maxY, p.y); });
-                    let newMinX = Infinity, newMaxX = -Infinity, newMinY = Infinity, newMaxY = -Infinity;
-                    path.forEach(p => { newMinX = Math.min(newMinX, p.x); newMaxX = Math.max(newMaxX, p.x); newMinY = Math.min(newMinY, p.y); newMaxY = Math.max(newMaxY, p.y); });
-                    const oldW = maxX - minX, oldH = maxY - minY;
-                    const newW = newMaxX - newMinX, newH = newMaxY - newMinY;
-                    const isNormalMatch = Math.abs(oldW - newW) <= 40 && Math.abs(oldH - newH) <= 40;
-                    const isRotatedMatch = Math.abs(oldW - newH) <= 40 && Math.abs(oldH - newW) <= 40;
-                    if (!isNormalMatch && !isRotatedMatch) return false;
-                    return true;
+                    // Primary Match: Shared Wall references
+                    if (r.walls && Array.isArray(r.walls) && r.walls.length > 0 && roomWalls.length > 0) {
+                        const sharedCount = roomWalls.filter(w => r.walls.includes(w)).length;
+                        if (sharedCount >= Math.min(2, roomWalls.length)) return true;
+                    }
+                    return false;
                 });
 
-                // Fallback: If elevation changed, match by 2D footprint so custom elevation & materials are preserved
+                // Secondary Match: Centroid proximity and bounding box overlap
                 if (!existingRoom) {
                     existingRoom = (this.rooms || []).find(r => {
                         if (newRooms.includes(r)) return false;
-                        if (Math.hypot(r.cx - cx, r.cy - cy) >= 30) return false;
+                        if (Math.abs((Number(r.elevation) || 0) - roomElevation) > 5) return false;
                         if (!r.path || r.path.length < 3) return false;
+                        if (Math.hypot(r.cx - cx, r.cy - cy) < 150) return true;
                         let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
                         r.path.forEach(p => { minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x); minY = Math.min(minY, p.y); maxY = Math.max(maxY, p.y); });
                         let newMinX = Infinity, newMaxX = -Infinity, newMinY = Infinity, newMaxY = -Infinity;
                         path.forEach(p => { newMinX = Math.min(newMinX, p.x); newMaxX = Math.max(newMaxX, p.x); newMinY = Math.min(newMinY, p.y); newMaxY = Math.max(newMaxY, p.y); });
                         const oldW = maxX - minX, oldH = maxY - minY;
                         const newW = newMaxX - newMinX, newH = newMaxY - newMinY;
-                        const isNormalMatch = Math.abs(oldW - newW) <= 40 && Math.abs(oldH - newH) <= 40;
-                        const isRotatedMatch = Math.abs(oldW - newH) <= 40 && Math.abs(oldH - newW) <= 40;
-                        if (!isNormalMatch && !isRotatedMatch) return false;
-                        return true;
+                        const isNormalMatch = Math.abs(oldW - newW) <= 120 && Math.abs(oldH - newH) <= 120;
+                        const isRotatedMatch = Math.abs(oldW - newH) <= 120 && Math.abs(oldH - newW) <= 120;
+                        return isNormalMatch || isRotatedMatch;
                     });
                 }
 
+                // Tertiary Fallback: Single room on elevation tier
+                if (!existingRoom) {
+                    const candidatePool = (this.rooms || []).filter(r => !newRooms.includes(r) && Math.abs((Number(r.elevation) || 0) - roomElevation) <= 5);
+                    if (candidatePool.length === 1) {
+                        existingRoom = candidatePool[0];
+                    }
+                }
+
                 let room;
-                const roomWalls = [...new Set(face.map(e => e.wall).filter(Boolean))];
                 const boundingWallH = roomWalls.find(w => w.height !== undefined)?.height;
                 const targetWallH = boundingWallH !== undefined 
                     ? Number(boundingWallH) 
@@ -1634,6 +1708,8 @@ export class FloorPlanner {
                         ? Number(existingRoom.wallHeight) 
                         : (tierWalls.length > 0 && tierWalls[0].height !== undefined ? Number(tierWalls[0].height) : 300));
                 if (existingRoom) {
+                    const rId = existingRoom.id || existingRoom._id || ('room_' + Math.round(cx) + '_' + Math.round(cy));
+                    existingRoom.id = rId;
                     existingRoom.path = path;
                     existingRoom.cx = cx;
                     existingRoom.cy = cy;
@@ -1642,7 +1718,8 @@ export class FloorPlanner {
                     if (roomWalls.length > 0) existingRoom.walls = roomWalls;
                     room = existingRoom;
                 } else {
-                    room = { path, cx, cy, elevation: roomElevation, wallHeight: targetWallH, configId: 'hardwood', isDeleted: false, isHidden: false, materialRepeat: undefined, description: undefined, walls: roomWalls };
+                    const rId = 'room_' + Math.round(cx) + '_' + Math.round(cy);
+                    room = { id: rId, path, cx, cy, elevation: roomElevation, wallHeight: targetWallH, configId: 'hardwood', isDeleted: false, isHidden: false, materialRepeat: undefined, description: undefined, walls: roomWalls };
                 }
                 newRooms.push(room);
             });
@@ -1671,8 +1748,156 @@ export class FloorPlanner {
 
         this.rooms = newRooms;
         this.roomPaths = newRooms.map(r => r.path);
+        if (typeof this.syncRoomPlatforms === 'function') {
+            this.syncRoomPlatforms(newRooms);
+        }
         this.updateRoofAutoPlacement();
         if (this.bgLayer) this.bgLayer.batchDraw();
+    }
+
+    syncRoomPlatforms(rooms = this.rooms) {
+        if (!this.platforms || this.platforms.length === 0 || !rooms || rooms.length === 0) return;
+
+        this.platforms.forEach(platform => {
+            if (!platform || platform.isDeleted) return;
+
+            // 1. Interior room platform, bounded platform, or platform explicitly associated with a room
+            const isBoundedOrAssociated = platform.isRoomInteriorPlatform || 
+                                          platform.associatedRoomId || 
+                                          platform.relationshipType === 'bounded';
+            if (isBoundedOrAssociated) {
+                let matchedRoom = rooms.find(r => r.id === platform.associatedRoomId || r._id === platform.associatedRoomId);
+                
+                // Fallback match if associatedRoomId is missing or changed
+                if (!matchedRoom) {
+                    if (rooms.length === 1) {
+                        matchedRoom = rooms[0];
+                    } else {
+                        matchedRoom = rooms.find(r => {
+                            if (!r.path || r.path.length < 3) return false;
+                            return Math.hypot(r.cx - platform.x, r.cy - platform.y) < 200;
+                        }) || rooms[0];
+                    }
+                }
+
+                if (matchedRoom && matchedRoom.path && matchedRoom.path.length >= 3) {
+                    platform.associatedRoomId = matchedRoom.id;
+                    const cleanPts = [];
+                    for (let i = 0; i < matchedRoom.path.length; i++) {
+                        const pt = matchedRoom.path[i];
+                        if (!pt || typeof pt.x !== 'number' || typeof pt.y !== 'number') continue;
+                        if (cleanPts.length > 0) {
+                            const prev = cleanPts[cleanPts.length - 1];
+                            if (Math.hypot(pt.x - prev.x, pt.y - prev.y) < 1e-4) continue;
+                        }
+                        cleanPts.push({ x: pt.x, y: pt.y });
+                    }
+                    if (cleanPts.length > 2 && Math.hypot(cleanPts[0].x - cleanPts[cleanPts.length - 1].x, cleanPts[0].y - cleanPts[cleanPts.length - 1].y) < 1e-4) {
+                        cleanPts.pop();
+                    }
+
+                    if (cleanPts.length >= 3) {
+                        let cx = 0, cy = 0;
+                        cleanPts.forEach(pt => { cx += pt.x; cy += pt.y; });
+                        cx /= cleanPts.length;
+                        cy /= cleanPts.length;
+
+                        platform.x = cx;
+                        platform.y = cy;
+                        platform.shapeType = 'polygon';
+                        platform.points = cleanPts.map(pt => ({ x: pt.x - cx, y: pt.y - cy }));
+                        if (matchedRoom.elevation !== undefined) {
+                            platform.elevation = Number(matchedRoom.elevation) || 0;
+                        }
+                        if (matchedRoom.platformHeight) {
+                            platform.height = matchedRoom.platformHeight;
+                        }
+
+                        if (platform.group) {
+                            if (typeof platform.group.position === 'function') {
+                                platform.group.position({ x: cx, y: cy });
+                            }
+                            if (typeof platform.group.rotation === 'function') {
+                                platform.group.rotation(0);
+                            }
+                        }
+                        platform.rotation = 0;
+
+                        if (typeof platform.update2D === 'function') platform.update2D();
+                        else if (typeof platform.update === 'function') platform.update();
+
+                        if (typeof platform._sync3DGeometry === 'function') platform._sync3DGeometry();
+                        if (typeof platform._sync3DTransform === 'function') platform._sync3DTransform();
+                        globalSpatialDependencyEngine.onHostTransformed(platform, this);
+                    }
+                }
+            } else if (platform.isBuildingFoundation) {
+                let matchedRoom = rooms.find(r => r.id === platform.associatedRoomId || r._id === platform.associatedRoomId);
+                if (!matchedRoom && rooms.length === 1) matchedRoom = rooms[0];
+
+                if (matchedRoom && matchedRoom.path && matchedRoom.path.length >= 3) {
+                    platform.associatedRoomId = matchedRoom.id;
+                    const cleanPts = [];
+                    for (let i = 0; i < matchedRoom.path.length; i++) {
+                        const pt = matchedRoom.path[i];
+                        if (!pt || typeof pt.x !== 'number' || typeof pt.y !== 'number') continue;
+                        if (cleanPts.length > 0) {
+                            const prev = cleanPts[cleanPts.length - 1];
+                            if (Math.hypot(pt.x - prev.x, pt.y - prev.y) < 1e-4) continue;
+                        }
+                        cleanPts.push({ x: pt.x, y: pt.y });
+                    }
+                    if (cleanPts.length > 2 && Math.hypot(cleanPts[0].x - cleanPts[cleanPts.length - 1].x, cleanPts[0].y - cleanPts[cleanPts.length - 1].y) < 1e-4) {
+                        cleanPts.pop();
+                    }
+
+                    if (cleanPts.length >= 3) {
+                        const roomWalls = matchedRoom.walls || [];
+                        let maxThk = 20;
+                        if (roomWalls && roomWalls.length > 0) {
+                            maxThk = Math.max(...roomWalls.map(w => Number(w.thickness) || 20));
+                        }
+
+                        const edgeOffsets = [];
+                        for (let i = 0; i < cleanPts.length; i++) {
+                            const p1 = cleanPts[i];
+                            const p2 = cleanPts[(i + 1) % cleanPts.length];
+                            const matchedWall = (roomWalls || []).find(w => {
+                                const s = typeof w.startAnchor?.position === 'function' ? w.startAnchor.position() : (w.startAnchor || { x: w.startX, y: w.startY });
+                                const e = typeof w.endAnchor?.position === 'function' ? w.endAnchor.position() : (w.endAnchor || { x: w.endX, y: w.endY });
+                                if (!s || !e) return false;
+                                const d1 = Math.hypot(s.x - p1.x, s.y - p1.y) + Math.hypot(e.x - p2.x, e.y - p2.y);
+                                const d2 = Math.hypot(s.x - p2.x, s.y - p2.y) + Math.hypot(e.x - p1.x, e.y - p1.y);
+                                return d1 < 5 || d2 < 5;
+                            });
+                            const thk = Number(matchedWall?.thickness) || maxThk;
+                            edgeOffsets.push(thk / 2);
+                        }
+
+                        const expandedPath = offsetPolygon(cleanPts, edgeOffsets);
+                        const usePath = (expandedPath && expandedPath.length >= 3) ? expandedPath : cleanPts;
+
+                        let cx = 0, cy = 0;
+                        usePath.forEach(pt => { cx += pt.x; cy += pt.y; });
+                        cx /= usePath.length;
+                        cy /= usePath.length;
+
+                        platform.x = cx;
+                        platform.y = cy;
+                        platform.shapeType = 'polygon';
+                        platform.points = usePath.map(pt => ({ x: pt.x - cx, y: pt.y - cy }));
+                        platform.height = Number(matchedRoom.elevation) || platform.height || 0;
+
+                        if (typeof platform.update2D === 'function') platform.update2D();
+                        else if (typeof platform.update === 'function') platform.update();
+
+                        if (typeof platform._sync3DGeometry === 'function') platform._sync3DGeometry();
+                        if (typeof platform._sync3DTransform === 'function') platform._sync3DTransform();
+                        globalSpatialDependencyEngine.onHostTransformed(platform, this);
+                    }
+                }
+            }
+        });
     }
 
     updateRoofAutoPlacement() {
@@ -1779,6 +2004,13 @@ export class FloorPlanner {
             poly.strokeWidth(active ? 4 : 0);
             this.stage.batchDraw();
         };
+
+        const isCurrentlySelected = this.selectedEntity && (this.selectedEntity === room || (this.selectedEntity.id && this.selectedEntity.id === room.id));
+        if (isCurrentlySelected) {
+            poly.stroke('#4f46e5');
+            poly.strokeWidth(4);
+            this.selectedEntity = room;
+        }
 
         const areaSqFt = this.calculateArea(points);
         let areaText = Math.round(areaSqFt) + " sqft";
@@ -1911,6 +2143,7 @@ export class FloorPlanner {
         if (this.roomLabelLayer) this.roomLabelLayer.destroyChildren();
         if (this.mainLayer) this.mainLayer.batchDraw();
         this.selectEntity(null);
+        globalSpatialDependencyEngine.clear();
     }
 
     /**
@@ -1952,7 +2185,23 @@ export class FloorPlanner {
                 elevation: a.elevation !== undefined ? a.elevation : (a.walls[0]?.elevation),
                 params: a.params || (a.walls && a.walls[0] ? a.walls[0].params : null) 
             })) : [],
-            shapes: this.shapes ? this.shapes.map(s => ({ type: s.type, x: s.group.x(), y: s.group.y(), rotation: s.rotation, scaleX: s.group.scaleX(), scaleY: s.group.scaleY(), params: s.params, description: s.description })) : [],
+            shapes: this.shapes ? this.shapes.map(s => ({
+                id: s.id,
+                type: s.type,
+                x: s.group && typeof s.group.x === 'function' ? s.group.x() : (s.x || 0),
+                y: s.group && typeof s.group.y === 'function' ? s.group.y() : (s.y || 0),
+                rotation: s.rotation,
+                scaleX: s.group && typeof s.group.scaleX === 'function' ? s.group.scaleX() : 1,
+                scaleY: s.group && typeof s.group.scaleY === 'function' ? s.group.scaleY() : 1,
+                params: s.params,
+                description: s.description,
+                elevation: s.elevation || 0,
+                parentWallId: s.parentWallId || null,
+                hostId: s.hostId || s.parentWallId || null,
+                hostType: s.hostType || (s.parentWallId ? 'wall' : null),
+                relationshipType: s.relationshipType || (s.parentWallId ? 'surface_attached' : null),
+                localTransform: s.localTransform || null
+            })) : [],
             outdoorZones: this.outdoorZones ? this.outdoorZones.map(z => OutdoorZoneEngine.serialize(z)).filter(Boolean) : [],
             platforms: this.platforms ? this.platforms.map(p => PlatformEngine.serialize(p)).filter(Boolean) : [],
             rooms: this.rooms ? this.rooms.map(r => ({ path: r.path.map(p => ({ x: p.x, y: p.y })), cx: r.cx, cy: r.cy, elevation: r.elevation || 0, configId: r.configId, isHidden: r.isHidden, isDeleted: r.isDeleted, materialRepeat: r.materialRepeat, description: r.description })) : [],
@@ -2024,6 +2273,12 @@ export class FloorPlanner {
                 state.walls.forEach(wData => {
                     const wall = WallSerializer.deserialize(wData, this, anchorMap);
                     this.walls.push(wall);
+                });
+            }
+            if (state.platforms) {
+                if (!this.platforms) this.platforms = [];
+                state.platforms.forEach(pData => {
+                    PlatformEngine.deserialize(this, pData, { addToPlanner: true, sync: false });
                 });
             }
             if (state.furniture) {
@@ -2100,10 +2355,20 @@ export class FloorPlanner {
                 if (!this.shapes) this.shapes = [];
                 state.shapes.forEach(sData => {
                     const shape = new PremiumShape(this, sData.type, sData.params);
+                    if (sData.id) {
+                        shape.id = sData.id;
+                        if (shape.group) shape.group.id(sData.id);
+                    }
                     shape.group.position({ x: sData.x, y: sData.y });
                     shape.rotation = sData.rotation;
                     shape.group.scale({ x: sData.scaleX || 1, y: sData.scaleY || 1 });
                     if (sData.description !== undefined) shape.description = sData.description;
+                    if (sData.elevation !== undefined) shape.elevation = sData.elevation;
+                    if (sData.parentWallId) shape.parentWallId = sData.parentWallId;
+                    if (sData.hostId) shape.hostId = sData.hostId;
+                    if (sData.hostType) shape.hostType = sData.hostType;
+                    if (sData.relationshipType) shape.relationshipType = sData.relationshipType;
+                    if (sData.localTransform) shape.localTransform = sData.localTransform;
                     shape.update(); this.shapes.push(shape);
                 });
             }
@@ -2111,12 +2376,6 @@ export class FloorPlanner {
                 if (!this.outdoorZones) this.outdoorZones = [];
                 state.outdoorZones.forEach(zData => {
                     OutdoorZoneEngine.deserialize(this, zData, { addToPlanner: true, sync: false });
-                });
-            }
-            if (state.platforms) {
-                if (!this.platforms) this.platforms = [];
-                state.platforms.forEach(pData => {
-                    PlatformEngine.deserialize(this, pData, { addToPlanner: true, sync: false });
                 });
             }
             if (state.presetGroups) {
@@ -2150,6 +2409,8 @@ export class FloorPlanner {
                     this.syncAll();
                 }, 50);
             }
+            // Rebuild authoritative spatial dependency graph from loaded planner state
+            globalSpatialDependencyEngine.rebuildFromPlanner(this);
             this.syncAll();
         } catch (e) { console.error("Failed to import internal state", e); }
     }

@@ -11,6 +11,7 @@
 import { PremiumFurniture } from '../../features/furniture/furniture.renderer2d.js';
 import { coreEventBus } from '../EventBus.js';
 import { EVENTS } from '../registry.js';
+import { globalSpatialDependencyEngine, RELATIONSHIP_TYPES } from '../spatial/SpatialDependencyEngine.js';
 
 export class FurnitureEngine {
     /**
@@ -34,8 +35,36 @@ export class FurnitureEngine {
         if (options.rotation !== undefined && options.rotation !== null) entity.rotation = Number(options.rotation);
         if (options.hostPlatformId !== undefined) entity.hostPlatformId = options.hostPlatformId;
         if (options.hostFurnitureId !== undefined) entity.hostFurnitureId = options.hostFurnitureId;
+        if (options.hostId !== undefined) entity.hostId = options.hostId;
+        if (options.hostType !== undefined) entity.hostType = options.hostType;
+        if (options.relationshipType !== undefined) entity.relationshipType = options.relationshipType;
+        if (options.localTransform !== undefined) entity.localTransform = options.localTransform ? JSON.parse(JSON.stringify(options.localTransform)) : null;
         if (options.relativeElevation !== undefined && options.relativeElevation !== null) entity.relativeElevation = Number(options.relativeElevation);
         if (options.description !== undefined) entity.description = options.description;
+
+        if (!entity.hostId) {
+            if (options.hostPlatformId) {
+                entity.hostId = options.hostPlatformId;
+                entity.hostType = 'platform';
+                entity.relationshipType = entity.relationshipType || RELATIONSHIP_TYPES.SURFACE_ATTACHED;
+            } else if (options.hostFurnitureId) {
+                entity.hostId = options.hostFurnitureId;
+                entity.hostType = 'furniture';
+                entity.relationshipType = entity.relationshipType || RELATIONSHIP_TYPES.SURFACE_ATTACHED;
+            }
+        }
+
+        if (entity.hostId && planner) {
+            const allEntities = [...(planner.platforms || []), ...(planner.furniture || []), ...(planner.walls || [])];
+            const hostEntity = allEntities.find(e => e && e.id === entity.hostId);
+            if (hostEntity) {
+                globalSpatialDependencyEngine.attach(entity, hostEntity, {
+                    relationshipType: entity.relationshipType || RELATIONSHIP_TYPES.SURFACE_ATTACHED,
+                    localTransform: entity.localTransform,
+                    computeFromCurrentWorld: !entity.localTransform
+                });
+            }
+        }
 
         if (options.materials) {
             entity.materials = JSON.parse(JSON.stringify(options.materials));
@@ -106,6 +135,10 @@ export class FurnitureEngine {
             params: furniture.params ? JSON.parse(JSON.stringify(furniture.params)) : null,
             hostPlatformId: furniture.hostPlatformId || null,
             hostFurnitureId: furniture.hostFurnitureId || null,
+            hostId: furniture.hostId || furniture.hostPlatformId || furniture.hostFurnitureId || null,
+            hostType: furniture.hostType || (furniture.hostPlatformId ? 'platform' : (furniture.hostFurnitureId ? 'furniture' : null)),
+            relationshipType: furniture.relationshipType || null,
+            localTransform: furniture.localTransform ? JSON.parse(JSON.stringify(furniture.localTransform)) : null,
             relativeElevation: furniture.relativeElevation || 0,
             description: furniture.description || null,
             colorBase: furniture.colorBase || undefined,
@@ -139,6 +172,10 @@ export class FurnitureEngine {
             params: data.params,
             hostPlatformId: data.hostPlatformId,
             hostFurnitureId: data.hostFurnitureId,
+            hostId: data.hostId || data.hostPlatformId || data.hostFurnitureId || null,
+            hostType: data.hostType || (data.hostPlatformId ? 'platform' : (data.hostFurnitureId ? 'furniture' : null)),
+            relationshipType: data.relationshipType || null,
+            localTransform: data.localTransform || null,
             relativeElevation: data.relativeElevation,
             description: data.description,
             colorBase: data.colorBase,
@@ -172,6 +209,12 @@ export class FurnitureEngine {
         }
 
         if (!entity && !id) return false;
+
+        if (entity) {
+            globalSpatialDependencyEngine.detach(entity);
+        } else if (id) {
+            globalSpatialDependencyEngine.detach(id);
+        }
 
         // Remove from planner.furniture array
         if (planner.furniture) {

@@ -3,6 +3,7 @@ import { FURNITURE_REGISTRY } from '../../features/furniture/furniture.registry.
 import { FurnitureEngine } from '../furniture/FurnitureEngine.js';
 import { SnapshotCommand } from '../commands/SnapshotCommand.js';
 import { VerticalPropagationEngine } from '../vertical/VerticalPropagationEngine.js';
+import { SpatialDependencyEngine, RELATIONSHIP_TYPES, globalSpatialDependencyEngine } from '../spatial/SpatialDependencyEngine.js';
 
 /**
  * Furniture3DPlacementSystem
@@ -532,6 +533,28 @@ export class Furniture3DPlacementSystem {
             snapshotCmd = new SnapshotCommand(planner);
         }
 
+        let localTransform = null;
+        let hostPlatform = null;
+        if (this._lastHostPlatformId && planner.platforms) {
+            hostPlatform = planner.platforms.find(p => p.id === this._lastHostPlatformId);
+            if (hostPlatform) {
+                const hostTransform = {
+                    x: hostPlatform.group && typeof hostPlatform.group.x === 'function' ? hostPlatform.group.x() : (Number(hostPlatform.x) || 0),
+                    y: hostPlatform.group && typeof hostPlatform.group.y === 'function' ? hostPlatform.group.y() : (Number(hostPlatform.y) || 0),
+                    elevation: Number(hostPlatform.elevation) || 0,
+                    height: Number(hostPlatform.height) || 0,
+                    rotation: hostPlatform.group && typeof hostPlatform.group.rotation === 'function' ? hostPlatform.group.rotation() : (Number(hostPlatform.rotation) || 0)
+                };
+                const furnWorld = {
+                    x: this.activePos.x,
+                    y: this.activePos.z,
+                    elevation: this.activeElevation + (Number(preset.elevation) || 0),
+                    rotation: this.activeRotation
+                };
+                localTransform = SpatialDependencyEngine.computeLocalTransform(furnWorld, hostTransform);
+            }
+        }
+
         // 2. Instantiate and Position PremiumFurniture Entity via FurnitureEngine
         const newFurn = FurnitureEngine.createFurniture(planner, {
             x: this.activePos.x,
@@ -543,10 +566,21 @@ export class Furniture3DPlacementSystem {
             elevation: this.activeElevation + (Number(preset.elevation) || 0),
             rotation: this.activeRotation,
             hostPlatformId: this._lastHostPlatformId || undefined,
-            relativeElevation: this._lastHostPlatformId ? (Number(preset.elevation) || 0) : undefined,
+            hostId: this._lastHostPlatformId || undefined,
+            hostType: this._lastHostPlatformId ? 'platform' : undefined,
+            relationshipType: this._lastHostPlatformId ? RELATIONSHIP_TYPES.SURFACE_ATTACHED : undefined,
+            localTransform: localTransform || undefined,
+            relativeElevation: localTransform ? localTransform.elevation : (this._lastHostPlatformId ? (Number(preset.elevation) || 0) : undefined),
             materials: preset.materials ? JSON.parse(JSON.stringify(preset.materials)) : undefined,
             addToPlanner: true
         });
+
+        if (newFurn && hostPlatform) {
+            globalSpatialDependencyEngine.attach(newFurn, hostPlatform, {
+                relationshipType: RELATIONSHIP_TYPES.SURFACE_ATTACHED,
+                localTransform: localTransform
+            });
+        }
 
         // 3. Finalize Undo Command
         if (snapshotCmd && snapshotCmd.finalize() && planner.commandManager) {

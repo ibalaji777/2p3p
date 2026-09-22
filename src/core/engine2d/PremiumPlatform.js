@@ -1,6 +1,7 @@
 import Konva from 'konva';
 import { SNAP_DIST } from '../registry.js';
 import { VerticalPropagationEngine } from '../vertical/VerticalPropagationEngine.js';
+import { globalSpatialDependencyEngine } from '../spatial/SpatialDependencyEngine.js';
 
 export const PLATFORM_TRIM_STYLES = {
     flat: { id: 'flat', name: 'Clean Modern Riser', icon: 'square' },
@@ -273,6 +274,9 @@ export class PremiumPlatform {
             this.group.position({ x: this.x, y: this.y });
 
             this._sync3DTransform();
+            if (this.planner) {
+                globalSpatialDependencyEngine.onHostTransformed(this, this.planner);
+            }
             if (this.planner?.syncAll) this.planner.syncAll();
         });
 
@@ -282,6 +286,9 @@ export class PremiumPlatform {
             this.y = Math.round(this.group.y());
             this.update();
             this._sync3DTransform();
+            if (this.planner) {
+                globalSpatialDependencyEngine.onHostTransformed(this, this.planner);
+            }
             if (this.planner?.debouncedSaveHistory) this.planner.debouncedSaveHistory();
         });
 
@@ -295,12 +302,18 @@ export class PremiumPlatform {
             this.rotation = Math.round(angle);
             this.group.rotation(this.rotation);
             this._sync3DTransform();
+            if (this.planner) {
+                globalSpatialDependencyEngine.onHostTransformed(this, this.planner);
+            }
             if (this.planner?.syncAll) this.planner.syncAll();
         });
 
         this.rotHandle.on('dragend', () => {
             this.update();
             this._sync3DTransform();
+            if (this.planner) {
+                globalSpatialDependencyEngine.onHostTransformed(this, this.planner);
+            }
             if (this.planner?.debouncedSaveHistory) this.planner.debouncedSaveHistory();
         });
     }
@@ -346,6 +359,7 @@ export class PremiumPlatform {
         this._sync3DGeometry();
         if (this.planner) {
             VerticalPropagationEngine.onPlatformHeightChanged(this, this.height, oldH, this.planner);
+            globalSpatialDependencyEngine.onHostTransformed(this, this.planner);
         }
         if (this.planner?.syncAll) this.planner.syncAll();
         if (this.planner?.debouncedSaveHistory) this.planner.debouncedSaveHistory();
@@ -360,6 +374,7 @@ export class PremiumPlatform {
             const deltaElev = this.elevation - oldElev;
             if (Math.abs(deltaElev) > 0.001) {
                 VerticalPropagationEngine.onPlatformHeightChanged(this, this.height, this.height - deltaElev, this.planner);
+                globalSpatialDependencyEngine.onHostTransformed(this, this.planner);
             }
         }
         if (this.planner?.syncAll) this.planner.syncAll();
@@ -376,11 +391,29 @@ export class PremiumPlatform {
     }
 
     setTrimStyle(style) {
-        if (PLATFORM_TRIM_STYLES[style]) {
+        if (PLATFORM_TRIM_STYLES[style] || style) {
             this.trimStyle = style;
+            this.update();
             this._sync3DGeometry();
             if (this.planner?.debouncedSaveHistory) this.planner.debouncedSaveHistory();
         }
+        return this.trimStyle;
+    }
+
+    setRotation(angle) {
+        this.rotation = Number(angle) || 0;
+        if (this.group && typeof this.group.rotation === 'function') {
+            this.group.rotation(this.rotation);
+        }
+        this._sync3DTransform();
+        if (this.planner?.syncAll) this.planner.syncAll();
+        if (this.planner?.debouncedSaveHistory) this.planner.debouncedSaveHistory();
+    }
+
+    update3D() {
+        this._sync3DGeometry();
+        this._sync3DTransform();
+        this._sync3DMaterials();
     }
 
     setMaterial(slot, matId) {
@@ -432,25 +465,59 @@ export class PremiumPlatform {
         const colorFill = this.isSunken ? 'rgba(239, 68, 68, 0.22)' : 'rgba(245, 158, 11, 0.22)';
 
         if (this.shapeType === 'rect') {
-            this.shape.width(this.width);
-            this.shape.height(this.depth);
-            this.shape.offsetX(this.width / 2);
-            this.shape.offsetY(this.depth / 2);
-            this.shape.fill(colorFill);
-            this.shape.stroke(colorBorder);
+            if (this.shape && !(this.shape instanceof Konva.Rect)) {
+                this.shape.destroy();
+                this.shape = new Konva.Rect({
+                    width: this.width,
+                    height: this.depth,
+                    offsetX: this.width / 2,
+                    offsetY: this.depth / 2,
+                    fill: colorFill,
+                    stroke: colorBorder,
+                    strokeWidth: 2,
+                    cornerRadius: 2
+                });
+                this.group.add(this.shape);
+                this.shape.moveToBottom();
+            }
+            if (this.highlightLine && !(this.highlightLine instanceof Konva.Rect)) {
+                this.highlightLine.destroy();
+                this.highlightLine = new Konva.Rect({
+                    width: this.width + 6,
+                    height: this.depth + 6,
+                    offsetX: (this.width + 6) / 2,
+                    offsetY: (this.depth + 6) / 2,
+                    stroke: '#00f0ff',
+                    strokeWidth: 2.5,
+                    dash: [6, 4],
+                    listening: false,
+                    visible: false
+                });
+                this.group.add(this.highlightLine);
+            }
+            if (this.shape) {
+                this.shape.width(this.width);
+                this.shape.height(this.depth);
+                this.shape.offsetX(this.width / 2);
+                this.shape.offsetY(this.depth / 2);
+                this.shape.fill(colorFill);
+                this.shape.stroke(colorBorder);
+            }
 
-            this.highlightLine.width(this.width + 6);
-            this.highlightLine.height(this.depth + 6);
-            this.highlightLine.offsetX((this.width + 6) / 2);
-            this.highlightLine.offsetY((this.depth + 6) / 2);
+            if (this.highlightLine) {
+                this.highlightLine.width(this.width + 6);
+                this.highlightLine.height(this.depth + 6);
+                this.highlightLine.offsetX((this.width + 6) / 2);
+                this.highlightLine.offsetY((this.depth + 6) / 2);
+            }
 
             // Update handles
             const hw = this.width / 2;
             const hd = this.depth / 2;
-            const tl = this.resizeHandles.findOne('.handle-tl');
-            const tr = this.resizeHandles.findOne('.handle-tr');
-            const br = this.resizeHandles.findOne('.handle-br');
-            const bl = this.resizeHandles.findOne('.handle-bl');
+            const tl = this.resizeHandles?.findOne('.handle-tl');
+            const tr = this.resizeHandles?.findOne('.handle-tr');
+            const br = this.resizeHandles?.findOne('.handle-br');
+            const bl = this.resizeHandles?.findOne('.handle-bl');
             if (tl) tl.position({ x: -hw, y: -hd });
             if (tr) tr.position({ x: hw, y: -hd });
             if (br) br.position({ x: hw, y: hd });
@@ -460,9 +527,41 @@ export class PremiumPlatform {
         } else {
             const flatPts = [];
             (this.points || []).forEach(p => flatPts.push(p.x, p.y));
-            this.shape.points(flatPts);
-            this.shape.fill(colorFill);
-            this.shape.stroke(colorBorder);
+
+            if (this.shape && !(this.shape instanceof Konva.Line)) {
+                this.shape.destroy();
+                this.shape = new Konva.Line({
+                    points: flatPts,
+                    closed: true,
+                    fill: colorFill,
+                    stroke: colorBorder,
+                    strokeWidth: 2
+                });
+                this.group.add(this.shape);
+                this.shape.moveToBottom();
+            } else if (this.shape) {
+                this.shape.points(flatPts);
+                this.shape.fill(colorFill);
+                this.shape.stroke(colorBorder);
+            }
+
+            if (this.highlightLine && !(this.highlightLine instanceof Konva.Line)) {
+                this.highlightLine.destroy();
+                this.highlightLine = new Konva.Line({
+                    points: flatPts,
+                    closed: true,
+                    stroke: '#00f0ff',
+                    strokeWidth: 2.5,
+                    dash: [6, 4],
+                    listening: false,
+                    visible: false
+                });
+                this.group.add(this.highlightLine);
+            } else if (this.highlightLine) {
+                this.highlightLine.points(flatPts);
+            }
+
+            if (this.resizeHandles) this.resizeHandles.visible(false);
             this.rotHandle.position({ x: 0, y: -40 });
         }
 
@@ -531,13 +630,25 @@ export class PremiumPlatform {
     }
 
     _sync3DGeometry() {
-        if (!this.mesh3D || !this.mesh3D.userData?.builder) return;
-        this.mesh3D.userData.builder.updatePlatformGeometry(this);
+        if (!this.mesh3D) return;
+        const builder = this.mesh3D.userData?.builder ||
+            this.planner?.renderer3D?.builder?.platformBuilder ||
+            this.planner?.renderer3D?.platformBuilder ||
+            this.planner?.engine3d?.builder?.platformBuilder;
+        if (builder && typeof builder.updatePlatformGeometry === 'function') {
+            builder.updatePlatformGeometry(this);
+        }
     }
 
     _sync3DMaterials() {
-        if (!this.mesh3D || !this.mesh3D.userData?.builder) return;
-        this.mesh3D.userData.builder.updatePlatformMaterials(this);
+        if (!this.mesh3D) return;
+        const builder = this.mesh3D.userData?.builder ||
+            this.planner?.renderer3D?.builder?.platformBuilder ||
+            this.planner?.renderer3D?.platformBuilder ||
+            this.planner?.engine3d?.builder?.platformBuilder;
+        if (builder && typeof builder.updatePlatformMaterials === 'function') {
+            builder.updatePlatformMaterials(this);
+        }
     }
 
     /* -------------------------------------------------------------------------- */

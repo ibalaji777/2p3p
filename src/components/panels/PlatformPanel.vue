@@ -88,6 +88,18 @@
                         <DimensionInput v-model="selectedEntity.depth" min="20" max="800" step="5" @change="syncPlatform" />
                     </div>
                 </div>
+
+                <div v-if="enclosingRoom" class="room-fit-row" style="margin-top: 4px; margin-bottom: 8px;">
+                    <button class="btn-secondary full-width" style="border-color: #0284c7; color: #38bdf8; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 6px;" @click="fitPlatformToRoom" title="Conform platform to enclosing room walls">
+                        <span>⛶</span> Fit to Room Boundary
+                    </button>
+                </div>
+            </template>
+            <template v-else>
+                <div class="polygon-info-badge" style="display: flex; align-items: center; justify-content: space-between; background: rgba(56, 189, 248, 0.1); border: 1px solid rgba(56, 189, 248, 0.3); border-radius: 6px; padding: 6px 10px; margin-bottom: 8px;">
+                    <span style="font-size: 11px; font-weight: 700; color: #38bdf8;">⛶ Conformed to Room Boundary</span>
+                    <button class="btn-secondary" style="font-size: 10px; padding: 2px 6px;" @click="convertToBox" title="Convert back to rectangular box">Reset to Box</button>
+                </div>
             </template>
 
             <div class="control-group">
@@ -320,14 +332,63 @@ const stepDown = () => {
     syncPlatform();
 };
 
+const enclosingRoom = computed(() => {
+    const e = props.selectedEntity;
+    if (!e) return null;
+    const pl = e.planner || (typeof window !== 'undefined' ? (window.plannerInstance || window.planner?.value || window.planner) : null);
+    if (!pl || !pl.rooms || pl.rooms.length === 0) return null;
+
+    if (e.associatedRoomId) {
+        const found = pl.rooms.find(r => r.id === e.associatedRoomId || r._id === e.associatedRoomId);
+        if (found) return found;
+    }
+
+    const px = (e.group && typeof e.group.x === 'function') ? e.group.x() : (e.x || 0);
+    const py = (e.group && typeof e.group.y === 'function') ? e.group.y() : (e.y || 0);
+
+    return pl.rooms.find(r => {
+        if (!r.path || r.path.length < 3) return false;
+        let inside = false;
+        for (let i = 0, j = r.path.length - 1; i < r.path.length; j = i++) {
+            const xi = r.path[i].x, yi = r.path[i].y;
+            const xj = r.path[j].x, yj = r.path[j].y;
+            const intersect = ((yi > py) !== (yj > py)) && (px < (xj - xi) * (py - yi) / (yj - yi) + xi);
+            if (intersect) inside = !inside;
+        }
+        return inside;
+    }) || null;
+});
+
+const fitPlatformToRoom = () => {
+    const e = props.selectedEntity;
+    const room = enclosingRoom.value;
+    if (!e || !room) return;
+    PlatformEngine.fitToRoom(e, room);
+    syncPlatform();
+};
+
+const convertToBox = () => {
+    const e = props.selectedEntity;
+    if (!e) return;
+    e.shapeType = 'rect';
+    e.associatedRoomId = null;
+    e.relationshipType = null;
+    if (e.points && e.points.length >= 3) {
+        let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+        e.points.forEach(p => {
+            minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x);
+            minY = Math.min(minY, p.y); maxY = Math.max(maxY, p.y);
+        });
+        e.width = Math.round(maxX - minX) || 120;
+        e.depth = Math.round(maxY - minY) || 120;
+    }
+    PlatformEngine.sync(e);
+};
+
 const syncPlatform = () => {
     const e = props.selectedEntity;
     if (e) {
-        PlatformEngine.update2D(e);
-        if (typeof e.update3D === 'function') e.update3D();
-        if (e.planner && typeof e.planner.syncAll === 'function') {
-            e.planner.syncAll();
-        }
+        PlatformEngine.sync(e);
     }
     emit('sync-engine');
 };

@@ -122,12 +122,27 @@ export function useAppScene({
                 planner.value.syncAll();
                 if (selectedType.value === 'room' && selectedEntity.value) {
                     const oldRoom = selectedEntity.value;
-                    const newRoom = planner.value.rooms.find(r => Math.hypot(r.cx - oldRoom.cx, r.cy - oldRoom.cy) < 20);
+                    let newRoom = (planner.value.rooms || []).find(r => r === oldRoom || (oldRoom.id && r.id === oldRoom.id));
+                    if (!newRoom && oldRoom.walls && Array.isArray(oldRoom.walls) && oldRoom.walls.length > 0) {
+                        newRoom = planner.value.rooms.find(r => r.walls && r.walls.some(w => oldRoom.walls.includes(w)));
+                    }
+                    if (!newRoom && planner.value.rooms && planner.value.rooms.length > 0) {
+                        // Match closest room by centroid
+                        let minD = Infinity;
+                        planner.value.rooms.forEach(r => {
+                            const d = Math.hypot(r.cx - oldRoom.cx, r.cy - oldRoom.cy);
+                            if (d < minD) { minD = d; newRoom = r; }
+                        });
+                    }
                     if (newRoom) {
-                        // Preserve custom UI properties and 3D mesh across 2D graph regenerations
+                        // Preserve custom UI properties, elevation, platform height, and 3D mesh across 2D graph regenerations
                         if (oldRoom.materialScale !== undefined) newRoom.materialScale = oldRoom.materialScale;
                         if (oldRoom.configId !== undefined) newRoom.configId = oldRoom.configId;
+                        if (oldRoom.name !== undefined) newRoom.name = oldRoom.name;
+                        if (oldRoom.elevation !== undefined && (newRoom.elevation === undefined || newRoom.elevation === 0)) newRoom.elevation = oldRoom.elevation;
+                        if (oldRoom.platformHeight !== undefined && (newRoom.platformHeight === undefined || newRoom.platformHeight === 0)) newRoom.platformHeight = oldRoom.platformHeight;
                         if (oldRoom.mesh3D) newRoom.mesh3D = oldRoom.mesh3D;
+                        if (oldRoom.materials && !newRoom.materials) newRoom.materials = oldRoom.materials;
                         selectedEntity.value = newRoom;
                     }
                 }
@@ -153,6 +168,22 @@ export function useAppScene({
                         }
                         if (renderer3D.value.interactions?.roomInteractiveSuite?.visible) {
                             renderer3D.value.interactions.roomInteractiveSuite.update();
+                        }
+                    }
+                } else if (selectedType.value === 'platform') {
+                    if (updateType === 'material') {
+                        if (renderer3D.value.updateMaterialLive) renderer3D.value.updateMaterialLive(selectedEntity.value);
+                    } else {
+                        const builder = renderer3D.value.builder?.platformBuilder ||
+                                        renderer3D.value.platformBuilder ||
+                                        renderer3D.value.envBuilder?.platformBuilder;
+                        if (builder) {
+                            if (typeof builder.updatePlatformGeometry === 'function') {
+                                builder.updatePlatformGeometry(selectedEntity.value);
+                            }
+                            if (typeof builder.updatePlatformTransform === 'function') {
+                                builder.updatePlatformTransform(selectedEntity.value);
+                            }
                         }
                     }
                 } else if (updateType === 'material') {

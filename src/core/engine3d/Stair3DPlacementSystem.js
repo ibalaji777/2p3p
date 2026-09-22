@@ -4,6 +4,7 @@ import { Stair3DBuilder } from '../../features/stairs/stairs.renderer3d.js';
 import { StairEngine } from '../stairs/StairEngine.js';
 import { SnapshotCommand } from '../commands/SnapshotCommand.js';
 import { StairHeightDetector } from '../../features/stairs/StairHeightDetector.js';
+import { SpatialDependencyEngine, RELATIONSHIP_TYPES, globalSpatialDependencyEngine } from '../spatial/SpatialDependencyEngine.js';
 
 /**
  * Stair3DPlacementSystem
@@ -710,12 +711,48 @@ export class Stair3DPlacementSystem {
             stairData.flight2Steps = this.lastDetection.flight2Steps;
             stairData.stepHeight = this.lastDetection.stepHeight;
             stairData.length = this.lastDetection.flightLength;
+
+            if (this.lastDetection.targetSource) {
+                const targetHost = this.lastDetection.targetSource;
+                const hostType = this.lastDetection.targetType || (targetHost.isBuildingFoundation ? 'platform' : 'platform');
+                stairData.hostId = targetHost.id;
+                stairData.hostType = hostType;
+                stairData.relationshipType = RELATIONSHIP_TYPES.SUPPORTED;
+                if (hostType === 'platform') {
+                    stairData.hostPlatformId = targetHost.id;
+                }
+
+                const hostTransform = {
+                    x: targetHost.group && typeof targetHost.group.x === 'function' ? targetHost.group.x() : (Number(targetHost.x) || 0),
+                    y: targetHost.group && typeof targetHost.group.y === 'function' ? targetHost.group.y() : (Number(targetHost.y) || 0),
+                    elevation: Number(targetHost.elevation) || 0,
+                    height: Number(targetHost.height) || 0,
+                    rotation: targetHost.group && typeof targetHost.group.rotation === 'function' ? targetHost.group.rotation() : (Number(targetHost.rotation) || 0)
+                };
+
+                const stairWorld = {
+                    x: stairData.x,
+                    y: stairData.y,
+                    elevation: stairData.elevation,
+                    rotation: stairData.rotation
+                };
+
+                stairData.localTransform = SpatialDependencyEngine.computeLocalTransform(stairWorld, hostTransform);
+                stairData.relativeElevation = stairData.localTransform.elevation;
+            }
         }
         if (this.activeTurnDirection) {
             stairData.turnDirection = this.activeTurnDirection;
         }
 
         const newStair = StairEngine.createStair(planner, stairData);
+
+        if (newStair && stairData.hostId && this.lastDetection?.targetSource) {
+            globalSpatialDependencyEngine.attach(newStair, this.lastDetection.targetSource, {
+                relationshipType: RELATIONSHIP_TYPES.SUPPORTED,
+                localTransform: stairData.localTransform
+            });
+        }
 
         // 3. Finalize Undo Command
         if (snapshotCmd && snapshotCmd.finalize() && planner.commandManager) {

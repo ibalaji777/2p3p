@@ -67,9 +67,15 @@ export class Anchor {
 
             const getBestWallForObject = (item, type) => {
                 if (item.attachedWall) return item.attachedWall;
-                let objPos;
-                if (type === 'furniture' || (type && type.startsWith('shape'))) objPos = { x: item.group.x(), y: item.group.y() };
-                else return null;
+                let objPos = null;
+                if (type === 'furniture' || (type && type.startsWith('shape')) || type === 'platform' || type === 'stairs') {
+                    if (item.group && typeof item.group.x === 'function') {
+                        objPos = { x: item.group.x(), y: item.group.y() };
+                    } else if (item.x !== undefined && item.y !== undefined) {
+                        objPos = { x: Number(item.x) || 0, y: Number(item.y) || 0 };
+                    }
+                }
+                if (!objPos) return null;
                 let minDist = 100;
                 let bestWall = null;
                 attachedWalls.forEach(w => {
@@ -92,7 +98,9 @@ export class Anchor {
                         list.forEach(item => {
                             if (this.trackedObjects.some(to => to.obj === item)) return;
                             if (getBestWallForObject(item, type) === w) {
-                                let pos = { x: item.group.x(), y: item.group.y() };
+                                let pos = (item.group && typeof item.group.x === 'function')
+                                    ? { x: item.group.x(), y: item.group.y() }
+                                    : { x: Number(item.x) || 0, y: Number(item.y) || 0 };
                                 const t = len === 0 ? 0 : ((pos.x - p1.x)*dx + (pos.y - p1.y)*dy) / (len*len);
                                 const distToWall = len === 0 ? 0 : (pos.x - p1.x)*(-dy/len) + (pos.y - p1.y)*(dx/len);
                                 this.trackedObjects.push({
@@ -100,8 +108,8 @@ export class Anchor {
                                     relT: t, normDist: distToWall,
                                     relRot: (item.rotation || 0) - (wallAngle * 180 / Math.PI),
                                     initialLen: len,
-                                    initialScaleX: item.group.scaleX ? item.group.scaleX() : 1,
-                                    initialScaleY: item.group.scaleY ? item.group.scaleY() : 1,
+                                    initialScaleX: (item.group && item.group.scaleX) ? item.group.scaleX() : 1,
+                                    initialScaleY: (item.group && item.group.scaleY) ? item.group.scaleY() : 1,
                                     initialWidth: item.width || (item.params ? item.params.width : undefined),
                                     initialHeight: item.depth || item.height || (item.params ? item.params.height : undefined)
                                 });
@@ -110,6 +118,8 @@ export class Anchor {
                     };
                     collectNear(this.planner.furniture, 'furniture');
                     collectNear(this.planner.shapes, 'shape');
+                    collectNear(this.planner.platforms, 'platform');
+                    collectNear(this.planner.stairs, 'stairs');
                 }
                 
                 if (this.planner.arcs) {
@@ -229,6 +239,29 @@ export class Anchor {
                             if (item.initialScaleY !== undefined) item.obj.group.scaleY(item.initialScaleY * scaleRatio);
                         }
                         if (item.obj.update) item.obj.update();
+                    } else if (item.type === 'platform') {
+                        item.obj.x = newX;
+                        item.obj.y = newY;
+                        if (item.obj.group && typeof item.obj.group.position === 'function') {
+                            item.obj.group.position({ x: newX, y: newY });
+                        }
+                        item.obj.rotation = newRot;
+                        if (item.initialWidth !== undefined && item.obj.width !== undefined) item.obj.width = item.initialWidth * scaleRatio;
+                        if (item.initialHeight !== undefined && item.obj.depth !== undefined) item.obj.depth = item.initialHeight * scaleRatio;
+                        if (typeof item.obj.update2D === 'function') item.obj.update2D();
+                        else if (typeof item.obj.update === 'function') item.obj.update();
+                        if (typeof item.obj._sync3DTransform === 'function') item.obj._sync3DTransform();
+                        if (item.initialWidth !== undefined && typeof item.obj._sync3DGeometry === 'function') item.obj._sync3DGeometry();
+                    } else if (item.type === 'stairs') {
+                        item.obj.x = newX;
+                        item.obj.y = newY;
+                        if (item.obj.group && typeof item.obj.group.position === 'function') {
+                            item.obj.group.position({ x: newX, y: newY });
+                        }
+                        item.obj.rotation = newRot;
+                        if (typeof item.obj.update2D === 'function') item.obj.update2D();
+                        else if (typeof item.obj.update === 'function') item.obj.update();
+                        if (typeof item.obj._sync3DTransform === 'function') item.obj._sync3DTransform();
                     }
                 });
             }

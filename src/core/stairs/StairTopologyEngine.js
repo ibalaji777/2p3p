@@ -7,6 +7,7 @@
 
 import { PremiumStaircase } from '../../features/stairs/stairs.renderer2d.js';
 import { StairV4Flight, StairV4Landing } from '../../features/stairs/StaircaseV4.js';
+import { globalSpatialDependencyEngine, RELATIONSHIP_TYPES } from '../spatial/SpatialDependencyEngine.js';
 
 export class StairTopologyEngine {
     /**
@@ -44,7 +45,14 @@ export class StairTopologyEngine {
             rightRailing,
             railingLayout = 'both',
             linkRailings = true,
-            addToPlanner = true
+            addToPlanner = true,
+            hostPlatformId = null,
+            targetPlatformId = null,
+            hostId = null,
+            hostType = null,
+            relationshipType = null,
+            localTransform = null,
+            relativeElevation = null
         } = options;
 
         const cleanShape = shape.replace('stair_v5_', '').replace('stair_v4_', '');
@@ -79,7 +87,14 @@ export class StairTopologyEngine {
                 landings: { id: 'wood_oak' }
             },
             railingLayout,
-            linkRailings: Boolean(linkRailings)
+            linkRailings: Boolean(linkRailings),
+            hostPlatformId: hostPlatformId || hostId || null,
+            targetPlatformId: targetPlatformId || null,
+            hostId: hostId || hostPlatformId || null,
+            hostType: hostType || (hostPlatformId ? 'platform' : null),
+            relationshipType: relationshipType || (hostPlatformId ? RELATIONSHIP_TYPES.SUPPORTED : null),
+            localTransform: localTransform ? JSON.parse(JSON.stringify(localTransform)) : null,
+            relativeElevation: relativeElevation !== null && relativeElevation !== undefined ? Number(relativeElevation) : null
         };
 
         if (leftRailing) stairData.leftRailing = JSON.parse(JSON.stringify(leftRailing));
@@ -90,6 +105,18 @@ export class StairTopologyEngine {
             stair = new PremiumStaircase(planner, cleanShape, stairData);
         } else {
             stair = stairData;
+        }
+
+        if (stair && stair.hostId && planner) {
+            const allEntities = [...(planner.platforms || []), ...(planner.walls || [])];
+            const hostEntity = allEntities.find(e => e && e.id === stair.hostId);
+            if (hostEntity) {
+                globalSpatialDependencyEngine.attach(stair, hostEntity, {
+                    relationshipType: stair.relationshipType || RELATIONSHIP_TYPES.SUPPORTED,
+                    localTransform: stair.localTransform,
+                    computeFromCurrentWorld: !stair.localTransform
+                });
+            }
         }
 
         if (addToPlanner && planner) {
@@ -120,6 +147,7 @@ export class StairTopologyEngine {
         const [deletedStair] = planner.stairs.splice(stairIndex, 1);
 
         if (deletedStair) {
+            globalSpatialDependencyEngine.detach(deletedStair);
             if (deletedStair.group && typeof deletedStair.group.destroy === 'function') {
                 deletedStair.group.destroy();
             }
@@ -226,7 +254,14 @@ export class StairTopologyEngine {
             railingLayout: stair.railingLayout || 'both',
             linkRailings: stair.linkRailings !== undefined ? Boolean(stair.linkRailings) : true,
             leftRailing: stair.leftRailing ? JSON.parse(JSON.stringify(stair.leftRailing)) : null,
-            rightRailing: stair.rightRailing ? JSON.parse(JSON.stringify(stair.rightRailing)) : null
+            rightRailing: stair.rightRailing ? JSON.parse(JSON.stringify(stair.rightRailing)) : null,
+            hostPlatformId: stair.hostPlatformId || stair.hostId || null,
+            targetPlatformId: stair.targetPlatformId || null,
+            hostId: stair.hostId || stair.hostPlatformId || null,
+            hostType: stair.hostType || (stair.hostPlatformId ? 'platform' : null),
+            relationshipType: stair.relationshipType || null,
+            localTransform: stair.localTransform ? JSON.parse(JSON.stringify(stair.localTransform)) : null,
+            relativeElevation: stair.relativeElevation !== undefined && stair.relativeElevation !== null ? Number(stair.relativeElevation) : null
         };
     }
 

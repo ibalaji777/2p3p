@@ -407,6 +407,24 @@ export class PremiumWall {
                     if (s.attachedWall === this) initialObjectPositions.push({ type: 'shape', obj: s, x: s.group.x(), y: s.group.y() });
                 });
             }
+            if (this.planner.platforms) {
+                this.planner.platforms.forEach(p => {
+                    if (p.attachedWall === this || p.parentWallId === this.id) {
+                        const posX = (p.group && typeof p.group.x === 'function') ? p.group.x() : (p.x || 0);
+                        const posY = (p.group && typeof p.group.y === 'function') ? p.group.y() : (p.y || 0);
+                        initialObjectPositions.push({ type: 'platform', obj: p, x: posX, y: posY });
+                    }
+                });
+            }
+            if (this.planner.stairs) {
+                this.planner.stairs.forEach(st => {
+                    if (st.attachedWall === this || st.parentWallId === this.id) {
+                        const posX = (st.group && typeof st.group.x === 'function') ? st.group.x() : (st.x || 0);
+                        const posY = (st.group && typeof st.group.y === 'function') ? st.group.y() : (st.y || 0);
+                        initialObjectPositions.push({ type: 'stairs', obj: st, x: posX, y: posY });
+                    }
+                });
+            }
 
             let attachedWalls = this.planner.walls.filter(w => 
                 w !== this && (w.startAnchor === this.startAnchor || w.endAnchor === this.startAnchor || w.startAnchor === this.endAnchor || w.endAnchor === this.endAnchor)
@@ -414,9 +432,15 @@ export class PremiumWall {
 
             const getBestWallForObject = (item, type) => {
                 if (item.attachedWall) return item.attachedWall;
-                let objPos;
-                if (type === 'furniture' || (type && type.startsWith('shape'))) objPos = { x: item.group.x(), y: item.group.y() };
-                else return null;
+                let objPos = null;
+                if (type === 'furniture' || (type && type.startsWith('shape')) || type === 'platform' || type === 'stairs') {
+                    if (item.group && typeof item.group.x === 'function') {
+                        objPos = { x: item.group.x(), y: item.group.y() };
+                    } else if (item.x !== undefined && item.y !== undefined) {
+                        objPos = { x: Number(item.x) || 0, y: Number(item.y) || 0 };
+                    }
+                }
+                if (!objPos) return null;
                 let minDist = 100;
                 let bestWall = null;
                 let dThis = this.planner.getDistanceToWall(objPos, this);
@@ -434,12 +458,16 @@ export class PremiumWall {
                     list.forEach(item => {
                         if (initialObjectPositions.some(io => io.obj === item)) return;
                         if (getBestWallForObject(item, type) === this) {
-                            initialObjectPositions.push({ type, obj: item, x: item.group.x(), y: item.group.y() });
+                            const posX = (item.group && typeof item.group.x === 'function') ? item.group.x() : (item.x || 0);
+                            const posY = (item.group && typeof item.group.y === 'function') ? item.group.y() : (item.y || 0);
+                            initialObjectPositions.push({ type, obj: item, x: posX, y: posY });
                         }
                     });
                 };
                 collectNear(this.planner.furniture, 'furniture');
                 collectNear(this.planner.shapes, 'shape');
+                collectNear(this.planner.platforms, 'platform');
+                collectNear(this.planner.stairs, 'stairs');
             }
 
             this.trackedAttachedObjects = [];
@@ -459,7 +487,9 @@ export class PremiumWall {
                             if (this.trackedAttachedObjects.some(to => to.obj === item)) return;
                             if (initialObjectPositions.some(io => io.obj === item)) return;
                             if (getBestWallForObject(item, type) === w) {
-                                let pos = { x: item.group.x(), y: item.group.y() };
+                                let pos = (item.group && typeof item.group.x === 'function')
+                                    ? { x: item.group.x(), y: item.group.y() }
+                                    : { x: Number(item.x) || 0, y: Number(item.y) || 0 };
                                 const t = len === 0 ? 0 : ((pos.x - p1.x)*dx + (pos.y - p1.y)*dy) / (len*len);
                                 const distToWall = len === 0 ? 0 : (pos.x - p1.x)*(-dy/len) + (pos.y - p1.y)*(dx/len);
                                 this.trackedAttachedObjects.push({
@@ -467,8 +497,8 @@ export class PremiumWall {
                                     relT: t, normDist: distToWall,
                                     relRot: (item.rotation || 0) - (wallAngle * 180 / Math.PI),
                                     initialLen: len,
-                                    initialScaleX: item.group.scaleX ? item.group.scaleX() : 1,
-                                    initialScaleY: item.group.scaleY ? item.group.scaleY() : 1,
+                                    initialScaleX: (item.group && item.group.scaleX) ? item.group.scaleX() : 1,
+                                    initialScaleY: (item.group && item.group.scaleY) ? item.group.scaleY() : 1,
                                     initialWidth: item.width || (item.params ? item.params.width : undefined),
                                     initialHeight: item.depth || item.height || (item.params ? item.params.height : undefined)
                                 });
@@ -477,6 +507,8 @@ export class PremiumWall {
                     };
                     collectNearAtt(this.planner.furniture, 'furniture');
                     collectNearAtt(this.planner.shapes, 'shape');
+                    collectNearAtt(this.planner.platforms, 'platform');
+                    collectNearAtt(this.planner.stairs, 'stairs');
                 }
 
                 if (this.planner.arcs) {
@@ -562,6 +594,24 @@ export class PremiumWall {
                     if (item.type === 'furniture' || item.type === 'shape') {
                         item.obj.group.position({ x: item.x + dx, y: item.y + dy });
                         if (item.obj.update) item.obj.update();
+                    } else if (item.type === 'platform') {
+                        item.obj.x = item.x + dx;
+                        item.obj.y = item.y + dy;
+                        if (item.obj.group && typeof item.obj.group.position === 'function') {
+                            item.obj.group.position({ x: item.x + dx, y: item.y + dy });
+                        }
+                        if (typeof item.obj.update2D === 'function') item.obj.update2D();
+                        else if (typeof item.obj.update === 'function') item.obj.update();
+                        if (typeof item.obj._sync3DTransform === 'function') item.obj._sync3DTransform();
+                    } else if (item.type === 'stairs') {
+                        item.obj.x = item.x + dx;
+                        item.obj.y = item.y + dy;
+                        if (item.obj.group && typeof item.obj.group.position === 'function') {
+                            item.obj.group.position({ x: item.x + dx, y: item.y + dy });
+                        }
+                        if (typeof item.obj.update2D === 'function') item.obj.update2D();
+                        else if (typeof item.obj.update === 'function') item.obj.update();
+                        if (typeof item.obj._sync3DTransform === 'function') item.obj._sync3DTransform();
                     }
                 });
             }
@@ -595,6 +645,29 @@ export class PremiumWall {
                             if (item.initialScaleY !== undefined) item.obj.group.scaleY(item.initialScaleY * scaleRatio);
                         }
                         if (item.obj.update) item.obj.update();
+                    } else if (item.type === 'platform') {
+                        item.obj.x = newX;
+                        item.obj.y = newY;
+                        if (item.obj.group && typeof item.obj.group.position === 'function') {
+                            item.obj.group.position({ x: newX, y: newY });
+                        }
+                        item.obj.rotation = newRot;
+                        if (item.initialWidth !== undefined && item.obj.width !== undefined) item.obj.width = item.initialWidth * scaleRatio;
+                        if (item.initialHeight !== undefined && item.obj.depth !== undefined) item.obj.depth = item.initialHeight * scaleRatio;
+                        if (typeof item.obj.update2D === 'function') item.obj.update2D();
+                        else if (typeof item.obj.update === 'function') item.obj.update();
+                        if (typeof item.obj._sync3DTransform === 'function') item.obj._sync3DTransform();
+                        if (item.initialWidth !== undefined && typeof item.obj._sync3DGeometry === 'function') item.obj._sync3DGeometry();
+                    } else if (item.type === 'stairs') {
+                        item.obj.x = newX;
+                        item.obj.y = newY;
+                        if (item.obj.group && typeof item.obj.group.position === 'function') {
+                            item.obj.group.position({ x: newX, y: newY });
+                        }
+                        item.obj.rotation = newRot;
+                        if (typeof item.obj.update2D === 'function') item.obj.update2D();
+                        else if (typeof item.obj.update === 'function') item.obj.update();
+                        if (typeof item.obj._sync3DTransform === 'function') item.obj._sync3DTransform();
                     }
                 });
             }

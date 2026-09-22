@@ -288,6 +288,7 @@ export class StairHeightDetector {
             flightLength,
             distance: candidate.distance,
             targetEdge: candidate.edge || null,
+            targetSource: candidate.source || null,
             snappedPos,
             snappedRotation,
             description: `${candidate.name} Snap: ${Math.round(targetHeight * 10)} mm (${optimal.totalSteps} steps)`
@@ -307,6 +308,7 @@ export class StairHeightDetector {
             hasTarget: false,
             targetType: 'default',
             targetName: 'Floor-to-Floor',
+            targetSource: null,
             detectedHeight: targetHeight,
             optimalSteps: optimal.totalSteps,
             flight1Steps: optimal.flight1Steps,

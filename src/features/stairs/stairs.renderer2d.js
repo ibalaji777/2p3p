@@ -2,6 +2,8 @@ import Konva from 'konva';
 import { StairHeightDetector } from './StairHeightDetector.js';
 import { StairGeometryEngine } from '../../core/stairs/StairGeometryEngine.js';
 import { StairEngine } from '../../core/stairs/StairEngine.js';
+import { SpatialHostResolver } from '../../core/spatial/SpatialHostResolver.js';
+import { globalSpatialDependencyEngine, RELATIONSHIP_TYPES } from '../../core/spatial/SpatialDependencyEngine.js';
 
 export class PremiumStaircase {
     constructor(planner, type = 'straight', data = {}) {
@@ -24,6 +26,15 @@ export class PremiumStaircase {
         this.height = data.height !== undefined ? Number(data.height) : (data.totalSteps && data.stepHeight ? Number(data.totalSteps) * Number(data.stepHeight) : 300);
         this.direction = data.direction || 'up'; // 'up' means arrow points to second floor
         this.description = data.description || '';
+
+        // Spatial Dependency & Host Tracking
+        this.hostPlatformId = data.hostPlatformId || data.hostId || null;
+        this.targetPlatformId = data.targetPlatformId || null;
+        this.hostId = data.hostId || data.hostPlatformId || null;
+        this.hostType = data.hostType || (data.hostPlatformId ? 'platform' : null);
+        this.relationshipType = data.relationshipType || null;
+        this.localTransform = data.localTransform ? JSON.parse(JSON.stringify(data.localTransform)) : null;
+        this.relativeElevation = data.relativeElevation !== undefined ? Number(data.relativeElevation) : null;
 
         // Standard metrics
         this.width = data.width || 90;
@@ -156,7 +167,35 @@ export class PremiumStaircase {
         });
 
         this.group.on('dragend', (e) => {
-            StairEngine.setPosition(this.planner, this, this.group.x(), this.group.y());
+            const curX = this.group.x();
+            const curY = this.group.y();
+            StairEngine.setPosition(this.planner, this, curX, curY);
+
+            if (this.planner) {
+                const hostRes = SpatialHostResolver.findHostAt(this.planner, curX, curY, 'stair', {
+                    rotation: this.rotation,
+                    preset: this
+                });
+
+                if (hostRes && hostRes.detection && hostRes.host) {
+                    const det = hostRes.detection;
+                    StairEngine.batchUpdate(this.planner, this, {
+                        height: det.detectedHeight,
+                        totalSteps: det.optimalSteps,
+                        flight1Steps: det.flight1Steps,
+                        flight2Steps: det.flight2Steps,
+                        stepHeight: det.stepHeight
+                    });
+
+                    globalSpatialDependencyEngine.attach(this, hostRes.host, {
+                        relationshipType: RELATIONSHIP_TYPES.SUPPORTED,
+                        localTransform: hostRes.localTransform
+                    });
+                } else if (this.hostPlatformId || this.hostId) {
+                    globalSpatialDependencyEngine.detach(this);
+                }
+            }
+
             if (this.planner?.debouncedSaveHistory) this.planner.debouncedSaveHistory();
         });
     }
@@ -594,6 +633,21 @@ export class PremiumStaircase {
 
     getCutoutPolygon() {
         return getStairCutoutPolygon(this);
+    }
+
+    onHostTransformed(hostTransform) {
+        if (!hostTransform) return;
+        const targetH = Math.max(20, Math.abs((Number(hostTransform.elevation) || 0) + (Number(hostTransform.height) || 0) - (Number(this.baseElevation) || 0)));
+        if (Math.abs((this.height || 0) - targetH) > 1) {
+            const optimal = StairGeometryEngine.calculateOptimalSteps(targetH, this.shape || 'straight');
+            this.height = targetH;
+            this.totalSteps = optimal.totalSteps;
+            this.flight1Steps = optimal.flight1Steps;
+            this.flight2Steps = optimal.flight2Steps;
+            this.stepHeight = optimal.stepHeight;
+            this.update();
+            this._notify3DUpdate();
+        }
     }
 
     remove() {
