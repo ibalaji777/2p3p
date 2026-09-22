@@ -331,6 +331,33 @@ export class CameraController {
         this.animateTo(newPos, center);
     }
 
+    setBackElevationView() {
+        const center = this.controls.target.clone();
+        const dist = Math.max(500, this.camera.position.distanceTo(center));
+
+        const dir = new THREE.Vector3(0, 0.25, -1).normalize();
+        const newPos = center.clone().add(dir.multiplyScalar(dist));
+        this.animateTo(newPos, center);
+    }
+
+    setLeftElevationView() {
+        const center = this.controls.target.clone();
+        const dist = Math.max(500, this.camera.position.distanceTo(center));
+
+        const dir = new THREE.Vector3(-1, 0.25, 0).normalize();
+        const newPos = center.clone().add(dir.multiplyScalar(dist));
+        this.animateTo(newPos, center);
+    }
+
+    setRightElevationView() {
+        const center = this.controls.target.clone();
+        const dist = Math.max(500, this.camera.position.distanceTo(center));
+
+        const dir = new THREE.Vector3(1, 0.25, 0).normalize();
+        const newPos = center.clone().add(dir.multiplyScalar(dist));
+        this.animateTo(newPos, center);
+    }
+
     resetCamera() {
         const box = this.getBuildingBoundingBox();
         const center = new THREE.Vector3();

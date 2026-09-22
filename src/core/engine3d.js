@@ -3,11 +3,8 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
-import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
-import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
-import { SSAOPass } from 'three/examples/jsm/postprocessing/SSAOPass.js';
-import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 import { CSS2DRenderer } from 'three/examples/jsm/renderers/CSS2DRenderer.js';
+import { ViewportEngine } from './viewport/ViewportEngine.js';
 import { TransformControls } from './engine3d/TransformControls.js';
 import { WALL_HEIGHT, DOOR_HEIGHT, WINDOW_SILL, WINDOW_HEIGHT, FLOOR_REGISTRY, RAILING_REGISTRY, SKY_REGISTRY, GROUND_REGISTRY, DOOR_MATERIALS, WINDOW_FRAME_MATERIALS, GLASS_REGISTRY, DOOR_TYPES, WINDOW_TYPES, WALL_DECOR_REGISTRY, WIDGET_REGISTRY, MOLDING_REGISTRY, DOOR_MATERIALS_REGISTRY, FABRIC_REGISTRY, getFabricBaseConfig, resolveFabricConfig } from './registry.js';
 import { DEFAULT_UNIVERSAL_TILE_SIZE } from './registries/material.registry.js';
@@ -482,8 +479,13 @@ export class Preview3D {
     }
 
     setEnvironment(skyKey, groundKey) { 
-        this.envBuilder.setEnvironment(skyKey, groundKey); 
-        this.requestRender();
+        ViewportEngine.setEnvironment(this, skyKey, groundKey);
+    }
+    setWallCutawayMode(mode) {
+        ViewportEngine.setWallCutawayMode(this, mode);
+    }
+    cycleWallCutawayMode() {
+        return ViewportEngine.cycleWallCutawayMode(this);
     }
     setInteractionMode(mode) { this.interactions.setMode(mode); }
     cancelRelocation() { this.interactions.cancelRelocation(); }

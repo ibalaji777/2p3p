@@ -1,6 +1,7 @@
 import { onBeforeUnmount } from 'vue';
 import { WallEngine } from '../core/wall/WallEngine.js';
 import { RoofMutationEngine } from '../core/roof/RoofMutationEngine.js';
+import { ViewportEngine } from '../core/viewport/ViewportEngine.js';
 
 export function useAppScene({
     renderer3D,
@@ -21,7 +22,7 @@ export function useAppScene({
 }) {
     const updateEnvironment = () => {
         if (renderer3D.value) {
-            renderer3D.value.setEnvironment(selectedSky.value, selectedGround.value);
+            ViewportEngine.setEnvironment(renderer3D.value, selectedSky.value, selectedGround.value);
         }
     };
 

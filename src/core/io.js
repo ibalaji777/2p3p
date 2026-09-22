@@ -1,37 +1,25 @@
+import { ExportEngine } from './export/ExportEngine.js';
+
 export class FileManager {
-    static exportJSON(data) {
+    static exportJSON(data, fileName = "premium_floorplan.json") {
         try {
-            let jsonStr;
-            if (data && typeof data.exportState === 'function') {
-                jsonStr = data.exportState();
-            } else {
-                jsonStr = typeof data === 'string' ? data : JSON.stringify(data);
-            }
-            const blob = new Blob([jsonStr], { type: "application/json" }); 
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a'); 
-            a.href = url; 
-            a.download = "premium_floorplan.json"; 
-            document.body.appendChild(a); 
-            a.click(); 
-            document.body.removeChild(a); 
-            URL.revokeObjectURL(url);
+            return ExportEngine.exportProjectJSON(data, { fileName, download: true });
         } catch(e) { 
-            console.error(e);
-            alert("Failed to save the project."); 
+            console.error('[FileManager] Failed to save project:', e);
+            if (typeof window !== 'undefined' && typeof window.alert === 'function') {
+                try { window.alert("Failed to save the project."); } catch(_) {}
+            }
         }
     }
 
     static importJSON(planner, jsonData) {
         try {
-            if (typeof jsonData !== 'string') {
-                jsonData = JSON.stringify(jsonData);
-            }
-            planner.importState(jsonData);
-            planner.syncAll();
+            return ExportEngine.importProjectJSON(planner, jsonData, { sync: true });
         } catch(e) { 
-            console.error(e);
-            alert("Failed to render the floor plan. The file might be corrupted."); 
+            console.error('[FileManager] Failed to import floor plan:', e);
+            if (typeof window !== 'undefined' && typeof window.alert === 'function') {
+                try { window.alert("Failed to render the floor plan. The file might be corrupted."); } catch(_) {}
+            }
         }
     }
 }

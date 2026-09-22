@@ -369,10 +369,12 @@ import { SmartWallResizePlugin } from './core/plugins/SmartWallResizePlugin.js';
 
 import { FloorPlanner, PremiumOutdoorZone, OutdoorZoneEngine } from './core/engine2d/index.js';
 import { Preview3D } from './core/engine3d.js'; 
-import { WorkspaceControls } from '/src/core/engine3d/WorkspaceControls.js';
+import { WorkspaceControls } from './core/engine3d/WorkspaceControls.js';
+import { ViewportEngine, VIEW_PRESETS } from './core/viewport/ViewportEngine.js';
 import { ServerClass } from './core/ServerClass.js';
 
 import { FileManager } from './core/io.js';
+import { ExportEngine } from './core/export/ExportEngine.js';
 import { WALL_DECOR_REGISTRY, ROOF_DECOR_REGISTRY, SKY_REGISTRY, GROUND_REGISTRY, FLOOR_REGISTRY, RAILING_REGISTRY, EVENTS } from './core/registry.js';
 import { coreEventBus } from './core/EventBus.js';
 import { getMenuCategories } from './core/config/menuCategories.js';
@@ -1010,47 +1012,50 @@ const togglePreviewMode = () => {
 
 
 const zoomIn = () => {
-    if (viewMode.value === '2d') workspaceControls.value?.zoomIn2D();
-    else workspaceControls.value?.zoomIn3D();
+    ViewportEngine.zoomIn(viewMode.value, { planner: planner.value, renderer3D: renderer3D.value });
 };
 
 const zoomOut = () => {
-    if (viewMode.value === '2d') workspaceControls.value?.zoomOut2D();
-    else workspaceControls.value?.zoomOut3D();
+    ViewportEngine.zoomOut(viewMode.value, { planner: planner.value, renderer3D: renderer3D.value });
 };
 
 const resetZoom = () => {
-    if (viewMode.value === '2d') workspaceControls.value?.resetZoom2D();
-    // 3D reset can be more complex, often handled by `refresh3DScene`
+    ViewportEngine.resetZoom(viewMode.value, { planner: planner.value, renderer3D: renderer3D.value });
 };
 
 const resetCamera = () => {
-    if (viewMode.value === '3d' && renderer3D.value?.cameraController) {
-        renderer3D.value.cameraController.resetCamera();
+    if (viewMode.value === '3d' && renderer3D.value) {
+        ViewportEngine.resetZoom('3d', { renderer3D: renderer3D.value });
     }
 };
 
 const setSims4View = () => {
-    if (viewMode.value === '3d' && renderer3D.value?.cameraController) {
-        renderer3D.value.cameraController.setSims4IsometricView();
+    if (viewMode.value === '3d' && renderer3D.value) {
+        ViewportEngine.setPresetView(VIEW_PRESETS.ISO, { renderer3D: renderer3D.value });
     }
 };
 
 const setTopDownView = () => {
-    if (viewMode.value === '3d' && renderer3D.value?.cameraController) {
-        renderer3D.value.cameraController.setTopDownView();
+    if (viewMode.value === '3d' && renderer3D.value) {
+        ViewportEngine.setPresetView(VIEW_PRESETS.TOP, { renderer3D: renderer3D.value });
     }
 };
 
 const rotateCameraLeft = () => {
-    if (viewMode.value === '3d' && renderer3D.value?.cameraController) {
-        renderer3D.value.cameraController.rotateSims4Isometric(-1);
+    if (viewMode.value === '3d' && renderer3D.value) {
+        ViewportEngine.rotateView(-1, { renderer3D: renderer3D.value });
     }
 };
 
 const rotateCameraRight = () => {
-    if (viewMode.value === '3d' && renderer3D.value?.cameraController) {
-        renderer3D.value.cameraController.rotateSims4Isometric(1);
+    if (viewMode.value === '3d' && renderer3D.value) {
+        ViewportEngine.rotateView(1, { renderer3D: renderer3D.value });
+    }
+};
+
+const setWallCutawayMode = (mode) => {
+    if (viewMode.value === '3d' && renderer3D.value) {
+        ViewportEngine.setWallCutawayMode(renderer3D.value, mode);
     }
 };
 
@@ -1122,64 +1127,56 @@ const saveProject = () => {
     saveCurrentLevelState();
     const projectData = {
         levels: levels.value,
-        activeLevelIndex: activeLevelIndex.value
+        activeLevelIndex: activeLevelIndex.value,
+        settings: floorPlanSettings.value
     };
-    FileManager.exportJSON(projectData);
+    ExportEngine.exportProjectJSON(projectData, { download: true });
 };
 const loadProject = (jsonStr) => {
     try {
-        const parsed = typeof jsonStr === 'string' ? JSON.parse(jsonStr) : jsonStr;
-        if (parsed.levels && parsed.activeLevelIndex !== undefined) {
-            console.log(`%c[DEBUG-LOAD] Multi-level project loaded: ${parsed.levels.length} levels, active: ${parsed.activeLevelIndex}`, 'color: #10b981; font-weight: bold;');
-            levels.value = parsed.levels;
-            activeLevelIndex.value = parsed.activeLevelIndex;
-            planner.value.importState(levels.value[activeLevelIndex.value].data);
+        const manifest = ExportEngine.parseProjectJSON(jsonStr);
+        console.log(`%c[DEBUG-LOAD] Project loaded: ${manifest.levels.length} levels, active: ${manifest.activeLevelIndex}`, 'color: #10b981; font-weight: bold;');
+        levels.value = manifest.levels;
+        activeLevelIndex.value = manifest.activeLevelIndex;
+        
+        const activeLevel = manifest.levels[manifest.activeLevelIndex] || manifest.levels[0];
+        if (activeLevel && activeLevel.data) {
+            planner.value.importState(activeLevel.data);
             planner.value.syncAll();
-            
-            if (planner.value.settings) {
-                Object.assign(floorPlanSettings.value, planner.value.settings);
-            }
-            
-            // Clear history when loading new project
-            if (planner.value && planner.value.commandManager) {
-                planner.value.commandManager.clear();
-            }
-            setTimeout(() => saveHistory(), 200);
+        }
+        
+        if (manifest.settings && Object.keys(manifest.settings).length > 0) {
+            Object.assign(floorPlanSettings.value, manifest.settings);
+            if (planner.value) planner.value.settings = { ...(planner.value.settings || {}), ...manifest.settings };
+        } else if (planner.value?.settings) {
+            Object.assign(floorPlanSettings.value, planner.value.settings);
+        }
+        
+        // Clear history when loading new project
+        if (planner.value && planner.value.commandManager) {
+            planner.value.commandManager.clear();
+        }
+        setTimeout(() => saveHistory(), 200);
 
-            // Automatically switch to 3D full-edit mode if multi-story elevation/building project
-            if (parsed.levels.length > 1) {
-                console.log('%c[DEBUG-LOAD] Multi-level detected: switching to 3D full-edit mode', 'color: #10b981;');
-                viewMode3D.value = 'full-edit';
-                mode3D.value = 'edit';
-                switchTo3D();
-            } else if (viewMode.value === '3d') {
-                setTimeout(() => {
-                    if (renderer3D.value) {
-                        renderer3D.value.resize();
-                        updateEnvironment();
-                        refresh3DScene(false);
-                        renderer3D.value.requestRender('project_loaded', 25);
-                    }
-                }, 50);
-            }
-        } else {
-            // Fallback for single floor plans or old exports
-            console.log('%c[DEBUG-LOAD] Single-level or legacy project format detected', 'color: #f59e0b; font-weight: bold;');
-            FileManager.importJSON(planner.value, jsonStr);
-            if (viewMode.value === '3d') {
-                setTimeout(() => {
-                    if (renderer3D.value) {
-                        renderer3D.value.resize();
-                        updateEnvironment();
-                        refresh3DScene(false);
-                        renderer3D.value.requestRender('project_loaded', 25);
-                    }
-                }, 50);
-            }
+        // Automatically switch to 3D full-edit mode if multi-story elevation/building project
+        if (manifest.levels.length > 1) {
+            console.log('%c[DEBUG-LOAD] Multi-level detected: switching to 3D full-edit mode', 'color: #10b981;');
+            viewMode3D.value = 'full-edit';
+            mode3D.value = 'edit';
+            switchTo3D();
+        } else if (viewMode.value === '3d') {
+            setTimeout(() => {
+                if (renderer3D.value) {
+                    renderer3D.value.resize();
+                    updateEnvironment();
+                    refresh3DScene(false);
+                    renderer3D.value.requestRender('project_loaded', 25);
+                }
+            }, 50);
         }
     } catch(e) {
         console.error('%c[DEBUG-LOAD] Failed to load project file:', 'color: #ef4444; font-weight: bold;', e);
-        alert("Failed to load project file.");
+        if (typeof alert === 'function') alert("Failed to load project file.");
     }
 };
 window.loadProject = (jsonStr, autoSwitch3D = true) => {
