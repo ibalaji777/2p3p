@@ -21,6 +21,7 @@ import { UniversalMaterialManager } from './UniversalMaterialManager.js';
 import { computeLevelElevations } from './helpers/levelElevations.js';
 import { ComponentRegistry } from './ComponentRegistry.js';
 import { FloorSlabEngine } from '../floor/FloorSlabEngine.js';
+import { computeCorridorOffsets } from '../engine2d/corridorUtils.js';
 
 let _sharedPlasterMaterial = null;
 let _plasterUniforms = {
@@ -526,76 +527,15 @@ export class EnvironmentBuilder {
     }
 
     _buildCorridorRibbonGeometry(centerline, width, height3D = 0.3, tileSize = DEFAULT_UNIVERSAL_TILE_SIZE, isRoadCenterline = false) {
-        const halfW = width / 2;
-        const n = centerline.length;
+        const n = centerline ? centerline.length : 0;
         if (n < 2) return null;
+
+        const offsets = computeCorridorOffsets(centerline, width);
+        if (!offsets) return null;
+        const { leftPts, rightPts } = offsets;
 
         const uScale = isRoadCenterline ? 1.0 : (width / tileSize);
         const vStep = isRoadCenterline ? width : tileSize;
-
-        const segNormals = [];
-        for (let i = 0; i < n - 1; i++) {
-            const dx = centerline[i+1].x - centerline[i].x;
-            const dy = centerline[i+1].y - centerline[i].y;
-            const len = Math.hypot(dx, dy) || 1;
-            const ux = dx / len;
-            const uy = dy / len;
-            segNormals.push({ nx: -uy, ny: ux, ux, uy, len });
-        }
-
-        const leftPts = [];
-        const rightPts = [];
-
-        // Start point
-        leftPts.push({
-            x: centerline[0].x + segNormals[0].nx * halfW,
-            y: centerline[0].y + segNormals[0].ny * halfW
-        });
-        rightPts.push({
-            x: centerline[0].x - segNormals[0].nx * halfW,
-            y: centerline[0].y - segNormals[0].ny * halfW
-        });
-
-        // Intermediate points with miter joint calculation
-        for (let i = 1; i < n - 1; i++) {
-            const n1 = segNormals[i - 1];
-            const n2 = segNormals[i];
-            
-            let bisectorX = n1.nx + n2.nx;
-            let bisectorY = n1.ny + n2.ny;
-            const bisectorLen = Math.hypot(bisectorX, bisectorY);
-            
-            if (bisectorLen < 0.001) {
-                bisectorX = n1.nx;
-                bisectorY = n1.ny;
-            } else {
-                bisectorX /= bisectorLen;
-                bisectorY /= bisectorLen;
-            }
-
-            const dot = bisectorX * n1.nx + bisectorY * n1.ny;
-            const miterLength = Math.min(halfW / Math.max(0.15, dot), halfW * 2.5);
-
-            leftPts.push({
-                x: centerline[i].x + bisectorX * miterLength,
-                y: centerline[i].y + bisectorY * miterLength
-            });
-            rightPts.push({
-                x: centerline[i].x - bisectorX * miterLength,
-                y: centerline[i].y - bisectorY * miterLength
-            });
-        }
-
-        // End point
-        const lastN = segNormals[segNormals.length - 1];
-        leftPts.push({
-            x: centerline[n - 1].x + lastN.nx * halfW,
-            y: centerline[n - 1].y + lastN.ny * halfW
-        });
-        rightPts.push({
-            x: centerline[n - 1].x - lastN.nx * halfW,
-            y: centerline[n - 1].y - lastN.ny * halfW
-        });
 
         const positions = [];
         const normals = [];

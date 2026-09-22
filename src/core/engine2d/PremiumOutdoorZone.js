@@ -599,6 +599,10 @@ export class PremiumOutdoorZone {
         }
     }
 
+    update2D() {
+        this.updateGeometry();
+    }
+
     updateGeometry() {
         const flatPts = this.getFlatPoints();
         this.polygonShape.points(flatPts);
@@ -710,6 +714,13 @@ export class PremiumOutdoorZone {
 
     exportState() {
         return this.toJSON();
+    }
+
+    remove() {
+        if (this.planner?.outdoorZones) {
+            this.planner.outdoorZones = this.planner.outdoorZones.filter(z => z !== this && z.id !== this.id);
+        }
+        this.destroy();
     }
 
     destroy() {

@@ -4,6 +4,7 @@ import { FurnitureEngine } from '../furniture/FurnitureEngine.js';
 import { StairEngine } from '../stairs/StairEngine.js';
 import { WallEngine } from '../wall/WallEngine.js';
 import { RoofEngine } from '../roof/RoofEngine.js';
+import { OutdoorZoneEngine } from '../outdoor/OutdoorZoneEngine.js';
 
 export class DuplicateEntityCommand extends Command {
     constructor(planner, entityId, id) {
@@ -18,6 +19,7 @@ export class DuplicateEntityCommand extends Command {
         this.serializedWidget = null;
         this.serializedMolding = null;
         this.serializedFurniture = null;
+        this.serializedOutdoorZone = null;
     }
 
     execute() {
@@ -61,6 +63,16 @@ export class DuplicateEntityCommand extends Command {
 
         if (this.serializedFurniture) {
             const restored = FurnitureEngine.deserialize(this.planner, this.serializedFurniture, { addToPlanner: true });
+            if (restored) {
+                this.createdEntity = restored;
+                if (this.id) this.createdEntity.id = this.id;
+            }
+            this.planner.syncAll();
+            return;
+        }
+
+        if (this.serializedOutdoorZone) {
+            const restored = OutdoorZoneEngine.deserialize(this.planner, this.serializedOutdoorZone, { addToPlanner: true });
             if (restored) {
                 this.createdEntity = restored;
                 if (this.id) this.createdEntity.id = this.id;
@@ -171,8 +183,13 @@ export class DuplicateEntityCommand extends Command {
                     };
                 }
                 this.serializedWidget = WallEngine.serializeWidget(this.createdEntity);
+            } else if (sourceEntity.constructor?.name === 'PremiumOutdoorZone' || sourceEntity.type === 'outdoor_zone' || (this.planner?.outdoorZones && this.planner.outdoorZones.includes(sourceEntity))) {
+                const offset = { x: 30, y: 30 };
+                this.createdEntity = OutdoorZoneEngine.duplicateOutdoorZone(this.planner, sourceEntity, offset);
+                if (this.id) this.createdEntity.id = this.id;
+                this.serializedOutdoorZone = OutdoorZoneEngine.serialize(this.createdEntity);
             } else {
-                throw new Error('Duplication currently only supports PremiumFurniture, Staircases, Roofs, and Attached Wall Openings/Widgets/Moldings via AutomationAPI');
+                throw new Error('Duplication currently only supports PremiumFurniture, Staircases, Roofs, OutdoorZones, and Attached Wall Openings/Widgets/Moldings via AutomationAPI');
             }
         }
         
@@ -213,6 +230,10 @@ export class DuplicateEntityCommand extends Command {
         } else if (this.createdEntity.constructor?.name === 'PremiumFurniture' || this.createdEntity.type === 'furniture' || (this.planner?.furniture && this.planner.furniture.includes(this.createdEntity))) {
             this.serializedFurniture = FurnitureEngine.serialize(this.createdEntity);
             FurnitureEngine.deleteFurniture(this.planner, this.createdEntity);
+            this.createdEntity = null;
+        } else if (this.createdEntity.constructor?.name === 'PremiumOutdoorZone' || this.createdEntity.type === 'outdoor_zone' || (this.planner?.outdoorZones && this.planner.outdoorZones.includes(this.createdEntity))) {
+            this.serializedOutdoorZone = OutdoorZoneEngine.serialize(this.createdEntity);
+            OutdoorZoneEngine.deleteOutdoorZone(this.planner, this.createdEntity);
             this.createdEntity = null;
         } else if (typeof this.createdEntity.remove === 'function') {
             this.createdEntity.remove();

@@ -11,6 +11,7 @@ import { WallReformer } from './WallReformer.js';
 import { WallEngine } from '../wall/WallEngine.js';
 import { StairEngine } from '../stairs/StairEngine.js';
 import { RoofEngine } from '../roof/index.js';
+import { OutdoorZoneEngine } from '../outdoor/OutdoorZoneEngine.js';
 
 export { computeCorridorOffsets, computeCorridorPolygon } from './corridorUtils.js';
 import { computeCorridorOffsets, computeCorridorPolygon } from './corridorUtils.js';
@@ -809,15 +810,11 @@ export function setupDrawingEvents(planner) {
             const cx = (minX + maxX) / 2, cy = (minY + maxY) / 2;
             const relPts = corridorPoly.map(p => ({ x: p.x - cx, y: p.y - cy }));
 
-            const newZone = new PremiumOutdoorZone(planner, 'outdoor_zone', {
+            const newZone = OutdoorZoneEngine.createOutdoorZone(planner, {
                 x: cx, y: cy, points: relPts, subType: subType, material: (planner.activePresetParams?.material || zoneDefaults.defaultMaterial), height3D: 0.3,
                 width: corridorWidth,
                 centerline: planner.drawingOutdoorPoints.map(p => ({ x: p.x - cx, y: p.y - cy }))
-            });
-            if (!planner.outdoorZones) planner.outdoorZones = [];
-            planner.outdoorZones.push(newZone);
-            if (!planner.currentSessionEntities) planner.currentSessionEntities = [];
-            planner.currentSessionEntities.push(newZone);
+            }, { addToPlanner: true, addToSession: true, sync: false });
 
             planner.drawingOutdoorPoints = null;
             planner.startAnchor = null;
@@ -949,13 +946,9 @@ export function setupDrawingEvents(planner) {
                     const cx = (minX + maxX) / 2, cy = (minY + maxY) / 2;
                     const relPts = planner.drawingOutdoorPoints.map(p => ({ x: p.x - cx, y: p.y - cy }));
 
-                    const newZone = new PremiumOutdoorZone(planner, 'outdoor_zone', {
+                    const newZone = OutdoorZoneEngine.createOutdoorZone(planner, {
                         x: cx, y: cy, points: relPts, subType: subType, material: (planner.activePresetParams?.material || zoneDefaults.defaultMaterial), height3D: 0.3
-                    });
-                    if (!planner.outdoorZones) planner.outdoorZones = [];
-                    planner.outdoorZones.push(newZone);
-                    if (!planner.currentSessionEntities) planner.currentSessionEntities = [];
-                    planner.currentSessionEntities.push(newZone);
+                    }, { addToPlanner: true, addToSession: true, sync: false });
 
                     planner.drawingOutdoorPoints = null;
                     planner.startAnchor = null;

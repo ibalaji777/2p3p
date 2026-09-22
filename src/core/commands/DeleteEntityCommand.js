@@ -7,6 +7,7 @@ import { StairEngine } from '../stairs/StairEngine.js';
 import { WallEngine } from '../wall/WallEngine.js';
 import { RoofEngine } from '../roof/RoofEngine.js';
 import { FurnitureEngine } from '../furniture/FurnitureEngine.js';
+import { OutdoorZoneEngine } from '../outdoor/OutdoorZoneEngine.js';
 
 export class DeleteEntityCommand extends Command {
     constructor(planner, entityId) {
@@ -19,6 +20,7 @@ export class DeleteEntityCommand extends Command {
         this.serializedWidget = null;
         this.serializedMolding = null;
         this.serializedFurniture = null;
+        this.serializedOutdoorZone = null;
         this.hostWall = null;
         this.hostWallId = null;
     }
@@ -60,6 +62,9 @@ export class DeleteEntityCommand extends Command {
             } else if (hostWall && (this.deletedEntity.type === 'door' || this.deletedEntity.type === 'window' || this.deletedEntity.doorType || this.deletedEntity.windowType || this.deletedEntity.type?.startsWith('door_') || this.deletedEntity.type?.startsWith('window_') || this.deletedEntity.constructor?.name === 'PremiumWidget' || this.deletedEntity.constructor?.name === 'advance_openings' || this.deletedEntity.type === 'sunshade' || this.deletedEntity.type === 'jali_panel')) {
                 this.serializedWidget = WallEngine.serializeWidget(this.deletedEntity);
                 WallEngine.deleteWidget(this.planner, hostWall, this.deletedEntity, false);
+            } else if (this.deletedEntity.constructor?.name === 'PremiumOutdoorZone' || this.deletedEntity.type === 'outdoor_zone' || (this.planner?.outdoorZones && this.planner.outdoorZones.includes(this.deletedEntity))) {
+                this.serializedOutdoorZone = OutdoorZoneEngine.serialize(this.deletedEntity);
+                OutdoorZoneEngine.deleteOutdoorZone(this.planner, this.deletedEntity);
             } else if (typeof this.deletedEntity.remove === 'function') {
                 this.deletedEntity.remove();
             } else if (typeof this.deletedEntity.destroy === 'function') {
@@ -126,6 +131,16 @@ export class DeleteEntityCommand extends Command {
             } else if (this.deletedEntity.constructor?.name === 'PremiumStaircase' || (this.deletedEntity.type && (this.deletedEntity.type.startsWith('stair_') || this.deletedEntity.type === 'stair'))) {
                 if (!this.planner.stairs.includes(this.deletedEntity)) {
                     this.planner.stairs.push(this.deletedEntity);
+                }
+            } else if (this.serializedOutdoorZone) {
+                const restored = OutdoorZoneEngine.deserialize(this.planner, this.serializedOutdoorZone, { addToPlanner: true });
+                if (restored) {
+                    this.deletedEntity = restored;
+                }
+            } else if (this.deletedEntity.constructor?.name === 'PremiumOutdoorZone' || this.deletedEntity.type === 'outdoor_zone') {
+                if (!this.planner.outdoorZones) this.planner.outdoorZones = [];
+                if (!this.planner.outdoorZones.includes(this.deletedEntity)) {
+                    this.planner.outdoorZones.push(this.deletedEntity);
                 }
             }
             if (this.deletedEntity.group && typeof this.deletedEntity.group.visible === 'function') {

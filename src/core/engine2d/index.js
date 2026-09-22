@@ -25,6 +25,7 @@ import { PremiumWall } from '../../features/wall/wall.renderer2d.js';
 import { PremiumFurniture } from '../../features/furniture/furniture.renderer2d.js';
 import { FurnitureEngine } from '../furniture/FurnitureEngine.js';
 import { PremiumOutdoorZone } from './PremiumOutdoorZone.js';
+import { OutdoorZoneEngine } from '../outdoor/OutdoorZoneEngine.js';
 import { WallSerializer } from '../../features/wall/wall.serializer.js';
 
 import { PremiumHipRoof } from '../../features/roof/roof.renderer2d.js';
@@ -39,11 +40,11 @@ import { PremiumMolding } from './PremiumMolding.js';
 import { PremiumPlatform } from './PremiumPlatform.js';
 import { PRESET_REGISTRY, autoAlign } from './presetRegistry.js';
 import { PresetGroup } from './PresetGroup.js';
-import { computeCorridorPolygon } from './DrawingEvents.js';
+import { computeCorridorPolygon } from './corridorUtils.js';
 import { syncElevationSegments2D } from '../../features/elevation/elevationSegment.renderer2d.js';
 
 // Export the specific classes that App.vue needs to spawn items
-export { FurnitureEngine, PremiumFurniture, PremiumHipRoof, StairV4Flight, StairV4Landing, PremiumMolding, PremiumOutdoorZone, PremiumPlatform };
+export { FurnitureEngine, PremiumFurniture, PremiumHipRoof, StairV4Flight, StairV4Landing, PremiumMolding, PremiumOutdoorZone, OutdoorZoneEngine, PremiumPlatform };
 
 /**
  * The core orchestrator for the 2D layout engine. Manages application state, entities, rendering layers, and integrations with input sub-systems.
@@ -1251,9 +1252,7 @@ export class FloorPlanner {
                 const cx = (minX + maxX) / 2, cy = (minY + maxY) / 2;
                 const relPts = this.drawingRoofPoints.map(p => ({ x: p.x - cx, y: p.y - cy }));
                 const subType = this.tool === 'outdoor_other' ? 'other_space' : this.tool.replace('outdoor_', '');
-                const newZone = new PremiumOutdoorZone(this, 'outdoor_zone', { x: cx, y: cy, points: relPts, subType, height3D: 0.3 });
-                if (!this.outdoorZones) this.outdoorZones = [];
-                this.outdoorZones.push(newZone);
+                const newZone = OutdoorZoneEngine.createOutdoorZone(this, { x: cx, y: cy, points: relPts, subType, height3D: 0.3 }, { addToPlanner: true, sync: false });
 
                 this.registerTimeout(() => {
                     this.tool = 'select'; this.updateToolStates();
@@ -1293,14 +1292,12 @@ export class FloorPlanner {
                 finalPoly.forEach(p => { minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x); minY = Math.min(minY, p.y); maxY = Math.max(maxY, p.y); });
                 const cx = (minX + maxX) / 2, cy = (minY + maxY) / 2;
                 const relPts = finalPoly.map(p => ({ x: p.x - cx, y: p.y - cy }));
-                const newZone = new PremiumOutdoorZone(this, 'outdoor_zone', {
+                const newZone = OutdoorZoneEngine.createOutdoorZone(this, {
                     x: cx, y: cy, points: relPts, subType, height3D: 0.3,
                     material: this.activePresetParams?.material,
                     width: isCorridor ? corridorWidth : undefined,
                     centerline: isCorridor ? this.drawingOutdoorPoints.map(p => ({ x: p.x - cx, y: p.y - cy })) : undefined
-                });
-                if (!this.outdoorZones) this.outdoorZones = [];
-                this.outdoorZones.push(newZone);
+                }, { addToPlanner: true, sync: false });
 
                 this.registerTimeout(() => {
                     this.tool = 'select'; this.updateToolStates();
@@ -1956,7 +1953,7 @@ export class FloorPlanner {
                 params: a.params || (a.walls && a.walls[0] ? a.walls[0].params : null) 
             })) : [],
             shapes: this.shapes ? this.shapes.map(s => ({ type: s.type, x: s.group.x(), y: s.group.y(), rotation: s.rotation, scaleX: s.group.scaleX(), scaleY: s.group.scaleY(), params: s.params, description: s.description })) : [],
-            outdoorZones: this.outdoorZones ? this.outdoorZones.map(z => (typeof z.export === 'function' ? z.export() : (typeof z.toJSON === 'function' ? z.toJSON() : (typeof z.exportState === 'function' ? z.exportState() : z)))) : [],
+            outdoorZones: this.outdoorZones ? this.outdoorZones.map(z => OutdoorZoneEngine.serialize(z)).filter(Boolean) : [],
             platforms: this.platforms ? this.platforms.map(p => (typeof p.exportState === 'function' ? p.exportState() : (typeof p.export === 'function' ? p.export() : (typeof p.toJSON === 'function' ? p.toJSON() : p)))) : [],
             rooms: this.rooms ? this.rooms.map(r => ({ path: r.path.map(p => ({ x: p.x, y: p.y })), cx: r.cx, cy: r.cy, elevation: r.elevation || 0, configId: r.configId, isHidden: r.isHidden, isDeleted: r.isDeleted, materialRepeat: r.materialRepeat, description: r.description })) : [],
             roomPaths: this.roomPaths ? this.roomPaths.map(path => path.map(p => ({ x: p.x, y: p.y }))) : [],
@@ -2113,8 +2110,7 @@ export class FloorPlanner {
             if (state.outdoorZones) {
                 if (!this.outdoorZones) this.outdoorZones = [];
                 state.outdoorZones.forEach(zData => {
-                    const zone = new PremiumOutdoorZone(this, 'outdoor_zone', zData);
-                    this.outdoorZones.push(zone);
+                    OutdoorZoneEngine.deserialize(this, zData, { addToPlanner: true, sync: false });
                 });
             }
             if (state.platforms) {

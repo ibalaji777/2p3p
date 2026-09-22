@@ -3,6 +3,7 @@ import { WALL_REGISTRY, SNAP_DIST } from '../registry.js';
 import { WallFactory } from '../../features/wall/wall.factory.js';
 import { SnapshotCommand } from '../commands/SnapshotCommand.js';
 import { PremiumOutdoorZone, OUTDOOR_ZONE_TYPES } from '../engine2d/PremiumOutdoorZone.js';
+import { OutdoorZoneEngine } from '../outdoor/OutdoorZoneEngine.js';
 import { computeCorridorPolygon } from '../engine2d/corridorUtils.js';
 import { WallReformer } from '../engine2d/WallReformer.js';
 import { WallEngine } from '../wall/WallEngine.js';
@@ -1092,19 +1093,14 @@ export class Wall3DDrawSystem {
         const cx = (minX + maxX) / 2, cy = (minY + maxY) / 2;
         const relPts = corridorPoly.map(p => ({ x: p.x - cx, y: p.y - cy }));
 
-        const newZone = new PremiumOutdoorZone(planner, 'outdoor_zone', {
+        const newZone = OutdoorZoneEngine.createOutdoorZone(planner, {
             x: cx, y: cy, points: relPts, subType: subType,
             material: (planner.activePresetParams?.material || zoneDefaults.defaultMaterial),
             height3D: 0.3,
             width: corridorWidth,
             materialScale: DEFAULT_UNIVERSAL_TILE_SIZE,
             centerline: this.drawingOutdoorPoints.map(p => ({ x: p.x - cx, y: p.y - cy }))
-        });
-
-        if (!planner.outdoorZones) planner.outdoorZones = [];
-        planner.outdoorZones.push(newZone);
-        if (!planner.currentSessionEntities) planner.currentSessionEntities = [];
-        planner.currentSessionEntities.push(newZone);
+        }, { addToPlanner: true, addToSession: true, sync: false });
 
         this.finishDrawing();
 
@@ -1133,17 +1129,12 @@ export class Wall3DDrawSystem {
         const cx = (minX + maxX) / 2, cy = (minY + maxY) / 2;
         const relPts = this.drawingOutdoorPoints.map(p => ({ x: p.x - cx, y: p.y - cy }));
 
-        const newZone = new PremiumOutdoorZone(planner, 'outdoor_zone', {
+        const newZone = OutdoorZoneEngine.createOutdoorZone(planner, {
             x: cx, y: cy, points: relPts, subType: subType,
             material: (planner.activePresetParams?.material || zoneDefaults.defaultMaterial),
             height3D: 0.3,
             materialScale: DEFAULT_UNIVERSAL_TILE_SIZE
-        });
-
-        if (!planner.outdoorZones) planner.outdoorZones = [];
-        planner.outdoorZones.push(newZone);
-        if (!planner.currentSessionEntities) planner.currentSessionEntities = [];
-        planner.currentSessionEntities.push(newZone);
+        }, { addToPlanner: true, addToSession: true, sync: false });
 
         this.finishDrawing();
 
