@@ -36,6 +36,7 @@ import { PremiumArc } from './PremiumArc.js';
 import { StairV4Flight, StairV4Landing, StaircaseV4Solver } from '../../features/stairs/StaircaseV4.js';
 import { PremiumStaircase } from '../../features/stairs/stairs.renderer2d.js';
 import { StairEngine } from '../stairs/StairEngine.js';
+import { StairHeightDetector } from '../../features/stairs/StairHeightDetector.js';
 import { PremiumMolding } from './PremiumMolding.js';
 import { PremiumPlatform } from './PremiumPlatform.js';
 import { PlatformEngine } from '../platform/PlatformEngine.js';
@@ -68,6 +69,8 @@ export class FloorPlanner {
         this.startAnchor = null;  
         this.preview = null; 
         this.presetPreview = null;
+        this.spatial = globalSpatialDependencyEngine;
+        this.hostResolver = SpatialHostResolver;
         this._activeTimeouts = new Set();
         this.registerTimeout = (cb, ms) => {
             const id = setTimeout(() => {
@@ -302,8 +305,14 @@ export class FloorPlanner {
             entity.group.position({ x, y });
         }
 
-        // Host resolution for movable entities (furniture, shapes)
-        const isMovableChild = entity.type === 'furniture' || entity.type === 'shape' || (typeof entity.type === 'string' && entity.type.startsWith('shape_'));
+        // Host resolution for movable entities (furniture, shapes, stairs)
+        const isStair = Boolean(
+            (typeof entity.type === 'string' && entity.type.startsWith('stair')) ||
+            entity.constructor?.name === 'PremiumStaircase' ||
+            entity.totalSteps !== undefined
+        );
+        const isMovableChild = entity.type === 'furniture' || entity.type === 'shape' ||
+            (typeof entity.type === 'string' && entity.type.startsWith('shape_')) || isStair;
         if (isMovableChild) {
             const hostRes = SpatialHostResolver.findHostAt(this, x, y, entity.type, {
                 rotation: entity.rotation,
@@ -315,6 +324,12 @@ export class FloorPlanner {
                 if (hostRes.hostType === 'platform') {
                     entity.elevation = hostRes.surfaceElevation;
                     entity.hostPlatformId = hostRes.hostId;
+                    if (isStair) {
+                        const targetH = Math.max(20, (Number(hostRes.host.elevation) || 0) + (Number(hostRes.host.height) || 0) - (Number(entity.baseElevation) || 0));
+                        if (typeof StairHeightDetector?.recalculateStairForHeight === 'function' && Math.abs((entity.height || 0) - targetH) > 1) {
+                            StairHeightDetector.recalculateStairForHeight(entity, targetH);
+                        }
+                    }
                 } else if (hostRes.hostType === 'wall') {
                     entity.parentWallId = hostRes.hostId;
                 }
@@ -326,6 +341,8 @@ export class FloorPlanner {
                 globalSpatialDependencyEngine.detach(entity);
                 if (entity.type === 'furniture') {
                     entity.elevation = 0;
+                    entity.hostPlatformId = null;
+                } else if (isStair) {
                     entity.hostPlatformId = null;
                 }
                 if (entity.parentWallId) entity.parentWallId = null;

@@ -8,6 +8,7 @@
 import { PremiumWall } from '../../features/wall/wall.renderer2d.js';
 import { PremiumArc } from '../engine2d/PremiumArc.js';
 import { WallGeometryEngine } from './WallGeometryEngine.js';
+import { globalSpatialDependencyEngine } from '../spatial/SpatialDependencyEngine.js';
 
 export class WallTopologyEngine {
     /**
@@ -345,6 +346,9 @@ export class WallTopologyEngine {
      */
     static deleteWall(planner, wall) {
         if (!wall) return;
+
+        // Notify spatial dependency engine to unground / detach any dependent shapes, plugins, or objects
+        globalSpatialDependencyEngine.onHostDeleted(wall, planner);
 
         // Cascade delete if wall is an arc or belongs to a parentArc
         if (typeof wall.remove === 'function' && (wall.type === 'arc' || wall.walls)) {
