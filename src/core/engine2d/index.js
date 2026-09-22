@@ -42,10 +42,10 @@ import { PlatformEngine } from '../platform/PlatformEngine.js';
 import { PRESET_REGISTRY, autoAlign } from './presetRegistry.js';
 import { PresetGroup } from './PresetGroup.js';
 import { computeCorridorPolygon } from './corridorUtils.js';
-import { syncElevationSegments2D } from '../../features/elevation/elevationSegment.renderer2d.js';
+import { ElevationFacadeEngine } from '../elevation/ElevationFacadeEngine.js';
 
 // Export the specific classes that App.vue needs to spawn items
-export { FurnitureEngine, PremiumFurniture, PremiumHipRoof, StairV4Flight, StairV4Landing, PremiumMolding, PremiumOutdoorZone, OutdoorZoneEngine, PremiumPlatform, PlatformEngine };
+export { FurnitureEngine, PremiumFurniture, PremiumHipRoof, StairV4Flight, StairV4Landing, PremiumMolding, PremiumOutdoorZone, OutdoorZoneEngine, PremiumPlatform, PlatformEngine, ElevationFacadeEngine };
 
 /**
  * The core orchestrator for the 2D layout engine. Manages application state, entities, rendering layers, and integrations with input sub-systems.
@@ -399,7 +399,9 @@ export class FloorPlanner {
         if (this.facadeRibbons) {
             this.facadeRibbons = this.facadeRibbons.filter(r => r !== entity);
         }
-        if (this.elevationSegments) {
+        if (entity.type === 'elevation_segment') {
+            ElevationFacadeEngine.deleteElevationSegment(this, entity, this.renderer3D);
+        } else if (this.elevationSegments) {
             this.elevationSegments = this.elevationSegments.filter(r => r !== entity);
         }
 
@@ -1141,7 +1143,7 @@ export class FloorPlanner {
         }
 
         WallEngine.sync(this);
-        syncElevationSegments2D(this);
+        ElevationFacadeEngine.syncElevationSegments2D(this);
         
         this.anchors.forEach(a => {
             if (a.isArcIntermediate) {

@@ -20,6 +20,7 @@ import { computeLevelElevations } from '../engine3d/helpers/levelElevations.js';
 import { RoofMutationEngine } from '../roof/RoofMutationEngine.js';
 import { StairHeightDetector } from '../../features/stairs/StairHeightDetector.js';
 import { StairEngine } from '../stairs/StairEngine.js';
+import { ElevationFacadeEngine } from '../elevation/ElevationFacadeEngine.js';
 
 export class VerticalPropagationEngine {
     /**
@@ -286,22 +287,7 @@ export class VerticalPropagationEngine {
      * Synchronizes attached facade beams and elevation segments.
      */
     static syncWallElevationSegments(wall, deltaH, deltaElev, planner) {
-        if (!planner || !planner.elevationSegments || !Array.isArray(planner.elevationSegments)) return;
-
-        planner.elevationSegments.filter(seg => seg.wallId === wall.id).forEach(seg => {
-            if (seg.points) {
-                seg.points.forEach(pt => {
-                    if (seg.anchorMode === 'top' && deltaH !== 0) pt.y += deltaH;
-                    if (deltaElev !== 0) pt.y += deltaElev;
-                });
-            }
-            if (seg.nodes) {
-                seg.nodes.forEach(n => {
-                    if (seg.anchorMode === 'top' && deltaH !== 0) n.y += deltaH;
-                    if (deltaElev !== 0) n.y += deltaElev;
-                });
-            }
-        });
+        ElevationFacadeEngine.syncSegmentsWithWall(wall, planner, null, deltaH, deltaElev);
     }
 
     /**
