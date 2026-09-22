@@ -291,3 +291,34 @@ Every new feature, modification, refactor, bug fix, or generated code MUST follo
 6. **Engine / Renderer Separation**: Domain engines own business rules, geometry math, relationships, validation, and mutations. Renderers own meshes, materials, transforms, drawing, and scene graphs.
 7. **Strict Persistence Contract**: Any persistent domain property must be preserved through creation, runtime mutation, undo, redo, 2D, 3D, export, and import round-trip without data loss or circular references.
 8. **Disposal & Lifecycle Hygiene**: Dispose of Three.js geometries, materials, textures, and event listeners properly on object replacement or deletion to prevent memory leaks.
+
+# Universal Spatial Dependency, Host Tracking & Auto-Adjustment Rule
+
+**CRITICAL MANDATE - ZERO DISCONNECTED OBJECTS**
+
+Every new feature, tool, entity, shape, elevation element, staircase, furniture item, or attached plugin added to the application MUST participate in the centralized Spatial Dependency & Auto-Adjustment architecture (`SpatialDependencyEngine`, `SpatialHostResolver`, and `spatial_dependency_expert` skill). When supporting walls, rooms, platforms, floors, or elevations adjust, all attached and resting objects MUST automatically track and adjust their kinematics in place.
+
+## Required Behavior:
+1. **Single Authoritative Dependency Graph (`SpatialDependencyEngine`)**:
+   - All parent-child and host-dependent tracking MUST route exclusively through `SpatialDependencyEngine`.
+   - Never create parallel or feature-specific tracking services, local offset trackers, or duplicate DAGs.
+2. **Stateless Geometric Host Query (`SpatialHostResolver`)**:
+   - Host detection on placement and dragging must query `SpatialHostResolver.findHostAt(planner, x, y, entityType, options)`.
+   - Never inspect visual Konva groups or hardcode axis-aligned bounding boxes directly in UI code.
+3. **Drag-End Commit Point (Zero 60 FPS DAG Thrashing)**:
+   - Live interactive movement updates local transforms and visual positions in real-time.
+   - Graph edge creation and host resolution must be committed strictly on `dragend` or in `_applyMove()`.
+4. **Standardized Transform Extraction (`getEntityTransform`)**:
+   - Always extract host and dependent coordinates, elevations, heights, and yaw rotations using `SpatialDependencyEngine.getEntityTransform(entity)`.
+   - Never construct ad-hoc coordinate objects or bypass wall midpoint and angle computations.
+5. **Universal In-Place 2D/3D Synchronization**:
+   - Moving or adjusting an entity must update existing `Konva.Group` (`group.position()`, `group.rotation()`) and `THREE.Mesh` / `THREE.Group` (`mesh3D.position`, `mesh3D.rotation.y`) strictly in place.
+   - Scene reconstruction, camera resets, or selection clearing during live movement or auto-adjustment is strictly prohibited.
+6. **Domain Hook Recalculation (`onHostTransformed`)**:
+   - When a host transforms, child entities implementing `onHostTransformed(hostTransform, newWorld)` must automatically recalculate internal geometry (e.g. stair step counts, bounded platform polygons) without recreating render nodes.
+7. **Deterministic Cascading Host Deletion**:
+   - Deleting any host architecture (wall, platform, furniture table) MUST invoke `globalSpatialDependencyEngine.onHostDeleted(host, planner)`.
+   - All dependent children must be cleanly unlinked and grounded (elevation dropped to 0) with zero dangling references.
+8. **Full Serialization & History Integrity**:
+   - All spatial dependency metadata (`id`, `hostId`, `hostType`, `relationshipType`, `localTransform`, `elevation`) MUST be preserved across `exportState()` and restored by `importState()` / `rebuildFromPlanner()`.
+   - Undo and Redo must revert both host and dependent positions without breaking graph edges.
