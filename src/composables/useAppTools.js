@@ -341,8 +341,16 @@ export function useAppTools({
         else if (tool.action === 'auto_roof') { if (planner.value) planner.value.addAutoRoof(); }
         else if (tool.action === 'wizard') { wizardPopupRef.value?.open(tool.id); }
         else if (tool.id.startsWith('roof_')) {
-            const roofType = tool.roofType || tool.id.replace('roof_', '');
-            const params = { toolId: 'roof', roofType, pitch: 30, material: 'terracotta_tiles_roof' };
+            const roofType = tool.params?.roofType || tool.roofType || tool.id.replace('roof_', '');
+            const isFlat = roofType === 'flat';
+            const isPortal = roofType === 'curved_portal';
+            const params = {
+                toolId: 'roof',
+                roofType,
+                pitch: isFlat ? 0 : (tool.params?.pitch !== undefined ? tool.params.pitch : 30),
+                material: tool.params?.material || ((isFlat || isPortal) ? 'white_plaster_wall' : 'terracotta_tiles_roof'),
+                ...(tool.params || {})
+            };
             if (planner.value) {
                 planner.value.currentRoofToolType = roofType;
                 planner.value.activePresetParams = params;

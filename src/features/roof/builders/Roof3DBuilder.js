@@ -204,9 +204,10 @@ export class Roof3DBuilder {
             const defaultFascia = isGlassRoof ? 'metal_dark_steel' : 'white_plaster_wall';
             const fasciaMat = (this.ctx?.helpers?.getDynamicMaterial ? this.ctx.helpers.getDynamicMaterial(conf.fasciaMaterial || defaultFascia, isGlassRoof ? 'metal' : 'wall') : null) 
                 || new THREE.MeshStandardMaterial({
-                    color: isGlassRoof ? 0x1e293b : 0xF5F5F5, 
-                    metalness: isGlassRoof ? 0.75 : 0.0, 
-                    roughness: isGlassRoof ? 0.25 : 0.5
+                    color: isGlassRoof ? 0x1e293b : 0xefede5, 
+                    metalness: 0.0, 
+                    roughness: isGlassRoof ? 0.25 : 0.9,
+                    envMapIntensity: 0.08
                 });
 
             const applyRoofGroups = (targetGeo, vTopLength, vThickLength, isCustomGlass = isGlassRoof) => {
@@ -298,25 +299,53 @@ export class Roof3DBuilder {
                 }
 
                 let flatMat = mat;
+                let flatMatId = conf.material;
                 if (!isGlassRoof) {
-                    const matId = roof.configId || conf.material || 'white_plaster_wall';
-                    if (this.ctx?.helpers?.getDynamicMaterial) {
-                        flatMat = this.ctx.helpers.getDynamicMaterial(matId, 'wall');
+                    if (!flatMatId || flatMatId === 'white_gravel_roof' || flatMatId === 'terracotta_tiles_roof' || flatMatId === 'dark_asphalt_roof') {
+                        flatMatId = (roof.configId && roof.configId !== 'white_gravel_roof' && roof.configId !== 'dark_asphalt_roof' && roof.configId !== 'terracotta_tiles_roof') ? roof.configId : 'white_plaster_wall';
                     }
-                    if (!flatMat && ROOF_DECOR_REGISTRY[matId]) {
-                        flatMat = resolveRoofMaterial(matId).mat;
+
+                    // Check if host wall under the roof has a custom material assigned and roof is using default plaster finish
+                    let hostWallTex = null;
+                    if (wallsUnderRoof && wallsUnderRoof.length > 0) {
+                        for (const w of wallsUnderRoof) {
+                            const wt = w.params?.textureFront || w.params?.textureSides || w.params?.texture || w.materials?.wall_front || w.materials?.front;
+                            if (wt) {
+                                hostWallTex = wt;
+                                break;
+                            }
+                        }
+                    }
+                    if (hostWallTex && (flatMatId === 'white_plaster_wall' || !conf.material)) {
+                        flatMatId = hostWallTex;
+                    }
+
+                    if (flatMatId === 'white_plaster_wall') {
+                        flatMat = (this.ctx?.helpers?.getDynamicMaterial ? this.ctx.helpers.getDynamicMaterial('white_plaster_wall', 'wall') : null)
+                            || new THREE.MeshStandardMaterial({
+                                color: 0xefede5,
+                                roughness: 0.9,
+                                metalness: 0.0,
+                                envMapIntensity: 0.08
+                            });
+                    } else if (this.ctx?.helpers?.getDynamicMaterial) {
+                        flatMat = this.ctx.helpers.getDynamicMaterial(flatMatId, 'wall');
+                    }
+                    if (!flatMat && ROOF_DECOR_REGISTRY[flatMatId]) {
+                        flatMat = resolveRoofMaterial(flatMatId).mat;
                     }
                     if (!flatMat) {
                         flatMat = new THREE.MeshStandardMaterial({ 
-                            color: 0xF5F5F5,
-                            roughness: 0.95,
-                            metalness: 0.05
+                            color: 0xefede5,
+                            roughness: 0.9,
+                            metalness: 0.0,
+                            envMapIntensity: 0.08
                         });
                     }
                 }
 
-                // Perimeter slab side (fascia) defaults to wall plaster finish
-                const defaultFlatFascia = isGlassRoof ? 'metal_dark_steel' : 'white_plaster_wall';
+                // Perimeter slab side (fascia) defaults to wall plaster finish (or inherited wall texture)
+                const defaultFlatFascia = isGlassRoof ? 'metal_dark_steel' : (!isGlassRoof && flatMatId ? flatMatId : 'white_plaster_wall');
                 const flatFasciaMat = (this.ctx?.helpers?.getDynamicMaterial 
                     ? this.ctx.helpers.getDynamicMaterial(conf.fasciaMaterial || defaultFlatFascia, isGlassRoof ? 'metal' : 'wall') 
                     : null) || fasciaMat;

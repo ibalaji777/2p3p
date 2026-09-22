@@ -344,4 +344,49 @@ describe('Roof Remediation Compliance & Architectural Invariants', () => {
             }).not.toThrow();
         });
     });
+
+    describe('8. Flat Roof Plain Wall Plaster Default Material Invariant', () => {
+        it('defaults flat roof creation to white_plaster_wall instead of textured roof materials', () => {
+            const pts = [{ x: 0, y: 0 }, { x: 100, y: 0 }, { x: 100, y: 100 }, { x: 0, y: 100 }];
+            const flatRoof = RoofEngine.createRoof(mockPlanner, pts, { roofType: 'flat' });
+
+            expect(flatRoof.config.roofType).toBe('flat');
+            expect(flatRoof.config.material).toBe('white_plaster_wall');
+            expect(flatRoof.configId).toBe('white_plaster_wall');
+        });
+
+        it('RoofSerializer.deserialize defaults flat roof without explicit material to white_plaster_wall', () => {
+            const pts = [{ x: 0, y: 0 }, { x: 100, y: 0 }, { x: 100, y: 100 }, { x: 0, y: 100 }];
+            const deserialized = RoofSerializer.deserialize({ roofType: 'flat', points: pts }, mockPlanner, { addToPlanner: false });
+
+            expect(deserialized.config.material).toBe('white_plaster_wall');
+        });
+
+        it('Roof3DBuilder resolves flat roof default and legacy defaults to plain wall plaster', async () => {
+            const { Roof3DBuilder } = await import('../../../features/roof/builders/Roof3DBuilder.js');
+            const targetGroup = new THREE.Group();
+            const mock3DCtx = {
+                structureGroup: targetGroup,
+                requestRender: vi.fn(),
+                helpers: {
+                    getDynamicMaterial: vi.fn((matId, category) => new THREE.MeshStandardMaterial({ name: `${category}_${matId}` }))
+                }
+            };
+            const builder = new Roof3DBuilder(mock3DCtx);
+            const flatRoof = {
+                id: 'test_flat_plain',
+                type: 'roof',
+                points: [{ x: 0, y: 0 }, { x: 100, y: 0 }, { x: 100, y: 100 }, { x: 0, y: 100 }],
+                config: { roofType: 'flat', thickness: 15 }
+            };
+
+            builder.buildRoofs([flatRoof], 0, [], targetGroup);
+            const roofMesh = targetGroup.children[0]?.children.find(c => c.userData?.isRoof);
+            expect(roofMesh).toBeDefined();
+            expect(Array.isArray(roofMesh.material)).toBe(true);
+            // Cap index 0 = terrace top, index 1 = perimeter wall fascia
+            expect(roofMesh.material[0].name).toBe('wall_white_plaster_wall');
+            expect(roofMesh.material[1].name).toBe('wall_white_plaster_wall');
+        });
+    });
 });

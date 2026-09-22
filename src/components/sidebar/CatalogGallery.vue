@@ -451,7 +451,7 @@ const roofCatalog = ref([
     { id: 'roof_turret_octagonal', name: 'Octagonal Turret Roof', badge: '8-SIDED', material: 'Grey Slate Tiles', specs: '40° 8-Sided Pyramid', image: '', toolId: 'roof', params: { roofType: 'turret_octagonal', pitch: 40, material: 'grey_slate_roof', type: 'roof' } },
     { id: 'roof_turret_hexagonal', name: 'Hexagonal Turret Roof', badge: '6-SIDED', material: 'Terracotta Green', specs: '40° 6-Sided Pyramid', image: '', toolId: 'roof', params: { roofType: 'turret_hexagonal', pitch: 40, material: 'terracotta_green_roof', type: 'roof' } },
     { id: 'roof_curved', name: 'Curved / Pagoda Roof', badge: 'CURVED', material: 'Blue Ceramic Tiles', specs: '30° Pitch (Curved Arch)', image: '', toolId: 'roof', params: { roofType: 'curved', pitch: 30, curve: -20, material: 'blue_ceramic_tiles_roof', type: 'roof' } },
-    { id: 'roof_flat', name: 'Flat Roof / Terrace', badge: 'MODERN', material: 'Concrete Deck', specs: '150 mm Slab', image: '', toolId: 'roof', params: { roofType: 'flat', thick: 15, material: 'white_gravel_roof', type: 'roof' } },
+    { id: 'roof_flat', name: 'Flat Roof / Terrace', badge: 'MODERN', material: 'Plain Wall Plaster', specs: '150 mm Slab', image: '', toolId: 'roof', params: { roofType: 'flat', thick: 15, material: 'white_plaster_wall', type: 'roof' } },
 ]);
 
 const skylightCatalog = ref([

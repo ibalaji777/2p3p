@@ -204,6 +204,8 @@ export class Preview3D {
                 }
                 if (conf.roughness !== undefined) mat.roughness = conf.roughness;
                 if (conf.metalness !== undefined) mat.metalness = conf.metalness;
+                if (conf.envMapIntensity !== undefined) mat.envMapIntensity = conf.envMapIntensity;
+                if (conf.envMap !== undefined) mat.envMap = conf.envMap;
 
                 const registerClone = (baseMat, clonedMat) => {
                     if (!this.materialClonesRegistry) this.materialClonesRegistry = new Map();
@@ -572,7 +574,7 @@ export class Preview3D {
             wallsToUpdate.forEach(w => {
                 const h = w.height !== undefined ? w.height : (w.config?.height || 300);
                 const len = w.length3D !== undefined ? w.length3D : 100;
-                const baseMat = new THREE.MeshPhysicalMaterial({ color: 0xfaf8ed, roughness: 0.6, metalness: 0.0 });
+                const baseMat = new THREE.MeshStandardMaterial({ color: 0xefede5, roughness: 0.9, metalness: 0.0, envMapIntensity: 0.08 });
                 
                 // Re-fetch materials based on w.params
                 const mats = this.helpers.getFaceMaterials(w, baseMat, { width: len, height: h }).box;

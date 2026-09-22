@@ -91,7 +91,7 @@ export class RoofSerializer {
             thickness: rData.thickness !== undefined ? rData.thickness : 10,
             ridgeOffset: rData.ridgeOffset || 0,
             roofType: rData.roofType || 'hip',
-            material: rData.material || 'dark_asphalt_roof',
+            material: rData.material || ((rData.roofType === 'flat' || rData.roofType === 'curved_portal') ? 'white_plaster_wall' : 'dark_asphalt_roof'),
             wallGap: rData.wallGap || 0,
             ridgeAxis: rData.ridgeAxis || 'x',
             manualRidge: !!rData.manualRidge,

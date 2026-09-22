@@ -225,9 +225,15 @@ export class MaterialFactory {
             }
         }
 
-        if (MaterialFactory.sharedEnvMap) {
-            newMat.envMap = MaterialFactory.sharedEnvMap;
+        if (config.envMap === null) {
+            newMat.envMap = null;
+        } else if (MaterialFactory.sharedEnvMap) {
+            newMat.envMap = config.envMap !== undefined ? config.envMap : MaterialFactory.sharedEnvMap;
             newMat.envMapIntensity = config.envMapIntensity !== undefined ? config.envMapIntensity : 0.25;
+        }
+
+        if (config.envMapIntensity !== undefined) {
+            newMat.envMapIntensity = config.envMapIntensity;
         }
 
         if (tex) {

@@ -410,6 +410,18 @@ export const COMMON_MATERIALS = {
     composite: { label: "Slate Blue Composite", color: 0x3b82f6, roughness: 0.35, metalness: 0.2, clearcoat: 0.15 },
     laminate: { label: "Charcoal Black", color: 0x2e2b2a, roughness: 0.4, metalness: 0.1, texture: 'textures/wood/wood_dark_walnut.png', bumpScale: 0.002, clearcoat: 0.1 },
     upvc_white: { label: "White uPVC", color: 0xfafafa, roughness: 0.3, metalness: 0.05, clearcoat: 0.2 }, 
+    white_plaster_wall: {
+        id: 'white_plaster_wall',
+        label: "Plain Wall Plaster",
+        name: 'Plain Wall Plaster',
+        category: 'wall',
+        thumbnail: 'data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2264%22%20height%3D%2264%22%3E%3Crect%20width%3D%2264%22%20height%3D%2264%22%20fill%3D%22%23efede5%22%2F%3E%3C%2Fsvg%3E',
+        color: 0xefede5,
+        roughness: 0.9,
+        metalness: 0.0,
+        envMap: null,
+        envMapIntensity: 0.08
+    },
     upvc_wood: { label: "Wood Finish uPVC", color: 0x8b5a2b, roughness: 0.65, metalness: 0.0, texture: 'textures/wood/wood_golden_teak.png', bumpScale: 0.008 }, 
     alum_powder: { label: "Powder Coated Alum (Black)", color: 0x1a1a1a, roughness: 0.45, metalness: 0.7 }, 
     wood_teak: { label: "Teak Wood", color: 0x6b4226, roughness: 0.55, metalness: 0.05, texture: 'textures/wood/wood_golden_teak.png', bumpScale: 0.010 }, 
@@ -1448,6 +1460,17 @@ export const BRICK_REGISTRY = {
 };
 
 export const WALL_DECOR_REGISTRY = {
+    'white_plaster_wall': {
+        id: 'white_plaster_wall',
+        name: 'Plain Wall Plaster',
+        category: 'wall',
+        thumbnail: 'data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2264%22%20height%3D%2264%22%3E%3Crect%20width%3D%2264%22%20height%3D%2264%22%20fill%3D%22%23efede5%22%2F%3E%3C%2Fsvg%3E',
+        color: 0xefede5,
+        roughness: 0.9,
+        metalness: 0.0,
+        envMap: null,
+        envMapIntensity: 0.08
+    },
     'wood_siding_walnut': {
         id: 'wood_siding_walnut',
         name: 'Architectural Walnut Shiplap Siding',

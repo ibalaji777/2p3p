@@ -47,15 +47,13 @@ function getPlasterMaterial() {
     if (_sharedPlasterMaterial) return _sharedPlasterMaterial;
     
     _sharedPlasterMaterial = new THREE.MeshStandardMaterial({
-        color: 0xffffff,
-        roughness: 0.85,
-        metalness: 0.05,
+        color: 0xefede5,
+        roughness: 0.9,
+        metalness: 0.0,
         side: THREE.DoubleSide,
-        envMapIntensity: 0.8,
+        envMapIntensity: 0.08,
         flatShading: false
     });
-    return _sharedPlasterMaterial;
-
     return _sharedPlasterMaterial;
 }
 

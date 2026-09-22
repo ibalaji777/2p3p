@@ -875,6 +875,52 @@ describe('Roof Pipeline & 3D Addition', () => {
         expect(flatMesh.material[1].name).toBe('wall_wall_plaster_white');
     });
 
+    it('13b. Flat Roof: faithfully inherits host wall material when resting on painted wall, and replicates canonical plaster specs on unpainted wall', async () => {
+        const targetGroup = new THREE.Group();
+        const mockCtx = {
+            scene: new THREE.Scene(),
+            structureGroup: targetGroup,
+            interactables: [],
+            assets: { getTexture: vi.fn().mockResolvedValue(null) },
+            helpers: {
+                getDynamicMaterial: (matId, category) => new THREE.MeshStandardMaterial({ name: `${category}_${matId}` })
+            }
+        };
+
+        const hostWall = {
+            id: 'wall_1',
+            startX: 0, startY: 0, endX: 200, endY: 0,
+            thickness: 20, height: 300,
+            params: { textureFront: 'brick_red_terracotta' }
+        };
+
+        const flatRoofEntity = {
+            id: 'test_flat_roof_inherit',
+            type: 'roof',
+            points: [
+                { x: 0, y: 0 },
+                { x: 200, y: 0 },
+                { x: 200, y: 150 },
+                { x: 0, y: 150 }
+            ],
+            config: {
+                roofType: 'flat',
+                thickness: 15
+            }
+        };
+
+        const builder = new Roof3DBuilder(mockCtx);
+        builder.buildRoofs([flatRoofEntity], 0, [hostWall], targetGroup);
+
+        const roofGroup = targetGroup.children[0];
+        const flatMesh = roofGroup.children.find(c => c.userData?.isRoof);
+
+        expect(flatMesh).toBeDefined();
+        // Both terrace cap and fascia inherit the host wall material
+        expect(flatMesh.material[0].name).toBe('wall_brick_red_terracotta');
+        expect(flatMesh.material[1].name).toBe('wall_brick_red_terracotta');
+    });
+
     it('14. BIMMaterialSystem: Accurately resolves flat roof top face vs perimeter wall fascia slot', async () => {
         const { BIMMaterialSystem } = await import('../../../core/engine3d/BIMMaterialSystem.js');
 

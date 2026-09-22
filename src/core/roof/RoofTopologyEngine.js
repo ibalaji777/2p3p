@@ -40,7 +40,7 @@ export class RoofTopologyEngine {
             : 120;
 
         const defaultRoofType = config.roofType || 'gable';
-        const defaultMaterial = config.material || (defaultRoofType === 'flat' ? 'white_gravel_roof' : 'terracotta_tiles_roof');
+        const defaultMaterial = config.material || (defaultRoofType === 'flat' ? 'white_plaster_wall' : 'terracotta_tiles_roof');
 
         const mergedConfig = {
             pitch: 30,

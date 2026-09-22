@@ -404,16 +404,17 @@ export class Roof3DPlacementSystem {
         const planner = this.getPlanner();
         const presetParams = planner?.activePresetParams || {};
         const isPortal = presetParams.roofType === 'curved_portal' || presetParams.toolId === 'curved_portal' || planner?.tool === 'curved_portal';
+        const isFlat = presetParams.roofType === 'flat' || presetParams.toolId === 'roof_flat' || planner?.tool === 'roof_flat';
         return {
             roofType: isPortal ? 'curved_portal' : (presetParams.roofType || 'gable'),
-            pitch: presetParams.pitch !== undefined ? presetParams.pitch : 30,
+            pitch: presetParams.pitch !== undefined ? presetParams.pitch : (isFlat ? 0 : 30),
             curve: presetParams.curve !== undefined ? presetParams.curve : (presetParams.roofType === 'curved' ? -20 : 0),
             radius: presetParams.radius !== undefined ? presetParams.radius : 0,
             wallSides: presetParams.wallSides || { left: true, right: true, front: false, back: false },
             wallDropHeight: presetParams.wallDropHeight !== undefined ? presetParams.wallDropHeight : 0,
             hasSpotlights: presetParams.hasSpotlights !== undefined ? presetParams.hasSpotlights : true,
-            material: presetParams.material || (isPortal ? 'white_plaster_wall' : 'terracotta_tiles_roof'),
-            overhang: presetParams.overhang !== undefined ? presetParams.overhang : (isPortal ? 0 : 8),
+            material: presetParams.material || ((isPortal || isFlat) ? 'white_plaster_wall' : 'terracotta_tiles_roof'),
+            overhang: presetParams.overhang !== undefined ? presetParams.overhang : ((isPortal || isFlat) ? 0 : 8),
             thick: presetParams.thick || 15
         };
     }
@@ -1346,8 +1347,9 @@ export class Roof3DPlacementSystem {
         const params = this.getActiveRoofParams();
         const roofElev = elevation !== undefined ? elevation : this.getBaseRoofElevation();
         const isCurvedPortal = params.roofType === 'curved_portal';
-        const defaultThickness = isCurvedPortal ? (extraConfig.thickness || params.thick || 15) : (params.thick !== undefined ? params.thick : 10);
-        const defaultOverhang = isCurvedPortal ? 0 : (params.overhang !== undefined ? params.overhang : 8);
+        const isFlat = params.roofType === 'flat';
+        const defaultThickness = (isCurvedPortal || isFlat) ? (extraConfig.thickness || params.thick || 15) : (params.thick !== undefined ? params.thick : 10);
+        const defaultOverhang = (isCurvedPortal || isFlat) ? 0 : (params.overhang !== undefined ? params.overhang : 8);
 
         planner.executeWithSnapshot(() => {
             const roofConfig = {
