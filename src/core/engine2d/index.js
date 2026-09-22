@@ -28,7 +28,6 @@ import { WallSerializer } from '../../features/wall/wall.serializer.js';
 
 import { PremiumHipRoof } from '../../features/roof/roof.renderer2d.js';
 import { RoofEngine } from '../roof/index.js';
-import { Railing } from '../../features/railing/objects/Railing.js';
 import { SmartGuidesTrackingSystem } from './SmartGuidesTrackingSystem.js';
 import { advance_openings } from './advance_openings.js';
 import { PremiumArc } from './PremiumArc.js';
@@ -2052,25 +2051,7 @@ export class FloorPlanner {
 
             if (state.walls) {
                 state.walls.forEach(wData => {
-                    let wall;
-                    if (wData.type === 'railing') {
-                        let a1, a2;
-                        if (wData.startAnchorId !== undefined && wData.endAnchorId !== undefined && anchorMap.has(wData.startAnchorId) && anchorMap.has(wData.endAnchorId)) {
-                            a1 = anchorMap.get(wData.startAnchorId);
-                            a2 = anchorMap.get(wData.endAnchorId);
-                        } else {
-                            a1 = this.getOrCreateAnchor(wData.startX, wData.startY); 
-                            a2 = this.getOrCreateAnchor(wData.endX, wData.endY);
-                        }
-                        wall = new Railing(this, a1, a2);
-                        if (wData.id) wall.id = wData.id;
-                        if (wData.height) wall.height = wData.height;
-                        if (wData.thickness) wall.thickness = wData.thickness;
-                        if (wData.configId) wall.configId = wData.configId;
-                        if (wData.hidden !== undefined) wall.hidden = wData.hidden;
-                    } else {
-                        wall = WallSerializer.deserialize(wData, this, anchorMap);
-                    }
+                    const wall = WallSerializer.deserialize(wData, this, anchorMap);
                     this.walls.push(wall);
                 });
             }

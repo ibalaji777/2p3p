@@ -1,7 +1,6 @@
 import * as THREE from 'three';
 import { WALL_REGISTRY, SNAP_DIST } from '../registry.js';
 import { WallFactory } from '../../features/wall/wall.factory.js';
-import { Railing } from '../../features/railing/objects/Railing.js';
 import { SnapshotCommand } from '../commands/SnapshotCommand.js';
 import { PremiumOutdoorZone, OUTDOOR_ZONE_TYPES } from '../engine2d/PremiumOutdoorZone.js';
 import { computeCorridorPolygon } from '../engine2d/corridorUtils.js';
@@ -1298,23 +1297,19 @@ export class Wall3DDrawSystem {
                 const isWallEdgeHit = snapResult.isWallEdge && snapResult.wall;
 
                 if (this.lastAnchor && this.lastAnchor !== currentAnchor) {
-                    let w;
+                    const configId = rawTool === 'railing' ? (planner.activePresetParams?.type || planner.activePresetParams?.configId || 'glass_stainless') : undefined;
+                    const w = WallFactory.createWall(planner, {
+                        startAnchor: this.lastAnchor,
+                        endAnchor: currentAnchor,
+                        type: wallType,
+                        elevation: this.drawingElevation !== undefined ? this.drawingElevation : pt.y,
+                        configId: configId,
+                        sync: false
+                    });
                     if (rawTool === 'railing') {
-                        w = new Railing(planner, this.lastAnchor, currentAnchor);
-                        w.elevation = this.drawingElevation !== undefined ? this.drawingElevation : pt.y;
-                        planner.walls.push(w);
                         planner.lastDrawnEntity = w;
-                        this.currentSessionEntities.push(w);
-                    } else {
-                        w = WallFactory.createWall(planner, {
-                            startAnchor: this.lastAnchor,
-                            endAnchor: currentAnchor,
-                            type: wallType,
-                            elevation: this.drawingElevation !== undefined ? this.drawingElevation : pt.y,
-                            sync: false
-                        });
-                        this.currentSessionEntities.push(w);
                     }
+                    this.currentSessionEntities.push(w);
 
                     // Check if closed back on startAnchor (Room loop) or hit opposite wall T-joint (Partition complete)
                     const isSameLevelWallHit = isWallEdgeHit && snapResult.wall && (

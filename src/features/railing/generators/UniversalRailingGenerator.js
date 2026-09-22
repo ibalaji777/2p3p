@@ -52,6 +52,7 @@ export class UniversalRailingGenerator {
             const extrudeSettings = { depth: hSize, bevelEnabled: false };
             const hGeo = new THREE.ExtrudeGeometry(hShape, extrudeSettings);
             const hMesh = new THREE.Mesh(hGeo, rMat);
+            hMesh.userData.materialSlot = 'handrail';
             hMesh.position.set(0, 0, railX); 
             hMesh.castShadow = true; 
             hMesh.receiveShadow = true;
@@ -71,6 +72,7 @@ export class UniversalRailingGenerator {
             
             const gGeo = new THREE.ExtrudeGeometry(gShape, { depth: gThick, bevelEnabled: false });
             const gMesh = new THREE.Mesh(gGeo, pMat);
+            gMesh.userData.materialSlot = 'glass';
             gMesh.position.set(0, 0, railX + hSize / 2 - gThick / 2);
             gMesh.castShadow = true; 
             gMesh.receiveShadow = true;
@@ -94,6 +96,7 @@ export class UniversalRailingGenerator {
                 
                 const cGeo = new THREE.ExtrudeGeometry(cShape, { depth: cDiam, bevelEnabled: false });
                 const cMesh = new THREE.Mesh(cGeo, cMat);
+                cMesh.userData.materialSlot = 'balusters';
                 cMesh.position.set(0, 0, railX + hSize / 2 - cDiam / 2);
                 cMesh.castShadow = true; 
                 cMesh.receiveShadow = true;
@@ -122,6 +125,7 @@ export class UniversalRailingGenerator {
                     }
 
                     const bm = new THREE.Mesh(bGeo, bMat);
+                    bm.userData.materialSlot = 'balusters';
                     bm.position.set(bZ, startH + actualBalHeight / 2, railX + hSize / 2);
                     bm.castShadow = true;
                     bm.receiveShadow = true;
@@ -174,6 +178,7 @@ export class UniversalRailingGenerator {
                         }
 
                         const bm = new THREE.Mesh(bGeo, bMat);
+                        bm.userData.materialSlot = 'balusters';
                         bm.position.set(bZ, treadTopY + actualBalHeight / 2, railX + hSize / 2);
                         bm.castShadow = true;
                         bm.receiveShadow = true;
@@ -192,6 +197,7 @@ export class UniversalRailingGenerator {
             // Start Newel Post: rests flush on level floor or Step 0 tread
             const startPostY = isFlat ? (startH + nHeight / 2) : (startH + stepHeight + nHeight / 2);
             const nMeshStart = new THREE.Mesh(nGeo, bMat);
+            nMeshStart.userData.materialSlot = 'posts';
             nMeshStart.position.set(nSize / 2, startPostY, railX + hSize / 2);
             nMeshStart.castShadow = true; 
             nMeshStart.receiveShadow = true;
@@ -200,6 +206,7 @@ export class UniversalRailingGenerator {
             // End Newel Post: rests flush on level floor or top step landing
             const endPostY = endH + nHeight / 2;
             const nMeshEnd = new THREE.Mesh(nGeo, bMat);
+            nMeshEnd.userData.materialSlot = 'posts';
             nMeshEnd.position.set(flightLength - nSize / 2, endPostY, railX + hSize / 2);
             nMeshEnd.castShadow = true; 
             nMeshEnd.receiveShadow = true;

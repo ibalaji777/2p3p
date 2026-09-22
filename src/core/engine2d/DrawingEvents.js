@@ -5,7 +5,6 @@ import { WallFactory } from '../../features/wall/wall.factory.js';
 import { PremiumWall } from '../../features/wall/wall.renderer2d.js';
 import Konva from 'konva';
 import { PremiumShape } from './PremiumShape.js';
-import { Railing } from '../../features/railing/objects/Railing.js';
 import { PremiumHipRoof } from '../../features/roof/roof.renderer2d.js';
 import { PremiumOutdoorZone, OUTDOOR_ZONE_TYPES } from './PremiumOutdoorZone.js';
 import { WallReformer } from './WallReformer.js';
@@ -370,27 +369,17 @@ export function setupDrawingEvents(planner) {
                         let prev = arcNodes[i1];
                         for(let i = i1 + step; i !== i2 + step; i += step) {
                             let curr = arcNodes[i];
-                            let w;
+                            const configId = planner.tool === 'railing' ? (planner.activePresetParams?.type || planner.activePresetParams?.configId) : undefined;
+                            const w = WallFactory.createWall(planner, {
+                                startAnchor: prev,
+                                endAnchor: curr,
+                                type: planner.tool,
+                                configId: configId,
+                                addToPlanner: false
+                            });
                             if (planner.tool === 'railing') {
-                                w = new Railing(planner, prev, curr);
                                 w.parentArc = sharedArc;
-                                w.labelGroup.visible(false);
-                                w.poly.off('mousedown touchstart');
-                                w.poly.on('mousedown touchstart', (e) => { 
-                                    if (planner.tool === 'select') { 
-                                        e.cancelBubble = true; 
-                                        planner.selectEntity(w, 'wall'); 
-                                    } 
-                                });
-                                w.poly.draggable(false); 
-                                w.poly.on('dragstart dragmove dragend', (e) => e.cancelBubble = true);
-                            } else {
-                                w = WallFactory.createWall(planner, {
-                                    startAnchor: prev,
-                                    endAnchor: curr,
-                                    type: planner.tool,
-                                    addToPlanner: false
-                                });
+                                if (w.labelGroup) w.labelGroup.visible(false);
                             }
                             planner.walls.push(w);
                             planner.lastDrawnEntity = w;
@@ -403,22 +392,17 @@ export function setupDrawingEvents(planner) {
                             sharedArc.hasRailing = true;
                         }
                     } else {
-                        if (planner.tool === 'railing') {
-                            const w = new Railing(planner, planner.lastAnchor, currentAnchor);
-                            planner.walls.push(w);
-                            planner.lastDrawnEntity = w;
-                            planner.currentSessionEntities.push(w);
-                        } else {
-                            const w = WallFactory.createWall(planner, {
-                                startAnchor: planner.lastAnchor,
-                                endAnchor: currentAnchor,
-                                type: planner.tool,
-                                addToPlanner: false
-                            });
-                            planner.walls.push(w); 
-                            planner.lastDrawnEntity = w;
-                            planner.currentSessionEntities.push(w);
-                        }
+                        const configId = planner.tool === 'railing' ? (planner.activePresetParams?.type || planner.activePresetParams?.configId) : undefined;
+                        const w = WallFactory.createWall(planner, {
+                            startAnchor: planner.lastAnchor,
+                            endAnchor: currentAnchor,
+                            type: planner.tool,
+                            configId: configId,
+                            addToPlanner: false
+                        });
+                        planner.walls.push(w); 
+                        planner.lastDrawnEntity = w;
+                        planner.currentSessionEntities.push(w);
                     }
                 }
                 planner.lastAnchor = currentAnchor; 

@@ -33,12 +33,18 @@ export class WallTopologyEngine {
             isAutoGable = false,
             parentRoofId = null,
             parentWallId = null,
+            configId,
             id,
             addToPlanner = true
         } = options;
 
         const wall = new PremiumWall(planner, startAnchor, endAnchor, type);
         if (id) wall.id = id;
+        if (configId) {
+            wall.configId = configId;
+        } else if (type === 'railing') {
+            wall.configId = planner?.activePresetParams?.type || planner?.activePresetParams?.configId || 'glass_stainless';
+        }
         if (isAutoGable) wall.isAutoGable = true;
         if (parentRoofId) wall.parentRoofId = parentRoofId;
         if (parentWallId) wall.parentWallId = parentWallId;

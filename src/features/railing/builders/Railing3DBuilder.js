@@ -1,11 +1,6 @@
 // src/features/railing/builders/Railing3DBuilder.js
 import * as THREE from 'three';
 import { PathGenerator } from '../generators/PathGenerator.js';
-import { HandrailGenerator } from '../generators/HandrailGenerator.js';
-import { PostGenerator } from '../generators/PostGenerator.js';
-import { GlassGenerator } from '../generators/GlassGenerator.js';
-import { BalusterGenerator } from '../generators/BalusterGenerator.js';
-import { CableGenerator } from '../generators/CableGenerator.js';
 import { UniversalRailingGenerator } from '../generators/UniversalRailingGenerator.js';
 import { MaterialManager } from '../materials/MaterialManager.js';
 import { ComponentRegistry } from '../../../core/engine3d/ComponentRegistry.js';
@@ -19,14 +14,23 @@ export class Railing3DBuilder {
         const group = new THREE.Group();
         if (!entity) return group;
 
-        const pts = entity.points || (entity.startX !== undefined ? [entity.startX, entity.startY, entity.endX, entity.endY] : null);
+        let pts = entity.points;
+        if (!pts && entity.startAnchor && entity.endAnchor) {
+            const p1 = typeof entity.startAnchor.position === 'function' ? entity.startAnchor.position() : entity.startAnchor;
+            const p2 = typeof entity.endAnchor.position === 'function' ? entity.endAnchor.position() : entity.endAnchor;
+            if (p1 && p2) pts = [p1.x, p1.y, p2.x, p2.y];
+        } else if (!pts && entity.startX !== undefined) {
+            pts = [entity.startX, entity.startY, entity.endX, entity.endY];
+        }
         if (!pts || pts.length < 4) return group;
 
         // Map 2D coordinates (x, y) to 3D (x, 0, z)
         const start = new THREE.Vector3(pts[0], 0, pts[1]);
         const end = new THREE.Vector3(pts[2], 0, pts[3]);
 
-        const config = entity.config || RAILING_REGISTRY[entity.configId || 'glass_stainless'] || RAILING_REGISTRY['glass_stainless'];
+        const config = (entity.configId && RAILING_REGISTRY[entity.configId])
+            || (entity.config && (entity.config.handrail !== undefined || entity.config.glass !== undefined || entity.config.baluster !== undefined) ? entity.config : null)
+            || RAILING_REGISTRY['glass_stainless'];
         return this.build3D(start, end, config, entity);
     }
 
@@ -66,15 +70,15 @@ export class Railing3DBuilder {
         // 4. Component Registration (3-Layer BIM Architecture)
         group.traverse(child => {
             if (child.isMesh) {
-                let slot = 'handrail';
-                if (child.material === postMat) slot = 'posts';
-                else if (child.material === glassMat) slot = 'glass';
-                else if (child.material === balusterMat || child.material === cableMat) slot = 'balusters';
-                else if (config._bottomRailMat && child.material === config._bottomRailMat) slot = 'bottom_rail';
-                
-                // ALWAYS Tag the mesh with the correct material slot, even if entity is null.
-                // This allows parent builders (like staircase) to inherit the slot.
-                child.userData.materialSlot = slot;
+                let slot = child.userData.materialSlot;
+                if (!slot) {
+                    if (child.material === glassMat) slot = 'glass';
+                    else if (child.material === postMat) slot = 'posts';
+                    else if (child.material === balusterMat || child.material === cableMat) slot = 'balusters';
+                    else if (config._bottomRailMat && child.material === config._bottomRailMat) slot = 'bottom_rail';
+                    else slot = 'handrail';
+                    child.userData.materialSlot = slot;
+                }
                 
                 if (entity) {
                     child.userData.entity = entity;
