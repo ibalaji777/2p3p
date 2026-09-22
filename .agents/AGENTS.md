@@ -276,6 +276,18 @@ All roof creation, modification, live 3D reconciliation, overhangs, corner fille
    - All 3D roof gizmo handles MUST disable `OrbitControls` on handle pointerdown and re-enable on pointerup.
    - Floating badges and HUDs MUST clamp coordinates within screen viewport boundaries ($\ge 16\text{px}$).
 
+# Universal Architecture Standardization & Quality Rule
 
+**CRITICAL MANDATE - EXTEND, DO NOT REINVENT**
 
+Every new feature, modification, refactor, bug fix, or generated code MUST follow the existing project's architecture, structure, naming, paths, state flow, mutation rules, command system, import/export format, undo/redo behavior, and 2D/3D synchronization model.
 
+## Required Behavior:
+1. **Extend, Do Not Reinvent**: Inspect the existing implementation before writing code. Reuse and extend existing centralized engines, managers, registries, commands, utilities, and renderers. Never create parallel or feature-specific managers/engines when a central system exists.
+2. **Canonical Data Model (Single Source of Truth)**: There is exactly one authoritative source of truth for domain data. 2D and 3D renderers are passive consumers/representations of the same canonical model, never competing models.
+3. **No Direct Domain Mutation From UI/Renderers**: UI components, HUDs, property panels, and renderers must NEVER directly mutate domain models (`planner.walls.push`, `wall.height = ...`). All user-visible domain changes MUST route: `UI Event -> Command -> Domain Engine -> Canonical Model -> Render Update`.
+4. **Command-First & Undo/Redo Invariance**: Every user-visible domain mutation must be reliably reversible via command history (`execute()`, `undo()`, `redo()`).
+5. **Deterministic 2D/3D Synchronization**: Every geometry or property mutation must be audited for both 2D and 3D. 2D and 3D must remain completely synchronized across mutations, undo/redo, and file load.
+6. **Engine / Renderer Separation**: Domain engines own business rules, geometry math, relationships, validation, and mutations. Renderers own meshes, materials, transforms, drawing, and scene graphs.
+7. **Strict Persistence Contract**: Any persistent domain property must be preserved through creation, runtime mutation, undo, redo, 2D, 3D, export, and import round-trip without data loss or circular references.
+8. **Disposal & Lifecycle Hygiene**: Dispose of Three.js geometries, materials, textures, and event listeners properly on object replacement or deletion to prevent memory leaks.

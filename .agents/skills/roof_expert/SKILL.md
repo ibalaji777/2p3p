@@ -204,6 +204,15 @@ All roof geometries must adhere to the 3-layer architecture:
    - In `roof.renderer2d.js`, preserve existing `Konva.Circle` handle instances when vertex count is unchanged. Never destroy and recreate handles during active drag!
    - On `dragend` of the 2D group, compute translation delta $(\Delta x, \Delta y)$, reset group position to $(0, 0)$, update `roof.points` via `RoofEngine.setPoints()`, and record history.
 
+### Invariant 9: Flat Roof Plain Wall Plaster Standard
+- Flat roofs (`roofType === 'flat'`) do **not** use textured roof materials (such as `white_gravel_roof`, `terracotta_tiles_roof`, or `dark_asphalt_roof`) by default.
+- Flat roofs default strictly to `'white_plaster_wall'` (clean, untextured plain wall plaster), matching host walls.
+- In `Roof3DBuilder.js`:
+  - `material[0]` (top/bottom terrace slab caps) resolves via `helpers.getDynamicMaterial(matId, 'wall')` and defaults to `'white_plaster_wall'`.
+  - `material[1]` (perimeter fascia wall band) resolves via `helpers.getDynamicMaterial(fasciaMatId, 'wall')` and defaults to `'white_plaster_wall'`.
+  - If a legacy default roof texture (`white_gravel_roof`, `terracotta_tiles_roof`, `dark_asphalt_roof`) is encountered on a flat roof without explicit user customization, it safely falls back to `'white_plaster_wall'`.
+- In `CatalogGallery.vue` and `useAppTools.js`, flat roof presets specify `material: 'white_plaster_wall'`, `specs: '150 mm Slab'`, and `pitch: 0`.
+
 ---
 
 ## 5. Step-by-Step Implementation Guide for New Roof Features
