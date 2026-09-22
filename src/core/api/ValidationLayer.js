@@ -156,6 +156,18 @@ export class ValidationLayer {
                 if (found) return found;
             }
         }
+        if (Array.isArray(planner.walls)) {
+            for (const wall of planner.walls) {
+                if (Array.isArray(wall.attachedWidgets)) {
+                    const found = wall.attachedWidgets.find(e => e && e.id === id);
+                    if (found) return found;
+                }
+                if (Array.isArray(wall.attachedMoldings)) {
+                    const found = wall.attachedMoldings.find(e => e && e.id === id);
+                    if (found) return found;
+                }
+            }
+        }
         return null;
     }
 }

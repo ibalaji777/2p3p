@@ -16,9 +16,17 @@ export class DuplicateEntityCommand extends Command {
         this.serializedRoof = null;
         this.serializedStair = null;
         this.serializedWidget = null;
+        this.serializedMolding = null;
     }
 
     execute() {
+        if (this.serializedMolding && this.hostWall) {
+            this.createdEntity = WallEngine.deserializeMolding(this.planner, this.hostWall, this.serializedMolding);
+            WallEngine.attachMolding(this.hostWall, this.createdEntity, false, this.planner);
+            this.planner.syncAll();
+            return;
+        }
+
         if (this.serializedWidget && this.hostWall) {
             this.createdEntity = WallEngine.deserializeWidget(this.planner, this.hostWall, this.serializedWidget);
             WallEngine.attachWidget(this.hostWall, this.createdEntity, false, this.planner);
@@ -57,8 +65,13 @@ export class DuplicateEntityCommand extends Command {
             const hostWall = sourceEntity.wall || sourceEntity.parentWall || 
                 (this.planner?.walls && this.planner.walls.find(w => 
                     (w.attachedWidgets && (w.attachedWidgets.includes(sourceEntity) || w.attachedWidgets.some(widg => widg.id === this.entityId))) ||
+                    (w.attachedMoldings && (w.attachedMoldings.includes(sourceEntity) || w.attachedMoldings.some(m => m.id === this.entityId))) ||
                     (w.id === sourceEntity.parentWallId)
                 ));
+
+            const isMolding = sourceEntity.constructor?.name === 'PremiumMolding' || 
+                (sourceEntity.type && sourceEntity.type.startsWith('molding_')) ||
+                (hostWall && hostWall.attachedMoldings && hostWall.attachedMoldings.includes(sourceEntity));
 
             // Quick deep copy simulation for the duplicated entity based on serialized state
             if (sourceEntity.constructor?.name === 'PremiumFurniture') {
@@ -87,6 +100,35 @@ export class DuplicateEntityCommand extends Command {
                 this.serializedRoof = RoofEngine.serialize(this.createdEntity);
                 this.planner.syncAll();
                 return;
+            } else if (hostWall && isMolding) {
+                this.hostWall = hostWall;
+                const baseT = sourceEntity.t !== undefined ? sourceEntity.t : 0.5;
+                const newT = Math.min(0.9, Math.max(0.1, baseT + 0.1));
+                const newId = this.id || ('mold_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5));
+
+                const configId = sourceEntity.configId || sourceEntity.type || 'molding_skirting_flat';
+                const options = {
+                    id: newId,
+                    side: sourceEntity.side,
+                    width: sourceEntity.width,
+                    depth: sourceEntity.depth,
+                    heightOffset: sourceEntity.heightOffset,
+                    moldingHeight: sourceEntity.moldingHeight,
+                    profileType: sourceEntity.profileType,
+                    material: sourceEntity.material,
+                    color: sourceEntity.color,
+                    layers: sourceEntity.layers,
+                    layerGap: sourceEntity.layerGap,
+                    grooveWidth: sourceEntity.grooveWidth,
+                    frameWidth: sourceEntity.frameWidth,
+                    anchorMode: sourceEntity.anchorMode,
+                    params: sourceEntity.params ? JSON.parse(JSON.stringify(sourceEntity.params)) : {},
+                    materials: sourceEntity.materials ? JSON.parse(JSON.stringify(sourceEntity.materials)) : {},
+                    attach: false
+                };
+
+                this.createdEntity = WallEngine.createMolding(this.planner, hostWall, newT, configId, options);
+                this.serializedMolding = WallEngine.serializeMolding(this.createdEntity);
             } else if (hostWall && (sourceEntity.type === 'door' || sourceEntity.type === 'window' || sourceEntity.doorType || sourceEntity.windowType || sourceEntity.type?.startsWith('door_') || sourceEntity.type?.startsWith('window_') || sourceEntity.constructor?.name === 'PremiumWidget' || sourceEntity.constructor?.name === 'advance_openings' || sourceEntity.type === 'jali_panel' || sourceEntity.type === 'sunshade')) {
                 this.hostWall = hostWall;
                 const baseT = sourceEntity.t !== undefined ? sourceEntity.t : 0.5;
@@ -128,12 +170,16 @@ export class DuplicateEntityCommand extends Command {
                 }
                 this.serializedWidget = WallEngine.serializeWidget(this.createdEntity);
             } else {
-                throw new Error('Duplication currently only supports PremiumFurniture, Staircases, Roofs, and Attached Wall Openings/Widgets via AutomationAPI');
+                throw new Error('Duplication currently only supports PremiumFurniture, Staircases, Roofs, and Attached Wall Openings/Widgets/Moldings via AutomationAPI');
             }
         }
         
         if (this.hostWall && this.createdEntity) {
-            WallEngine.attachWidget(this.hostWall, this.createdEntity, false, this.planner);
+            if (this.serializedMolding) {
+                WallEngine.attachMolding(this.hostWall, this.createdEntity, false, this.planner);
+            } else {
+                WallEngine.attachWidget(this.hostWall, this.createdEntity, false, this.planner);
+            }
         } else if (this.createdEntity.constructor?.name === 'PremiumFurniture') {
             this.planner.furniture.push(this.createdEntity);
         }
@@ -146,7 +192,11 @@ export class DuplicateEntityCommand extends Command {
 
     undo() {
         if (!this.createdEntity) return;
-        if (this.hostWall) {
+        if (this.hostWall && this.serializedMolding) {
+            this.serializedMolding = WallEngine.serializeMolding(this.createdEntity);
+            WallEngine.deleteMolding(this.planner, this.hostWall, this.createdEntity, false);
+            this.createdEntity = null;
+        } else if (this.hostWall) {
             this.serializedWidget = WallEngine.serializeWidget(this.createdEntity);
             WallEngine.deleteWidget(this.planner, this.hostWall, this.createdEntity, false);
             this.createdEntity = null;

@@ -2,7 +2,6 @@ import * as THREE from 'three';
 import { WIDGET_REGISTRY } from '../registry.js';
 import { MOLDING_REGISTRY } from '../../features/wall/wall.registry.js';
 import { DOOR_HEIGHT, WINDOW_SILL, WINDOW_HEIGHT } from '../constants/units.js';
-import { PremiumMolding } from '../engine2d/PremiumMolding.js';
 import { Molding3DBuilder } from './Molding3DBuilder.js';
 import { coreEventBus } from '../EventBus.js';
 import { EVENTS } from '../constants/events.js';
@@ -1516,25 +1515,26 @@ export class WallPlugin3DPlacementSystem {
                 const wallH = wEnt.height || wEnt.config?.height || 180;
                 const heightOffset = (elev !== undefined) ? elev : (preset.heightOffset || 0);
 
-                const mold = new PremiumMolding(planner, wEnt, 0.5, moldType);
-                mold.side = (wSide === 'front') ? 'left' : 'right';
-                mold.width = wallLen;
-                mold.moldingHeight = mH;
-                mold.depth = preset.depth || 2;
-                mold.heightOffset = heightOffset;
-                mold.profileType = pType;
-                if (preset.material) mold.material = preset.material;
-                if (preset.color) mold.color = preset.color;
+                const side = (wSide === 'front') ? 'left' : 'right';
+                const moldOptions = {
+                    ...(preset ? JSON.parse(JSON.stringify(preset)) : {}),
+                    side,
+                    width: wallLen,
+                    moldingHeight: mH,
+                    depth: preset?.depth || 2,
+                    heightOffset,
+                    profileType: pType,
+                    material: preset?.material,
+                    color: preset?.color,
+                    attach: true,
+                    shouldSync: false
+                };
+                moldOptions.side = side;
+                moldOptions.width = wallLen;
+                moldOptions.heightOffset = heightOffset;
+                moldOptions.moldingHeight = mH;
 
-                if (preset) {
-                    Object.assign(mold, JSON.parse(JSON.stringify(preset)));
-                    mold.side = (wSide === 'front') ? 'left' : 'right';
-                    mold.width = wallLen;
-                    mold.heightOffset = heightOffset;
-                    mold.moldingHeight = mH;
-                }
-                mold.update();
-                WallEngine.attachMolding(wEnt, mold, false, planner);
+                const mold = WallEngine.createMolding(planner, wEnt, 0.5, moldType, moldOptions);
                 wEnt.wallShapeData = null;
                 createdEntities.push(mold);
             });

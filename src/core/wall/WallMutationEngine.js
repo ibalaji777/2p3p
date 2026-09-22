@@ -18,6 +18,7 @@ import { RoofMutationEngine } from '../roof/RoofMutationEngine.js';
 import { VerticalPropagationEngine } from '../vertical/VerticalPropagationEngine.js';
 import { PremiumWidget } from '../engine2d/PremiumWidget.js';
 import { advance_openings } from '../engine2d/advance_openings.js';
+import { PremiumMolding } from '../engine2d/PremiumMolding.js';
 
 export class WallMutationEngine {
     /**
@@ -919,6 +920,163 @@ export class WallMutationEngine {
         const p = planner || wall.planner;
         const id = typeof widgetOrId === 'string' ? widgetOrId : widgetOrId?.id;
         wall.attachedWidgets = wall.attachedWidgets.filter(w => (id ? w.id !== id : w !== widgetOrId));
+        if (shouldSync && p && typeof p.syncAll === 'function') {
+            p.syncAll();
+        }
+    }
+
+    /**
+     * Authoritative molding creator and factory.
+     * @param {Object} planner
+     * @param {Object} wall
+     * @param {number} t - Distance or normalized ratio along wall
+     * @param {string} configId - Molding type or preset
+     * @param {Object} options - Custom parameters (side, width, depth, heightOffset, moldingHeight, profileType, material, color, anchorMode, etc.)
+     * @returns {Object|null}
+     */
+    static createMolding(planner, wall, t = 0.5, configId = 'molding_skirting_flat', options = {}) {
+        if (!wall) return null;
+        const p = planner || wall.planner || (typeof window !== 'undefined' ? (window.plannerInstance || window.planner?.value || window.planner) : null);
+
+        let normalizedT = Number(t);
+        if (isNaN(normalizedT)) normalizedT = 0.5;
+        if (normalizedT > 1 && typeof wall.getLength === 'function') {
+            const len = wall.getLength();
+            if (len > 0) normalizedT = normalizedT / len;
+        }
+        normalizedT = Math.max(0, Math.min(1, normalizedT));
+
+        const type = configId || options.type || options.configId || 'molding_skirting_flat';
+        const mold = new PremiumMolding(p, wall, normalizedT, type);
+
+        mold.wall = wall;
+        mold.parentWall = wall;
+        mold.parentWallId = wall.id;
+
+        if (!options.width && typeof wall.getLength === 'function') {
+            mold.width = wall.getLength();
+        }
+
+        if (options && typeof options === 'object') {
+            const { wall: _w, parentWall: _pw, attach: _att, shouldSync: _ss, ...cleanOptions } = options;
+            Object.assign(mold, cleanOptions);
+        }
+
+        if (options?.id) mold.id = options.id;
+
+        if (!mold.anchorMode) {
+            const isTop = mold.type && (mold.type.includes('crown') || mold.type.includes('frieze') || mold.type.includes('cornice'));
+            mold.anchorMode = isTop ? 'top' : 'bottom';
+        }
+
+        if (typeof mold.update === 'function') {
+            mold.update();
+        }
+
+        if (options.attach !== false) {
+            this.attachMolding(wall, mold, !!options.shouldSync, p);
+        }
+
+        return mold;
+    }
+
+    /**
+     * Authoritative molding serializer.
+     * Extracts canonical JSON representation.
+     * @param {Object} molding
+     * @returns {Object|null}
+     */
+    static serializeMolding(molding) {
+        if (!molding) return null;
+        if (typeof molding.serialize === 'function') {
+            const data = molding.serialize();
+            if (molding.id && !data.id) data.id = molding.id;
+            if (molding.anchorMode && !data.anchorMode) data.anchorMode = molding.anchorMode;
+            if (molding.parentWallId && !data.parentWallId) data.parentWallId = molding.parentWallId;
+            if (molding.materials && !data.materials) data.materials = JSON.parse(JSON.stringify(molding.materials));
+            if (molding.params && !data.params) data.params = JSON.parse(JSON.stringify(molding.params));
+            return data;
+        }
+        return {
+            id: molding.id,
+            t: molding.t !== undefined ? molding.t : 0.5,
+            type: molding.type || molding.configId || 'molding_skirting_flat',
+            configId: molding.configId || molding.type || 'molding_skirting_flat',
+            width: molding.width,
+            depth: molding.depth,
+            heightOffset: molding.heightOffset,
+            moldingHeight: molding.moldingHeight || molding.height || 10,
+            side: molding.side,
+            profileType: molding.profileType,
+            material: molding.material,
+            color: molding.color,
+            layers: molding.layers,
+            layerGap: molding.layerGap,
+            grooveWidth: molding.grooveWidth,
+            frameWidth: molding.frameWidth,
+            anchorMode: molding.anchorMode || (molding.type && (molding.type.includes('crown') || molding.type.includes('frieze') || molding.type.includes('cornice')) ? 'top' : 'bottom'),
+            parentWallId: molding.parentWallId || molding.wall?.id,
+            materials: molding.materials ? JSON.parse(JSON.stringify(molding.materials)) : undefined,
+            params: molding.params ? JSON.parse(JSON.stringify(molding.params)) : undefined
+        };
+    }
+
+    /**
+     * Authoritative molding deserializer.
+     * Restores fresh molding on the host wall.
+     * @param {Object} planner
+     * @param {Object} wall
+     * @param {Object} moldData
+     * @returns {Object|null}
+     */
+    static deserializeMolding(planner, wall, moldData) {
+        if (!wall || !moldData) return null;
+        const p = planner || wall.planner || (typeof window !== 'undefined' ? (window.plannerInstance || window.planner?.value || window.planner) : null);
+        const configId = moldData.type || moldData.configId || 'molding_skirting_flat';
+        const t = moldData.t !== undefined ? moldData.t : 0.5;
+
+        const mold = new PremiumMolding(p, wall, t, configId);
+        const { wall: _w, parentWall: _pw, ...cleanData } = moldData;
+        Object.assign(mold, cleanData);
+        mold.wall = wall;
+        mold.parentWall = wall;
+        mold.parentWallId = wall.id;
+
+        if (!mold.anchorMode) {
+            const isTop = mold.type && (mold.type.includes('crown') || mold.type.includes('frieze') || mold.type.includes('cornice'));
+            mold.anchorMode = isTop ? 'top' : 'bottom';
+        }
+
+        if (typeof mold.update === 'function') {
+            mold.update();
+        }
+
+        return mold;
+    }
+
+    /**
+     * Authoritative molding deleter.
+     * Removes from wall, destroys display nodes, and cleans up.
+     * @param {Object} planner
+     * @param {Object} wall
+     * @param {Object|string} moldingOrId
+     * @param {boolean} shouldSync
+     */
+    static deleteMolding(planner, wall, moldingOrId, shouldSync = true) {
+        if (!wall) return;
+        const p = planner || wall.planner || (typeof window !== 'undefined' ? (window.plannerInstance || window.planner?.value || window.planner) : null);
+        const mold = typeof moldingOrId === 'object' ? moldingOrId : (wall.attachedMoldings || []).find(m => m.id === moldingOrId);
+
+        this.removeMolding(wall, moldingOrId, false, p);
+
+        if (mold) {
+            if (typeof mold.remove === 'function') {
+                mold.remove();
+            } else if (typeof mold.destroy === 'function') {
+                mold.destroy();
+            }
+        }
+
         if (shouldSync && p && typeof p.syncAll === 'function') {
             p.syncAll();
         }

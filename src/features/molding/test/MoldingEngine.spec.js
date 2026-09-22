@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, beforeAll } from 'vitest';
 import * as THREE from 'three';
 import { MOLDING_REGISTRY, MOLDING_PROFILES, MOLDING_CATALOG } from '../molding.registry.js';
 import { generateMoldingProfileShape, calculateMoldingSegments, normalizeExtrudeUVs } from '../molding.geometry.js';
@@ -6,8 +6,39 @@ import { buildMoldingMesh3D, renderMolding3D } from '../molding.renderer3d.js';
 import { renderMolding2D } from '../molding.renderer2d.js';
 import { ComponentRegistry } from '../../../core/engine3d/ComponentRegistry.js';
 import { MaterialSlots, ComponentTypes } from '../../../core/constants/materialSlots.js';
+import { WallEngine } from '../../../core/wall/WallEngine.js';
+import { DeleteEntityCommand } from '../../../core/commands/DeleteEntityCommand.js';
+import { DuplicateEntityCommand } from '../../../core/commands/DuplicateEntityCommand.js';
 
 describe('Molding Feature Centralization Suite', () => {
+    beforeAll(() => {
+        if (typeof HTMLCanvasElement !== 'undefined') {
+            HTMLCanvasElement.prototype.getContext = () => ({
+                clearRect: () => {},
+                fillRect: () => {},
+                getImageData: () => ({ data: [0, 0, 0, 0] }),
+                putImageData: () => {},
+                createImageData: () => ({ data: [0, 0, 0, 0] }),
+                setTransform: () => {},
+                drawImage: () => {},
+                save: () => {},
+                fillText: () => {},
+                restore: () => {},
+                beginPath: () => {},
+                moveTo: () => {},
+                lineTo: () => {},
+                closePath: () => {},
+                stroke: () => {},
+                fill: () => {},
+                arc: () => {},
+                rect: () => {},
+                measureText: () => ({ width: 0 }),
+                transform: () => {},
+                resetTransform: () => {}
+            });
+        }
+    });
+
     beforeEach(() => {
         ComponentRegistry.slotRegistry.clear();
         ComponentRegistry.componentRegistry.clear();
@@ -155,6 +186,156 @@ describe('Molding Feature Centralization Suite', () => {
 
             ComponentRegistry.setSlotHighlight(moldData.id, MaterialSlots.SKIRTING, false);
             expect(mesh.material.emissive.getHex()).toBe(0x000000);
+        });
+    });
+
+    describe('4. Centralized WallEngine Molding Lifecycle & Commands', () => {
+        let mockWall;
+        let mockPlanner;
+
+        beforeEach(() => {
+            mockWall = {
+                id: 'wall_mold_test',
+                type: 'outer',
+                thickness: 20,
+                height: 280,
+                elevation: 0,
+                startX: 0,
+                startY: 0,
+                endX: 300,
+                endY: 0,
+                attachedMoldings: [],
+                attachedWidgets: [],
+                getLength() { return 300; },
+                getClosestT(pos) { return 0.5; },
+                startAnchor: { position: () => ({ x: 0, y: 0 }) },
+                endAnchor: { position: () => ({ x: 300, y: 0 }) }
+            };
+            mockPlanner = {
+                walls: [mockWall],
+                furniture: [],
+                stairs: [],
+                selectedEntity: null,
+                widgetLayer: { add: () => {} },
+                uiLayer: { add: () => {} },
+                syncAll: () => {},
+                selectEntity: (e) => { mockPlanner.selectedEntity = e; },
+                getEntities() {
+                    const attached = [];
+                    if (this.walls) {
+                        this.walls.forEach(w => {
+                            if (w.attachedWidgets) attached.push(...w.attachedWidgets);
+                            if (w.attachedMoldings) attached.push(...w.attachedMoldings);
+                        });
+                    }
+                    return [...this.walls, ...this.furniture, ...this.stairs, ...attached];
+                }
+            };
+            mockWall.planner = mockPlanner;
+        });
+
+        it('should create molding via WallEngine.createMolding with auto anchorMode and attachment', () => {
+            const skirting = WallEngine.createMolding(mockPlanner, mockWall, 0.5, 'molding_skirting_flat', {
+                side: 'left',
+                depth: 2,
+                moldingHeight: 10
+            });
+            expect(skirting).toBeDefined();
+            expect(skirting.anchorMode).toBe('bottom');
+            expect(mockWall.attachedMoldings).toContain(skirting);
+
+            const crown = WallEngine.createMolding(mockPlanner, mockWall, 0.5, 'molding_crown_classic', {
+                side: 'left',
+                depth: 3,
+                moldingHeight: 12
+            });
+            expect(crown).toBeDefined();
+            expect(crown.anchorMode).toBe('top');
+            expect(mockWall.attachedMoldings).toContain(crown);
+        });
+
+        it('should serialize and deserialize molding preserving full parametric state', () => {
+            const mold = WallEngine.createMolding(mockPlanner, mockWall, 0.5, 'molding_chair_rail', {
+                side: 'left',
+                width: 250,
+                depth: 2.5,
+                moldingHeight: 8,
+                heightOffset: 90,
+                material: 'wood_dark',
+                color: '#332211'
+            });
+
+            const serialized = WallEngine.serializeMolding(mold);
+            expect(serialized).toBeDefined();
+            expect(serialized.id).toBe(mold.id);
+            expect(serialized.side).toBe('left');
+            expect(serialized.moldingHeight).toBe(8);
+            expect(serialized.heightOffset).toBe(90);
+            expect(serialized.material).toBe('wood_dark');
+            expect(serialized.anchorMode).toBe('bottom');
+
+            const restored = WallEngine.deserializeMolding(mockPlanner, mockWall, serialized);
+            expect(restored).toBeDefined();
+            expect(restored.side).toBe('left');
+            expect(restored.moldingHeight).toBe(8);
+            expect(restored.heightOffset).toBe(90);
+            expect(restored.material).toBe('wood_dark');
+            expect(restored.anchorMode).toBe('bottom');
+            expect(restored.parentWallId).toBe(mockWall.id);
+        });
+
+        it('should delete molding via WallEngine.deleteMolding', () => {
+            const mold = WallEngine.createMolding(mockPlanner, mockWall, 0.5, 'molding_skirting_flat');
+            expect(mockWall.attachedMoldings.length).toBe(1);
+
+            WallEngine.deleteMolding(mockPlanner, mockWall, mold);
+            expect(mockWall.attachedMoldings.length).toBe(0);
+        });
+
+        it('should support undo/redo on attached moldings in DeleteEntityCommand without corrupting wall widgets', () => {
+            const mold = WallEngine.createMolding(mockPlanner, mockWall, 0.5, 'molding_skirting_flat', {
+                side: 'left',
+                depth: 2,
+                moldingHeight: 12
+            });
+            const moldId = mold.id;
+            expect(mockWall.attachedMoldings.length).toBe(1);
+
+            const cmd = new DeleteEntityCommand(mockPlanner, moldId);
+            cmd.execute();
+            expect(mockWall.attachedMoldings.length).toBe(0);
+            expect(mockWall.attachedWidgets.length).toBe(0);
+
+            cmd.undo();
+            expect(mockWall.attachedMoldings.length).toBe(1);
+            expect(mockWall.attachedWidgets.length).toBe(0);
+            expect(mockWall.attachedMoldings[0].moldingHeight).toBe(12);
+        });
+
+        it('should duplicate attached moldings and support undo/redo in DuplicateEntityCommand', () => {
+            const mold = WallEngine.createMolding(mockPlanner, mockWall, 0.5, 'molding_skirting_flat', {
+                side: 'left',
+                depth: 2,
+                moldingHeight: 12,
+                material: 'wood_white_oak'
+            });
+            const moldId = mold.id;
+            expect(mockWall.attachedMoldings.length).toBe(1);
+
+            const dupCmd = new DuplicateEntityCommand(mockPlanner, moldId, 'dup_mold_1');
+            dupCmd.execute();
+            expect(mockWall.attachedMoldings.length).toBe(2);
+            const duplicated = mockWall.attachedMoldings.find(m => m.id === 'dup_mold_1');
+            expect(duplicated).toBeDefined();
+            expect(duplicated.material).toBe('wood_white_oak');
+            expect(duplicated.moldingHeight).toBe(12);
+
+            dupCmd.undo();
+            expect(mockWall.attachedMoldings.length).toBe(1);
+            expect(mockWall.attachedMoldings.find(m => m.id === 'dup_mold_1')).toBeUndefined();
+
+            dupCmd.execute();
+            expect(mockWall.attachedMoldings.length).toBe(2);
         });
     });
 });

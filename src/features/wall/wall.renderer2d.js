@@ -1,8 +1,6 @@
 import Konva from 'konva';
 import { WALL_REGISTRY } from './wall.registry.js';
 import { WIDGET_REGISTRY, RAILING_REGISTRY, MOLDING_REGISTRY } from '../../core/registry.js';
-import { PremiumWidget } from '../../core/engine2d/PremiumWidget.js';
-import { PremiumMolding } from '../../core/engine2d/PremiumMolding.js';
 import { advance_openings } from '../../core/engine2d/advance_openings.js';
 import { WallSerializer } from './wall.serializer.js';
 import { WallEngine } from '../../core/wall/WallEngine.js';
@@ -240,32 +238,32 @@ export class PremiumWall {
             WallEngine.attachWidget(this, widget, false, this.planner);
         } else if (isMolding) {
             const moldType = MOLDING_REGISTRY[tool] ? tool : (this.planner.activePresetParams?.type || 'molding_skirting_flat');
-            widget = new PremiumMolding(this.planner, this, 0.5, moldType);
             const start = this.startAnchor.position();
             const end = this.endAnchor.position();
             const dx = end.x - start.x;
             const dy = end.y - start.y;
-            widget.side = face === 'front' ? 'left' : 'right';
-            widget.width = Math.hypot(dx, dy);
-            if (this.planner.activePresetParams) {
-                Object.assign(widget, this.planner.activePresetParams);
-                widget.side = face === 'front' ? 'left' : 'right';
-                widget.width = Math.hypot(dx, dy);
-            }
-            widget.update();
+            const side = face === 'front' ? 'left' : 'right';
+            const width = Math.hypot(dx, dy);
+            const moldingOptions = {
+                side,
+                width,
+                ...(this.planner.activePresetParams ? JSON.parse(JSON.stringify(this.planner.activePresetParams)) : {}),
+                attach: true,
+                shouldSync: false
+            };
+            moldingOptions.side = side;
+            moldingOptions.width = width;
+            widget = WallEngine.createMolding(this.planner, this, 0.5, moldType, moldingOptions);
             this.planner.selectEntity(widget, 'molding');
-            WallEngine.attachMolding(this, widget, false, this.planner);
         } else if (isWidget) {
-            widget = new PremiumWidget(this.planner, this, t, tool);
-            widget.facing = (face === 'back') ? -1 : 1;
-            
-            if (this.planner.activePresetParams) {
-                Object.assign(widget, this.planner.activePresetParams);
-                widget.update();
-            }
-            
+            const widgetOptions = {
+                facing: (face === 'back') ? -1 : 1,
+                ...(this.planner.activePresetParams ? JSON.parse(JSON.stringify(this.planner.activePresetParams)) : {}),
+                attach: true,
+                shouldSync: false
+            };
+            widget = WallEngine.createWidget(this.planner, this, t, tool, widgetOptions);
             this.planner.selectEntity(widget, 'widget');
-            WallEngine.attachWidget(this, widget, false, this.planner);
         }
         
         if (!isWidget) {

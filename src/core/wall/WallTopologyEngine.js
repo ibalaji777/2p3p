@@ -6,7 +6,6 @@
  */
 
 import { PremiumWall } from '../../features/wall/wall.renderer2d.js';
-import { PremiumMolding } from '../engine2d/PremiumMolding.js';
 import { PremiumArc } from '../engine2d/PremiumArc.js';
 import { WallGeometryEngine } from './WallGeometryEngine.js';
 

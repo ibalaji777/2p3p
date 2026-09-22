@@ -365,6 +365,22 @@ export class WallEngine {
         WallMutationEngine.removeWidget(wall, widgetOrId, shouldSync, planner);
     }
 
+    static createMolding(planner, wall, t, configId, options = {}) {
+        return WallMutationEngine.createMolding(planner, wall, t, configId, options);
+    }
+
+    static serializeMolding(molding) {
+        return WallMutationEngine.serializeMolding(molding);
+    }
+
+    static deserializeMolding(planner, wall, moldData) {
+        return WallMutationEngine.deserializeMolding(planner, wall, moldData);
+    }
+
+    static deleteMolding(planner, wall, moldingOrId, shouldSync = true) {
+        WallMutationEngine.deleteMolding(planner, wall, moldingOrId, shouldSync);
+    }
+
     static attachMolding(wall, molding, shouldSync = true, planner = null) {
         WallMutationEngine.attachMolding(wall, molding, shouldSync, planner);
     }

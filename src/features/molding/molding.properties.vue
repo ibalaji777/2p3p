@@ -148,7 +148,6 @@ import { computed } from 'vue';
 import DimensionInput from '../../components/common/DimensionInput.vue';
 import MaterialCategorySelector from '../../components/common/MaterialCategorySelector.vue';
 import { getRoomForWallFace, getRoomWallsAndSides, getExteriorWallsAndSides } from '../../core/engine3d/WallPaintSystem.js';
-import { PremiumMolding } from '../../core/engine2d/PremiumMolding.js';
 import { WallEngine } from '../../core/wall/WallEngine.js';
 
 const props = defineProps({
@@ -197,17 +196,19 @@ const applyToRoom = () => {
         const p2 = targetWall.endAnchor.position();
         const wLen = Math.hypot(p2.x - p1.x, p2.y - p1.y);
 
-        const newMold = new PremiumMolding(pl, targetWall, 0.5, mold.type || 'molding_chair_rail');
-        newMold.side = sideVal;
-        newMold.width = wLen;
-        newMold.moldingHeight = mold.moldingHeight || 8;
-        newMold.depth = mold.depth || 2;
-        newMold.heightOffset = mold.heightOffset || 0;
-        newMold.profileType = mold.profileType || 'chair_rail';
-        newMold.material = mold.material || 'white_paint';
-        newMold.color = mold.color || '#ffffff';
-        newMold.update();
-        WallEngine.attachMolding(targetWall, newMold, false, pl);
+        WallEngine.createMolding(pl, targetWall, 0.5, mold.type || 'molding_chair_rail', {
+            side: sideVal,
+            width: wLen,
+            moldingHeight: mold.moldingHeight || 8,
+            depth: mold.depth || 2,
+            heightOffset: mold.heightOffset || 0,
+            profileType: mold.profileType || 'chair_rail',
+            material: mold.material || 'white_paint',
+            color: mold.color || '#ffffff',
+            anchorMode: mold.anchorMode,
+            attach: true,
+            shouldSync: false
+        });
     });
 
     emit('sync-engine');
@@ -233,17 +234,19 @@ const applyToExterior = () => {
         const p2 = targetWall.endAnchor.position();
         const wLen = Math.hypot(p2.x - p1.x, p2.y - p1.y);
 
-        const newMold = new PremiumMolding(pl, targetWall, 0.5, mold.type || 'molding_chair_rail');
-        newMold.side = sideVal;
-        newMold.width = wLen;
-        newMold.moldingHeight = mold.moldingHeight || 8;
-        newMold.depth = mold.depth || 2;
-        newMold.heightOffset = mold.heightOffset || 0;
-        newMold.profileType = mold.profileType || 'chair_rail';
-        newMold.material = mold.material || 'white_paint';
-        newMold.color = mold.color || '#ffffff';
-        newMold.update();
-        WallEngine.attachMolding(targetWall, newMold, false, pl);
+        WallEngine.createMolding(pl, targetWall, 0.5, mold.type || 'molding_chair_rail', {
+            side: sideVal,
+            width: wLen,
+            moldingHeight: mold.moldingHeight || 8,
+            depth: mold.depth || 2,
+            heightOffset: mold.heightOffset || 0,
+            profileType: mold.profileType || 'chair_rail',
+            material: mold.material || 'white_paint',
+            color: mold.color || '#ffffff',
+            anchorMode: mold.anchorMode,
+            attach: true,
+            shouldSync: false
+        });
     });
 
     emit('sync-engine');

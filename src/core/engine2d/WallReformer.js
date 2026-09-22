@@ -1,7 +1,3 @@
-import { WallFactory } from '../../features/wall/wall.factory.js';
-import { PremiumWall } from '../../features/wall/wall.renderer2d.js';
-import { PremiumMolding } from './PremiumMolding.js';
-import { SNAP_DIST } from '../registry.js';
 import { WallTopologyEngine } from '../wall/WallTopologyEngine.js';
 
 /**

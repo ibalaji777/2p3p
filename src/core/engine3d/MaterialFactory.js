@@ -341,10 +341,10 @@ export class MaterialFactory {
             
             const bounceIntensity = luminance * reflectivity;
 
-            if (window.updateFloorBounce) {
+            if (typeof window !== 'undefined' && window.updateFloorBounce) {
                 if (MaterialFactory._floorBounceTimer) clearTimeout(MaterialFactory._floorBounceTimer);
                 MaterialFactory._floorBounceTimer = setTimeout(() => {
-                    if (window.updateFloorBounce) window.updateFloorBounce(avgColor, bounceIntensity);
+                    if (typeof window !== 'undefined' && window.updateFloorBounce) window.updateFloorBounce(avgColor, bounceIntensity);
                 }, 100);
             }
         }

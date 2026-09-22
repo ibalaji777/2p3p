@@ -1,6 +1,6 @@
 import Konva from 'konva';
-import { MOLDING_REGISTRY, renderMolding2D } from '../../features/molding/index.js';
-import { WallEngine } from '../wall/WallEngine.js';
+import { MOLDING_REGISTRY } from '../../features/molding/molding.registry.js';
+import { renderMolding2D } from '../../features/molding/molding.renderer2d.js';
 
 export class PremiumMolding {
     constructor(planner, wall, t, configId) {
@@ -10,11 +10,15 @@ export class PremiumMolding {
         this.type = configId; 
         this.isDragging = false; 
         this.side = 'left';
+        this.id = 'mold_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
         this.materialMode = 'PROCEDURAL';
         this.supportsLiveMaterialPipeline = true;
         
-        this.config = MOLDING_REGISTRY[configId];
-        Object.assign(this, JSON.parse(JSON.stringify(this.config.defaultConfig)));
+        const reg = MOLDING_REGISTRY || {};
+        this.config = reg[configId] || reg['molding_skirting_flat'] || { defaultConfig: {}, events: [] };
+        if (this.config.defaultConfig) {
+            Object.assign(this, JSON.parse(JSON.stringify(this.config.defaultConfig)));
+        }
         
         this.visualGroup = new Konva.Group({ draggable: false }); 
         this.hitBox = new Konva.Rect({ fill: 'transparent', listening: true });
@@ -35,18 +39,18 @@ export class PremiumMolding {
                 handle.on('mouseenter', () => document.body.style.cursor = 'ew-resize'); 
                 handle.on('mouseleave', () => document.body.style.cursor = 'pointer'); 
                 handle.on('dragstart', (e) => { e.cancelBubble = true; }); 
-                handle.on('dragmove', (e) => { e.cancelBubble = true; const pos = this.planner.getPointerPos ? this.planner.getPointerPos() : this.planner.stage.getPointerPosition(); this.requestResize(pos, idx === 0); }); 
-                handle.on('dragend', (e) => { e.cancelBubble = true; this.planner.syncAll(); }); 
+                handle.on('dragmove', (e) => { e.cancelBubble = true; const pos = this.planner.getPointerPos ? this.planner.getPointerPos() : (this.planner.stage?.getPointerPosition ? this.planner.stage.getPointerPosition() : { x: 0, y: 0 }); this.requestResize(pos, idx === 0); }); 
+                handle.on('dragend', (e) => { e.cancelBubble = true; if (this.planner?.syncAll) this.planner.syncAll(); }); 
             }); 
-            this.planner.uiLayer.add(this.leftHandle, this.rightHandle);
+            if (this.planner?.uiLayer?.add) this.planner.uiLayer.add(this.leftHandle, this.rightHandle);
         }
         
         this.initEvents(); 
-        this.planner.widgetLayer.add(this.visualGroup); 
+        if (this.planner?.widgetLayer?.add) this.planner.widgetLayer.add(this.visualGroup); 
         this.update();
     }
 
-    hasEvent(eventName) { return this.config.events.includes(eventName); }
+    hasEvent(eventName) { return Array.isArray(this.config?.events) && this.config.events.includes(eventName); }
     
     requestResize(pos, isLeft) { 
         this.isCustomWidth = true;
@@ -132,23 +136,35 @@ export class PremiumMolding {
 
     destroy() { 
         if (this.dragTimeout) clearTimeout(this.dragTimeout);
-        this.visualGroup.destroy(); 
-        if (this.hasEvent("resize_handles_along_wall_axis")) { this.leftHandle.destroy(); this.rightHandle.destroy(); } 
+        if (this.visualGroup && typeof this.visualGroup.destroy === 'function') this.visualGroup.destroy(); 
+        if (this.hasEvent("resize_handles_along_wall_axis")) { 
+            if (this.leftHandle && typeof this.leftHandle.destroy === 'function') this.leftHandle.destroy(); 
+            if (this.rightHandle && typeof this.rightHandle.destroy === 'function') this.rightHandle.destroy(); 
+        } 
     }
 
     remove() {
         this.destroy();
-        if (this.wall) {
-            WallEngine.removeMolding(this.wall, this, false, this.planner);
+        if (this.wall && Array.isArray(this.wall.attachedMoldings)) {
+            const idx = this.wall.attachedMoldings.indexOf(this);
+            if (idx !== -1) {
+                this.wall.attachedMoldings.splice(idx, 1);
+            }
         }
-        this.planner.selectEntity(null);
-        this.planner.syncAll();
+        if (this.planner && typeof this.planner.selectEntity === 'function' && this.planner.selectedEntity === this) {
+            this.planner.selectEntity(null);
+        }
+        if (this.planner && typeof this.planner.syncAll === 'function') {
+            this.planner.syncAll();
+        }
     }
 
     serialize() { 
         return { 
+            id: this.id,
             t: this.t, 
-            type: this.type, 
+            type: this.type || this.configId, 
+            configId: this.configId || this.type,
             width: this.width, 
             depth: this.depth, 
             heightOffset: this.heightOffset, 
@@ -160,7 +176,11 @@ export class PremiumMolding {
             layers: this.layers,
             layerGap: this.layerGap,
             grooveWidth: this.grooveWidth,
-            frameWidth: this.frameWidth
+            frameWidth: this.frameWidth,
+            anchorMode: this.anchorMode || (this.type && (this.type.includes('crown') || this.type.includes('frieze') || this.type.includes('cornice')) ? 'top' : 'bottom'),
+            parentWallId: this.parentWallId || this.wall?.id,
+            materials: this.materials ? JSON.parse(JSON.stringify(this.materials)) : undefined,
+            params: this.params ? JSON.parse(JSON.stringify(this.params)) : undefined
         }; 
     }
 }

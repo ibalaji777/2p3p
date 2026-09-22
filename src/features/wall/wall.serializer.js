@@ -1,6 +1,5 @@
 import { WallFactory } from './wall.factory.js';
 import { WallEngine } from '../../core/wall/WallEngine.js';
-import { PremiumMolding } from '../../core/engine2d/PremiumMolding.js';
 
 /**
  * wall.serializer.js
@@ -67,13 +66,7 @@ export const WallSerializer = {
             elevationLayers: w.elevationLayers ? safeClone(w.elevationLayers) : null,
             widgets: w.attachedWidgets ? w.attachedWidgets.map(wid => WallEngine.serializeWidget(wid)) : [],
             decors: w.attachedDecor ? safeClone(w.attachedDecor) : [],
-            moldings: w.attachedMoldings ? w.attachedMoldings.map(m => (typeof m.serialize === 'function' ? m.serialize() : { 
-                t: m.t, type: m.type, configId: m.type, width: m.width, depth: m.depth, heightOffset: m.heightOffset, 
-                moldingHeight: m.moldingHeight || m.height || 10,
-                side: m.side, profileType: m.profileType, material: m.material, color: m.color, layers: m.layers, 
-                layerGap: m.layerGap, grooveWidth: m.grooveWidth, frameWidth: m.frameWidth,
-                anchorMode: m.anchorMode || (m.type && (m.type.includes('crown') || m.type.includes('frieze') || m.type.includes('cornice')) ? 'top' : 'bottom')
-            })) : [],
+            moldings: w.attachedMoldings ? w.attachedMoldings.map(m => WallEngine.serializeMolding(m)) : [],
             params: w.params ? safeClone(w.params) : {}
         };
     },
@@ -144,16 +137,8 @@ export const WallSerializer = {
         // Restore Moldings
         if (wData.moldings && Array.isArray(wData.moldings)) {
             wall.attachedMoldings = wData.moldings.map(moldData => {
-                const mold = new PremiumMolding(planner, wall, moldData.t || 0.5, moldData.type || moldData.configId || 'molding_skirting_flat');
-                Object.assign(mold, moldData);
-                mold.wall = wall;
-                if (moldData.anchorMode) {
-                    mold.anchorMode = moldData.anchorMode;
-                } else if (mold.type && (mold.type.includes('crown') || mold.type.includes('frieze') || mold.type.includes('cornice'))) {
-                    mold.anchorMode = 'top';
-                }
-                return mold;
-            });
+                return WallEngine.deserializeMolding(planner, wall, moldData);
+            }).filter(Boolean);
         }
 
         // Restore Decors
