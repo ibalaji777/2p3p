@@ -251,7 +251,6 @@ export class RoofPlugin3DPlacementSystem {
                 segmentIndex: 0
             };
             RoofEngine.addCresting(roof, newCresting, planner);
-            roof.crestings = roof.config.crestings;
         } else if (cat === 'finial') {
             // APEX FINIAL / WEATHER VANE
             const roofBuilder = new Roof3DBuilder(this.ctx);
@@ -287,7 +286,6 @@ export class RoofPlugin3DPlacementSystem {
                 position: closestPos
             };
             RoofEngine.addFinial(roof, newFinial, planner);
-            roof.finials = roof.config.finials;
         } else if (cat === 'chimney') {
             // CHIMNEY STACK
             const newChimney = {
@@ -300,7 +298,6 @@ export class RoofPlugin3DPlacementSystem {
                 v: Number(v.toFixed(3))
             };
             RoofEngine.addChimney(roof, newChimney, planner);
-            roof.chimneys = roof.config.chimneys;
         } else {
             // SKYLIGHT / GLASS ADDON
             const newSkylight = {
@@ -315,7 +312,6 @@ export class RoofPlugin3DPlacementSystem {
                 coverage: preset.coverage || 'custom'
             };
             RoofEngine.addSkylight(roof, newSkylight, planner);
-            roof.skylights = roof.config.skylights;
         }
 
         // In-place CAD rebuild

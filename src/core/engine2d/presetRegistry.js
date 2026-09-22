@@ -8,18 +8,6 @@ import { PresetGroup } from './PresetGroup.js';
 
 // --- Math Helpers ---
 
-function pointInPolygon(point, vs) {
-    let x = point.x, y = point.y;
-    let inside = false;
-    for (let i = 0, j = vs.length - 1; i < vs.length; j = i++) {
-        let xi = vs[i].x, yi = vs[i].y;
-        let xj = vs[j].x, yj = vs[j].y;
-        let intersect = ((yi > y) != (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
-        if (intersect) inside = !inside;
-    }
-    return inside;
-}
-
 function getClosestPointOnSegment(p, p1, p2) {
     const l2 = (p1.x - p2.x)**2 + (p1.y - p2.y)**2;
     if (l2 === 0) return p1;
@@ -55,7 +43,7 @@ export function autoAlign(planner, point, defaultElevation = 0, depth = 0) {
     // Find if we are inside any roof
     for (let roof of planner.roofs) {
         if (!roof.points || roof.points.length < 3 || roof.parentGroup) continue;
-        if (pointInPolygon(point, roof.points)) {
+        if (RoofEngine.isPointInsideRoof(roof, point.x, point.y)) {
             // Found parent roof!
             result.isOnRoof = true;
             result.roofPitch = roof.config.pitch || 30;

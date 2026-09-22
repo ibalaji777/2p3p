@@ -5,6 +5,7 @@ import { RoofTopologyEngine } from '../RoofTopologyEngine.js';
 import { RoofMutationEngine } from '../RoofMutationEngine.js';
 import { RoofSerializer } from '../RoofSerializer.js';
 import { DeleteEntityCommand } from '../../commands/DeleteEntityCommand.js';
+import { CreateRoofCommand } from '../../commands/CreateRoofCommand.js';
 import { UpdatePropertyCommand } from '../../commands/UpdatePropertyCommand.js';
 import { ApplyMaterialCommand } from '../../commands/ApplyMaterialCommand.js';
 
@@ -446,6 +447,79 @@ describe('RoofEngine Subsystem', () => {
             expect(mockEngine3dInstance.envBuilder.updateRoofLive).toHaveBeenCalledWith(roof);
             expect(mockEngine3dInstance.requestRender).toHaveBeenCalled();
             expect(custom2dPlanner.stage.batchDraw).toHaveBeenCalled();
+        });
+    });
+
+    describe('CreateRoofCommand & Compliance Lifecycle', () => {
+        it('executes, serializes on undo, and restores cleanly on redo without zombie entity', () => {
+            const pts = [{ x: 0, y: 0 }, { x: 200, y: 0 }, { x: 200, y: 100 }, { x: 0, y: 100 }];
+            const cmd = new CreateRoofCommand(mockPlanner, pts, { pitch: 35, roofType: 'gable' }, 'cmd_roof_1');
+
+            // 1. Execute
+            cmd.execute();
+            expect(mockPlanner.roofs.length).toBe(1);
+            const created = mockPlanner.roofs[0];
+            expect(created.id).toBe('cmd_roof_1');
+            expect(created.config.pitch).toBe(35);
+            expect(created.config.roofType).toBe('gable');
+            expect(cmd.serializedState).toBeTruthy();
+
+            // 2. Undo
+            cmd.undo();
+            expect(mockPlanner.roofs.length).toBe(0);
+            expect(cmd.createdEntity).toBeNull();
+            expect(cmd.serializedState).toBeTruthy();
+
+            // 3. Redo
+            cmd.execute();
+            expect(mockPlanner.roofs.length).toBe(1);
+            const redone = mockPlanner.roofs[0];
+            expect(redone.id).toBe('cmd_roof_1');
+            expect(redone.config.pitch).toBe(35);
+            expect(redone.config.roofType).toBe('gable');
+            // Pristine entity restored
+            expect(redone).toBe(cmd.createdEntity);
+        });
+
+        it('mirrors addon properties to roof root and updates properly', () => {
+            const pts = [{ x: 0, y: 0 }, { x: 200, y: 0 }, { x: 200, y: 100 }, { x: 0, y: 100 }];
+            const roof = RoofEngine.createRoof(mockPlanner, pts, { pitch: 30 });
+
+            // Cresting
+            const crest = RoofEngine.addCresting(roof, { type: 'ridge_cresting_victorian_lace' }, mockPlanner);
+            expect(roof.config.crestings).toContain(crest);
+            expect(roof.crestings).toBe(roof.config.crestings);
+
+            RoofEngine.removeCresting(roof, crest.id, mockPlanner);
+            expect(roof.config.crestings.length).toBe(0);
+            expect(roof.crestings.length).toBe(0);
+
+            // Finial
+            const finial = RoofEngine.addFinial(roof, { type: 'finial_victorian_spire' }, mockPlanner);
+            expect(roof.config.finials).toContain(finial);
+            expect(roof.finials).toBe(roof.config.finials);
+
+            RoofEngine.removeFinial(roof, finial.id, mockPlanner);
+            expect(roof.config.finials.length).toBe(0);
+            expect(roof.finials.length).toBe(0);
+
+            // Chimney
+            const chim = RoofEngine.addChimney(roof, { width: 50 }, mockPlanner);
+            expect(roof.config.chimneys).toContain(chim);
+            expect(roof.chimneys).toBe(roof.config.chimneys);
+
+            RoofEngine.removeChimney(roof, chim.id, mockPlanner);
+            expect(roof.config.chimneys.length).toBe(0);
+            expect(roof.chimneys.length).toBe(0);
+        });
+
+        it('supports point inside roof check with translation offset', () => {
+            const pts = [{ x: 0, y: 0 }, { x: 100, y: 0 }, { x: 100, y: 100 }, { x: 0, y: 100 }];
+            const roof = RoofEngine.createRoof(mockPlanner, pts);
+            RoofEngine.setPosition(roof, 50, 50, mockPlanner);
+
+            expect(RoofEngine.isPointInsideRoof(roof, 100, 100)).toBe(true);
+            expect(RoofEngine.isPointInsideRoof(roof, 10, 10)).toBe(false);
         });
     });
 });

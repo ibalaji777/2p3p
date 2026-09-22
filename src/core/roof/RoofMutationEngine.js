@@ -524,6 +524,7 @@ export class RoofMutationEngine {
             height: params.height || 25
         };
         roof.config.crestings.push(entry);
+        roof.crestings = roof.config.crestings;
         this.notifyRoofUpdated(roof, planner || roof.planner, 'plugins');
         return entry;
     }
@@ -540,6 +541,7 @@ export class RoofMutationEngine {
         } else {
             roof.config.crestings = roof.config.crestings.filter(c => c.id !== idOrIndex);
         }
+        roof.crestings = roof.config.crestings;
         this.notifyRoofUpdated(roof, planner || roof.planner, 'plugins');
     }
 
@@ -558,6 +560,7 @@ export class RoofMutationEngine {
             scale: params.scale || 1.0
         };
         roof.config.finials.push(entry);
+        roof.finials = roof.config.finials;
         this.notifyRoofUpdated(roof, planner || roof.planner, 'plugins');
         return entry;
     }
@@ -574,6 +577,7 @@ export class RoofMutationEngine {
         } else {
             roof.config.finials = roof.config.finials.filter(f => f.id !== idOrIndex);
         }
+        roof.finials = roof.config.finials;
         this.notifyRoofUpdated(roof, planner || roof.planner, 'plugins');
     }
 
@@ -595,6 +599,7 @@ export class RoofMutationEngine {
             v: params.v !== undefined ? params.v : 0.3
         };
         roof.config.chimneys.push(entry);
+        roof.chimneys = roof.config.chimneys;
         this.notifyRoofUpdated(roof, planner || roof.planner, 'plugins');
         return entry;
     }
@@ -611,6 +616,7 @@ export class RoofMutationEngine {
         } else {
             roof.config.chimneys = roof.config.chimneys.filter(c => c.id !== idOrIndex);
         }
+        roof.chimneys = roof.config.chimneys;
         this.notifyRoofUpdated(roof, planner || roof.planner, 'plugins');
     }
 

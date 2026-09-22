@@ -74,11 +74,6 @@ export class DeleteEntityCommand extends Command {
                 if (restored) {
                     this.deletedEntity = restored;
                 }
-            } else if (this.deletedEntity.constructor?.name === 'PremiumHipRoof' || (this.deletedEntity.type && this.deletedEntity.type === 'roof')) {
-                if (!this.planner.roofs) this.planner.roofs = [];
-                if (!this.planner.roofs.includes(this.deletedEntity)) {
-                    this.planner.roofs.push(this.deletedEntity);
-                }
             } else if (this.serializedStair) {
                 const restored = StairEngine.deserialize(this.planner, this.serializedStair);
                 if (restored) {
