@@ -678,4 +678,169 @@ export class WallGeometryEngine {
 
         return hasHole ? hole : null;
     }
+
+    /**
+     * Constructs a THREE.Path hole for a sliced portion of an aperture (e.g. across a curved wall segment).
+     * @param {Object} widg - The attached widget entity
+     * @param {number} x1 - Local start X of the slice in the segment
+     * @param {number} x2 - Local end X of the slice in the segment
+     * @param {number} wCenter - Local X position of the widget center relative to this segment
+     * @param {number} halfW - Half width of the widget
+     * @param {number} maxH - Maximum height
+     * @param {number} wallBottom - Elevation of wall bottom
+     * @param {Object} THREE - Three.js namespace
+     * @returns {THREE.Path|null}
+     */
+    static createSlicedApertureVoidPath(widg, x1, x2, wCenter, halfW, maxH = 10000, wallBottom = 0, THREE = null) {
+        if (!widg || !THREE || !THREE.Path || x2 <= x1) return null;
+        if (widg.type === 'solid_protrusion') return null;
+
+        const hole = new THREE.Path();
+        const wType = (widg.type === 'window' || widg.windowType || (widg.config && widg.config.widget === 'window') || widg.configId === 'window') ? 'window' :
+                      (widg.type === 'door' || widg.doorType || (widg.config && widg.config.widget === 'door') || widg.configId === 'door') ? 'door' :
+                      (widg.type || widg.configId);
+
+        let dh, wElev, cutElev;
+        if (wType === 'door') {
+            dh = widg.height !== undefined ? Number(widg.height) : DOOR_HEIGHT;
+            wElev = widg.elevation !== undefined ? Number(widg.elevation) : 0;
+            dh = Math.min(dh, maxH - wElev);
+            cutElev = (wElev <= 0.1) ? wallBottom : wElev;
+        } else if (wType === 'window' || wType === 'jali_panel' || wType === 'jali') {
+            dh = widg.height !== undefined ? Number(widg.height) : (wType === 'window' ? WINDOW_HEIGHT : 100);
+            wElev = widg.elevation !== undefined ? Number(widg.elevation) : (wType === 'window' ? WINDOW_SILL : 0);
+            dh = Math.min(dh, maxH - wElev);
+            cutElev = (wElev <= 0.1) ? wallBottom : wElev;
+        } else {
+            wElev = Number(widg.elevation) || 0;
+            dh = widg.height !== undefined ? Number(widg.height) : 60;
+            wElev = Math.max(0, Math.min(wElev, maxH));
+            dh = Math.max(0, Math.min(dh, maxH - wElev));
+            cutElev = (wElev <= 0.1) ? wallBottom : wElev;
+        }
+
+        if (dh <= 0) return null;
+
+        const shapeType = widg.doorShape || widg.windowShape || widg.params?.doorShape || widg.params?.windowShape || widg.config?.doorShape || widg.config?.windowShape || widg.shape || 'square';
+
+        hole.moveTo(x1, cutElev);
+        hole.lineTo(x2, cutElev);
+
+        if (shapeType === 'radius' || shapeType === 'arch' || shapeType === 'arched') {
+            const straightH = Math.max(0, dh - halfW);
+            const calcArchY = (x) => {
+                const dx = Math.abs(x - wCenter);
+                if (dx >= halfW) return wElev + straightH;
+                return wElev + straightH + Math.sqrt(Math.max(0, halfW * halfW - dx * dx));
+            };
+            hole.lineTo(x2, calcArchY(x2));
+            const numSteps = Math.max(2, Math.min(8, Math.ceil((x2 - x1) / 5)));
+            for (let s = numSteps - 1; s >= 0; s--) {
+                const sx = x1 + (x2 - x1) * (s / numSteps);
+                hole.lineTo(sx, calcArchY(sx));
+            }
+        } else {
+            hole.lineTo(x2, wElev + dh);
+            hole.lineTo(x1, wElev + dh);
+        }
+
+        hole.lineTo(x1, cutElev);
+        return hole;
+    }
+
+    /**
+     * Single source of truth for all aperture voids for a wall.
+     * Slices wide openings across curved wall segments (PremiumArc) to prevent solid wall clipping.
+     * @param {Object} wall - The target wall entity
+     * @param {number} wallLength - Length of the wall segment (cm)
+     * @param {number} maxH - Maximum height (cm)
+     * @param {number} wallBottom - Elevation of wall bottom (cm)
+     * @param {Object} THREE - Three.js namespace
+     * @returns {Array<THREE.Path>}
+     */
+    static getApertureVoidsForWall(wall, wallLength, maxH = 10000, wallBottom = 0, THREE = null) {
+        if (!wall || !THREE || !THREE.Path) return [];
+
+        const holes = [];
+
+        // Case 1: Multi-segment Curved Wall (PremiumArc)
+        if (wall.parentArc && wall.parentArc.walls && wall.parentArc.walls.length > 0) {
+            const arc = wall.parentArc;
+            const allArcWidgets = [];
+            const seenWidgetIds = new Set();
+
+            const collectWidgets = (wList) => {
+                (wList || []).forEach(widg => {
+                    if (!widg || widg.type === 'solid_protrusion') return;
+                    const wid = widg.id || widg;
+                    if (!seenWidgetIds.has(wid)) {
+                        seenWidgetIds.add(wid);
+                        allArcWidgets.push(widg);
+                    }
+                });
+            };
+
+            collectWidgets(arc.attachedWidgets);
+            arc.walls.forEach(seg => collectWidgets(seg.attachedWidgets));
+
+            if (allArcWidgets.length === 0) return [];
+
+            const totalArcLen = arc.totalArcLength || arc.walls.reduce((sum, s) => sum + (s.length || Math.hypot(s.endAnchor?.x - s.startAnchor?.x, s.endAnchor?.y - s.startAnchor?.y) || 15), 0);
+            const segStart = wall.arcDistanceOffset !== undefined ? wall.arcDistanceOffset : 0;
+            const segEnd = segStart + wallLength;
+
+            allArcWidgets.forEach(widg => {
+                let sCenter = 0;
+                if (widg.arcT !== undefined) {
+                    sCenter = widg.arcT * totalArcLen;
+                } else if (widg.parentWall || widg.hostWall) {
+                    const host = widg.parentWall || widg.hostWall;
+                    const hostStart = host.arcDistanceOffset || 0;
+                    const hostLen = host.length || wallLength;
+                    const t = widg.t !== undefined ? widg.t : 0.5;
+                    sCenter = hostStart + hostLen * t;
+                } else {
+                    const hostSeg = arc.walls.find(s => s.attachedWidgets && s.attachedWidgets.includes(widg));
+                    if (hostSeg) {
+                        const hostStart = hostSeg.arcDistanceOffset || 0;
+                        const hostLen = hostSeg.length || wallLength;
+                        const t = widg.t !== undefined ? widg.t : 0.5;
+                        sCenter = hostStart + hostLen * t;
+                    } else {
+                        const t = widg.t !== undefined ? widg.t : 0.5;
+                        sCenter = segStart + wallLength * t;
+                    }
+                }
+
+                const width = Number(widg.width) || 60;
+                const halfW = width / 2;
+                const winStart = sCenter - halfW;
+                const winEnd = sCenter + halfW;
+
+                const overlapStart = Math.max(segStart, winStart);
+                const overlapEnd = Math.min(segEnd, winEnd);
+
+                if (overlapEnd - overlapStart > 0.05) {
+                    const x1 = overlapStart - segStart;
+                    const x2 = overlapEnd - segStart;
+                    const localCenter = sCenter - segStart;
+
+                    const hole = WallGeometryEngine.createSlicedApertureVoidPath(
+                        widg, x1, x2, localCenter, halfW, maxH, wallBottom, THREE
+                    );
+                    if (hole) holes.push(hole);
+                }
+            });
+
+            return holes;
+        }
+
+        // Case 2: Standard straight wall
+        (wall.attachedWidgets || []).forEach(widg => {
+            const hole = WallGeometryEngine.createApertureVoidPath(widg, wallLength, maxH, wallBottom, THREE);
+            if (hole) holes.push(hole);
+        });
+
+        return holes;
+    }
 }

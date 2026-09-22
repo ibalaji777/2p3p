@@ -389,9 +389,9 @@ export class VerticalPropagationEngine {
     /**
      * Synchronizes 3D scene group positions for active and static levels.
      */
-    static sync3DLevelElevations(planner, levels) {
+    static sync3DLevelElevations(planner, levels, ctx3d = null) {
         if (!planner) return;
-        const c3d = planner.engine3d || (typeof window !== 'undefined' ? (window.engine3d || window.renderer3D?.value || window.preview3D) : null);
+        const c3d = ctx3d || planner.engine3d || (typeof window !== 'undefined' ? (window.engine3d || window.renderer3D?.value || window.preview3D) : null);
         if (!c3d) return;
 
         const levelElevations = computeLevelElevations(levels);

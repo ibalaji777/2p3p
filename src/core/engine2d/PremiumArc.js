@@ -191,6 +191,7 @@ export class PremiumArc {
         
         const arcLen = Math.abs(sweep) * R;
         let segments = Math.max(6, Math.min(48, Math.floor(arcLen / 15))), prevAnchor = this.p1;
+        let accumulatedLength = 0;
         
         for (let i = 1; i <= segments; i++) {
             const t = i / segments, cAng = sAng + sweep * t;
@@ -201,7 +202,8 @@ export class PremiumArc {
             else { currentAnchor = new Anchor(this.planner, x, y); currentAnchor.isArcIntermediate = true; currentAnchor.hide(); this.planner.anchors.push(currentAnchor); this.intermediateAnchors.push(currentAnchor); }
             
             if (prevAnchor !== currentAnchor) {
-                if (Math.hypot(currentAnchor.x - prevAnchor.x, currentAnchor.y - prevAnchor.y) > 1.0) {
+                const segLen = Math.hypot(currentAnchor.x - prevAnchor.x, currentAnchor.y - prevAnchor.y);
+                if (segLen > 1.0) {
                     const newWall = WallFactory.createWall(this.planner, {
                         startAnchor: prevAnchor,
                         endAnchor: currentAnchor,
@@ -218,6 +220,8 @@ export class PremiumArc {
                         addToPlanner: false
                     });
                     newWall.parentArc = this;
+                    newWall.arcDistanceOffset = accumulatedLength;
+                    newWall.arcSegmentIndex = this.walls.length;
                     newWall.labelGroup.visible(false);
                     if (this.hidden !== undefined) newWall.hidden = this.hidden;
                     newWall.poly.off('mousedown touchstart');
@@ -236,6 +240,8 @@ export class PremiumArc {
                             addToPlanner: false
                         });
                         r.parentArc = this; r.labelGroup.visible(false);
+                        r.arcDistanceOffset = accumulatedLength;
+                        r.arcSegmentIndex = newWall.arcSegmentIndex;
                         r.configId = this.railingConfig.configId;
                         if (this.hidden !== undefined) r.hidden = this.hidden;
                         r.poly.off('mousedown touchstart');
@@ -249,6 +255,7 @@ export class PremiumArc {
                         this.walls.push(r); this.planner.walls.push(r);
                     }
                     
+                    accumulatedLength += segLen;
                     prevAnchor = currentAnchor;
                     
                 } else if (i === segments && this.walls.length > 0) { 
@@ -261,6 +268,11 @@ export class PremiumArc {
                 }
             }
         }
+        this.totalArcLength = accumulatedLength;
+        this.walls.forEach(w => {
+            w.totalArcLength = accumulatedLength;
+            w.totalArcSegments = this.walls.length;
+        });
         this.lastP1 = { ...p1 }; this.lastP2 = { ...p2 };
         
         if (this.planner.selectedEntity === this) {

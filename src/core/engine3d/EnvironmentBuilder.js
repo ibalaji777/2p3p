@@ -1402,14 +1402,11 @@ export class EnvironmentBuilder {
                         w.mesh3D = wallGroup;
 
                         const extraMeshes = [];
+                        const apertureHoles = WallGeometryEngine.getApertureVoidsForWall(w, length, totalH, wallBottom, THREE);
+                        apertureHoles.forEach(hole => wallShape.holes.push(hole));
+
                         if (w.attachedWidgets) {
                             w.attachedWidgets.forEach(widg => {
-                                const maxH = totalH; // totalH is the wall height (h)
-                                const hole = WallGeometryEngine.createApertureVoidPath(widg, length, maxH, wallBottom, THREE);
-                                if (hole) {
-                                    wallShape.holes.push(hole);
-                                }
-
                                 const wCenter = length * (widg.t !== undefined ? widg.t : 0.5);
                                 const halfW = (Number(widg.width) || 60) / 2;
                                 const type = widg.type || widg.configId;
@@ -1703,11 +1700,12 @@ export class EnvironmentBuilder {
                             
                             finalWallGeo.addGroup(i, 3, groupIdx);
                             
+                            const xOffset = w.arcDistanceOffset || 0;
                             for (let vIdx = i; vIdx < i + 3; vIdx++) {
                                 const vx = finalPos.getX(vIdx), vy = finalPos.getY(vIdx), vz = finalPos.getZ(vIdx);
                                 if (groupIdx <= 1) finalUvs.setXY(vIdx, vz, vy);
-                                else if (groupIdx <= 3) finalUvs.setXY(vIdx, vx, vz);
-                                else finalUvs.setXY(vIdx, vx, vy);
+                                else if (groupIdx <= 3) finalUvs.setXY(vIdx, vx + xOffset, vz);
+                                else finalUvs.setXY(vIdx, vx + xOffset, vy);
                             }
                         }
 

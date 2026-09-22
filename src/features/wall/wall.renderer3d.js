@@ -5,6 +5,7 @@ import { MaterialFactory } from '../../core/engine3d/MaterialFactory.js';
 import { Molding3DBuilder } from '../../core/engine3d/Molding3DBuilder.js';
 import { WallGeometryEngine } from '../../core/wall/WallGeometryEngine.js';
 import { WallEngine } from '../../core/wall/WallEngine.js';
+import { ThreeLifecycleManager } from '../../core/engine3d/ThreeLifecycleManager.js';
 
 export function getPlasterMaterial() {
     return new THREE.MeshStandardMaterial({ 
@@ -60,17 +61,9 @@ export class Wall3DBuilder {
 
         if (!w) return { wallGroup: new THREE.Group(), wallMesh: null, extraInteractables: [] };
 
-        // Cleanly remove previous 3D wall mesh and its children before rebuilding with cutouts
+        // Cleanly remove and dispose previous 3D wall mesh, hitboxes, and interactables
         if (w.mesh3D) {
-            if (w.mesh3D.parent) {
-                w.mesh3D.parent.remove(w.mesh3D);
-            } else if (ctx.structureGroup) {
-                ctx.structureGroup.remove(w.mesh3D);
-            }
-            w.mesh3D.traverse(c => {
-                if (c.geometry) c.geometry.dispose();
-            });
-            w.mesh3D = null;
+            ThreeLifecycleManager.disposeEntity(w, ctx);
         }
 
         const matMain = getPlasterMaterial();
@@ -141,12 +134,10 @@ export class Wall3DBuilder {
         w.mesh3D = wallGroup;
 
         const extraMeshes = [];
-        (w.attachedWidgets || []).forEach(widg => {
-            const hole = WallGeometryEngine.createApertureVoidPath(widg, length, maxH, wallBottom, THREE);
-            if (hole) {
-                wallShape.holes.push(hole);
-            }
+        const apertureHoles = WallGeometryEngine.getApertureVoidsForWall(w, length, maxH, wallBottom, THREE);
+        apertureHoles.forEach(hole => wallShape.holes.push(hole));
 
+        (w.attachedWidgets || []).forEach(widg => {
             const wCenter = length * (widg.t !== undefined ? widg.t : 0.5);
             const halfW = (Number(widg.width) || 60) / 2;
             const wType = (widg.type === 'window' || widg.windowType || (widg.config && widg.config.widget === 'window') || widg.configId === 'window') ? 'window' :
@@ -664,11 +655,12 @@ export class Wall3DBuilder {
 
             finalWallGeo.addGroup(i, 3, groupIdx);
 
+            const xOffset = w.arcDistanceOffset || 0;
             for (let vIdx = i; vIdx < i + 3; vIdx++) {
                 const vx = pos.getX(vIdx), vy = pos.getY(vIdx), vz = pos.getZ(vIdx);
                 if (groupIdx === 0 || groupIdx === 1 || groupIdx === 6 || groupIdx === 7) uvs.setXY(vIdx, vz, vy);
-                else if (groupIdx === 2 || groupIdx === 3 || groupIdx === 8 || groupIdx === 9) uvs.setXY(vIdx, vx, vz);
-                else uvs.setXY(vIdx, vx, vy);
+                else if (groupIdx === 2 || groupIdx === 3 || groupIdx === 8 || groupIdx === 9) uvs.setXY(vIdx, vx + xOffset, vz);
+                else uvs.setXY(vIdx, vx + xOffset, vy);
             }
         }
 
@@ -1279,6 +1271,11 @@ export class Wall3DBuilder {
 
         if (!widgets) return wallShape;
 
+        const apertureHoles = wallData ? WallGeometryEngine.getApertureVoidsForWall(wallData, length, maxH, wallBottom, THREE) : null;
+        if (apertureHoles && apertureHoles.length > 0) {
+            apertureHoles.forEach(hole => wallShape.holes.push(hole));
+        }
+
         widgets.forEach(widg => {
             const wCenter = length * (widg.t !== undefined ? widg.t : 0.5); 
             const halfW = (Number(widg.width) || 60) / 2;
@@ -1286,9 +1283,11 @@ export class Wall3DBuilder {
             
             if (wType === 'elevation_fascia' || wType === 'solid_protrusion') return;
             
-            const hole = WallGeometryEngine.createApertureVoidPath(widg, length, maxH, wallBottom, THREE);
-            if (hole) {
-                wallShape.holes.push(hole);
+            if (!apertureHoles) {
+                const hole = WallGeometryEngine.createApertureVoidPath(widg, length, maxH, wallBottom, THREE);
+                if (hole) {
+                    wallShape.holes.push(hole);
+                }
             }
             
             let h_opening = widg.height !== undefined ? Number(widg.height) : ((wType === 'door' || wType === 'arch_opening' || wType === 'opening') ? DOOR_HEIGHT : ((wType === 'window') ? WINDOW_HEIGHT : 60));

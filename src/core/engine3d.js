@@ -31,6 +31,7 @@ import { Railing3DBuilder } from '../features/railing/builders/Railing3DBuilder.
 import { STAIRCASE_REGISTRY } from '../features/stairs/stairs.registry.js';
 import { UniversalRealtimeUpdate } from './sync/UniversalRealtimeUpdate.js';
 import { WallCutawaySystem } from './engine3d/WallCutawaySystem.js';
+import { ThreeLifecycleManager } from './engine3d/ThreeLifecycleManager.js';
 
 export class Preview3D {
     constructor(containerEl) {
@@ -1162,18 +1163,11 @@ export class Preview3D {
         if (this.requestRender) this.requestRender('floor_rebuild', 2);
     }
 
-    deepDispose(obj) {
-        if (obj.userData && obj.userData.keepAlive) return;
-        
-        if (obj.geometry && !obj.geometry.userData?.keepAlive) obj.geometry.dispose();
-        if (obj.material) {
-            if (Array.isArray(obj.material)) {
-                obj.material.forEach(m => { if (m && m.dispose && !m.userData?.keepAlive) m.dispose(); });
-            } else {
-                if (obj.material.dispose && !obj.material.userData?.keepAlive) obj.material.dispose();
-            }
-        }
-        if (obj.children) [...obj.children].forEach(c => this.deepDispose(c));
+    deepDispose(obj, options = {}) {
+        ThreeLifecycleManager.disposeHierarchy(obj, {
+            interactables: this.interactables,
+            ...options
+        });
     }
 
     buildScene(walls = this.walls, rooms = this.rooms, stairs = this.stairs || [], furnitureList = this.furnitureList || [], roofs = this.roofs || [], shapes = this.shapes || [], levelsConfigArray = this.levelsConfigArray || [], activeIndex = this.activeIndex || 0, viewMode3D = this.viewMode3D || 'full-edit', preserveCamera = false, outdoorZones = this.outdoorZones || []) {
