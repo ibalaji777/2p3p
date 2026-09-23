@@ -294,31 +294,48 @@ Every new feature, modification, refactor, bug fix, or generated code MUST follo
 
 # Universal Spatial Dependency, Host Tracking & Auto-Adjustment Rule
 
-**CRITICAL MANDATE - ZERO DISCONNECTED OBJECTS**
+**CRITICAL MANDATE - ZERO DISCONNECTED OBJECTS & ZERO SCALING**
 
-Every new feature, tool, entity, shape, elevation element, staircase, furniture item, or attached plugin added to the application MUST participate in the centralized Spatial Dependency & Auto-Adjustment architecture (`SpatialDependencyEngine`, `SpatialHostResolver`, and `spatial_dependency_expert` skill). When supporting walls, rooms, platforms, floors, or elevations adjust, all attached and resting objects MUST automatically track and adjust their kinematics in place.
+Every new feature, tool, entity, shape, elevation element, staircase, furniture item, GLB model, or attached plugin added to the application MUST participate in the centralized Spatial Dependency & Auto-Adjustment architecture (`SpatialDependencyEngine`, `SpatialHostResolver`, and `spatial_dependency_expert` skill). When supporting walls, rooms, platforms, floors, or elevations adjust, all attached and resting objects MUST automatically track and adjust their kinematics in place with **ZERO SCALING** and **ZERO SHRINKING**.
 
 ## Required Behavior:
-1. **Single Authoritative Dependency Graph (`SpatialDependencyEngine`)**:
+1. **Anchor ↔ Wall ↔ Dependent Object Chain of Custody**:
+   - Anchors are geometric endpoints defining walls, NOT direct spatial hosts.
+   - Anchor moves MUST route through `WallEngine.moveAnchor` -> wall geometry recalculation -> `globalSpatialDependencyEngine.onHostTransformed(wall, planner)`.
+   - Never store private tracking arrays (`this.trackedObjects`) on anchors or compute `scaleRatio` stretching. Attached objects follow via forward kinematics (`computeWorldTransform`).
+2. **Strict Zero-Scaling & Zero-Shrinking Invariants**:
+   - Rigid entities (`furniture`, `shapes`, `glb`, `stairs`, `models`, `decor`, or any future floor-placed object) MUST NEVER scale, stretch, or shrink when wall anchors or walls move.
+   - Lateral wall movements must never recalculate staircase step counts or floor entity heights. Vertical adaptation (`StairHeightDetector`) is strictly isolated to platforms and story level rises (`record.hostType === 'platform'`).
+3. **Universal 3-Tier Floor & Wall Placement Hierarchy**:
+   Whenever ANY object is placed on the floor or moved in the scene:
+   - **Tier 1 (Platform)**: If placed over an elevated platform, the platform is the primary host (`SUPPORTED`, elevation = `platform.elevation + platform.height`, `hostPlatformId = platform.id`).
+   - **Tier 2 (Wall Surface-Attachment)**: If not on a platform, check proximity to walls ($\le 40\text{ cm}$ snap threshold via `SpatialHostResolver.findHostAt`). If abutting/near a wall, automatically attach as `SURFACE_ATTACHED` with `parentWallId = wall.id` and canonical local transform computed relative to wall midpoint `(midX, midY)` and angle.
+   - **Tier 3 (Freestanding Floor)**: If moved away into open floor space ($> 40\text{ cm}$), automatically detach from wall (`parentWallId = null`), un-link from DAG, and become freestanding at elevation $0$.
+4. **Mandatory Protocol for Future & Missing Floor Entities**:
+   - Any new or currently unhandled entity placed on the floor (custom GLB models, appliances, electronics, decor, rugs, columns, architectural fixtures, railings, etc.) MUST implement:
+     - Canonical transforms: `x`, `y`, `elevation`, `rotation`, `parentWallId`, `hostPlatformId`.
+     - Rigid physical dimensions: `width`, `depth`, `height` (immutable to wall movement).
+     - In-place 2D/3D sync: `update2D()`, `update3D()`, `_sync3DTransform()`.
+     - Whitelist registration in `SpatialHostResolver.findHostAt` under `isWallAttachable`.
+     - Full persistence across `exportState()`, `importState()`, and undo/redo snapshots.
+5. **Single Authoritative Dependency Graph (`SpatialDependencyEngine`)**:
    - All parent-child and host-dependent tracking MUST route exclusively through `SpatialDependencyEngine`.
    - Never create parallel or feature-specific tracking services, local offset trackers, or duplicate DAGs.
-2. **Stateless Geometric Host Query (`SpatialHostResolver`)**:
+6. **Stateless Geometric Host Query (`SpatialHostResolver`)**:
    - Host detection on placement and dragging must query `SpatialHostResolver.findHostAt(planner, x, y, entityType, options)`.
    - Never inspect visual Konva groups or hardcode axis-aligned bounding boxes directly in UI code.
-3. **Drag-End Commit Point (Zero 60 FPS DAG Thrashing)**:
+7. **Drag-End Commit Point (Zero 60 FPS DAG Thrashing)**:
    - Live interactive movement updates local transforms and visual positions in real-time.
    - Graph edge creation and host resolution must be committed strictly on `dragend` or in `_applyMove()`.
-4. **Standardized Transform Extraction (`getEntityTransform`)**:
+8. **Standardized Transform Extraction (`getEntityTransform`)**:
    - Always extract host and dependent coordinates, elevations, heights, and yaw rotations using `SpatialDependencyEngine.getEntityTransform(entity)`.
    - Never construct ad-hoc coordinate objects or bypass wall midpoint and angle computations.
-5. **Universal In-Place 2D/3D Synchronization**:
+9. **Universal In-Place 2D/3D Synchronization**:
    - Moving or adjusting an entity must update existing `Konva.Group` (`group.position()`, `group.rotation()`) and `THREE.Mesh` / `THREE.Group` (`mesh3D.position`, `mesh3D.rotation.y`) strictly in place.
    - Scene reconstruction, camera resets, or selection clearing during live movement or auto-adjustment is strictly prohibited.
-6. **Domain Hook Recalculation (`onHostTransformed`)**:
-   - When a host transforms, child entities implementing `onHostTransformed(hostTransform, newWorld)` must automatically recalculate internal geometry (e.g. stair step counts, bounded platform polygons) without recreating render nodes.
-7. **Deterministic Cascading Host Deletion**:
-   - Deleting any host architecture (wall, platform, furniture table) MUST invoke `globalSpatialDependencyEngine.onHostDeleted(host, planner)`.
-   - All dependent children must be cleanly unlinked and grounded (elevation dropped to 0) with zero dangling references.
-8. **Full Serialization & History Integrity**:
-   - All spatial dependency metadata (`id`, `hostId`, `hostType`, `relationshipType`, `localTransform`, `elevation`) MUST be preserved across `exportState()` and restored by `importState()` / `rebuildFromPlanner()`.
-   - Undo and Redo must revert both host and dependent positions without breaking graph edges.
+10. **Deterministic Cascading Host Deletion**:
+    - Deleting any host architecture (wall, platform, furniture table) MUST invoke `globalSpatialDependencyEngine.onHostDeleted(host, planner)`.
+    - All dependent children must be cleanly unlinked and grounded (elevation dropped to 0) with zero dangling references.
+11. **Full Serialization & History Integrity**:
+    - All spatial dependency metadata (`id`, `hostId`, `parentWallId`, `hostPlatformId`, `hostType`, `relationshipType`, `localTransform`, `elevation`) MUST be preserved across `exportState()` and restored by `importState()` / `rebuildFromPlanner()`.
+    - Undo and Redo must revert both host and dependent positions without breaking graph edges.

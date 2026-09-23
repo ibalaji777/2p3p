@@ -240,19 +240,50 @@ export class SpatialHostResolver {
         }
 
         // ─────────────────────────────────────────────────────────────────────────
-        // 2. WALL SURFACE-ATTACHED RESOLUTION (Shapes, Sconces, Wall Panels)
+        // 2. PLATFORM RESTING SURFACE (Furniture, Shapes, GLBs on Platform)
+        // Highest priority: If situated over a platform, platform is primary host
         // ─────────────────────────────────────────────────────────────────────────
-        if (entityType === 'shape' || entityType === 'surface_attached') {
-            const wallCandidate = this.findWallNearPoint(planner, x, y, options.snapDist || 40);
+        const platform = this.findPlatformUnderPoint(planner, x, y, options.ignoreEntity);
+        if (platform) {
+            const pElev = Number(platform.elevation) || 0;
+            const pH = Number(platform.height) || 20;
+            const surfaceElev = pElev + pH;
+
+            const hostTransform = SpatialDependencyEngine.getEntityTransform(platform);
+
+            const worldTransform = {
+                x,
+                y,
+                elevation: surfaceElev,
+                rotation: rot
+            };
+
+            const localTransform = SpatialDependencyEngine.computeLocalTransform(worldTransform, hostTransform);
+
+            return {
+                host: platform,
+                hostId: platform.id,
+                hostType: 'platform',
+                relationshipType: RELATIONSHIP_TYPES.SURFACE_ATTACHED,
+                localTransform,
+                surfaceElevation: surfaceElev
+            };
+        }
+
+        // ─────────────────────────────────────────────────────────────────────────
+        // 3. WALL SURFACE-ATTACHED RESOLUTION (Furniture, Shapes, GLBs, Decor, etc.)
+        // If not on a platform, check if abutting or within snap distance of a wall
+        // ─────────────────────────────────────────────────────────────────────────
+        const isWallAttachable = entityType === 'shape' || entityType === 'surface_attached' ||
+            entityType === 'furniture' || (typeof entityType === 'string' && entityType.startsWith('shape_')) ||
+            entityType === 'glb' || entityType === 'model';
+
+        if (isWallAttachable) {
+            const snapDist = options.snapDist || 40;
+            const wallCandidate = this.findWallNearPoint(planner, x, y, snapDist);
             if (wallCandidate) {
                 const wall = wallCandidate.wall;
-                const hostTransform = {
-                    x: wall.startX !== undefined ? wall.startX : (wall.startAnchor ? wall.startAnchor.x : 0),
-                    y: wall.startY !== undefined ? wall.startY : (wall.startAnchor ? wall.startAnchor.y : 0),
-                    elevation: Number(wall.elevation) || 0,
-                    height: Number(wall.height) || 280,
-                    rotation: 0
-                };
+                const hostTransform = SpatialDependencyEngine.getEntityTransform(wall);
 
                 const worldTransform = {
                     x,
@@ -272,42 +303,6 @@ export class SpatialHostResolver {
                     wallCandidate
                 };
             }
-        }
-
-        // ─────────────────────────────────────────────────────────────────────────
-        // 3. PLATFORM RESTING SURFACE (Furniture, Shapes on Platform)
-        // ─────────────────────────────────────────────────────────────────────────
-        const platform = this.findPlatformUnderPoint(planner, x, y, options.ignoreEntity);
-        if (platform) {
-            const pElev = Number(platform.elevation) || 0;
-            const pH = Number(platform.height) || 20;
-            const surfaceElev = pElev + pH;
-
-            const hostTransform = {
-                x: platform.group && typeof platform.group.x === 'function' ? platform.group.x() : (Number(platform.x) || 0),
-                y: platform.group && typeof platform.group.y === 'function' ? platform.group.y() : (Number(platform.y) || 0),
-                elevation: pElev,
-                height: pH,
-                rotation: platform.group && typeof platform.group.rotation === 'function' ? platform.group.rotation() : (Number(platform.rotation) || 0)
-            };
-
-            const worldTransform = {
-                x,
-                y,
-                elevation: surfaceElev,
-                rotation: rot
-            };
-
-            const localTransform = SpatialDependencyEngine.computeLocalTransform(worldTransform, hostTransform);
-
-            return {
-                host: platform,
-                hostId: platform.id,
-                hostType: 'platform',
-                relationshipType: RELATIONSHIP_TYPES.SURFACE_ATTACHED,
-                localTransform,
-                surfaceElevation: surfaceElev
-            };
         }
 
         return null;

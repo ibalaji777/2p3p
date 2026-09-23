@@ -356,6 +356,10 @@ export class PremiumShape {
     }
 
     update2D() {
+        if (this.group) {
+            this.group.position({ x: this.x, y: this.y });
+            this.group.rotation(this.rotation);
+        }
         this.update();
     }
 
@@ -369,6 +373,10 @@ export class PremiumShape {
                 this.mesh3D.updateMatrixWorld(true);
             }
         }
+    }
+
+    _sync3DTransform() {
+        this.update3D();
     }
 
     setHighlight(isActive) { this.shape.strokeWidth(isActive ? 2 : 0); this.shape.stroke(isActive ? '#3b82f6' : this.params.stroke); if (this.handlesGroup) this.handlesGroup.visible(isActive); if (this.rotHandle) this.rotHandle.visible(isActive); this.planner.stage.batchDraw(); }

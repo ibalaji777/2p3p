@@ -630,4 +630,144 @@ describe('AnchorMovementSync: Centralized Movement Synchronization', () => {
             expect(hostRes.localTransform.y).toBeCloseTo(98, 0);
         }
     });
+
+    it('TEST 14: SpatialHostResolver automatically detects wall for furniture abutting a wall', () => {
+        const wall = WallEngine.createWall(planner, {
+            startX: 100,
+            startY: 200,
+            endX: 500,
+            endY: 200,
+            thickness: 20
+        });
+
+        // Sofa placed at (300, 215), touching the wall surface (half-thick = 10, distance = 15)
+        const hostRes = SpatialHostResolver.findHostAt(planner, 300, 215, 'furniture', {
+            rotation: 0
+        });
+
+        expect(hostRes).not.toBeNull();
+        expect(hostRes.host.id).toBe(wall.id);
+        expect(hostRes.hostType).toBe('wall');
+        expect(hostRes.relationshipType).toBe(RELATIONSHIP_TYPES.SURFACE_ATTACHED);
+        // Canonical transform relative to wall midpoint (300, 200)
+        expect(Math.abs(hostRes.localTransform.x)).toBeLessThan(1);
+        expect(Math.abs(hostRes.localTransform.y)).toBeCloseTo(15, 0);
+    });
+
+    it('TEST 15: Wall anchor movement synchronizes attached furniture with ZERO shrinking/scaling in 2D & 3D', () => {
+        const wall = WallEngine.createWall(planner, {
+            startX: 100,
+            startY: 100,
+            endX: 400,
+            endY: 100,
+            thickness: 20
+        });
+
+        const furn = FurnitureEngine.createFurniture(planner, {
+            id: 'sofa_rigid_1',
+            configId: 'sofa_2_seater',
+            x: 250,
+            y: 115,
+            width: 160,
+            depth: 80,
+            height: 75,
+            rotation: 0
+        });
+        furn.mesh3D = createMockMesh3D(250, 0, 115);
+
+        globalSpatialDependencyEngine.attach(furn, wall, {
+            relationshipType: RELATIONSHIP_TYPES.SURFACE_ATTACHED,
+            computeFromCurrentWorld: true
+        });
+
+        const initialW = furn.width;
+        const initialD = furn.depth;
+        const initialH = furn.height;
+
+        // Slant the wall by moving the end anchor downward
+        WallEngine.moveAnchor(wall.endAnchor, { x: 380, y: 220 }, planner, true);
+
+        // Position & rotation must follow
+        expect(furn.x).not.toBe(250);
+        expect(furn.y).not.toBe(115);
+        expect(furn.rotation).not.toBe(0);
+
+        // 3D mesh must match
+        expect(furn.mesh3D.position.x).toBeCloseTo(furn.x, 0);
+        expect(furn.mesh3D.position.z).toBeCloseTo(furn.y, 0);
+
+        // ZERO SCALING INVARIANT
+        expect(furn.width).toBe(initialW);
+        expect(furn.depth).toBe(initialD);
+        expect(furn.height).toBe(initialH);
+    });
+
+    it('TEST 16: Shapes attached to wall follow anchor movement rigidly with canonical transform', () => {
+        const wall = WallEngine.createWall(planner, {
+            startX: 100,
+            startY: 100,
+            endX: 400,
+            endY: 100,
+            thickness: 20
+        });
+
+        const shape = new PremiumShape(planner, 'shape_rect', {
+            id: 'wall_panel_shape',
+            x: 250,
+            y: 110,
+            width: 80,
+            height: 40,
+            rotation: 0
+        });
+        shape.mesh3D = createMockMesh3D(250, 0, 110);
+        planner.shapes.push(shape);
+
+        // Host resolver detects wall
+        const hostRes = SpatialHostResolver.findHostAt(planner, 250, 110, 'shape', { rotation: 0 });
+        expect(hostRes).not.toBeNull();
+        expect(hostRes.hostType).toBe('wall');
+
+        globalSpatialDependencyEngine.attach(shape, wall, {
+            relationshipType: RELATIONSHIP_TYPES.SURFACE_ATTACHED,
+            computeFromCurrentWorld: true
+        });
+
+        // Slant wall
+        WallEngine.moveAnchor(wall.endAnchor, { x: 380, y: 220 }, planner, true);
+
+        // Shape follows rigidly
+        expect(shape.x).not.toBe(250);
+        expect(shape.y).not.toBe(110);
+        expect(shape.params.width).toBe(80);
+        expect(shape.params.height).toBe(40);
+        expect(shape.mesh3D.position.x).toBeCloseTo(shape.x, 0);
+        expect(shape.mesh3D.position.z).toBeCloseTo(shape.y, 0);
+    });
+
+    it('TEST 17: Furniture moved away from wall (>40cm) automatically detaches and becomes freestanding', () => {
+        const wall = WallEngine.createWall(planner, {
+            startX: 100,
+            startY: 100,
+            endX: 400,
+            endY: 100,
+            thickness: 20
+        });
+
+        const furn = FurnitureEngine.createFurniture(planner, {
+            id: 'detachable_chair',
+            configId: 'chair',
+            x: 250,
+            y: 115
+        });
+
+        // Initially abutting wall
+        planner._applyMove(furn.id, 250, 115);
+        expect(furn.parentWallId).toBe(wall.id);
+        expect(globalSpatialDependencyEngine.getDependents(wall.id)).toContain(furn.id);
+
+        // Move far into open room (y = 300, 200cm away from wall)
+        planner._applyMove(furn.id, 250, 300);
+        expect(furn.parentWallId).toBeNull();
+        expect(globalSpatialDependencyEngine.getDependents(wall.id)).not.toContain(furn.id);
+    });
 });

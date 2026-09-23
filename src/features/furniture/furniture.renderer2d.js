@@ -176,6 +176,10 @@ export class PremiumFurniture {
         }
     }
 
+    _sync3DTransform() {
+        this.update3D();
+    }
+
     remove() { 
         this.group.destroy(); 
         if (this.planner) {
