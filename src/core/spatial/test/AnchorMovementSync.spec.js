@@ -770,4 +770,91 @@ describe('AnchorMovementSync: Centralized Movement Synchronization', () => {
         expect(furn.parentWallId).toBeNull();
         expect(globalSpatialDependencyEngine.getDependents(wall.id)).not.toContain(furn.id);
     });
+
+    it('TEST 18: Shapes and custom entities placed on a platform elevate to platform surface; moving to floor cleanly grounds elevation to 0', () => {
+        const platform = PlatformEngine.createPlatform(planner, {
+            id: 'test_platform_floor',
+            x: 500,
+            y: 500,
+            width: 200,
+            depth: 200,
+            height: 35,
+            elevation: 10
+        }, { addToPlanner: true });
+
+        const shape = new PremiumShape(planner, 'shape_rect', {
+            id: 'test_prism_entity',
+            x: 500,
+            y: 500,
+            width: 60,
+            height: 60,
+            elevation: 0
+        });
+        shape.mesh3D = createMockMesh3D(500, 0, 500);
+        planner.shapes.push(shape);
+
+        // Move onto platform
+        planner._applyMove(shape.id, 500, 500);
+        expect(shape.elevation).toBe(45); // 10 + 35
+        expect(shape.hostPlatformId).toBe(platform.id);
+        expect(globalSpatialDependencyEngine.getDependents(platform.id)).toContain(shape.id);
+
+        // Move off platform into open floor space (x=500, y=900)
+        planner._applyMove(shape.id, 500, 900);
+        expect(shape.elevation).toBe(0); // Grounded back to floor
+        expect(shape.hostPlatformId).toBeNull();
+        expect(globalSpatialDependencyEngine.getDependents(platform.id)).not.toContain(shape.id);
+    });
+
+    it('TEST 19: Full export/import persistence preserves wall and platform attachments for all floor-placed entities', () => {
+        const wall = WallEngine.createWall(planner, {
+            startX: 100,
+            startY: 100,
+            endX: 400,
+            endY: 100,
+            thickness: 20
+        });
+
+        const platform = PlatformEngine.createPlatform(planner, {
+            id: 'persist_plat',
+            x: 300,
+            y: 300,
+            width: 200,
+            depth: 200,
+            height: 25,
+            elevation: 0
+        }, { addToPlanner: true });
+
+        const furn = FurnitureEngine.createFurniture(planner, {
+            id: 'wall_sofa',
+            x: 200,
+            y: 115,
+            parentWallId: wall.id
+        });
+
+        const shape = new PremiumShape(planner, 'shape_rect', {
+            id: 'plat_shape',
+            x: 300,
+            y: 300,
+            hostPlatformId: platform.id,
+            elevation: 25
+        });
+        planner.shapes.push(shape);
+
+        const exportedJSON = planner.exportState();
+        expect(exportedJSON).toContain('wall_sofa');
+        expect(exportedJSON).toContain('plat_shape');
+
+        // Import back into planner
+        planner.importState(exportedJSON);
+
+        const importedFurn = planner.furniture.find(f => f.id === 'wall_sofa');
+        expect(importedFurn).toBeDefined();
+        expect(importedFurn.parentWallId).toBe(wall.id);
+
+        const importedShape = planner.shapes.find(s => s.id === 'plat_shape');
+        expect(importedShape).toBeDefined();
+        expect(importedShape.hostPlatformId).toBe('persist_plat');
+        expect(importedShape.elevation).toBe(25);
+    });
 });

@@ -534,17 +534,26 @@ export class Furniture3DPlacementSystem {
         }
 
         let localTransform = null;
-        let hostPlatform = null;
-        if (this._lastHostPlatformId && planner.platforms) {
-            hostPlatform = planner.platforms.find(p => p.id === this._lastHostPlatformId);
-            if (hostPlatform) {
-                const hostTransform = {
-                    x: hostPlatform.group && typeof hostPlatform.group.x === 'function' ? hostPlatform.group.x() : (Number(hostPlatform.x) || 0),
-                    y: hostPlatform.group && typeof hostPlatform.group.y === 'function' ? hostPlatform.group.y() : (Number(hostPlatform.y) || 0),
-                    elevation: Number(hostPlatform.elevation) || 0,
-                    height: Number(hostPlatform.height) || 0,
-                    rotation: hostPlatform.group && typeof hostPlatform.group.rotation === 'function' ? hostPlatform.group.rotation() : (Number(hostPlatform.rotation) || 0)
-                };
+        let hostEntity = null;
+        let hostType = null;
+        let relationshipType = null;
+
+        const hostRes = SpatialHostResolver.findHostAt(planner, this.activePos.x, this.activePos.z, 'furniture', {
+            rotation: this.activeRotation,
+            elevation: this.activeElevation
+        });
+
+        if (hostRes && hostRes.host) {
+            hostEntity = hostRes.host;
+            hostType = hostRes.hostType;
+            relationshipType = hostRes.relationshipType;
+            localTransform = hostRes.localTransform;
+        } else if (this._lastHostPlatformId && planner.platforms) {
+            hostEntity = planner.platforms.find(p => p.id === this._lastHostPlatformId);
+            if (hostEntity) {
+                hostType = 'platform';
+                relationshipType = RELATIONSHIP_TYPES.SURFACE_ATTACHED;
+                const hostTransform = SpatialDependencyEngine.getEntityTransform(hostEntity);
                 const furnWorld = {
                     x: this.activePos.x,
                     y: this.activePos.z,
@@ -565,19 +574,20 @@ export class Furniture3DPlacementSystem {
             height: preset.height ? Number(preset.height) : undefined,
             elevation: this.activeElevation + (Number(preset.elevation) || 0),
             rotation: this.activeRotation,
-            hostPlatformId: this._lastHostPlatformId || undefined,
-            hostId: this._lastHostPlatformId || undefined,
-            hostType: this._lastHostPlatformId ? 'platform' : undefined,
-            relationshipType: this._lastHostPlatformId ? RELATIONSHIP_TYPES.SURFACE_ATTACHED : undefined,
+            hostPlatformId: hostType === 'platform' ? hostEntity.id : undefined,
+            parentWallId: hostType === 'wall' ? hostEntity.id : undefined,
+            hostId: hostEntity ? hostEntity.id : undefined,
+            hostType: hostType || undefined,
+            relationshipType: relationshipType || undefined,
             localTransform: localTransform || undefined,
             relativeElevation: localTransform ? localTransform.elevation : (this._lastHostPlatformId ? (Number(preset.elevation) || 0) : undefined),
             materials: preset.materials ? JSON.parse(JSON.stringify(preset.materials)) : undefined,
             addToPlanner: true
         });
 
-        if (newFurn && hostPlatform) {
-            globalSpatialDependencyEngine.attach(newFurn, hostPlatform, {
-                relationshipType: RELATIONSHIP_TYPES.SURFACE_ATTACHED,
+        if (newFurn && hostEntity) {
+            globalSpatialDependencyEngine.attach(newFurn, hostEntity, {
+                relationshipType: relationshipType || RELATIONSHIP_TYPES.SURFACE_ATTACHED,
                 localTransform: localTransform
             });
         }

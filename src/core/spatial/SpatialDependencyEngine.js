@@ -301,6 +301,9 @@ export class SpatialDependencyEngine {
             dependentOrId.relationshipType = null;
             dependentOrId.localTransform = null;
             if (dependentOrId.hostPlatformId) dependentOrId.hostPlatformId = null;
+            if (dependentOrId.parentWallId) dependentOrId.parentWallId = null;
+            if (dependentOrId.hostFurnitureId) dependentOrId.hostFurnitureId = null;
+            if (dependentOrId.hostLevelId) dependentOrId.hostLevelId = null;
         }
 
         return true;

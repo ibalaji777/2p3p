@@ -19,9 +19,10 @@ export class PremiumShape {
         this.id = this.params.id || ('shape_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5));
         this.elevation = Number(this.params.elevation) || 0;
         this.parentWallId = this.params.parentWallId || null;
-        this.hostId = this.params.hostId || this.params.parentWallId || null;
-        this.hostType = this.params.hostType || (this.parentWallId ? 'wall' : null);
-        this.relationshipType = this.params.relationshipType || (this.parentWallId ? RELATIONSHIP_TYPES.SURFACE_ATTACHED : null);
+        this.hostPlatformId = this.params.hostPlatformId || null;
+        this.hostId = this.params.hostId || this.params.parentWallId || this.params.hostPlatformId || null;
+        this.hostType = this.params.hostType || (this.parentWallId ? 'wall' : (this.hostPlatformId ? 'platform' : null));
+        this.relationshipType = this.params.relationshipType || (this.parentWallId ? RELATIONSHIP_TYPES.SURFACE_ATTACHED : (this.hostPlatformId ? RELATIONSHIP_TYPES.SURFACE_ATTACHED : null));
         this.localTransform = this.params.localTransform || null;
         
         // Ensure newly drawn polygons have their group centered and points relative

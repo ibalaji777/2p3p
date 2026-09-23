@@ -276,7 +276,8 @@ export class SpatialHostResolver {
         // ─────────────────────────────────────────────────────────────────────────
         const isWallAttachable = entityType === 'shape' || entityType === 'surface_attached' ||
             entityType === 'furniture' || (typeof entityType === 'string' && entityType.startsWith('shape_')) ||
-            entityType === 'glb' || entityType === 'model';
+            entityType === 'glb' || entityType === 'model' || entityType === 'decor' || entityType === 'fixture' ||
+            entityType === 'custom_entity' || entityType === 'custom';
 
         if (isWallAttachable) {
             const snapDist = options.snapDist || 40;

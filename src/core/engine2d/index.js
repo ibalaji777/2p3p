@@ -307,14 +307,18 @@ export class FloorPlanner {
             entity.group.position({ x, y });
         }
 
-        // Host resolution for movable entities (furniture, shapes, stairs)
+        // Host resolution for all movable entities placed on floor (furniture, shapes, stairs, GLBs, decor, fixtures)
         const isStair = Boolean(
             (typeof entity.type === 'string' && entity.type.startsWith('stair')) ||
             entity.constructor?.name === 'PremiumStaircase' ||
             entity.totalSteps !== undefined
         );
         const isMovableChild = entity.type === 'furniture' || entity.type === 'shape' ||
-            (typeof entity.type === 'string' && entity.type.startsWith('shape_')) || isStair;
+            (typeof entity.type === 'string' && entity.type.startsWith('shape_')) || isStair ||
+            entity.type === 'glb' || entity.type === 'model' || entity.type === 'decor' ||
+            entity.type === 'fixture' || entity.type === 'custom_entity' || entity.type === 'custom' ||
+            entity.type === 'surface_attached' || Boolean(entity.parentWallId || entity.hostPlatformId);
+
         if (isMovableChild) {
             const hostRes = SpatialHostResolver.findHostAt(this, x, y, entity.type, {
                 rotation: entity.rotation,
@@ -341,13 +345,10 @@ export class FloorPlanner {
                 });
             } else if (entity.hostPlatformId || entity.hostId || entity.parentWallId) {
                 globalSpatialDependencyEngine.detach(entity);
-                if (entity.type === 'furniture') {
-                    entity.elevation = 0;
-                    entity.hostPlatformId = null;
-                } else if (isStair) {
-                    entity.hostPlatformId = null;
-                }
-                if (entity.parentWallId) entity.parentWallId = null;
+                entity.elevation = Number(entity.baseElevation) || 0;
+                entity.hostPlatformId = null;
+                entity.parentWallId = null;
+                entity.hostId = null;
             }
         }
 
@@ -2238,9 +2239,10 @@ export class FloorPlanner {
                 description: s.description,
                 elevation: s.elevation || 0,
                 parentWallId: s.parentWallId || null,
-                hostId: s.hostId || s.parentWallId || null,
-                hostType: s.hostType || (s.parentWallId ? 'wall' : null),
-                relationshipType: s.relationshipType || (s.parentWallId ? 'surface_attached' : null),
+                hostPlatformId: s.hostPlatformId || null,
+                hostId: s.hostId || s.parentWallId || s.hostPlatformId || null,
+                hostType: s.hostType || (s.parentWallId ? 'wall' : (s.hostPlatformId ? 'platform' : null)),
+                relationshipType: s.relationshipType || ((s.parentWallId || s.hostPlatformId) ? 'surface_attached' : null),
                 localTransform: s.localTransform || null
             })) : [],
             outdoorZones: this.outdoorZones ? this.outdoorZones.map(z => OutdoorZoneEngine.serialize(z)).filter(Boolean) : [],
@@ -2407,6 +2409,7 @@ export class FloorPlanner {
                     if (sData.description !== undefined) shape.description = sData.description;
                     if (sData.elevation !== undefined) shape.elevation = sData.elevation;
                     if (sData.parentWallId) shape.parentWallId = sData.parentWallId;
+                    if (sData.hostPlatformId) shape.hostPlatformId = sData.hostPlatformId;
                     if (sData.hostId) shape.hostId = sData.hostId;
                     if (sData.hostType) shape.hostType = sData.hostType;
                     if (sData.relationshipType) shape.relationshipType = sData.relationshipType;
