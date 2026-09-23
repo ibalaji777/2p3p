@@ -62,17 +62,20 @@ export class PremiumStaircase {
         } else if (this.shape === 'L') {
             this.flight1Steps = data.flight1Steps || 8;
             this.flight2Steps = data.flight2Steps || 7;
+            this.totalSteps = data.totalSteps || (this.flight1Steps + this.flight2Steps);
             this.turnDirection = data.turnDirection || 'right'; // 'left' or 'right'
             this.landingSize = data.landingSize || this.width;
         } else if (this.shape === 'U') {
             this.flight1Steps = data.flight1Steps || 8;
             this.flight2Steps = data.flight2Steps || 7;
+            this.totalSteps = data.totalSteps || (this.flight1Steps + this.flight2Steps);
             this.turnDirection = data.turnDirection || 'right';
             this.landingSize = data.landingSize || this.width;
             this.gapWidth = data.gapWidth || 20;
         } else if (this.shape === 'T') {
             this.flight1Steps = data.flight1Steps || 8; // Main flight
             this.flight2Steps = data.flight2Steps || 7; // Branch flights
+            this.totalSteps = data.totalSteps || (this.flight1Steps + this.flight2Steps);
             this.landingSize = data.landingSize || this.width;
         }
 
@@ -80,6 +83,7 @@ export class PremiumStaircase {
         this.useUnifiedMaterial = data.useUnifiedMaterial !== undefined ? data.useUnifiedMaterial : true;
         this.primaryMaterial = data.primaryMaterial || 'wood_oak';
         this.primaryColor = data.primaryColor || '#8b5a2b';
+        this.materials = data.materials ? JSON.parse(JSON.stringify(data.materials)) : null;
         
         this.treadMaterial = data.treadMaterial || 'default';
         this.treadColor = data.treadColor || '#8b5a2b';

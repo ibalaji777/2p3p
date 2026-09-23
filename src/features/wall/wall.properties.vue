@@ -307,40 +307,72 @@ const toggleCornerCurve = (which) => {
 };
 
 const updateThickness = (val) => {
-    const planner = plannerStore.planner || window.plannerInstance;
+    const planner = plannerStore.planner?.value || plannerStore.planner || window.plannerInstance;
     const num = Number(val);
-    if (isNaN(num) || num <= 0) return;
-    WallEngine.setThickness(props.selectedEntity, num, false, planner);
+    if (isNaN(num) || num <= 0 || !props.selectedEntity) return;
+    if (planner && typeof planner.executeWithSnapshot === 'function') {
+        planner.executeWithSnapshot(() => {
+            WallEngine.setThickness(props.selectedEntity, num, false, planner);
+        });
+    } else {
+        WallEngine.setThickness(props.selectedEntity, num, false, planner);
+    }
     emit('sync-engine');
 };
 
 const updateHeight = (val) => {
-    const planner = plannerStore.planner || window.plannerInstance;
+    const planner = plannerStore.planner?.value || plannerStore.planner || window.plannerInstance;
     const num = Number(val);
-    if (isNaN(num)) return;
+    if (isNaN(num) || !props.selectedEntity) return;
     const validH = WallHeightPolicy.processInputHeight(num);
-    WallEngine.setHeight(props.selectedEntity, validH, false, planner);
+    if (planner && typeof planner.executeWithSnapshot === 'function') {
+        planner.executeWithSnapshot(() => {
+            WallEngine.setHeight(props.selectedEntity, validH, false, planner);
+        });
+    } else {
+        WallEngine.setHeight(props.selectedEntity, validH, false, planner);
+    }
     emit('sync-engine');
 };
 
 const setTopProfile = (profileType) => {
-    const planner = plannerStore.planner || window.plannerInstance;
-    WallEngine.setTopProfile(props.selectedEntity, profileType, {}, false, planner);
+    const planner = plannerStore.planner?.value || plannerStore.planner || window.plannerInstance;
+    if (!props.selectedEntity) return;
+    if (planner && typeof planner.executeWithSnapshot === 'function') {
+        planner.executeWithSnapshot(() => {
+            WallEngine.setTopProfile(props.selectedEntity, profileType, {}, false, planner);
+        });
+    } else {
+        WallEngine.setTopProfile(props.selectedEntity, profileType, {}, false, planner);
+    }
     emit('sync-engine');
 };
 
 const updateSlopeProp = (prop, val) => {
-    const planner = plannerStore.planner || window.plannerInstance;
+    const planner = plannerStore.planner?.value || plannerStore.planner || window.plannerInstance;
     const num = Number(val);
-    if (isNaN(num)) return;
+    if (isNaN(num) || !props.selectedEntity) return;
     const validH = WallHeightPolicy.processInputHeight(num);
-    WallEngine.batchUpdate(planner, [props.selectedEntity], { [prop]: validH }, false);
+    if (planner && typeof planner.executeWithSnapshot === 'function') {
+        planner.executeWithSnapshot(() => {
+            WallEngine.batchUpdate(planner, [props.selectedEntity], { [prop]: validH }, false);
+        });
+    } else {
+        WallEngine.batchUpdate(planner, [props.selectedEntity], { [prop]: validH }, false);
+    }
     emit('sync-engine');
 };
 
 const setSlopeDirection = (isFlipped) => {
-    const planner = plannerStore.planner || window.plannerInstance;
-    WallEngine.batchUpdate(planner, [props.selectedEntity], { flipSlope: isFlipped }, false);
+    const planner = plannerStore.planner?.value || plannerStore.planner || window.plannerInstance;
+    if (!props.selectedEntity) return;
+    if (planner && typeof planner.executeWithSnapshot === 'function') {
+        planner.executeWithSnapshot(() => {
+            WallEngine.batchUpdate(planner, [props.selectedEntity], { flipSlope: isFlipped }, false);
+        });
+    } else {
+        WallEngine.batchUpdate(planner, [props.selectedEntity], { flipSlope: isFlipped }, false);
+    }
     emit('sync-engine');
 };
 

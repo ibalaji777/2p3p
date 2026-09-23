@@ -8,15 +8,7 @@ class UniversalSyncManager {
         this.ctx2d = null;
         this.isSyncing = false;
         
-        // Listen to 3D object added/updated events to regenerate footprints
-        coreEventBus.on('EntityGeometryUpdated', (data) => this.handle3DGeometryUpdate(data));
-        coreEventBus.on('EntityTransformUpdated3D', (data) => this.handle3DTransformUpdate(data));
-        
-        // Listen to 2D transform updates (drag, rotate)
-        coreEventBus.on('EntityTransformUpdated2D', (data) => this.handle2DTransformUpdate(data));
-
-        // Subscribe to Central State changes
-        this.setupStateObserver();
+        // Deprecated: superseded by UniversalRealtimeUpdate and SCENE_CHANGED
     }
 
     init(ctx3d, ctx2d) {

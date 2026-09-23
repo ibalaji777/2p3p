@@ -881,6 +881,18 @@ onMounted(() => {
         }
     }));
 
+    eventBusUnsubscribers.push(coreEventBus.on(EVENTS.SCENE_CHANGED, (payload) => {
+        if (viewMode.value === '3d') {
+            if (payload && (payload.operation === 'undo' || payload.operation === 'redo' || payload.requiresFullRebuild)) {
+                refresh3DScene(true);
+            } else if (payload && payload.entity && renderer3D.value?.realtimeUpdate) {
+                renderer3D.value.realtimeUpdate.markDirty(payload.entity, payload.changeType || 'geometry');
+            } else if (payload && payload.requiresFloorRebuild && renderer3D.value?.rebuildActiveFloors) {
+                renderer3D.value.rebuildActiveFloors();
+            }
+        }
+    }));
+
     eventBusUnsubscribers.push(coreEventBus.on(EVENTS.OPENING_GIZMO_END, syncEngine));
     eventBusUnsubscribers.push(coreEventBus.on(EVENTS.ROOF_CORNER_GIZMO_END, syncEngine));
     eventBusUnsubscribers.push(coreEventBus.on(EVENTS.ROOF_OVERHANG_GIZMO_END, syncEngine));

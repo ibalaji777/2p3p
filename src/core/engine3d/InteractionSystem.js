@@ -448,7 +448,7 @@ export class InteractionSystem {
                 if (Math.abs(endX - this.drag3DStartPos.x) > 0.001 || Math.abs(endY - this.drag3DStartPos.y) > 0.001) {
                     const plannerInst = window.planner?.value || window.planner;
                     if (plannerInst && typeof plannerInst.move === 'function' && id) {
-                        plannerInst.move(id, endX, endY);
+                        plannerInst.move(id, endX, endY, { x: this.drag3DStartPos.x, y: this.drag3DStartPos.y });
                     } else if (ent) {
                         ent.x = endX;
                         ent.y = endY;

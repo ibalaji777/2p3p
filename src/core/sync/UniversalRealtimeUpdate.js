@@ -248,13 +248,18 @@ export class UniversalRealtimeUpdate {
                 coreEventBus.emit('EntityGeometryUpdated', { entity, object3D: newMesh });
             }
 
+            if (this.ctx.interactables && Array.isArray(this.ctx.interactables)) {
+                const idx = this.ctx.interactables.indexOf(oldMesh);
+                if (idx > -1) {
+                    this.ctx.interactables[idx] = newMesh;
+                } else if (!this.ctx.interactables.includes(newMesh)) {
+                    this.ctx.interactables.push(newMesh);
+                }
+            }
+
             const interactions = this.ctx.interactions;
             if (interactions && interactions.selectedObject === oldMesh) {
                 interactions.selectedObject = newMesh;
-                const idx = this.ctx.interactables.indexOf(oldMesh);
-                if (idx > -1) this.ctx.interactables[idx] = newMesh;
-                else this.ctx.interactables.push(newMesh);
-
                 if (interactions.refreshSelectionHighlight) {
                     interactions.refreshSelectionHighlight(newMesh);
                 }

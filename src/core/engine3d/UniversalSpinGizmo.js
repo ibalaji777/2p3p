@@ -594,12 +594,14 @@ export class UniversalSpinGizmo extends THREE.Group {
         const id = entity.id || (entity.group && typeof entity.group.id === 'function' ? entity.group.id() : null);
         const plannerInst = window.planner?.value || window.planner;
         if (plannerInst && id) {
+            const startRot = (typeof this.initialRotation === 'number') ? this.initialRotation : null;
             if (typeof plannerInst.rotate === 'function') {
-                plannerInst.rotate(id, this.currentRotation);
+                plannerInst.rotate(id, this.currentRotation, startRot);
             }
             if (typeof plannerInst.move === 'function' && entity.x !== undefined && entity.y !== undefined) {
                 plannerInst.move(id, entity.x, entity.y);
             }
+            this.initialRotation = this.currentRotation;
         }
 
         coreEventBus.emit('EntityTransformUpdated', {

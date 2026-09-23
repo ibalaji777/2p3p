@@ -753,6 +753,14 @@ export class Stair3DPlacementSystem {
             planner.commandManager.execute(snapshotCmd);
         }
 
+        // Synchronize active level state so switching levels or exporting preserves the new stair
+        if (typeof planner.exportState === 'function' && planner.levels && planner.activeLevelIndex !== undefined && planner.levels[planner.activeLevelIndex]) {
+            planner.levels[planner.activeLevelIndex].data = planner.exportState();
+        }
+        if (typeof this.ctx.saveCurrentLevelState === 'function') {
+            this.ctx.saveCurrentLevelState();
+        }
+
         // 4. In-Place CAD 3D Scene Rebuild
         if (this.ctx.buildScene && planner) {
             const levelsConfigArray = (planner.levels || []).map(l => ({ data: l.data, isVisible: l.isVisible !== false }));
@@ -775,6 +783,7 @@ export class Stair3DPlacementSystem {
         planner.tool = 'select';
         if (typeof planner.updateToolStates === 'function') planner.updateToolStates();
         planner.syncAll();
+        if (typeof planner.debouncedSaveHistory === 'function') planner.debouncedSaveHistory();
 
         // 6. Select Placed Staircase in 3D Scene
         if (newStair.mesh3D && this.interactions) {

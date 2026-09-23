@@ -22,7 +22,7 @@ export class CommandManager {
 
         if (typeof window !== 'undefined') {
             coreEventBus.emit(EVENTS.HISTORY_CHANGED);
-            coreEventBus.emit(EVENTS.SCENE_CHANGED);
+            coreEventBus.emit(EVENTS.SCENE_CHANGED, { source: 'command', operation: 'execute', command });
         }
     }
 
@@ -43,7 +43,7 @@ export class CommandManager {
         
         if (typeof window !== 'undefined') {
             coreEventBus.emit(EVENTS.HISTORY_CHANGED);
-            coreEventBus.emit(EVENTS.SCENE_CHANGED);
+            coreEventBus.emit(EVENTS.SCENE_CHANGED, { source: 'command', operation: 'undo', command });
         }
     }
 
@@ -56,7 +56,7 @@ export class CommandManager {
         
         if (typeof window !== 'undefined') {
             coreEventBus.emit(EVENTS.HISTORY_CHANGED);
-            coreEventBus.emit(EVENTS.SCENE_CHANGED);
+            coreEventBus.emit(EVENTS.SCENE_CHANGED, { source: 'command', operation: 'redo', command });
         }
     }
 }

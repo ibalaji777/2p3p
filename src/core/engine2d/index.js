@@ -257,29 +257,31 @@ export class FloorPlanner {
         return cmd.entityState; // Might not have instantiated yet though! Actually we should just let create return void, or handle differently.
     }
     
-    move(entityId, x, y) {
+    move(entityId, x, y, customStartPos = null) {
         const entity = this.getEntities().find(e => e.id === entityId || (e.group && typeof e.group.id === 'function' && e.group.id() === entityId));
         if (!entity) return;
-        const startPos = { 
-            x: entity.group && typeof entity.group.x === 'function' ? entity.group.x() : (entity.x || 0), 
-            y: entity.group && typeof entity.group.y === 'function' ? entity.group.y() : (entity.y || 0) 
-        };
+        const startPos = (customStartPos && typeof customStartPos.x === 'number' && typeof customStartPos.y === 'number')
+            ? { x: customStartPos.x, y: customStartPos.y }
+            : { 
+                x: entity.group && typeof entity.group.x === 'function' ? entity.group.x() : (entity.x || 0), 
+                y: entity.group && typeof entity.group.y === 'function' ? entity.group.y() : (entity.y || 0) 
+            };
         const cmd = new MoveCommand(this, entityId, startPos, { x, y });
         this.commandManager.execute(cmd);
     }
     
-    rotate(entityId, angle) {
+    rotate(entityId, angle, customStartRot = null) {
         const entity = this.getEntities().find(e => e.id === entityId || (e.group && typeof e.group.id === 'function' && e.group.id() === entityId));
         if (!entity) return;
-        const startRot = entity.rotation || 0;
+        const startRot = (typeof customStartRot === 'number') ? customStartRot : (entity.rotation || 0);
         const cmd = new RotateCommand(this, entityId, startRot, angle);
         this.commandManager.execute(cmd);
     }
     
-    resize(entityId, values) {
+    resize(entityId, values, customStartValues = null) {
         const entity = this.getEntities().find(e => e.id === entityId || (e.group && typeof e.group.id === 'function' && e.group.id() === entityId));
         if (!entity) return;
-        const startValues = { width: entity.width, depth: entity.depth, height: entity.height };
+        const startValues = customStartValues ? { ...customStartValues } : { width: entity.width, depth: entity.depth, height: entity.height };
         const cmd = new ResizeCommand(this, entityId, startValues, values);
         this.commandManager.execute(cmd);
     }
@@ -532,6 +534,10 @@ export class FloorPlanner {
             return FurnitureEngine.serialize(entity);
         }
 
+        if (entity.type === 'stair' || entity.constructor?.name === 'PremiumStaircase' || (typeof entity.type === 'string' && entity.type.startsWith('stair'))) {
+            return StairEngine.serialize(entity);
+        }
+
         const state = {
             id: entity.id || (entity.group && typeof entity.group.id === 'function' ? entity.group.id() : undefined),
             type: entity.type || 'generic',
@@ -581,13 +587,21 @@ export class FloorPlanner {
             return FurnitureEngine.deserialize(this, state, { addToPlanner: true });
         }
         if (type === 'stair' || (type && type.startsWith('stair_'))) {
-            const stair = StairTopologyEngine.deserialize(this, state);
+            const stair = StairEngine.deserialize(this, state);
             if (stair) {
                 if (!this.stairs) this.stairs = [];
                 if (!this.stairs.includes(stair)) {
                     this.stairs.push(stair);
                 }
                 this.syncAll();
+                if (typeof window !== 'undefined') {
+                    coreEventBus.emit(EVENTS.ENTITY_CREATED, { entity: stair });
+                    coreEventBus.emit(EVENTS.SCENE_CHANGED);
+                }
+                const realtimeUpdate = this.renderer3D?.realtimeUpdate || this.engine3d?.realtimeUpdate;
+                if (realtimeUpdate && typeof realtimeUpdate.markDirty === 'function') {
+                    realtimeUpdate.markDirty(stair, 'geometry');
+                }
                 return stair;
             }
         }
@@ -606,6 +620,16 @@ export class FloorPlanner {
         callback();
         if (cmd.finalize()) {
             this.commandManager.execute(cmd);
+        }
+    }
+
+    /**
+     * Canonical 3D State Notification Interface.
+     * Routes domain engine requests to the unified SCENE_CHANGED event bus.
+     */
+    update3D(options = {}) {
+        if (typeof window !== 'undefined') {
+            coreEventBus.emit(EVENTS.SCENE_CHANGED, { source: 'domain_engine', entityType: 'wall', changeType: 'geometry', ...options });
         }
     }
 

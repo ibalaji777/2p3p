@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { StairHeightDetector } from '../../features/stairs/StairHeightDetector.js';
 import { StairEngine } from '../stairs/StairEngine.js';
+import { DeleteCommand } from '../commands/DeleteCommand.js';
 import { coreEventBus } from '../EventBus.js';
 
 /**
@@ -595,12 +596,22 @@ export class StairInteractiveSuite extends THREE.Group {
 
     _deleteStaircase() {
         if (!this.stair) return;
-        const planner = this.stair.planner || this.ctx.planner;
+        const planner = this.stair.planner || this.ctx.planner || (typeof window !== 'undefined' ? (window.plannerInstance || window.planner?.value || window.planner) : null);
         const stairToDelete = this.stair;
         this.detach();
+        if (this.ctx.interactions?.deselect) {
+            this.ctx.interactions.deselect();
+        }
         if (planner) {
-            StairEngine.deleteStair(planner, stairToDelete);
+            if (planner.commandManager) {
+                planner.commandManager.execute(new DeleteCommand(planner, stairToDelete));
+            } else {
+                StairEngine.deleteStair(planner, stairToDelete);
+            }
             if (planner.debouncedSaveHistory) planner.debouncedSaveHistory();
+        }
+        if (this.ctx.requestRender) {
+            this.ctx.requestRender('Staircase Deleted', 5);
         }
     }
 

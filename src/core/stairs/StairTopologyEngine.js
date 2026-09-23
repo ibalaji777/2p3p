@@ -8,6 +8,7 @@
 import { PremiumStaircase } from '../../features/stairs/stairs.renderer2d.js';
 import { StairV4Flight, StairV4Landing } from '../../features/stairs/StaircaseV4.js';
 import { globalSpatialDependencyEngine, RELATIONSHIP_TYPES } from '../spatial/SpatialDependencyEngine.js';
+import { ComponentRegistry } from '../engine3d/ComponentRegistry.js';
 
 export class StairTopologyEngine {
     /**
@@ -151,6 +152,35 @@ export class StairTopologyEngine {
             if (deletedStair.group && typeof deletedStair.group.destroy === 'function') {
                 deletedStair.group.destroy();
             }
+
+            // Clean up 3D visual mesh and interactable references
+            if (deletedStair.mesh3D) {
+                const mesh = deletedStair.mesh3D;
+                if (mesh.parent) {
+                    mesh.parent.remove(mesh);
+                }
+                const interactables = planner.renderer3D?.interactables ||
+                                      planner.engine3d?.interactables ||
+                                      planner.appState?.scene3D?.interactables ||
+                                      (typeof window !== 'undefined' ? (window.renderer3D?.interactables || window.engine3d?.interactables) : null);
+                if (interactables && Array.isArray(interactables)) {
+                    const idx = interactables.indexOf(mesh);
+                    if (idx !== -1) interactables.splice(idx, 1);
+                }
+                if (typeof mesh.traverse === 'function') {
+                    mesh.traverse(child => {
+                        if (child.geometry && typeof child.geometry.dispose === 'function') child.geometry.dispose();
+                        if (child.material) {
+                            if (Array.isArray(child.material)) child.material.forEach(m => m?.dispose?.());
+                            else child.material.dispose?.();
+                        }
+                    });
+                }
+                deletedStair.mesh3D = null;
+            }
+
+            ComponentRegistry.unregisterEntity(deletedStair);
+
             if (planner.selectedEntity === deletedStair) {
                 planner.selectEntity(null);
             }
@@ -230,7 +260,7 @@ export class StairTopologyEngine {
             width: Number(stair.width) || 100,
             stepDepth: Number(stair.stepDepth) || 28,
             stepHeight: Number(stair.stepHeight) || 17.5,
-            totalSteps: Number(stair.totalSteps) || 12,
+            totalSteps: Number(stair.totalSteps) || ((Number(stair.flight1Steps) || 0) + (Number(stair.flight2Steps) || 0)) || 12,
             flight1Steps: Number(stair.flight1Steps) || 8,
             flight2Steps: Number(stair.flight2Steps) || 7,
             landingSize: Number(stair.landingSize) || Number(stair.width) || 100,

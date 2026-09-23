@@ -15,6 +15,7 @@ import * as THREE from 'three';
 import { ObjectCapabilityEvaluator } from './tools/ObjectCapabilityEvaluator.js';
 import { WallEngine, isFloorAnchoredDoor } from '../wall/WallEngine.js';
 import { StairHeightDetector } from '../../features/stairs/StairHeightDetector.js';
+import { StairEngine } from '../stairs/StairEngine.js';
 import { globalSpatialDependencyEngine } from '../spatial/SpatialDependencyEngine.js';
 
 export class UniversalMoveGizmo extends THREE.Group {
@@ -667,12 +668,14 @@ export class UniversalMoveGizmo extends THREE.Group {
                 if (detection.hasTarget) {
                     const currentH = Number(ent.height) || 300;
                     if (Math.abs(currentH - detection.detectedHeight) > 1) {
-                        ent.height = detection.detectedHeight;
-                        ent.totalSteps = detection.optimalSteps;
-                        ent.flight1Steps = detection.flight1Steps;
-                        ent.flight2Steps = detection.flight2Steps;
-                        ent.stepHeight = detection.stepHeight;
-                        ent.length = detection.flightLength;
+                        StairEngine.batchUpdate(planner, ent, {
+                            height: detection.detectedHeight,
+                            totalSteps: detection.optimalSteps,
+                            flight1Steps: detection.flight1Steps,
+                            flight2Steps: detection.flight2Steps,
+                            stepHeight: detection.stepHeight,
+                            length: detection.flightLength
+                        });
                         if (this.ctx.realtimeUpdate) {
                             this.ctx.realtimeUpdate.markDirty(ent, 'geometry');
                         }
@@ -790,12 +793,26 @@ export class UniversalMoveGizmo extends THREE.Group {
         const plannerInst = window.planner?.value || window.planner || window.plannerInstance || this.ctx.planner;
 
         if (plannerInst) {
+            const startPos = (this.startEntityPosition && typeof this.startEntityPosition.x === 'number' && typeof this.startEntityPosition.y === 'number')
+                ? { x: this.startEntityPosition.x, y: this.startEntityPosition.y }
+                : null;
             if (typeof plannerInst.move === 'function' && id) {
-                plannerInst.move(id, ent.x, ent.y);
+                plannerInst.move(id, ent.x, ent.y, startPos);
             } else if (typeof plannerInst.setEntityPosition === 'function' && id) {
                 plannerInst.setEntityPosition(id, ent.x, ent.y, ent.elevation);
             }
             globalSpatialDependencyEngine.onHostTransformed(ent, plannerInst);
+
+            // Update startEntityPosition for consecutive drags without re-attaching
+            if (this.startEntityPosition) {
+                this.startEntityPosition.x = ent.x;
+                this.startEntityPosition.y = ent.y;
+                this.startEntityPosition.z = ent.elevation || 0;
+            }
+            if (this.attachedObject) {
+                this.startMeshPos.copy(this.attachedObject.position);
+            }
+            this.startGizmoPos.copy(this.position);
         }
     }
 

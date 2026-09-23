@@ -21,6 +21,8 @@ import { RoofMutationEngine } from '../roof/RoofMutationEngine.js';
 import { StairHeightDetector } from '../../features/stairs/StairHeightDetector.js';
 import { StairEngine } from '../stairs/StairEngine.js';
 import { ElevationFacadeEngine } from '../elevation/ElevationFacadeEngine.js';
+import { coreEventBus } from '../EventBus.js';
+import { EVENTS } from '../constants/events.js';
 
 export class VerticalPropagationEngine {
     /**
@@ -370,6 +372,9 @@ export class VerticalPropagationEngine {
 
                 if (modified) {
                     upperLvl.data = typeof upperLvl.data === 'string' ? JSON.stringify(data) : data;
+                    if (typeof window !== 'undefined') {
+                        coreEventBus.emit(EVENTS.SCENE_CHANGED, { source: 'level_propagation', requiresFloorRebuild: true });
+                    }
                 }
             } catch (e) {}
         }
