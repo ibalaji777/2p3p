@@ -1,6 +1,7 @@
 import Konva from 'konva';
 import { MOLDING_REGISTRY } from '../../features/molding/molding.registry.js';
 import { renderMolding2D } from '../../features/molding/molding.renderer2d.js';
+import { TransformEngine } from '../transform/TransformEngine.js';
 
 export class PremiumMolding {
     constructor(planner, wall, t, configId) {
@@ -69,7 +70,10 @@ export class PremiumMolding {
         this.visualGroup.on('mouseenter', () => { if (this.planner.tool === 'select') document.body.style.cursor = 'pointer'; }); 
         this.visualGroup.on('mouseleave', () => { document.body.style.cursor = 'default'; }); 
         this.visualGroup.on('mousedown touchstart', () => { this.visualGroup.moveToTop(); });
-        this.visualGroup.on('dragstart', () => { this.isDragging = true; }); 
+        this.visualGroup.on('dragstart', () => { 
+            this.isDragging = true; 
+            TransformEngine.startSession(this, 'openings');
+        }); 
         this.visualGroup.on('dragmove', () => { 
             if (!this.hasEvent("drag_along_wall")) return; 
             const pos = this.planner.getPointerPos ? this.planner.getPointerPos() : this.planner.stage.getPointerPosition();
@@ -80,11 +84,19 @@ export class PremiumMolding {
             if (this.hasEvent("snap_to_corners")) { if (Math.abs(t - minT) < snapMargin) t = minT; if (Math.abs(maxT - t) < snapMargin) t = maxT; } 
             if (this.hasEvent("snap_to_center")) { if (Math.abs(t - 0.5) < snapMargin) t = 0.5; } 
             t = Math.max(minT, Math.min(maxT, t)); 
-            this.t = t; this.update(); 
+            if (TransformEngine.isSessionActive()) {
+                TransformEngine.previewMove(this, { absoluteT: t });
+            } else {
+                this.t = t; 
+                this.update(); 
+            }
         }); 
         this.visualGroup.on('dragend', () => { 
             if (this.dragTimeout) clearTimeout(this.dragTimeout);
             this.dragTimeout = setTimeout(() => { this.isDragging = false; }, 100); 
+            if (TransformEngine.isSessionActive()) {
+                TransformEngine.commitSession(this.planner);
+            }
             this.planner.syncAll(); 
         });
         this.visualGroup.on('click tap', (e) => { 

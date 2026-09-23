@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { coreEventBus } from '../EventBus.js';
 import { getObjectLocalCenter } from './tools/CommonTransformEngine.js';
+import { TransformEngine } from '../transform/TransformEngine.js';
 
 /**
  * UniversalSpinGizmo.js
@@ -381,6 +382,10 @@ export class UniversalSpinGizmo extends THREE.Group {
                 const entity = this.target.userData?.entity || this.target.userData?.widget || {};
                 this.initialRotation = entity.rotation !== undefined ? entity.rotation : (this.currentRotation || 0);
 
+                if (entity && (entity.id || entity.group)) {
+                    TransformEngine.startSession(entity, 'spin', { clientX: e.clientX, clientY: e.clientY });
+                }
+
                 this._setHandlesActive(true);
                 if (this.ctx.controls) this.ctx.controls.enabled = false;
                 if (this.ctx.cameraController && typeof this.ctx.cameraController.disableOrbit === 'function') {
@@ -541,7 +546,16 @@ export class UniversalSpinGizmo extends THREE.Group {
         const entity = this.target.userData?.entity || this.target.userData?.widget;
         if (!entity) return;
 
-        if (this.ctx.commonController?.transformEngine) {
+        if (TransformEngine.isSessionActive()) {
+            TransformEngine.previewSpin(entity, angleDeg, {
+                realtimeUpdate: this.ctx.realtimeUpdate
+            });
+            if (this.target) {
+                this.target.position.x = entity.x;
+                this.target.position.z = entity.y;
+                this.target.rotation.y = -(entity.rotation * Math.PI / 180);
+            }
+        } else if (this.ctx.commonController?.transformEngine) {
             this.ctx.commonController.transformEngine.executeSpin(entity, 0, angleDeg);
         } else {
             // Standalone fallback: closed-form spin around geometric center
@@ -591,16 +605,14 @@ export class UniversalSpinGizmo extends THREE.Group {
         const entity = this.target.userData?.entity || this.target.userData?.widget;
         if (!entity) return;
 
-        const id = entity.id || (entity.group && typeof entity.group.id === 'function' ? entity.group.id() : null);
-        const plannerInst = window.planner?.value || window.planner;
-        if (plannerInst && id) {
-            const startRot = (typeof this.initialRotation === 'number') ? this.initialRotation : null;
-            if (typeof plannerInst.rotate === 'function') {
-                plannerInst.rotate(id, this.currentRotation, startRot);
-            }
-            if (typeof plannerInst.move === 'function' && entity.x !== undefined && entity.y !== undefined) {
-                plannerInst.move(id, entity.x, entity.y);
-            }
+        const plannerInst = window.planner?.value || window.planner || this.ctx.planner;
+        if (TransformEngine.isSessionActive()) {
+            TransformEngine.commitSession(plannerInst);
+            this.initialRotation = this.currentRotation;
+        } else if (plannerInst) {
+            TransformEngine.executeDiscreteStep(plannerInst, entity, {
+                absoluteRotation: this.currentRotation
+            });
             this.initialRotation = this.currentRotation;
         }
 

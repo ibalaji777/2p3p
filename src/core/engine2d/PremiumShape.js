@@ -1,6 +1,7 @@
 import Konva from 'konva';
 import { SNAP_DIST } from '../registry.js';
 import { globalSpatialDependencyEngine, RELATIONSHIP_TYPES } from '../spatial/SpatialDependencyEngine.js';
+import { TransformEngine } from '../transform/TransformEngine.js';
 
 export class PremiumShape {
     constructor(planner, type, params) {
@@ -239,6 +240,7 @@ export class PremiumShape {
                 this.group.moveTo(this.planner.roofLayer);
                 this.planner.mainLayer.batchDraw();
             }
+            TransformEngine.startSession(this, 'move');
             this.update();
         });
         this.group.on('dragend', (e) => {
@@ -276,12 +278,27 @@ export class PremiumShape {
             }
             this.update();
             this.planner.mainLayer.batchDraw();
-            if (this.planner.debouncedSaveHistory) this.planner.debouncedSaveHistory();
+
+            if (TransformEngine.isSessionActive()) {
+                TransformEngine.previewMove(this, { absoluteX: this.group.x(), absoluteY: this.group.y() });
+                TransformEngine.commitSession(this.planner);
+            } else if (this.planner.debouncedSaveHistory) {
+                this.planner.debouncedSaveHistory();
+            }
         });
 
         this.rotHandle.on('mousedown touchstart', (e) => { e.cancelBubble = true; });
-        this.rotHandle.on('dragstart', (e) => { e.cancelBubble = true; });
-        this.rotHandle.on('dragend', (e) => { e.cancelBubble = true; this.planner.syncAll(); });
+        this.rotHandle.on('dragstart', (e) => { 
+            e.cancelBubble = true; 
+            TransformEngine.startSession(this, 'spin');
+        });
+        this.rotHandle.on('dragend', (e) => { 
+            e.cancelBubble = true; 
+            if (TransformEngine.isSessionActive()) {
+                TransformEngine.commitSession(this.planner);
+            }
+            this.planner.syncAll(); 
+        });
         this.rotHandle.on('mouseenter', () => document.body.style.cursor = 'crosshair');
         this.rotHandle.on('mouseleave', () => document.body.style.cursor = 'default');
         this.rotHandle.on('dragmove', (e) => {
@@ -290,8 +307,13 @@ export class PremiumShape {
             if (!pos) return;
             const groupPos = this.group.getAbsolutePosition();
             const angleRad = Math.atan2(pos.y - groupPos.y, pos.x - groupPos.x);
-            this.rotation = (angleRad * 180 / Math.PI) + 90;
+            let rawAngle = (angleRad * 180 / Math.PI) + 90;
+            const snap = TransformEngine.snapAngle(rawAngle, { step: 15 });
+            this.rotation = snap.angle;
             this.group.rotation(this.rotation);
+            if (TransformEngine.isSessionActive()) {
+                TransformEngine.previewSpin(this, snap.angle);
+            }
             this.update();
             this.planner.syncAll();
         });

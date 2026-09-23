@@ -2,6 +2,7 @@ import Konva from 'konva';
 import { FURNITURE_REGISTRY, WORKSPACE_2D_SHAPES } from '../../core/registry.js';
 import { coreEventBus } from '../../core/EventBus.js';
 import { globalShapeMirror } from '../../core/sync/ShapeMirrorEngine.js';
+import { TransformEngine } from '../../core/transform/TransformEngine.js';
 
 export class PremiumFurniture {
     constructor(planner, x, y, configId, id = null) {
@@ -83,12 +84,15 @@ export class PremiumFurniture {
             this.isDragging = true; 
             this.dragStartPos = { x: this.group.x(), y: this.group.y() };
             if (this.planner) this.planner.selectEntity(this, 'furniture'); 
+            TransformEngine.startSession(this, 'move');
         });
         this.group.on('dragmove', (e) => { 
             if (e.target === this.rotHandle) return; 
             this.x = this.group.x();
             this.y = this.group.y();
-            if (this.mesh3D) {
+            if (TransformEngine.isSessionActive()) {
+                TransformEngine.previewMove(this, { absoluteX: this.x, absoluteY: this.y });
+            } else if (this.mesh3D) {
                 this.mesh3D.position.set(this.x, Number(this.elevation) || 0, this.y);
             }
             if (this.planner && this.planner.syncAll) this.planner.syncAll(); 
@@ -96,20 +100,24 @@ export class PremiumFurniture {
         });
         this.group.on('dragend', () => { 
             this.isDragging = false; 
-            if (this.dragStartPos) {
+            if (TransformEngine.isSessionActive()) {
+                TransformEngine.previewMove(this, { absoluteX: this.group.x(), absoluteY: this.group.y() });
+                TransformEngine.commitSession(this.planner);
+            } else if (this.dragStartPos) {
                 const endX = this.group.x();
                 const endY = this.group.y();
                 if (Math.abs(endX - this.dragStartPos.x) > 0.001 || Math.abs(endY - this.dragStartPos.y) > 0.001) {
                     this.group.position(this.dragStartPos);
                     if (this.planner && this.planner.move) this.planner.move(this.id, endX, endY);
                 }
-                this.dragStartPos = null;
             }
+            this.dragStartPos = null;
         });
         
         this.rotHandle.on('dragstart', (e) => {
             e.cancelBubble = true;
             this.dragStartRot = this.rotation;
+            TransformEngine.startSession(this, 'spin');
         });
         this.rotHandle.on('dragmove', (e) => { 
             e.cancelBubble = true; 
@@ -117,23 +125,28 @@ export class PremiumFurniture {
             const pos = this.planner.stage.getPointerPosition(); 
             if (!pos) return;
             const angleRad = Math.atan2(pos.y - this.group.y(), pos.x - this.group.x()); 
-            this.rotation = (angleRad * 180 / Math.PI) + 90; 
+            let rawAngle = (angleRad * 180 / Math.PI) + 90;
+            const snap = TransformEngine.snapAngle(rawAngle, { step: 15 });
+            this.rotation = snap.angle;
             this.group.rotation(this.rotation); 
             this.rotHandle.position({ x: this.width / 2, y: -15 }); 
+            TransformEngine.previewSpin(this, snap.angle);
             if (this.planner.syncAll) this.planner.syncAll(); 
             coreEventBus.emit('EntityTransformUpdated2D', { id: this.id, x: this.group.x(), y: this.group.y(), rotation: this.rotation });
         });
         this.rotHandle.on('dragend', (e) => {
             e.cancelBubble = true;
-            if (this.dragStartRot !== undefined) {
+            if (TransformEngine.isSessionActive()) {
+                TransformEngine.commitSession(this.planner);
+            } else if (this.dragStartRot !== undefined) {
                 const endRot = this.rotation;
                 if (Math.abs(endRot - this.dragStartRot) > 0.001) {
                     this.rotation = this.dragStartRot;
                     this.group.rotation(this.dragStartRot);
                     if (this.planner && this.planner.rotate) this.planner.rotate(this.id, endRot);
                 }
-                this.dragStartRot = undefined;
             }
+            this.dragStartRot = undefined;
         });
     }
 

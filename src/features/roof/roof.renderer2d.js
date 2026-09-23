@@ -4,6 +4,7 @@ import { StairEngine } from '../../core/stairs/StairEngine.js';
 import { WallEngine } from '../../core/wall/WallEngine.js';
 import { RoofGeometryEngine } from '../../core/roof/RoofGeometryEngine.js';
 import { RoofEngine } from '../../core/roof/RoofEngine.js';
+import { TransformEngine } from '../../core/transform/TransformEngine.js';
 import Konva from 'konva';
 
 export class PremiumHipRoof {
@@ -139,17 +140,24 @@ export class PremiumHipRoof {
                 return;
             } 
             this.planner.selectEntity(this, 'roof'); 
+            TransformEngine.startSession(this, 'move');
         });
         this.group.on('dragmove', (e) => { if (this.planner.tool !== 'select' || this.handles.includes(e.target)) return; this.planner.syncAll(); });
         this.group.on('dragend', (e) => {
             if (this.planner.tool !== 'select' || this.handles.includes(e.target)) return;
             const dx = this.group.x();
             const dy = this.group.y();
-            if (dx === 0 && dy === 0) return;
+            if (dx === 0 && dy === 0) {
+                if (TransformEngine.isSessionActive()) TransformEngine.cancelSession(this.planner);
+                return;
+            }
             this.group.position({ x: 0, y: 0 });
             const newPts = this.points.map(pt => ({ x: pt.x + dx, y: pt.y + dy }));
             RoofEngine.setPoints(this, newPts, this.planner);
-            if (this.planner?.history?.record) {
+            if (TransformEngine.isSessionActive()) {
+                TransformEngine.previewMove(this, { points: newPts });
+                TransformEngine.commitSession(this.planner);
+            } else if (this.planner?.history?.record) {
                 this.planner.history.record();
             }
             this.planner.syncAll();

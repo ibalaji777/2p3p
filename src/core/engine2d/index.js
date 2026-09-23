@@ -14,6 +14,8 @@ import { ResizeCommand } from '../commands/ResizeCommand.js';
 import { DeleteCommand } from '../commands/DeleteCommand.js';
 import { CreateCommand } from '../commands/CreateCommand.js';
 import { SnapshotCommand } from '../commands/SnapshotCommand.js';
+import { TransformCommand } from '../commands/TransformCommand.js';
+import { TransformEngine } from '../transform/TransformEngine.js';
 import { EVENTS } from '../constants/events.js';
 import { coreEventBus } from '../EventBus.js';
 
@@ -297,113 +299,19 @@ export class FloorPlanner {
     // INTERNAL COMMAND EXECUTORS
     // ==========================================
 
-    _applyMove(entityId, x, y) {
-        const entity = this.getEntities().find(e => e.id === entityId || (e.group && typeof e.group.id === 'function' && e.group.id() === entityId));
+    transform(entityId, beforeState, afterState) {
+        const entity = TransformEngine.findEntity(this, entityId);
         if (!entity) return;
+        const cmd = new TransformCommand(this, entityId, entity.type || '', beforeState, afterState);
+        this.commandManager.execute(cmd);
+    }
 
-        entity.x = x;
-        entity.y = y;
-        if (entity.group && typeof entity.group.position === 'function') {
-            entity.group.position({ x, y });
-        }
-
-        // Host resolution for all movable entities placed on floor (furniture, shapes, stairs, GLBs, decor, fixtures)
-        const isStair = Boolean(
-            (typeof entity.type === 'string' && entity.type.startsWith('stair')) ||
-            entity.constructor?.name === 'PremiumStaircase' ||
-            entity.totalSteps !== undefined
-        );
-        const isMovableChild = entity.type === 'furniture' || entity.type === 'shape' ||
-            (typeof entity.type === 'string' && entity.type.startsWith('shape_')) || isStair ||
-            entity.type === 'glb' || entity.type === 'model' || entity.type === 'decor' ||
-            entity.type === 'fixture' || entity.type === 'custom_entity' || entity.type === 'custom' ||
-            entity.type === 'surface_attached' || Boolean(entity.parentWallId || entity.hostPlatformId);
-
-        if (isMovableChild) {
-            const hostRes = SpatialHostResolver.findHostAt(this, x, y, entity.type, {
-                rotation: entity.rotation,
-                elevation: entity.elevation,
-                ignoreEntity: entity
-            });
-
-            if (hostRes && hostRes.host) {
-                if (hostRes.hostType === 'platform') {
-                    entity.elevation = hostRes.surfaceElevation;
-                    entity.hostPlatformId = hostRes.hostId;
-                    if (isStair) {
-                        const targetH = Math.max(20, (Number(hostRes.host.elevation) || 0) + (Number(hostRes.host.height) || 0) - (Number(entity.baseElevation) || 0));
-                        if (typeof StairHeightDetector?.recalculateStairForHeight === 'function' && Math.abs((entity.height || 0) - targetH) > 1) {
-                            StairHeightDetector.recalculateStairForHeight(entity, targetH);
-                        }
-                    }
-                } else if (hostRes.hostType === 'wall') {
-                    entity.parentWallId = hostRes.hostId;
-                }
-                globalSpatialDependencyEngine.attach(entity, hostRes.host, {
-                    relationshipType: hostRes.relationshipType,
-                    localTransform: hostRes.localTransform
-                });
-            } else if (entity.hostPlatformId || entity.hostId || entity.parentWallId) {
-                globalSpatialDependencyEngine.detach(entity);
-                entity.elevation = Number(entity.baseElevation) || 0;
-                entity.hostPlatformId = null;
-                entity.parentWallId = null;
-                entity.hostId = null;
-            }
-        }
-
-        // Notify dependents if this entity is a host (e.g. platform, furniture table)
-        if (entity.type === 'platform' || globalSpatialDependencyEngine.getDependents(entity.id).length > 0) {
-            globalSpatialDependencyEngine.onHostTransformed(entity, this);
-        }
-
-        if (typeof entity.update3D === 'function') entity.update3D();
-        else if (entity.mesh3D) {
-            entity.mesh3D.position.set(x, entity.elevation || 0, y);
-            if (typeof entity.mesh3D.updateMatrixWorld === 'function') entity.mesh3D.updateMatrixWorld(true);
-        }
-
-        if (typeof entity.update2D === 'function') entity.update2D();
-        else if (typeof entity.update === 'function') entity.update();
-
-        if (typeof window !== 'undefined') {
-            coreEventBus.emit('EntityTransformUpdated2D', { id: entityId, x, y, rotation: entity.rotation });
-        }
-        this.syncAll();
+    _applyMove(entityId, x, y) {
+        TransformEngine.applyState(this, entityId, { x, y });
     }
 
     _applyRotate(entityId, angle) {
-        const entity = this.getEntities().find(e => e.id === entityId || (e.group && typeof e.group.id === 'function' && e.group.id() === entityId));
-        if (!entity) return;
-        entity.rotation = angle;
-        if (entity.group && typeof entity.group.rotation === 'function') entity.group.rotation(angle);
-
-        // Update local transform relative to host if attached
-        if (entity.hostId) {
-            const hostRecord = globalSpatialDependencyEngine.getHostRecord(entity.id);
-            if (hostRecord) {
-                const hostEntity = this.getEntities().find(e => e && e.id === hostRecord.hostId);
-                if (hostEntity) {
-                    globalSpatialDependencyEngine.attach(entity, hostEntity, {
-                        relationshipType: hostRecord.relationshipType,
-                        computeFromCurrentWorld: true
-                    });
-                }
-            }
-        }
-
-        // Notify dependents if this entity is a host
-        if (globalSpatialDependencyEngine.getDependents(entity.id).length > 0) {
-            globalSpatialDependencyEngine.onHostTransformed(entity, this);
-        }
-
-        if (typeof entity.update3D === 'function') entity.update3D();
-        if (typeof window !== 'undefined') {
-            const curX = entity.group && typeof entity.group.x === 'function' ? entity.group.x() : entity.x;
-            const curY = entity.group && typeof entity.group.y === 'function' ? entity.group.y() : entity.y;
-            coreEventBus.emit('EntityTransformUpdated2D', { id: entityId, x: curX, y: curY, rotation: angle });
-        }
-        this.syncAll();
+        TransformEngine.applyState(this, entityId, { rotation: angle });
     }
 
     _applyResize(entityId, values) {

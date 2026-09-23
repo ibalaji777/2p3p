@@ -17,6 +17,7 @@ import { WallEngine, isFloorAnchoredDoor } from '../wall/WallEngine.js';
 import { StairHeightDetector } from '../../features/stairs/StairHeightDetector.js';
 import { StairEngine } from '../stairs/StairEngine.js';
 import { globalSpatialDependencyEngine } from '../spatial/SpatialDependencyEngine.js';
+import { TransformEngine } from '../transform/TransformEngine.js';
 
 export class UniversalMoveGizmo extends THREE.Group {
     /**
@@ -424,6 +425,9 @@ export class UniversalMoveGizmo extends THREE.Group {
                         elevation: ent.elevation !== undefined ? ent.elevation : this.startMeshPos.y,
                         t: ent.t !== undefined ? ent.t : 0.5
                     };
+                    if (!this.isRoomMove && (ent.id || ent.group)) {
+                        TransformEngine.startSession(ent, 'move', { clientX: e.clientX, clientY: e.clientY });
+                    }
                 }
 
                 // Immediate highlight & footprint lock
@@ -793,15 +797,19 @@ export class UniversalMoveGizmo extends THREE.Group {
         const plannerInst = window.planner?.value || window.planner || window.plannerInstance || this.ctx.planner;
 
         if (plannerInst) {
-            const startPos = (this.startEntityPosition && typeof this.startEntityPosition.x === 'number' && typeof this.startEntityPosition.y === 'number')
-                ? { x: this.startEntityPosition.x, y: this.startEntityPosition.y }
-                : null;
-            if (typeof plannerInst.move === 'function' && id) {
-                plannerInst.move(id, ent.x, ent.y, startPos);
-            } else if (typeof plannerInst.setEntityPosition === 'function' && id) {
-                plannerInst.setEntityPosition(id, ent.x, ent.y, ent.elevation);
+            if (TransformEngine.isSessionActive()) {
+                TransformEngine.commitSession(plannerInst);
+            } else {
+                const startPos = (this.startEntityPosition && typeof this.startEntityPosition.x === 'number' && typeof this.startEntityPosition.y === 'number')
+                    ? { x: this.startEntityPosition.x, y: this.startEntityPosition.y }
+                    : null;
+                if (typeof plannerInst.move === 'function' && id) {
+                    plannerInst.move(id, ent.x, ent.y, startPos);
+                } else if (typeof plannerInst.setEntityPosition === 'function' && id) {
+                    plannerInst.setEntityPosition(id, ent.x, ent.y, ent.elevation);
+                }
+                globalSpatialDependencyEngine.onHostTransformed(ent, plannerInst);
             }
-            globalSpatialDependencyEngine.onHostTransformed(ent, plannerInst);
 
             // Update startEntityPosition for consecutive drags without re-attaching
             if (this.startEntityPosition) {

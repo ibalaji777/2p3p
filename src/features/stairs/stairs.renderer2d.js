@@ -4,6 +4,7 @@ import { StairGeometryEngine } from '../../core/stairs/StairGeometryEngine.js';
 import { StairEngine } from '../../core/stairs/StairEngine.js';
 import { SpatialHostResolver } from '../../core/spatial/SpatialHostResolver.js';
 import { globalSpatialDependencyEngine, RELATIONSHIP_TYPES } from '../../core/spatial/SpatialDependencyEngine.js';
+import { TransformEngine } from '../../core/transform/TransformEngine.js';
 
 export class PremiumStaircase {
     constructor(planner, type = 'straight', data = {}) {
@@ -168,42 +169,54 @@ export class PremiumStaircase {
 
         this.group.on('dragstart', (e) => {
             this.planner.selectEntity(this, 'stair');
+            TransformEngine.startSession(this, 'move');
+        });
+
+        this.group.on('dragmove', (e) => {
+            if (TransformEngine.isSessionActive()) {
+                TransformEngine.previewMove(this, { absoluteX: this.group.x(), absoluteY: this.group.y() });
+            }
         });
 
         this.group.on('dragend', (e) => {
             const curX = this.group.x();
             const curY = this.group.y();
-            StairEngine.setPosition(this.planner, this, curX, curY);
+            if (TransformEngine.isSessionActive()) {
+                TransformEngine.previewMove(this, { absoluteX: curX, absoluteY: curY });
+                TransformEngine.commitSession(this.planner);
+            } else {
+                StairEngine.setPosition(this.planner, this, curX, curY);
 
-            if (this.planner) {
-                const hostRes = SpatialHostResolver.findHostAt(this.planner, curX, curY, 'stair', {
-                    rotation: this.rotation,
-                    preset: this
-                });
-
-                if (hostRes && hostRes.detection && hostRes.host) {
-                    const isPlatform = hostRes.hostType === 'platform';
-                    if (isPlatform) {
-                        const det = hostRes.detection;
-                        StairEngine.batchUpdate(this.planner, this, {
-                            height: det.detectedHeight,
-                            totalSteps: det.optimalSteps,
-                            flight1Steps: det.flight1Steps,
-                            flight2Steps: det.flight2Steps,
-                            stepHeight: det.stepHeight
-                        });
-                    }
-
-                    globalSpatialDependencyEngine.attach(this, hostRes.host, {
-                        relationshipType: hostRes.relationshipType || RELATIONSHIP_TYPES.SUPPORTED,
-                        localTransform: hostRes.localTransform
+                if (this.planner) {
+                    const hostRes = SpatialHostResolver.findHostAt(this.planner, curX, curY, 'stair', {
+                        rotation: this.rotation,
+                        preset: this
                     });
-                } else if (this.hostPlatformId || this.hostId) {
-                    globalSpatialDependencyEngine.detach(this);
-                }
-            }
 
-            if (this.planner?.debouncedSaveHistory) this.planner.debouncedSaveHistory();
+                    if (hostRes && hostRes.detection && hostRes.host) {
+                        const isPlatform = hostRes.hostType === 'platform';
+                        if (isPlatform) {
+                            const det = hostRes.detection;
+                            StairEngine.batchUpdate(this.planner, this, {
+                                height: det.detectedHeight,
+                                totalSteps: det.optimalSteps,
+                                flight1Steps: det.flight1Steps,
+                                flight2Steps: det.flight2Steps,
+                                stepHeight: det.stepHeight
+                            });
+                        }
+
+                        globalSpatialDependencyEngine.attach(this, hostRes.host, {
+                            relationshipType: hostRes.relationshipType || RELATIONSHIP_TYPES.SUPPORTED,
+                            localTransform: hostRes.localTransform
+                        });
+                    } else if (this.hostPlatformId || this.hostId) {
+                        globalSpatialDependencyEngine.detach(this);
+                    }
+                }
+
+                if (this.planner?.debouncedSaveHistory) this.planner.debouncedSaveHistory();
+            }
         });
     }
 

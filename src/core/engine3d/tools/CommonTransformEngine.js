@@ -12,6 +12,7 @@ import { coreEventBus } from '../../EventBus.js';
 import { usePlannerStore } from '../../../stores/usePlannerStore.js';
 import { RoofEngine } from '../../roof/RoofEngine.js';
 import { globalSpatialDependencyEngine } from '../../spatial/SpatialDependencyEngine.js';
+import { TransformEngine } from '../../transform/TransformEngine.js';
 
 /**
  * Helper to compute local geometric center of any 3D object/group in its own local coordinate space.
@@ -119,10 +120,20 @@ export class CommonTransformEngine {
      * @param {number} deltaDeg - Angle delta in degrees.
      * @param {number|null} absoluteDeg - Optional absolute angle in degrees.
      */
-    executeSpin(entity, deltaDeg = 0, absoluteDeg = null) {
+    executeSpin(entity, deltaDeg = 0, absoluteDeg = null, options = {}) {
         if (!entity) return false;
         const caps = ObjectCapabilityEvaluator.getCapabilities(entity);
         if (!caps.rotatable) return false;
+
+        const planner = this.ctx?.planner || (typeof window !== 'undefined' ? (window.plannerInstance || window.planner?.value || window.planner) : null);
+        if (options.createCommand !== false && planner && planner.commandManager && !TransformEngine.isSessionActive()) {
+            TransformEngine.executeDiscreteStep(planner, entity, {
+                deltaRotation: absoluteDeg !== null ? undefined : deltaDeg,
+                absoluteRotation: absoluteDeg !== null ? absoluteDeg : undefined
+            });
+            this.notifyTransformChanged(entity);
+            return true;
+        }
 
         const currentRot = entity.rotation !== undefined ? entity.rotation : 0;
         let newAngle = absoluteDeg !== null ? absoluteDeg : (currentRot + deltaDeg);
@@ -234,10 +245,19 @@ export class CommonTransformEngine {
      * @param {number} direction - +1 for up, -1 for down.
      * @param {number} step - Step distance in units (default 10).
      */
-    executeAxisStep(entity, direction = 1, step = 10) {
+    executeAxisStep(entity, direction = 1, step = 10, options = {}) {
         if (!entity) return false;
         const caps = ObjectCapabilityEvaluator.getCapabilities(entity);
         if (!caps.elevatable) return false;
+
+        const planner = this.ctx?.planner || (typeof window !== 'undefined' ? (window.plannerInstance || window.planner?.value || window.planner) : null);
+        if (options.createCommand !== false && planner && planner.commandManager && !TransformEngine.isSessionActive()) {
+            TransformEngine.executeDiscreteStep(planner, entity, {
+                deltaPosition: { elevation: direction * step }
+            });
+            this.notifyTransformChanged(entity);
+            return true;
+        }
 
         const currentElev = entity.elevation || 0;
         const newElev = Math.max(0, currentElev + (direction * step));

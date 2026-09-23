@@ -2,6 +2,7 @@ import Konva from 'konva';
 import { SNAP_DIST } from '../registry.js';
 import { VerticalPropagationEngine } from '../vertical/VerticalPropagationEngine.js';
 import { globalSpatialDependencyEngine } from '../spatial/SpatialDependencyEngine.js';
+import { TransformEngine } from '../transform/TransformEngine.js';
 
 export const PLATFORM_TRIM_STYLES = {
     flat: { id: 'flat', name: 'Clean Modern Riser', icon: 'square' },
@@ -261,6 +262,7 @@ export class PremiumPlatform {
             const pointer = this.planner?.getPointerPos ? this.planner.getPointerPos() : this.planner?.stage?.getPointerPosition() || { x: 0, y: 0 };
             const pos = this.group.position();
             this.dragOffset = { x: pos.x - pointer.x, y: pos.y - pointer.y };
+            TransformEngine.startSession(this, 'move');
         });
 
         this.group.on('dragmove', (e) => {
@@ -273,7 +275,11 @@ export class PremiumPlatform {
             this.y = Math.round(rawY);
             this.group.position({ x: this.x, y: this.y });
 
-            this._sync3DTransform();
+            if (TransformEngine.isSessionActive()) {
+                TransformEngine.previewMove(this, { absoluteX: this.x, absoluteY: this.y });
+            } else {
+                this._sync3DTransform();
+            }
             if (this.planner) {
                 globalSpatialDependencyEngine.onHostTransformed(this, this.planner);
             }
@@ -284,24 +290,37 @@ export class PremiumPlatform {
             this.isDragging = false;
             this.x = Math.round(this.group.x());
             this.y = Math.round(this.group.y());
-            this.update();
-            this._sync3DTransform();
+            if (TransformEngine.isSessionActive()) {
+                TransformEngine.previewMove(this, { absoluteX: this.x, absoluteY: this.y });
+                TransformEngine.commitSession(this.planner);
+            } else {
+                this.update();
+                this._sync3DTransform();
+                if (this.planner?.debouncedSaveHistory) this.planner.debouncedSaveHistory();
+            }
             if (this.planner) {
                 globalSpatialDependencyEngine.onHostTransformed(this, this.planner);
             }
-            if (this.planner?.debouncedSaveHistory) this.planner.debouncedSaveHistory();
+        });
+
+        this.rotHandle.on('dragstart', (e) => {
+            e.cancelBubble = true;
+            TransformEngine.startSession(this, 'spin');
         });
 
         // Rotation Handle drag
         this.rotHandle.on('dragmove', (e) => {
             e.cancelBubble = true;
             const hPos = this.rotHandle.position();
-            let angle = Math.atan2(hPos.y, hPos.x) * 180 / Math.PI + 90;
-            // Snap to 15 degrees or 45/90
-            if (Math.abs(angle % 45) < 5) angle = Math.round(angle / 45) * 45;
-            this.rotation = Math.round(angle);
+            let rawAngle = Math.atan2(hPos.y, hPos.x) * 180 / Math.PI + 90;
+            const snap = TransformEngine.snapAngle(rawAngle, { step: 15 });
+            this.rotation = snap.angle;
             this.group.rotation(this.rotation);
-            this._sync3DTransform();
+            if (TransformEngine.isSessionActive()) {
+                TransformEngine.previewSpin(this, snap.angle);
+            } else {
+                this._sync3DTransform();
+            }
             if (this.planner) {
                 globalSpatialDependencyEngine.onHostTransformed(this, this.planner);
             }
@@ -309,12 +328,16 @@ export class PremiumPlatform {
         });
 
         this.rotHandle.on('dragend', () => {
-            this.update();
-            this._sync3DTransform();
+            if (TransformEngine.isSessionActive()) {
+                TransformEngine.commitSession(this.planner);
+            } else {
+                this.update();
+                this._sync3DTransform();
+                if (this.planner?.debouncedSaveHistory) this.planner.debouncedSaveHistory();
+            }
             if (this.planner) {
                 globalSpatialDependencyEngine.onHostTransformed(this, this.planner);
             }
-            if (this.planner?.debouncedSaveHistory) this.planner.debouncedSaveHistory();
         });
     }
 

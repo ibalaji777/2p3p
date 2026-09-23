@@ -33,6 +33,7 @@ import { Furniture3DPlacementSystem } from './Furniture3DPlacementSystem.js';
 import { Roof3DPlacementSystem } from './Roof3DPlacementSystem.js';
 import { isFloorAnchoredDoor } from '../wall/WallEngine.js';
 import { RoofPlugin3DPlacementSystem } from './RoofPlugin3DPlacementSystem.js';
+import { TransformEngine } from '../transform/TransformEngine.js';
 import { SelectionManager } from './SelectionManager.js';
 import { HighlightRenderer } from './HighlightRenderer.js';
 import { DimensionManager3D } from './dimensions/DimensionManager3D.js';
@@ -104,6 +105,9 @@ export class OpeningGizmo extends THREE.Group {
                 e.preventDefault();
                 e.stopPropagation();
                 this.activeHandle = intersects[0].object.name;
+                if (this.target?.userData?.entity) {
+                    TransformEngine.startSession(this.target.userData.entity, 'openings', { clientX: e.clientX, clientY: e.clientY });
+                }
                 
                 const planeNormal = new THREE.Vector3();
                 const quat = this.quaternion.clone();
@@ -237,6 +241,10 @@ export class OpeningGizmo extends THREE.Group {
                 
                 const entity = this.target.userData.entity;
                 this.activeHandle = null;
+                const plannerInst = window.planner?.value || window.planner || this.ctx.planner;
+                if (TransformEngine.isSessionActive() && plannerInst) {
+                    TransformEngine.commitSession(plannerInst);
+                }
                 if (typeof window !== 'undefined') {
                     coreEventBus.emit(EVENTS.OPENING_GIZMO_END, { entity });
                     if (window.plannerInstance) window.plannerInstance.syncAll();
@@ -1153,10 +1161,11 @@ export class InteractionSystem {
                 } else if (this.isSims4Spinning && this.selectedObject) {
                     // Finished dragging rotation: commit to planner history
                     const ent = this.selectedObject.userData?.entity;
-                    const id = ent?.id || (ent?.group && typeof ent.group.id === 'function' ? ent.group.id() : null);
-                    const plannerInst = window.planner?.value || window.planner;
-                    if (plannerInst && typeof plannerInst.rotate === 'function' && id && ent) {
-                        plannerInst.rotate(id, ent.rotation);
+                    const plannerInst = window.planner?.value || window.planner || this.ctx.planner;
+                    if (TransformEngine.isSessionActive() && plannerInst) {
+                        TransformEngine.commitSession(plannerInst);
+                    } else if (plannerInst && ent) {
+                        TransformEngine.executeDiscreteStep(plannerInst, ent, { absoluteRotation: ent.rotation });
                     }
                     if (this.ctx.requestRender) this.ctx.requestRender('sims4_spin_end');
                 }
@@ -1201,6 +1210,7 @@ export class InteractionSystem {
                 const ent = this.selectedObject.userData?.entity;
                 if (ent && this.commonController?.getCapabilities(ent, this.selectedObject)?.rotatable) {
                     isTouchTwisting = true;
+                    TransformEngine.startSession(ent, 'spin');
                     const t1 = e.touches[0];
                     const t2 = e.touches[1];
                     initialTwistAngle = Math.atan2(t2.clientY - t1.clientY, t2.clientX - t1.clientX) * (180 / Math.PI);
@@ -1224,11 +1234,10 @@ export class InteractionSystem {
                 let delta = curAngle - initialTwistAngle;
                 let targetAngle = initialEntityAngle + delta;
 
-                // Smart snap to 15 degrees
-                targetAngle = Math.round(targetAngle / 15) * 15;
-                targetAngle = ((targetAngle % 360) + 360) % 360;
+                // Smart snap to 15 degrees using TransformEngine.snapAngle
+                targetAngle = TransformEngine.snapAngle(targetAngle, 15);
 
-                this.commonController.transformEngine.executeSpin(ent, 0, targetAngle);
+                this.commonController.transformEngine.executeSpin(ent, 0, targetAngle, { createCommand: false });
                 if (this.universalSpinGizmo) {
                     this.universalSpinGizmo.currentRotation = targetAngle;
                     this.universalSpinGizmo._updateHeadingArrowRotation(targetAngle);
@@ -1243,10 +1252,12 @@ export class InteractionSystem {
             if (isTouchTwisting) {
                 isTouchTwisting = false;
                 if (this.ctx.controls) this.ctx.controls.enabled = (this.mode === 'camera');
-                if (this.selectedObject) {
+                const plannerInst = window.plannerInstance || window.planner?.value || window.planner;
+                if (TransformEngine.isSessionActive()) {
+                    TransformEngine.commitSession(plannerInst);
+                } else if (this.selectedObject) {
                     const ent = this.selectedObject.userData?.entity;
                     const id = ent?.id || (ent?.group && typeof ent.group.id === 'function' ? ent.group.id() : null);
-                    const plannerInst = window.planner?.value || window.planner;
                     if (plannerInst && typeof plannerInst.rotate === 'function' && id && ent) {
                         plannerInst.rotate(id, ent.rotation);
                     }

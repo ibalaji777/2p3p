@@ -1,5 +1,6 @@
 import Konva from 'konva';
 import { WallEngine } from '../wall/WallEngine.js';
+import { TransformEngine } from '../transform/TransformEngine.js';
 
 export class advance_openings {
     constructor(planner, wall, t, type) {
@@ -63,6 +64,11 @@ export class advance_openings {
             document.body.style.cursor = 'default'; 
         });
 
+        this.group.on('dragstart', (e) => {
+            if (this.planner.tool !== 'select') return;
+            TransformEngine.startSession(this, 'openings');
+        });
+
         this.group.on('dragmove', (e) => {
             if (this.planner.tool !== 'select') return;
             const pos = this.planner.getPointerPos();
@@ -75,10 +81,21 @@ export class advance_openings {
             
             if (lenSq > 0) {
                 let t = ((pos.x - p1.x) * dx + (pos.y - p1.y) * dy) / lenSq;
-                this.t = Math.max(0.05, Math.min(0.95, t));
+                const newT = Math.max(0.05, Math.min(0.95, t));
+                if (TransformEngine.isSessionActive()) {
+                    TransformEngine.previewMove(this, { absoluteT: newT });
+                } else {
+                    this.t = newT;
+                    this.update();
+                }
             }
-            this.update();
             this.planner.syncAll();
+        });
+
+        this.group.on('dragend', (e) => {
+            if (TransformEngine.isSessionActive()) {
+                TransformEngine.commitSession(this.planner);
+            }
         });
         
         this.group.on('mousedown touchstart', (e) => {
@@ -95,16 +112,11 @@ export class advance_openings {
             const nudgeAmount = 0.01; // 1% of wall length
             
             if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') {
-                this.t = Math.max(0.05, this.t - nudgeAmount);
                 e.preventDefault();
+                TransformEngine.executeDiscreteStep(this.planner, this, { deltaT: -nudgeAmount });
             } else if (e.key === 'ArrowRight' || e.key === 'ArrowUp') {
-                this.t = Math.min(0.95, this.t + nudgeAmount);
                 e.preventDefault();
-            }
-            
-            if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key)) {
-                this.update();
-                this.planner.syncAll();
+                TransformEngine.executeDiscreteStep(this.planner, this, { deltaT: nudgeAmount });
             }
         };
         window.addEventListener('keydown', this.handleKeyDown);
