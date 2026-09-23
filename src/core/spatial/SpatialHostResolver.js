@@ -214,13 +214,8 @@ export class SpatialHostResolver {
 
             if (detection && detection.hasTarget && detection.targetSource) {
                 const host = detection.targetSource;
-                const hostTransform = {
-                    x: host.group && typeof host.group.x === 'function' ? host.group.x() : (Number(host.x) || 0),
-                    y: host.group && typeof host.group.y === 'function' ? host.group.y() : (Number(host.y) || 0),
-                    elevation: Number(host.elevation) || 0,
-                    height: Number(host.height) || 0,
-                    rotation: host.group && typeof host.group.rotation === 'function' ? host.group.rotation() : (Number(host.rotation) || 0)
-                };
+                const hostType = detection.targetType || 'platform';
+                const hostTransform = SpatialDependencyEngine.getEntityTransform(host);
 
                 const stairWorld = {
                     x: detection.snappedPos?.x ?? x,
@@ -230,12 +225,13 @@ export class SpatialHostResolver {
                 };
 
                 const localTransform = SpatialDependencyEngine.computeLocalTransform(stairWorld, hostTransform);
+                const relationshipType = hostType === 'wall' ? RELATIONSHIP_TYPES.SURFACE_ATTACHED : RELATIONSHIP_TYPES.SUPPORTED;
 
                 return {
                     host,
                     hostId: host.id,
-                    hostType: detection.targetType || 'platform',
-                    relationshipType: RELATIONSHIP_TYPES.SUPPORTED,
+                    hostType,
+                    relationshipType,
                     localTransform,
                     detection
                 };

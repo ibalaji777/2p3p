@@ -445,6 +445,10 @@ export class PremiumPlatform {
     /* -------------------------------------------------------------------------- */
 
     update2D() {
+        if (this.group) {
+            this.group.position({ x: this.x, y: this.y });
+            this.group.rotation(this.rotation);
+        }
         this.update();
     }
 

@@ -18,6 +18,8 @@ export class PremiumFurniture {
         this.height = this.config.default.height; 
         this.elevation = (this.config.default && this.config.default.elevation !== undefined) ? this.config.default.elevation : 0;
         this.rotation = 0; 
+        this.x = Number(x) || 0;
+        this.y = Number(y) || 0;
         this.isDragging = false;
         this.group = new Konva.Group({ x: x, y: y, width: this.width, height: this.depth, draggable: true, offsetX: this.width / 2, offsetY: this.depth / 2 });
         this.bg = new Konva.Rect({ width: this.width, height: this.depth, fill: 'transparent', cornerRadius: 4 });
@@ -136,10 +138,16 @@ export class PremiumFurniture {
     }
 
     update() { 
-        this.group.width(this.width); 
-        this.group.height(this.depth); 
-        this.group.offsetX(this.width / 2); 
-        this.group.offsetY(this.depth / 2); 
+        if (this.group) {
+            if (this.x !== undefined && this.y !== undefined) {
+                this.group.position({ x: this.x, y: this.y });
+            }
+            this.group.width(this.width); 
+            this.group.height(this.depth); 
+            this.group.offsetX(this.width / 2); 
+            this.group.offsetY(this.depth / 2); 
+            this.group.rotation(this.rotation); 
+        }
         this.bg.width(this.width); 
         this.bg.height(this.depth); 
         if (this.hasDynamicFootprint) {
@@ -149,7 +157,6 @@ export class PremiumFurniture {
             this.body.scaleX(this.width / 100); 
             this.body.scaleY(this.depth / 100); 
         }
-        this.group.rotation(this.rotation); 
         this.rotHandle.x(this.width / 2); 
     }
 
@@ -159,8 +166,8 @@ export class PremiumFurniture {
 
     update3D() {
         if (this.mesh3D) {
-            const curX = this.group && typeof this.group.x === 'function' ? this.group.x() : (this.x || 0);
-            const curY = this.group && typeof this.group.y === 'function' ? this.group.y() : (this.y || 0);
+            const curX = this.x !== undefined ? this.x : (this.group && typeof this.group.x === 'function' ? this.group.x() : 0);
+            const curY = this.y !== undefined ? this.y : (this.group && typeof this.group.y === 'function' ? this.group.y() : 0);
             this.mesh3D.position.set(curX, Number(this.elevation) || 0, curY);
             this.mesh3D.rotation.y = (-(Number(this.rotation) || 0) * Math.PI) / 180;
             if (typeof this.mesh3D.updateMatrixWorld === 'function') {

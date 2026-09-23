@@ -19,6 +19,7 @@ import { VerticalPropagationEngine } from '../vertical/VerticalPropagationEngine
 import { PremiumWidget } from '../engine2d/PremiumWidget.js';
 import { advance_openings } from '../engine2d/advance_openings.js';
 import { PremiumMolding } from '../engine2d/PremiumMolding.js';
+import { globalSpatialDependencyEngine } from '../spatial/SpatialDependencyEngine.js';
 
 export class WallMutationEngine {
     /**
@@ -213,6 +214,25 @@ export class WallMutationEngine {
                 wall.endY = endPos.y;
             }
         }
+
+        const affectedWalls = new Set();
+        if (wall) affectedWalls.add(wall);
+        if (p && p.walls) {
+            p.walls.forEach(w => {
+                if ((wall.startAnchor && (w.startAnchor === wall.startAnchor || w.endAnchor === wall.startAnchor)) ||
+                    (wall.endAnchor && (w.startAnchor === wall.endAnchor || w.endAnchor === wall.endAnchor))) {
+                    affectedWalls.add(w);
+                }
+            });
+        }
+
+        affectedWalls.forEach(w => {
+            w.wallShapeData = null;
+            if (typeof w.recalculateGeometry === 'function') {
+                w.recalculateGeometry();
+            }
+            globalSpatialDependencyEngine.onHostTransformed(w, p);
+        });
 
         if (shouldSync && p && typeof p.syncAll === 'function') {
             p.syncAll();
@@ -447,13 +467,16 @@ export class WallMutationEngine {
             if (anchor.lastValidPos) anchor.lastValidPos = { ...newPosition };
         }
 
-        if (p && p.walls) {
-            p.walls.forEach(w => {
-                if (w.startAnchor === anchor || w.endAnchor === anchor) {
-                    w.wallShapeData = null;
-                }
-            });
-        }
+        const connectedWalls = (p && p.walls)
+            ? p.walls.filter(w => w.startAnchor === anchor || w.endAnchor === anchor)
+            : [];
+
+        connectedWalls.forEach(w => {
+            w.wallShapeData = null;
+            if (typeof w.recalculateGeometry === 'function') {
+                w.recalculateGeometry();
+            }
+        });
 
         // Maintain connected filleted corners with dynamic safe radius clamping & tangent re-projection
         if (p && p.anchors) {
@@ -498,6 +521,11 @@ export class WallMutationEngine {
                 }
             });
         }
+
+        // Notify SpatialDependencyEngine for all connected walls
+        connectedWalls.forEach(w => {
+            globalSpatialDependencyEngine.onHostTransformed(w, p);
+        });
 
         if (shouldSync && p && typeof p.syncAll === 'function') {
             p.syncAll();

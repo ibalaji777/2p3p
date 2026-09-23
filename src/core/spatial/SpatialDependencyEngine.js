@@ -392,11 +392,11 @@ export class SpatialDependencyEngine {
 
             // 5. Domain Engine Notification Hook (if dependent implements onHostTransformed)
             if (typeof depEntity.onHostTransformed === 'function') {
-                depEntity.onHostTransformed(hostTransform, newWorld);
+                depEntity.onHostTransformed(hostTransform, newWorld, record);
             }
 
             // 5a. Specialized Staircase Recalculation on Platform Height Change (Fallback)
-            if ((depEntity.type?.includes('stair') || depEntity.shape) && record.relationshipType === RELATIONSHIP_TYPES.SUPPORTED) {
+            if ((depEntity.type?.includes('stair') || depEntity.shape) && record.relationshipType === RELATIONSHIP_TYPES.SUPPORTED && record.hostType === 'platform') {
                 const targetH = Math.max(20, Math.abs(hostTransform.elevation + hostTransform.height - (Number(depEntity.baseElevation) || 0)));
                 if (Math.abs((depEntity.height || 0) - targetH) > 1) {
                     depEntity.height = targetH;
@@ -425,6 +425,11 @@ export class SpatialDependencyEngine {
                 depEntity.update2D();
             } else if (typeof depEntity.update === 'function') {
                 depEntity.update();
+            }
+
+            // 6b. Refresh 3D representation if entity implements update3D
+            if (typeof depEntity.update3D === 'function') {
+                depEntity.update3D();
             }
 
             // 7. Mark dirty for 3D render pipeline

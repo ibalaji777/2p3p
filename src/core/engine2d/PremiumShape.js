@@ -36,10 +36,13 @@ export class PremiumShape {
             this.params.points = this.params.points.map(p => ({ x: p.x - cx, y: p.y - cy }));
         }
 
+        this.x = this.params.x !== undefined ? Number(this.params.x) : 0;
+        this.y = this.params.y !== undefined ? Number(this.params.y) : 0;
+
         this.group = new Konva.Group({
             id: this.id,
-            x: this.params.x || 0,
-            y: this.params.y || 0,
+            x: this.x,
+            y: this.y,
             rotation: this.rotation,
             draggable: true
         });
@@ -668,5 +671,34 @@ export class PremiumShape {
         if (this.planner.onToolChange) this.planner.onToolChange('select');
         this.planner.selectEntity(this, 'shape');
         this.planner.syncAll();
+    }
+
+    update() {
+        this.update2D();
+    }
+
+    update2D() {
+        if (this.group) {
+            this.group.position({ x: this.x, y: this.y });
+            this.group.rotation(this.rotation);
+        }
+        if (this.params) {
+            this.params.x = this.x;
+            this.params.y = this.y;
+            this.params.rotation = this.rotation;
+        }
+        if (typeof this.rebuildHandles === 'function') {
+            this.rebuildHandles();
+        }
+    }
+
+    update3D() {
+        if (this.mesh3D) {
+            this.mesh3D.position.set(this.x, Number(this.elevation) || 0, this.y);
+            this.mesh3D.rotation.y = (-(Number(this.rotation) || 0) * Math.PI) / 180;
+            if (typeof this.mesh3D.updateMatrixWorld === 'function') {
+                this.mesh3D.updateMatrixWorld(true);
+            }
+        }
     }
 }

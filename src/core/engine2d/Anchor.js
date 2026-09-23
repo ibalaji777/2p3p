@@ -5,9 +5,12 @@ import { WallEngine } from '../wall/WallEngine.js';
 import { WallGeometryEngine } from '../wall/WallGeometryEngine.js';
 
 export class Anchor {
-    constructor(planner, x, y) {
-        this.planner = planner; this.lastValidPos = { x, y };
-        this.node = new Konva.Group({ x, y, draggable: true, visible: false });
+    constructor(planner, x, y, id = null) {
+        this.planner = planner;
+        this.id = id || ('anc_' + Math.random().toString(36).substr(2, 9));
+        this.lastValidPos = { x: Number(x) || 0, y: Number(y) || 0 };
+        this.node = new Konva.Group({ id: this.id, x: this.lastValidPos.x, y: this.lastValidPos.y, draggable: true, visible: false });
+        this.node.anchor = this;
         this.node.add(new Konva.Circle({ radius: 35, fill: 'transparent' })); // Large invisible touch target
         this.innerCircle = new Konva.Circle({ radius: 8, fill: "#111827", stroke: "white", strokeWidth: 2 });
         this.node.add(this.innerCircle);
@@ -62,65 +65,13 @@ export class Anchor {
             this.planner.selectEntity(this, 'anchor');
             if (this.planner.commandManager) this._dragSnapshotCmd = new SnapshotCommand(this.planner);
             
-            this.trackedObjects = [];
             this.trackedArcs = [];
-
-            const getBestWallForObject = (item, type) => {
-                if (item.attachedWall) return item.attachedWall;
-                let objPos = null;
-                if (type === 'furniture' || (type && type.startsWith('shape')) || type === 'platform' || type === 'stairs') {
-                    if (item.group && typeof item.group.x === 'function') {
-                        objPos = { x: item.group.x(), y: item.group.y() };
-                    } else if (item.x !== undefined && item.y !== undefined) {
-                        objPos = { x: Number(item.x) || 0, y: Number(item.y) || 0 };
-                    }
-                }
-                if (!objPos) return null;
-                let minDist = 100;
-                let bestWall = null;
-                attachedWalls.forEach(w => {
-                    let d = this.planner.getDistanceToWall(objPos, w);
-                    if (d < minDist) { minDist = d; bestWall = w; }
-                });
-                return bestWall;
-            };
 
             attachedWalls.forEach(w => {
                 const p1 = w.startAnchor.position();
                 const p2 = w.endAnchor.position();
                 const dx = p2.x - p1.x, dy = p2.y - p1.y;
-                const wallAngle = Math.atan2(dy, dx);
                 const len = Math.hypot(dx, dy);
-                
-                if (this.planner.wallTrackingEnabled) {
-                    const collectNear = (list, type) => {
-                        if (!list) return;
-                        list.forEach(item => {
-                            if (this.trackedObjects.some(to => to.obj === item)) return;
-                            if (getBestWallForObject(item, type) === w) {
-                                let pos = (item.group && typeof item.group.x === 'function')
-                                    ? { x: item.group.x(), y: item.group.y() }
-                                    : { x: Number(item.x) || 0, y: Number(item.y) || 0 };
-                                const t = len === 0 ? 0 : ((pos.x - p1.x)*dx + (pos.y - p1.y)*dy) / (len*len);
-                                const distToWall = len === 0 ? 0 : (pos.x - p1.x)*(-dy/len) + (pos.y - p1.y)*(dx/len);
-                                this.trackedObjects.push({
-                                    wall: w, type, obj: item,
-                                    relT: t, normDist: distToWall,
-                                    relRot: (item.rotation || 0) - (wallAngle * 180 / Math.PI),
-                                    initialLen: len,
-                                    initialScaleX: (item.group && item.group.scaleX) ? item.group.scaleX() : 1,
-                                    initialScaleY: (item.group && item.group.scaleY) ? item.group.scaleY() : 1,
-                                    initialWidth: item.width || (item.params ? item.params.width : undefined),
-                                    initialHeight: item.depth || item.height || (item.params ? item.params.height : undefined)
-                                });
-                            }
-                        });
-                    };
-                    collectNear(this.planner.furniture, 'furniture');
-                    collectNear(this.planner.shapes, 'shape');
-                    collectNear(this.planner.platforms, 'platform');
-                    collectNear(this.planner.stairs, 'stairs');
-                }
                 
                 if (this.planner.arcs) {
                     const isPointOnSegment = (p, pA, pB) => {
@@ -210,62 +161,6 @@ export class Anchor {
                 this.lastValidPos = proposedPos; 
             } 
             
-            if (this.planner.wallTrackingEnabled && this.trackedObjects && this.trackedObjects.length > 0) {
-                this.trackedObjects.forEach(item => {
-                    const w = item.wall;
-                    const p1 = w.startAnchor.position();
-                    const p2 = w.endAnchor.position();
-                    const dx = p2.x - p1.x, dy = p2.y - p1.y;
-                    const len = Math.hypot(dx, dy);
-                    if (len === 0) return;
-                    const wallAngle = Math.atan2(dy, dx);
-                    const nx = -dy / len;
-                    const ny = dx / len;
-                    
-                    const scaleRatio = item.initialLen > 0 ? len / item.initialLen : 1;
-                    
-                    const newX = p1.x + item.relT * dx + nx * (item.normDist * scaleRatio);
-                    const newY = p1.y + item.relT * dy + ny * (item.normDist * scaleRatio);
-                    const newRot = item.relRot + (wallAngle * 180 / Math.PI);
-                    
-                    if (item.type === 'furniture' || (item.type && item.type.startsWith('shape'))) {
-                        item.obj.group.position({ x: newX, y: newY });
-                        item.obj.rotation = newRot;
-                        if (item.type === 'furniture') {
-                            if (item.initialWidth !== undefined) item.obj.width = item.initialWidth * scaleRatio;
-                            if (item.initialHeight !== undefined) item.obj.depth = item.initialHeight * scaleRatio;
-                        } else {
-                            if (item.initialScaleX !== undefined) item.obj.group.scaleX(item.initialScaleX * scaleRatio);
-                            if (item.initialScaleY !== undefined) item.obj.group.scaleY(item.initialScaleY * scaleRatio);
-                        }
-                        if (item.obj.update) item.obj.update();
-                    } else if (item.type === 'platform') {
-                        item.obj.x = newX;
-                        item.obj.y = newY;
-                        if (item.obj.group && typeof item.obj.group.position === 'function') {
-                            item.obj.group.position({ x: newX, y: newY });
-                        }
-                        item.obj.rotation = newRot;
-                        if (item.initialWidth !== undefined && item.obj.width !== undefined) item.obj.width = item.initialWidth * scaleRatio;
-                        if (item.initialHeight !== undefined && item.obj.depth !== undefined) item.obj.depth = item.initialHeight * scaleRatio;
-                        if (typeof item.obj.update2D === 'function') item.obj.update2D();
-                        else if (typeof item.obj.update === 'function') item.obj.update();
-                        if (typeof item.obj._sync3DTransform === 'function') item.obj._sync3DTransform();
-                        if (item.initialWidth !== undefined && typeof item.obj._sync3DGeometry === 'function') item.obj._sync3DGeometry();
-                    } else if (item.type === 'stairs') {
-                        item.obj.x = newX;
-                        item.obj.y = newY;
-                        if (item.obj.group && typeof item.obj.group.position === 'function') {
-                            item.obj.group.position({ x: newX, y: newY });
-                        }
-                        item.obj.rotation = newRot;
-                        if (typeof item.obj.update2D === 'function') item.obj.update2D();
-                        else if (typeof item.obj.update === 'function') item.obj.update();
-                        if (typeof item.obj._sync3DTransform === 'function') item.obj._sync3DTransform();
-                    }
-                });
-            }
-
             if (this.trackedArcs && this.trackedArcs.length > 0) {
                 this.trackedArcs.forEach(item => {
                     const w = item.wall;

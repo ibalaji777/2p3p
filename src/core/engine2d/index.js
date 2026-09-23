@@ -2199,7 +2199,7 @@ export class FloorPlanner {
         const state = {
             settings: this.settings,
             unit: this.currentUnit,
-            anchors: this.anchors.map(a => ({ id: a._id, x: a.x, y: a.y })),
+            anchors: this.anchors.map(a => ({ id: a.id || a._id, _id: a._id, x: a.x, y: a.y })),
             walls: standardWalls.map(w => WallSerializer.serialize(w)),
             furniture: this.furniture ? this.furniture.map(f => FurnitureEngine.serialize(f)).filter(Boolean) : [],
             stairs: this.stairs ? this.stairs.map(s => StairEngine.serialize(s)).filter(Boolean) : [],
@@ -2304,9 +2304,10 @@ export class FloorPlanner {
             const anchorMap = new Map();
             if (state.anchors && Array.isArray(state.anchors)) { 
                 state.anchors.forEach(aData => { 
-                    const newAnchor = new Anchor(this, aData.x, aData.y); 
+                    const newAnchor = new Anchor(this, aData.x, aData.y, aData.id); 
                     this.anchors.push(newAnchor); 
-                    anchorMap.set(aData.id, newAnchor); 
+                    if (aData._id !== undefined) anchorMap.set(aData._id, newAnchor);
+                    if (aData.id !== undefined) anchorMap.set(aData.id, newAnchor);
                 }); 
             }
 

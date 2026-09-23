@@ -182,17 +182,20 @@ export class PremiumStaircase {
                 });
 
                 if (hostRes && hostRes.detection && hostRes.host) {
-                    const det = hostRes.detection;
-                    StairEngine.batchUpdate(this.planner, this, {
-                        height: det.detectedHeight,
-                        totalSteps: det.optimalSteps,
-                        flight1Steps: det.flight1Steps,
-                        flight2Steps: det.flight2Steps,
-                        stepHeight: det.stepHeight
-                    });
+                    const isPlatform = hostRes.hostType === 'platform';
+                    if (isPlatform) {
+                        const det = hostRes.detection;
+                        StairEngine.batchUpdate(this.planner, this, {
+                            height: det.detectedHeight,
+                            totalSteps: det.optimalSteps,
+                            flight1Steps: det.flight1Steps,
+                            flight2Steps: det.flight2Steps,
+                            stepHeight: det.stepHeight
+                        });
+                    }
 
                     globalSpatialDependencyEngine.attach(this, hostRes.host, {
-                        relationshipType: RELATIONSHIP_TYPES.SUPPORTED,
+                        relationshipType: hostRes.relationshipType || RELATIONSHIP_TYPES.SUPPORTED,
                         localTransform: hostRes.localTransform
                     });
                 } else if (this.hostPlatformId || this.hostId) {
@@ -258,7 +261,26 @@ export class PremiumStaircase {
     }
 
     update2D() {
+        if (this.group) {
+            this.group.position({ x: this.x, y: this.y });
+            this.group.rotation(this.rotation);
+        }
         this.update();
+    }
+
+    update3D() {
+        if (this.mesh3D) {
+            this.mesh3D.position.set(this.x, Number(this.elevation) || 0, this.y);
+            this.mesh3D.rotation.y = (-(Number(this.rotation) || 0) * Math.PI) / 180;
+            if (typeof this.mesh3D.updateMatrixWorld === 'function') {
+                this.mesh3D.updateMatrixWorld(true);
+            }
+        }
+        this._notify3DUpdate();
+    }
+
+    _sync3DTransform() {
+        this.update3D();
     }
 
     update() {
@@ -639,8 +661,12 @@ export class PremiumStaircase {
         return getStairCutoutPolygon(this);
     }
 
-    onHostTransformed(hostTransform) {
+    onHostTransformed(hostTransform, newWorld, record) {
         if (!hostTransform) return;
+        // Strictly adapt height ONLY when supported by an elevated platform
+        const isPlatformHost = record?.hostType === 'platform' || this.hostType === 'platform' || (!record && this.hostPlatformId && !this.parentWallId);
+        if (!isPlatformHost) return;
+
         const targetH = Math.max(20, Math.abs((Number(hostTransform.elevation) || 0) + (Number(hostTransform.height) || 0) - (Number(this.baseElevation) || 0)));
         if (Math.abs((this.height || 0) - targetH) > 1) {
             const optimal = StairGeometryEngine.calculateOptimalSteps(targetH, this.shape || 'straight');

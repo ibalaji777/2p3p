@@ -33,6 +33,7 @@ export class FurnitureEngine {
         if (options.height !== undefined && options.height !== null) entity.height = Number(options.height);
         if (options.elevation !== undefined && options.elevation !== null) entity.elevation = Number(options.elevation);
         if (options.rotation !== undefined && options.rotation !== null) entity.rotation = Number(options.rotation);
+        if (options.parentWallId !== undefined) entity.parentWallId = options.parentWallId;
         if (options.hostPlatformId !== undefined) entity.hostPlatformId = options.hostPlatformId;
         if (options.hostFurnitureId !== undefined) entity.hostFurnitureId = options.hostFurnitureId;
         if (options.hostId !== undefined) entity.hostId = options.hostId;
@@ -50,6 +51,10 @@ export class FurnitureEngine {
             } else if (options.hostFurnitureId) {
                 entity.hostId = options.hostFurnitureId;
                 entity.hostType = 'furniture';
+                entity.relationshipType = entity.relationshipType || RELATIONSHIP_TYPES.SURFACE_ATTACHED;
+            } else if (options.parentWallId) {
+                entity.hostId = options.parentWallId;
+                entity.hostType = 'wall';
                 entity.relationshipType = entity.relationshipType || RELATIONSHIP_TYPES.SURFACE_ATTACHED;
             }
         }
@@ -135,8 +140,9 @@ export class FurnitureEngine {
             params: furniture.params ? JSON.parse(JSON.stringify(furniture.params)) : null,
             hostPlatformId: furniture.hostPlatformId || null,
             hostFurnitureId: furniture.hostFurnitureId || null,
-            hostId: furniture.hostId || furniture.hostPlatformId || furniture.hostFurnitureId || null,
-            hostType: furniture.hostType || (furniture.hostPlatformId ? 'platform' : (furniture.hostFurnitureId ? 'furniture' : null)),
+            parentWallId: furniture.parentWallId || null,
+            hostId: furniture.hostId || furniture.parentWallId || furniture.hostPlatformId || furniture.hostFurnitureId || null,
+            hostType: furniture.hostType || (furniture.parentWallId ? 'wall' : (furniture.hostPlatformId ? 'platform' : (furniture.hostFurnitureId ? 'furniture' : null))),
             relationshipType: furniture.relationshipType || null,
             localTransform: furniture.localTransform ? JSON.parse(JSON.stringify(furniture.localTransform)) : null,
             relativeElevation: furniture.relativeElevation || 0,
@@ -172,8 +178,9 @@ export class FurnitureEngine {
             params: data.params,
             hostPlatformId: data.hostPlatformId,
             hostFurnitureId: data.hostFurnitureId,
-            hostId: data.hostId || data.hostPlatformId || data.hostFurnitureId || null,
-            hostType: data.hostType || (data.hostPlatformId ? 'platform' : (data.hostFurnitureId ? 'furniture' : null)),
+            parentWallId: data.parentWallId,
+            hostId: data.hostId || data.parentWallId || data.hostPlatformId || data.hostFurnitureId || null,
+            hostType: data.hostType || (data.parentWallId ? 'wall' : (data.hostPlatformId ? 'platform' : (data.hostFurnitureId ? 'furniture' : null))),
             relationshipType: data.relationshipType || null,
             localTransform: data.localTransform || null,
             relativeElevation: data.relativeElevation,
