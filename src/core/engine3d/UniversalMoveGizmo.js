@@ -18,6 +18,7 @@ import { StairHeightDetector } from '../../features/stairs/StairHeightDetector.j
 import { StairEngine } from '../stairs/StairEngine.js';
 import { globalSpatialDependencyEngine } from '../spatial/SpatialDependencyEngine.js';
 import { TransformEngine } from '../transform/TransformEngine.js';
+import { coreEventBus } from '../EventBus.js';
 
 export class UniversalMoveGizmo extends THREE.Group {
     /**
@@ -835,29 +836,17 @@ export class UniversalMoveGizmo extends THREE.Group {
         this.hudPanel.style.cssText = `
             position: fixed; top: 130px; left: 50%; transform: translateX(-50%);
             display: none; flex-direction: column; align-items: center; gap: 6px;
-            background: transparent; color: white; padding: 0;
-            border-radius: 20px; border: none;
+            background: rgba(15, 23, 42, 0.94); color: white; padding: 8px 10px;
+            border-radius: 14px; border: 1px solid rgba(0, 240, 255, 0.45);
+            box-shadow: 0 12px 30px rgba(0, 0, 0, 0.7), 0 0 16px rgba(0, 240, 255, 0.2);
             backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
             z-index: 100000; font-family: 'Inter', system-ui, -apple-system, sans-serif;
             pointer-events: auto; user-select: none; transition: all 0.2s ease;
         `;
 
         this.hudPanel.innerHTML = `
-            <!-- 1. Small Collapsed Floating Button (Default - Attached Under Top Toolbar) -->
-            <button id="move-hud-mini-btn" style="
-                display: flex; align-items: center; gap: 5px; padding: 4px 12px; border-radius: 20px;
-                background: rgba(15, 23, 42, 0.9); border: 1px solid rgba(0, 240, 255, 0.5);
-                color: #00f0ff; box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5), 0 0 8px rgba(0, 240, 255, 0.2);
-                font-size: 10.5px; font-weight: 700; cursor: pointer; backdrop-filter: blur(12px);
-                transition: transform 0.15s ease, background 0.15s ease;
-            " title="Open Move Precision Controls">
-                <span style="font-size: 11px;">⬌</span>
-                <span>Move Precision</span>
-                <span style="font-size: 9px; opacity: 0.8; margin-left: 2px;">▾</span>
-            </button>
-
-            <!-- 2. Expanded Detail Panel Body (Shown on Click) -->
-            <div id="move-hud-expanded-body" style="display: none; flex-direction: column; align-items: center; gap: 6px; width: 185px;">
+            <!-- Detail Panel Body (Precision Controls) -->
+            <div id="move-hud-expanded-body" style="display: flex; flex-direction: column; align-items: center; gap: 6px; width: 185px;">
                 <!-- Header: Draggable Grip Bar & Close -->
                 <div id="move-hud-header" style="display: flex; justify-content: space-between; align-items: center; width: 100%; padding-bottom: 4px; border-bottom: 1px solid rgba(255,255,255,0.1); cursor: grab; touch-action: none;">
                     <div style="display: flex; align-items: center; gap: 5px;">
@@ -865,7 +854,7 @@ export class UniversalMoveGizmo extends THREE.Group {
                         <span style="display: inline-flex; align-items: center; justify-content: center; width: 15px; height: 15px; border-radius: 50%; background: rgba(0, 240, 255, 0.15); color: #00f0ff; font-size: 9.5px;">⬌</span>
                         <span style="font-size: 10.5px; font-weight: 800; color: #f1f5f9; letter-spacing: 0.5px;">MOVE PRECISION</span>
                     </div>
-                    <button id="move-btn-close-hud" style="background: transparent; border: none; color: #64748b; font-size: 12px; cursor: pointer; padding: 0 2px; line-height: 1; transition: color 0.15s;" title="Minimize to Button">✕</button>
+                    <button id="move-btn-close-hud" style="background: transparent; border: none; color: #64748b; font-size: 12px; cursor: pointer; padding: 0 2px; line-height: 1; transition: color 0.15s;" title="Close">✕</button>
                 </div>
 
                 <!-- Precision 4-Way D-Pad Steppers -->
@@ -916,47 +905,20 @@ export class UniversalMoveGizmo extends THREE.Group {
 
     _setHUDExpanded(expanded) {
         this._isHUDExpanded = !!expanded;
-        const miniBtn = this.hudPanel?.querySelector('#move-hud-mini-btn');
-        const expandedBody = this.hudPanel?.querySelector('#move-hud-expanded-body');
-        if (miniBtn && expandedBody) {
-            if (this._isHUDExpanded) {
-                miniBtn.style.display = 'none';
-                expandedBody.style.display = 'flex';
-                this.hudPanel.style.padding = '8px 10px';
-                this.hudPanel.style.background = 'rgba(15, 23, 42, 0.94)';
-                this.hudPanel.style.border = '1px solid rgba(0, 240, 255, 0.45)';
-                this.hudPanel.style.borderRadius = '14px';
-                this.hudPanel.style.boxShadow = '0 12px 30px rgba(0, 0, 0, 0.7), 0 0 16px rgba(0, 240, 255, 0.2)';
-            } else {
-                miniBtn.style.display = 'flex';
-                expandedBody.style.display = 'none';
-                this.hudPanel.style.padding = '0';
-                this.hudPanel.style.background = 'transparent';
-                this.hudPanel.style.border = 'none';
-                this.hudPanel.style.borderRadius = '20px';
-                this.hudPanel.style.boxShadow = 'none';
-            }
+        if (!expanded && this.hudPanel) {
+            this.hudPanel.style.display = 'none';
         }
     }
 
     _initHUDPanelEvents() {
         if (!this.hudPanel) return;
 
-        // Toggle Expand / Collapse Mini Button
-        const miniBtn = this.hudPanel.querySelector('#move-hud-mini-btn');
-        if (miniBtn) {
-            miniBtn.onclick = (e) => {
-                e.stopPropagation();
-                this._setHUDExpanded(true);
-            };
-        }
-
-        // Close / Minimize Button
+        // Close Button
         const btnClose = this.hudPanel.querySelector('#move-btn-close-hud');
         if (btnClose) {
             btnClose.onclick = (e) => {
                 e.stopPropagation();
-                this._setHUDExpanded(false);
+                this.hideHUD();
             };
             btnClose.onmouseenter = () => { btnClose.style.color = '#ef4444'; };
             btnClose.onmouseleave = () => { btnClose.style.color = '#64748b'; };
@@ -1168,10 +1130,66 @@ export class UniversalMoveGizmo extends THREE.Group {
         });
     }
 
+    step(dx, dz) {
+        if (!this.attachedObject) return;
+        const stepDist = this.snapMode > 0 ? this.snapMode : 10;
+        const delta = new THREE.Vector3(dx * stepDist, 0, dz * stepDist);
+        this.startMeshPos.copy(this.attachedObject.position);
+        this.startGizmoPos.copy(this.position);
+        this._applyTranslation(delta);
+        this._commitTranslationToPlanner();
+        this.syncHUD();
+        if (this.ctx.interactions?.highlightRenderer) {
+            this.ctx.interactions.highlightRenderer.refresh(this.attachedObject);
+        }
+        if (this.ctx.interactions?._updateSims4Footprint) {
+            this.ctx.interactions._updateSims4Footprint(this.attachedObject);
+        }
+        if (this.ctx.requestRender) this.ctx.requestRender('move_dpad_step');
+    }
+
+    setCoordinates(valX, valZ) {
+        if (!this.attachedEntity || !this.attachedObject) return;
+        const curX = this.attachedEntity.x !== undefined ? this.attachedEntity.x : this.attachedObject.position.x;
+        const curZ = this.attachedEntity.y !== undefined ? this.attachedEntity.y : this.attachedObject.position.z;
+        const deltaX = (valX !== undefined && valX !== null) ? (valX - curX) : 0;
+        const deltaZ = (valZ !== undefined && valZ !== null) ? (valZ - curZ) : 0;
+        this.startMeshPos.copy(this.attachedObject.position);
+        this.startGizmoPos.copy(this.position);
+        this._applyTranslation(new THREE.Vector3(deltaX, 0, deltaZ));
+        this._commitTranslationToPlanner();
+        this.syncHUD();
+        if (this.ctx.interactions?.highlightRenderer) {
+            this.ctx.interactions.highlightRenderer.refresh(this.attachedObject);
+        }
+        if (this.ctx.interactions?._updateSims4Footprint) {
+            this.ctx.interactions._updateSims4Footprint(this.attachedObject);
+        }
+        if (this.ctx.requestRender) this.ctx.requestRender('move_set_coords');
+    }
+
+    setSnapMode(snap) {
+        this.snapMode = snap;
+    }
+
     showHUD() {
         if (this.hudPanel) {
+            // Badges not required — when unified ContextualActionHUD or commonTools is present, suppress floating HUD completely
+            const isUnifiedHUDActive = Boolean(
+                this.ctx?.commonTools ||
+                this.ctx?.preview3D?.commonTools ||
+                (typeof window !== 'undefined' && (window.renderer3D?.commonTools || window.planner?.engine3d?.commonTools)) ||
+                (typeof document !== 'undefined' && (
+                    document.querySelector('.contextual-action-hud-container') ||
+                    document.querySelector('.action-hud-card') ||
+                    document.querySelector('.common-toolbar-3d')
+                ))
+            );
+            if (isUnifiedHUDActive) {
+                this.hudPanel.style.display = 'none';
+                return;
+            }
             this.hudPanel.style.display = 'flex';
-            this._setHUDExpanded(false);
         }
     }
 
@@ -1182,13 +1200,16 @@ export class UniversalMoveGizmo extends THREE.Group {
     }
 
     syncHUD() {
-        if (!this.hudPanel || !this.attachedObject) return;
-
-        const inputX = this.hudPanel.querySelector('#move-hud-input-x');
-        const inputZ = this.hudPanel.querySelector('#move-hud-input-z');
+        if (!this.attachedObject) return;
 
         const curX = Math.round(this.attachedEntity?.x !== undefined ? this.attachedEntity.x : this.attachedObject.position.x);
         const curZ = Math.round(this.attachedEntity?.y !== undefined ? this.attachedEntity.y : this.attachedObject.position.z);
+        coreEventBus.emit('UniversalMoveChanged', { x: curX, z: curZ });
+
+        if (!this.hudPanel) return;
+
+        const inputX = this.hudPanel.querySelector('#move-hud-input-x');
+        const inputZ = this.hudPanel.querySelector('#move-hud-input-z');
 
         if (inputX && document.activeElement !== inputX) inputX.value = curX;
         if (inputZ && document.activeElement !== inputZ) inputZ.value = curZ;

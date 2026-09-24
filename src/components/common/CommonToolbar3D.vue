@@ -62,7 +62,6 @@
       <button 
         class="tool-btn" 
         :class="{ active: currentTool === 'move', disabled: !canMove }"
-        :disabled="!canMove"
         @click="selectTool('move')"
         title="Move Object (Key: M / G)"
       >
@@ -80,7 +79,6 @@
       <button 
         class="tool-btn" 
         :class="{ active: currentTool === 'spin', disabled: !canSpin }"
-        :disabled="!canSpin"
         @click="selectTool('spin')"
         title="Spin / Rotate (Key: R)"
       >
@@ -94,7 +92,6 @@
       <button 
         class="tool-btn action-btn" 
         :class="{ disabled: !canElevate }"
-        :disabled="!canElevate"
         @click="triggerElevate(1)"
         title="Elevate Up (Key: ] / PageUp)"
       >
@@ -108,7 +105,6 @@
       <button 
         class="tool-btn action-btn" 
         :class="{ disabled: !canElevate }"
-        :disabled="!canElevate"
         @click="triggerElevate(-1)"
         title="Elevate Down (Key: [ / PageDown)"
       >
@@ -523,35 +519,70 @@ const currentCaps = ref({
 });
 
 const canMove = computed(() => {
-  return selectedEntity.value ? !!currentCaps.value.movable : true;
+  return selectedEntity.value ? !!currentCaps.value.movable : false;
 });
 
 const canSpin = computed(() => {
-  return selectedEntity.value ? !!currentCaps.value.rotatable : true;
+  return selectedEntity.value ? !!currentCaps.value.rotatable : false;
 });
 
 const canTilt = computed(() => {
-  return selectedEntity.value ? !!currentCaps.value.tiltable : true;
+  return selectedEntity.value ? !!currentCaps.value.tiltable : false;
 });
 
 const canElevate = computed(() => {
   return selectedEntity.value ? !!currentCaps.value.elevatable : false;
 });
 
+const effectiveController = computed(() => {
+  return props.controller || (typeof window !== 'undefined' ? (window.renderer3D?.commonTools || window.planner?.engine3d?.commonTools) : null);
+});
+
 const selectTool = (toolId) => {
+  const ctrl = effectiveController.value;
+
+  if (toolId === 'move') {
+    if (!selectedEntity.value) {
+      coreEventBus.emit('ShowToast', { message: 'Select an object first', type: 'info' });
+      return;
+    }
+    if (!canMove.value) return;
+    if (ctrl?.activateAction) {
+      ctrl.activateAction('move');
+      return;
+    }
+  }
+
+  if (toolId === 'spin') {
+    if (!selectedEntity.value) {
+      coreEventBus.emit('ShowToast', { message: 'Select an object first', type: 'info' });
+      return;
+    }
+    if (!canSpin.value) return;
+    if (ctrl?.activateAction) {
+      ctrl.activateAction('spin');
+      return;
+    }
+  }
+
   if (currentTool.value === toolId && toolId === 'wall_corners') {
     toolId = 'select';
   }
   currentTool.value = toolId;
-  if (props.controller) {
-    props.controller.setTool(toolId);
+  if (ctrl) {
+    ctrl.setTool(toolId);
   }
   emit('tool-changed', toolId);
 };
 
 const triggerElevate = (direction) => {
-  if (props.controller) {
-    props.controller.handleAxisStep(direction);
+  if (!selectedEntity.value) {
+    coreEventBus.emit('ShowToast', { message: 'Select an object first', type: 'info' });
+    return;
+  }
+  const ctrl = effectiveController.value;
+  if (ctrl) {
+    ctrl.handleAxisStep(direction);
   }
   emit('elevate', direction);
 };
@@ -561,6 +592,19 @@ let unsubs = [];
 onMounted(() => {
   unsubs.push(coreEventBus.on('CommonToolChanged', ({ activeTool }) => {
     if (activeTool) currentTool.value = activeTool;
+  }));
+
+  unsubs.push(coreEventBus.on('InteractionStateChanged', (state) => {
+    if (!state) return;
+    if (state.activeAction) {
+      currentTool.value = state.activeAction;
+    } else if (state.activeTool) {
+      currentTool.value = state.activeTool;
+    }
+    selectedEntity.value = state.selectedEntity || null;
+    if (state.capabilities) {
+      currentCaps.value = { ...state.capabilities };
+    }
   }));
 
   unsubs.push(coreEventBus.on('CommonSelectionChanged', ({ entity, capabilities }) => {
@@ -659,7 +703,13 @@ onBeforeUnmount(() => {
   box-shadow: 0 2px 8px rgba(37, 99, 235, 0.35);
 }
 
-.tool-btn.disabled,
+.tool-btn.disabled {
+  opacity: 0.45;
+  color: #94a3b8;
+  cursor: not-allowed;
+  pointer-events: auto;
+}
+
 .tool-btn:disabled {
   opacity: 0.45;
   color: #94a3b8;

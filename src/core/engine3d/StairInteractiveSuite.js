@@ -49,6 +49,7 @@ export class StairInteractiveSuite extends THREE.Group {
 
         this._onCameraChange = this._onCameraChange.bind(this);
         this._onGeometryUpdated = this._onGeometryUpdated.bind(this);
+        this._onInteractionStateChanged = this._onInteractionStateChanged.bind(this);
 
         if (this.ctx.controls) {
             this.ctx.controls.addEventListener('change', this._onCameraChange);
@@ -56,6 +57,34 @@ export class StairInteractiveSuite extends THREE.Group {
 
         if (coreEventBus) {
             coreEventBus.on('EntityGeometryUpdated', this._onGeometryUpdated);
+            coreEventBus.on('InteractionStateChanged', this._onInteractionStateChanged);
+        }
+    }
+
+    _isActionActive() {
+        const commonTools = this.ctx.commonTools || 
+                            this.ctx.preview3D?.commonTools || 
+                            this.ctx.interactions?.commonController || 
+                            (typeof window !== 'undefined' ? (window.renderer3D?.commonTools || window.planner?.engine3d?.commonTools) : null);
+        if (!commonTools) return false;
+        if (typeof commonTools.isActionActive === 'function') {
+            return commonTools.isActionActive();
+        }
+        return Boolean(commonTools.activeAction || commonTools.interactionState === 'action_active');
+    }
+
+    _onInteractionStateChanged(state) {
+        if (state && (state.state === 'action_active' || state.activeAction)) {
+            if (this.domHUD) this.domHUD.style.display = 'none';
+            if (this.handlesGroup) this.handlesGroup.visible = false;
+            return;
+        }
+        if (!this.stair || !this.visible) return;
+        if (state && state.state === 'object_selected' && (state.selectedEntity === this.stair || state.selectedEntity?.id === this.stair.id)) {
+            if (this.handlesGroup) this.handlesGroup.visible = true;
+            this.update();
+        } else if (state && state.state === 'idle') {
+            this.detach();
         }
     }
 
@@ -172,7 +201,39 @@ export class StairInteractiveSuite extends THREE.Group {
 
         // Row 3: Interactive Action Controls
         const actionRow = document.createElement('div');
-        actionRow.style.cssText = 'display: flex; align-items: center; gap: 5px; margin-top: 2px;';
+        actionRow.style.cssText = 'display: flex; align-items: center; gap: 5px; margin-top: 2px; flex-wrap: wrap;';
+
+        // 3.0 Move Action Button
+        this.btnMove = document.createElement('button');
+        this.btnMove.innerHTML = `✢ Move`;
+        this.btnMove.title = 'Move Staircase (Translate X/Z)';
+        this._styleActionButton(this.btnMove, '#00f0ff', 'rgba(0, 240, 255, 0.2)');
+        this.btnMove.onclick = (e) => {
+            e.stopPropagation();
+            const commonTools = this.ctx.commonTools || 
+                                this.ctx.preview3D?.commonTools || 
+                                this.ctx.interactions?.commonController || 
+                                (typeof window !== 'undefined' ? (window.renderer3D?.commonTools || window.planner?.engine3d?.commonTools) : null);
+            if (commonTools) {
+                commonTools.activateAction('move');
+            }
+        };
+
+        // 3.0b Spin Action Button
+        this.btnSpin = document.createElement('button');
+        this.btnSpin.innerHTML = `↻ Spin`;
+        this.btnSpin.title = 'Rotate Staircase';
+        this._styleActionButton(this.btnSpin, '#00f0ff', 'rgba(0, 240, 255, 0.2)');
+        this.btnSpin.onclick = (e) => {
+            e.stopPropagation();
+            const commonTools = this.ctx.commonTools || 
+                                this.ctx.preview3D?.commonTools || 
+                                this.ctx.interactions?.commonController || 
+                                (typeof window !== 'undefined' ? (window.renderer3D?.commonTools || window.planner?.engine3d?.commonTools) : null);
+            if (commonTools) {
+                commonTools.activateAction('spin');
+            }
+        };
 
         // 3.1 Flip Turn Button (⇄)
         this.btnFlip = document.createElement('button');
@@ -296,6 +357,8 @@ export class StairInteractiveSuite extends THREE.Group {
             this._deleteStaircase();
         };
 
+        actionRow.appendChild(this.btnMove);
+        actionRow.appendChild(this.btnSpin);
         actionRow.appendChild(this.btnFlip);
         actionRow.appendChild(widthGroup);
         actionRow.appendChild(this.landingStepGroup);
@@ -403,8 +466,11 @@ export class StairInteractiveSuite extends THREE.Group {
         }
 
         this.visible = true;
-        this.handlesGroup.visible = true;
-        if (this.domHUD) this.domHUD.style.display = 'flex';
+        const actionActive = this._isActionActive();
+        this.handlesGroup.visible = !actionActive;
+        if (this.domHUD) {
+            this.domHUD.style.display = actionActive ? 'none' : 'flex';
+        }
 
         this.update();
     }
@@ -435,6 +501,15 @@ export class StairInteractiveSuite extends THREE.Group {
         if (!this.stair || !this.target || !this.ctx.camera || !this.ctx.renderer) {
             if (this.domHUD) this.domHUD.style.display = 'none';
             return;
+        }
+
+        // CRITICAL: Suppress floating properties HUD and handles during active Move/Spin action
+        if (this._isActionActive()) {
+            if (this.domHUD) this.domHUD.style.display = 'none';
+            if (this.handlesGroup) this.handlesGroup.visible = false;
+            return;
+        } else {
+            if (this.handlesGroup) this.handlesGroup.visible = true;
         }
 
         const shape = (this.stair.shape || 'straight').toString();
@@ -523,6 +598,11 @@ export class StairInteractiveSuite extends THREE.Group {
 
     _updateHUDPosition(worldPos) {
         if (!this.domHUD || !this.ctx.camera || !this.ctx.renderer) return;
+
+        if (this._isActionActive()) {
+            this.domHUD.style.display = 'none';
+            return;
+        }
 
         // Place HUD 35cm above the landing / center point
         const elevatedPos = worldPos.clone().add(new THREE.Vector3(0, 35, 0));
@@ -626,6 +706,7 @@ export class StairInteractiveSuite extends THREE.Group {
 
         if (coreEventBus) {
             coreEventBus.off('EntityGeometryUpdated', this._onGeometryUpdated);
+            coreEventBus.off('InteractionStateChanged', this._onInteractionStateChanged);
         }
 
         if (this.domHUD && this.domHUD.parentElement) {

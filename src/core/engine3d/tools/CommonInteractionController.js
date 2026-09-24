@@ -17,20 +17,63 @@ import { globalShortcutRegistry, SHORTCUT_ACTIONS } from './CommonShortcutRegist
 import { coreEventBus } from '../../EventBus.js';
 import { usePlannerStore } from '../../../stores/usePlannerStore.js';
 
+export const INTERACTION_STATE = {
+    IDLE: 'IDLE',
+    OBJECT_SELECTED: 'OBJECT_SELECTED',
+    ACTION_SELECTED: 'ACTION_SELECTED',
+    ACTION_ACTIVE: 'ACTION_ACTIVE',
+    ACTION_COMPLETE: 'ACTION_COMPLETE'
+};
+
+export const INTERACTION_ACTIONS = {
+    SELECT: 'select',
+    MOVE: 'move',
+    SPIN: 'spin',
+    TILT: 'tilt',
+    PROPERTIES: 'properties',
+    MATERIAL: 'material',
+    DELETE: 'delete',
+    BUILDING_RISE: 'building_rise',
+    WALL_CORNERS: 'wall_corners'
+};
+
 export class CommonInteractionController {
     constructor(ctx) {
         this.ctx = ctx;
         
-        // Authoritative Interaction State
+        // Canonical State Machine State
+        this.interactionState = INTERACTION_STATE.IDLE;
+        this.activeAction = null;
+        this.hudMode = 'none'; // 'none' | 'contextual' | 'action_minimal' | 'properties'
+
+        // Authoritative Selection State
         this.activeTool = COMMON_TOOLS.SELECT;
         this.selectedEntity = null;
         this.selectedMesh = null;
+        this.selectedType = null;
         this.inputDevice = 'pointer';
 
         // Subsystems
         this.paintSystem = new UniversalMaterialPaintSystem(ctx, this);
         this.transformEngine = new CommonTransformEngine(ctx);
         this.shortcutRegistry = globalShortcutRegistry;
+    }
+
+    /**
+     * Returns canonical snapshot of current interaction state.
+     * @returns {Object}
+     */
+    getInteractionState() {
+        return {
+            state: this.interactionState,
+            selectedEntity: this.selectedEntity,
+            selectedMesh: this.selectedMesh,
+            selectedType: this.selectedType,
+            activeAction: this.activeAction,
+            hudMode: this.hudMode,
+            activeTool: this.activeTool,
+            capabilities: this.getCurrentCapabilities()
+        };
     }
 
     /**
@@ -74,6 +117,11 @@ export class CommonInteractionController {
 
         // 2. Transform Tools (Move, Spin, Tilt)
         if (toolId === COMMON_TOOLS.MOVE || toolId === COMMON_TOOLS.SPIN || toolId === COMMON_TOOLS.TILT) {
+            if (this.selectedEntity) {
+                this.interactionState = INTERACTION_STATE.ACTION_ACTIVE;
+                this.activeAction = toolId;
+                this.hudMode = 'action_minimal';
+            }
             const targetMesh = this.selectedMesh || this.selectedEntity?.mesh3D || this.ctx.interactions?.selectedObject;
             if (targetMesh && this.ctx.gizmoManager) {
                 const modeMap = {
@@ -115,6 +163,11 @@ export class CommonInteractionController {
             if (this.ctx.gizmoManager) {
                 this.ctx.gizmoManager.setTransformMode('none', true);
             }
+            if (this.interactionState === INTERACTION_STATE.ACTION_ACTIVE) {
+                this.activeAction = null;
+                this.hudMode = this.selectedEntity ? 'contextual' : 'none';
+                this.interactionState = this.selectedEntity ? INTERACTION_STATE.OBJECT_SELECTED : INTERACTION_STATE.IDLE;
+            }
         }
 
         // 4. Building Rise Mode
@@ -150,6 +203,7 @@ export class CommonInteractionController {
             activeTool: this.activeTool,
             previousTool
         });
+        coreEventBus.emit('InteractionStateChanged', this.getInteractionState());
 
         if (this.ctx.requestRender) this.ctx.requestRender('tool_changed');
     }
@@ -173,48 +227,240 @@ export class CommonInteractionController {
     }
 
     /**
-     * Updates selection state and evaluates capabilities.
-     * @param {Object} entity
+     * Master Selection Authority.
+     * Updates selection state, evaluates capabilities, and transitions to OBJECT_SELECTED.
+     * @param {Object|null} entity
      * @param {THREE.Object3D|null} mesh
+     * @param {string|null} type
      */
-    setSelection(entity, mesh = null) {
-        this.selectedEntity = entity;
-        this.selectedMesh = mesh;
-
-        // If currently in a transform tool, update or attach gizmo to new selection
-        if (this.activeTool === COMMON_TOOLS.MOVE || this.activeTool === COMMON_TOOLS.SPIN || this.activeTool === COMMON_TOOLS.TILT) {
-            const targetMesh = mesh || entity?.mesh3D || this.ctx.interactions?.selectedObject;
-            if (targetMesh && this.ctx.gizmoManager) {
-                const modeMap = {
-                    [COMMON_TOOLS.MOVE]: 'translate',
-                    [COMMON_TOOLS.SPIN]: 'rotateY',
-                    [COMMON_TOOLS.TILT]: 'rotateX'
-                };
-                this.ctx.gizmoManager.setTransformMode(modeMap[this.activeTool], true);
-            }
-            if (this.activeTool === COMMON_TOOLS.MOVE && targetMesh && this.ctx.interactions?.universalMoveGizmo) {
-                this.ctx.interactions.universalMoveGizmo.attach(targetMesh);
-            }
-            if (this.activeTool === COMMON_TOOLS.SPIN && targetMesh && this.ctx.interactions?.universalSpinGizmo) {
-                this.ctx.interactions.universalSpinGizmo.attach(targetMesh);
-            }
+    select(entity, mesh = null, type = null) {
+        if (!entity) {
+            this.clearSelection();
+            return;
         }
 
+        // If an action was active, complete or reset it before changing selection
+        if (this.interactionState === INTERACTION_STATE.ACTION_ACTIVE) {
+            this.completeAction();
+        }
+
+        this.selectedEntity = entity;
+        this.selectedMesh = mesh || entity?.mesh3D || null;
+        this.selectedType = type || entity?.type || null;
+        this.interactionState = INTERACTION_STATE.OBJECT_SELECTED;
+        this.activeAction = null;
+        this.hudMode = 'contextual';
+
+        // Synchronize 3D highlight
+        if (this.selectedMesh && this.ctx.interactions?.highlightRenderer) {
+            this.ctx.interactions.highlightRenderer.setSelectionHighlight(this.selectedMesh);
+        }
+
+        coreEventBus.emit('InteractionStateChanged', this.getInteractionState());
         coreEventBus.emit('CommonSelectionChanged', {
-            entity,
-            mesh,
+            entity: this.selectedEntity,
+            mesh: this.selectedMesh,
             capabilities: this.getCurrentCapabilities()
         });
+
+        if (this.ctx.requestRender) this.ctx.requestRender('selection_changed');
     }
 
     /**
-     * Clears the current selection.
+     * Backward-compatible alias for select().
+     * @param {Object} entity
+     * @param {THREE.Object3D|null} mesh
+     * @param {string|null} type
+     */
+    setSelection(entity, mesh = null, type = null) {
+        this.select(entity, mesh, type);
+    }
+
+    /**
+     * Clears the current selection and transitions back to IDLE.
      */
     clearSelection() {
+        if (this.interactionState === INTERACTION_STATE.ACTION_ACTIVE) {
+            this.completeAction();
+        }
+
         this.selectedEntity = null;
         this.selectedMesh = null;
-        if (this.activeTool !== COMMON_TOOLS.SELECT && this.activeTool !== COMMON_TOOLS.MATERIAL) {
+        this.selectedType = null;
+        this.activeAction = null;
+        this.interactionState = INTERACTION_STATE.IDLE;
+        this.hudMode = 'none';
+
+        if (this.ctx.interactions?.universalMoveGizmo) {
+            this.ctx.interactions.universalMoveGizmo.detach();
+        }
+        if (this.ctx.interactions?.universalSpinGizmo) {
+            this.ctx.interactions.universalSpinGizmo.detach();
+        }
+        if (this.ctx.gizmoManager) {
+            this.ctx.gizmoManager.setTransformMode('none', true);
+        }
+        if (this.ctx.interactions?.highlightRenderer) {
+            if (typeof this.ctx.interactions.highlightRenderer.clearSelectionHighlight === 'function') {
+                this.ctx.interactions.highlightRenderer.clearSelectionHighlight();
+            } else if (typeof this.ctx.interactions.highlightRenderer.clearHighlight === 'function') {
+                this.ctx.interactions.highlightRenderer.clearHighlight();
+            }
+        }
+
+        if (this.activeTool !== COMMON_TOOLS.SELECT && this.activeTool !== COMMON_TOOLS.MATERIAL && this.activeTool !== COMMON_TOOLS.BUILDING_RISE && this.activeTool !== COMMON_TOOLS.WALL_CORNERS) {
             this.setTool(COMMON_TOOLS.SELECT);
+        }
+
+        coreEventBus.emit('InteractionStateChanged', this.getInteractionState());
+        coreEventBus.emit('CommonSelectionChanged', {
+            entity: null,
+            mesh: null,
+            capabilities: this.getCurrentCapabilities()
+        });
+
+        if (this.ctx.requestRender) this.ctx.requestRender('selection_cleared');
+    }
+
+    /**
+     * Alias for clearSelection().
+     */
+    deselect() {
+        this.clearSelection();
+    }
+
+    /**
+     * Checks if a transform action (move, spin, tilt) is actively running.
+     * @returns {boolean}
+     */
+    isActionActive() {
+        return this.interactionState === INTERACTION_STATE.ACTION_ACTIVE || !!this.activeAction;
+    }
+
+    /**
+     * Checks if a specific action is currently active.
+     * @param {string} actionId
+     * @returns {boolean}
+     */
+    isAction(actionId) {
+        return this.activeAction === actionId;
+    }
+
+    /**
+     * Centralized action activator with capability guards & toast notifications.
+     * @param {string} actionId - 'move' | 'spin' | 'tilt' | 'properties' | 'material' | 'delete'
+     * @param {Object} options
+     * @returns {boolean} True if activated.
+     */
+    activateAction(actionId, options = {}) {
+        // Require selection for object actions
+        const requiresSelection = [
+            INTERACTION_ACTIONS.MOVE,
+            INTERACTION_ACTIONS.SPIN,
+            INTERACTION_ACTIONS.TILT,
+            INTERACTION_ACTIONS.PROPERTIES,
+            INTERACTION_ACTIONS.DELETE,
+            COMMON_TOOLS.AXIS_UP,
+            COMMON_TOOLS.AXIS_DOWN
+        ];
+
+        if (!this.selectedEntity && requiresSelection.includes(actionId)) {
+            coreEventBus.emit('ShowToast', {
+                message: 'Select an object first',
+                type: 'info'
+            });
+            return false;
+        }
+
+        const caps = this.getCurrentCapabilities();
+
+        switch (actionId) {
+            case INTERACTION_ACTIONS.MOVE:
+                if (!caps.movable) return false;
+                this.interactionState = INTERACTION_STATE.ACTION_ACTIVE;
+                this.activeAction = INTERACTION_ACTIONS.MOVE;
+                this.hudMode = 'action_minimal';
+                this.setTool(COMMON_TOOLS.MOVE, options);
+                coreEventBus.emit('InteractionStateChanged', this.getInteractionState());
+                return true;
+
+            case INTERACTION_ACTIONS.SPIN:
+                if (!caps.rotatable) return false;
+                this.interactionState = INTERACTION_STATE.ACTION_ACTIVE;
+                this.activeAction = INTERACTION_ACTIONS.SPIN;
+                this.hudMode = 'action_minimal';
+                this.setTool(COMMON_TOOLS.SPIN, options);
+                coreEventBus.emit('InteractionStateChanged', this.getInteractionState());
+                return true;
+
+            case INTERACTION_ACTIONS.TILT:
+                if (!caps.tiltable) return false;
+                this.interactionState = INTERACTION_STATE.ACTION_ACTIVE;
+                this.activeAction = INTERACTION_ACTIONS.TILT;
+                this.hudMode = 'action_minimal';
+                this.setTool(COMMON_TOOLS.TILT, options);
+                coreEventBus.emit('InteractionStateChanged', this.getInteractionState());
+                return true;
+
+            case INTERACTION_ACTIONS.PROPERTIES:
+                this.hudMode = (this.hudMode === 'properties' ? 'contextual' : 'properties');
+                coreEventBus.emit('InteractionStateChanged', this.getInteractionState());
+                return true;
+
+            case INTERACTION_ACTIONS.MATERIAL:
+                this.setTool(COMMON_TOOLS.MATERIAL, options);
+                return true;
+
+            case INTERACTION_ACTIONS.DELETE:
+                if (this.ctx.onDeleteRequested) {
+                    this.ctx.onDeleteRequested(this.selectedEntity);
+                }
+                this.clearSelection();
+                return true;
+
+            default:
+                return false;
+        }
+    }
+
+    /**
+     * Completes the current active action and returns to OBJECT_SELECTED state.
+     * The selected object remains selected.
+     */
+    completeAction() {
+        if (this.interactionState !== INTERACTION_STATE.ACTION_ACTIVE) return;
+
+        this.interactionState = INTERACTION_STATE.ACTION_COMPLETE;
+
+        // Detach transform gizmos
+        if (this.ctx.interactions?.universalMoveGizmo) {
+            this.ctx.interactions.universalMoveGizmo.detach();
+        }
+        if (this.ctx.interactions?.universalSpinGizmo) {
+            this.ctx.interactions.universalSpinGizmo.detach();
+        }
+        if (this.ctx.gizmoManager) {
+            this.ctx.gizmoManager.setTransformMode('none', true);
+        }
+
+        // Return to clean OBJECT_SELECTED state
+        this.activeAction = null;
+        this.hudMode = 'contextual';
+        this.activeTool = COMMON_TOOLS.SELECT;
+        this.interactionState = this.selectedEntity ? INTERACTION_STATE.OBJECT_SELECTED : INTERACTION_STATE.IDLE;
+
+        coreEventBus.emit('InteractionStateChanged', this.getInteractionState());
+        if (this.ctx.requestRender) this.ctx.requestRender('action_complete');
+    }
+
+    /**
+     * Cancels the current active action, reverts changes if applicable, and returns to OBJECT_SELECTED.
+     */
+    cancelAction() {
+        if (this.interactionState === INTERACTION_STATE.ACTION_ACTIVE) {
+            this.completeAction();
+        } else if (this.interactionState === INTERACTION_STATE.OBJECT_SELECTED) {
+            this.clearSelection();
         }
     }
 
@@ -223,7 +469,13 @@ export class CommonInteractionController {
      * @param {number} direction - +1 for up, -1 for down.
      */
     handleAxisStep(direction = 1) {
-        if (!this.selectedEntity) return;
+        if (!this.selectedEntity) {
+            coreEventBus.emit('ShowToast', {
+                message: 'Select an object first',
+                type: 'info'
+            });
+            return;
+        }
         this.transformEngine.executeAxisStep(this.selectedEntity, direction, 10);
     }
 
@@ -243,7 +495,13 @@ export class CommonInteractionController {
     dispatchAction(actionName, payload = null) {
         switch (actionName) {
             case SHORTCUT_ACTIONS.SELECT:
-                this.setTool(COMMON_TOOLS.SELECT);
+                if (this.interactionState === INTERACTION_STATE.ACTION_ACTIVE) {
+                    this.completeAction();
+                } else if (this.interactionState === INTERACTION_STATE.OBJECT_SELECTED) {
+                    this.clearSelection();
+                } else {
+                    this.setTool(COMMON_TOOLS.SELECT);
+                }
                 break;
             case SHORTCUT_ACTIONS.MATERIAL:
                 this.setTool(COMMON_TOOLS.MATERIAL);
@@ -255,18 +513,13 @@ export class CommonInteractionController {
                 this.setTool(this.activeTool === COMMON_TOOLS.WALL_CORNERS ? COMMON_TOOLS.SELECT : COMMON_TOOLS.WALL_CORNERS);
                 break;
             case SHORTCUT_ACTIONS.MOVE:
-                this.setTool(COMMON_TOOLS.MOVE);
+                this.activateAction(INTERACTION_ACTIONS.MOVE);
                 break;
             case SHORTCUT_ACTIONS.SPIN:
-                if (this.selectedEntity) {
-                    // Quick spin step by 90 degrees if object is selected
-                    this.transformEngine.executeSpin(this.selectedEntity, 90);
-                } else {
-                    this.setTool(COMMON_TOOLS.SPIN);
-                }
+                this.activateAction(INTERACTION_ACTIONS.SPIN);
                 break;
             case SHORTCUT_ACTIONS.TILT:
-                this.setTool(COMMON_TOOLS.TILT);
+                this.activateAction(INTERACTION_ACTIONS.TILT);
                 break;
             case SHORTCUT_ACTIONS.AXIS_UP:
                 this.handleAxisStep(1);
@@ -275,8 +528,8 @@ export class CommonInteractionController {
                 this.handleAxisStep(-1);
                 break;
             case SHORTCUT_ACTIONS.DELETE:
-                if (this.ctx.onDeleteRequested) {
-                    this.ctx.onDeleteRequested(this.selectedEntity);
+                if (this.selectedEntity) {
+                    this.activateAction(INTERACTION_ACTIONS.DELETE);
                 }
                 break;
             case SHORTCUT_ACTIONS.ROTATE_CAMERA_LEFT:
@@ -315,3 +568,5 @@ export class CommonInteractionController {
         if (this.paintSystem) this.paintSystem.setActive(false);
     }
 }
+
+export const InteractionController = CommonInteractionController;

@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { PLATFORM_TRIM_STYLES } from '../engine2d/PremiumPlatform.js';
+import { coreEventBus } from '../EventBus.js';
 
 /**
  * PlatformInteractiveSuite
@@ -43,12 +44,44 @@ export class PlatformInteractiveSuite extends THREE.Group {
         this._onPointerDown = this._onPointerDown.bind(this);
         this._onPointerMove = this._onPointerMove.bind(this);
         this._onPointerUp = this._onPointerUp.bind(this);
+        this._onInteractionStateChanged = this._onInteractionStateChanged.bind(this);
 
         const dom = this.ctx.renderer?.domElement;
         if (dom) {
             dom.addEventListener('pointerdown', this._onPointerDown, { passive: false });
             dom.addEventListener('pointermove', this._onPointerMove, { passive: false });
             dom.addEventListener('pointerup', this._onPointerUp, { passive: false });
+        }
+
+        if (coreEventBus) {
+            coreEventBus.on('InteractionStateChanged', this._onInteractionStateChanged);
+        }
+    }
+
+    _isActionActive() {
+        const commonTools = this.ctx.commonTools || 
+                            this.ctx.preview3D?.commonTools || 
+                            this.ctx.interactions?.commonController || 
+                            (typeof window !== 'undefined' ? (window.renderer3D?.commonTools || window.planner?.engine3d?.commonTools) : null);
+        if (!commonTools) return false;
+        if (typeof commonTools.isActionActive === 'function') {
+            return commonTools.isActionActive();
+        }
+        return Boolean(commonTools.activeAction || commonTools.interactionState === 'action_active');
+    }
+
+    _onInteractionStateChanged(state) {
+        if (state && (state.state === 'action_active' || state.activeAction)) {
+            if (this.domHUD) this.domHUD.style.display = 'none';
+            if (this.heightHandleGroup) this.heightHandleGroup.visible = false;
+            return;
+        }
+        if (!this.platform || !this.visible) return;
+        if (state && state.state === 'object_selected' && (state.selectedEntity === this.platform || state.selectedEntity?.id === this.platform.id)) {
+            if (this.heightHandleGroup) this.heightHandleGroup.visible = true;
+            this.update();
+        } else if (state && state.state === 'idle') {
+            this.detach();
         }
     }
 
@@ -108,6 +141,38 @@ export class PlatformInteractiveSuite extends THREE.Group {
             box-shadow: 0 0 20px rgba(245, 158, 11, 0.35);
             backdrop-filter: blur(12px);
         `;
+
+        // 0. Move Button (✢)
+        const btnMove = document.createElement('button');
+        btnMove.innerHTML = `✢ Move`;
+        btnMove.title = 'Move Platform (Translate X/Z)';
+        this._styleHUDButton(btnMove, '#00f0ff', 'rgba(0, 240, 255, 0.2)');
+        btnMove.onclick = (e) => {
+            e.stopPropagation();
+            const commonTools = this.ctx.commonTools || 
+                                this.ctx.preview3D?.commonTools || 
+                                this.ctx.interactions?.commonController || 
+                                (typeof window !== 'undefined' ? (window.renderer3D?.commonTools || window.planner?.engine3d?.commonTools) : null);
+            if (commonTools) {
+                commonTools.activateAction('move');
+            }
+        };
+
+        // 0b. Spin Button (↻)
+        const btnSpin = document.createElement('button');
+        btnSpin.innerHTML = `↻ Spin`;
+        btnSpin.title = 'Rotate Platform';
+        this._styleHUDButton(btnSpin, '#00f0ff', 'rgba(0, 240, 255, 0.2)');
+        btnSpin.onclick = (e) => {
+            e.stopPropagation();
+            const commonTools = this.ctx.commonTools || 
+                                this.ctx.preview3D?.commonTools || 
+                                this.ctx.interactions?.commonController || 
+                                (typeof window !== 'undefined' ? (window.renderer3D?.commonTools || window.planner?.engine3d?.commonTools) : null);
+            if (commonTools) {
+                commonTools.activateAction('spin');
+            }
+        };
 
         // 1. Raise Button (▲)
         const btnRaise = document.createElement('button');
@@ -218,6 +283,8 @@ export class PlatformInteractiveSuite extends THREE.Group {
             }
         };
 
+        container.appendChild(btnMove);
+        container.appendChild(btnSpin);
         container.appendChild(btnRaise);
         container.appendChild(btnLower);
         container.appendChild(this.hudBadge);
@@ -274,8 +341,9 @@ export class PlatformInteractiveSuite extends THREE.Group {
         }
 
         this.visible = true;
-        this.heightHandleGroup.visible = true;
-        if (this.domHUD) this.domHUD.style.display = 'flex';
+        const actionActive = this._isActionActive();
+        this.heightHandleGroup.visible = !actionActive;
+        if (this.domHUD) this.domHUD.style.display = actionActive ? 'none' : 'flex';
 
         this.update();
     }
@@ -293,6 +361,14 @@ export class PlatformInteractiveSuite extends THREE.Group {
         if (!this.platform || !this.target || !this.ctx.camera || !this.ctx.renderer) {
             if (this.domHUD) this.domHUD.style.display = 'none';
             return;
+        }
+
+        if (this._isActionActive()) {
+            if (this.domHUD) this.domHUD.style.display = 'none';
+            if (this.heightHandleGroup) this.heightHandleGroup.visible = false;
+            return;
+        } else {
+            if (this.heightHandleGroup) this.heightHandleGroup.visible = true;
         }
 
         const absH = Math.max(1, Math.abs(this.platform.height || 20));
@@ -395,6 +471,9 @@ export class PlatformInteractiveSuite extends THREE.Group {
             dom.removeEventListener('pointerdown', this._onPointerDown);
             dom.removeEventListener('pointermove', this._onPointerMove);
             dom.removeEventListener('pointerup', this._onPointerUp);
+        }
+        if (coreEventBus) {
+            coreEventBus.off('InteractionStateChanged', this._onInteractionStateChanged);
         }
         if (this.domHUD && this.domHUD.parentElement) {
             this.domHUD.parentElement.removeChild(this.domHUD);

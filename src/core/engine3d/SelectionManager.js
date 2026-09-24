@@ -35,7 +35,7 @@ export class SelectionManager {
         } else if (object.userData && (object.userData.isFurniture || object.userData.isFloor || object.userData.isWidget || object.userData.isMolding || object.userData.isRoof || object.userData.isPattern || object.userData.isStair || object.userData.isFloorCutProxy || object.userData.isRoofAddon || object.userData.isRoofSculpture || object.userData.isSkylight || object.userData.isElevationSegment || object.userData.isFacadeRibbon || object.userData.entity?.type === 'elevation_segment' || object.userData.entity?.type === 'facade_ribbon')) {
             return this.selectBasic(object);
         } else {
-            if (this.ctx.showTransformMenu) this.ctx.showTransformMenu(false);
+            if (this.system.commonController) this.system.commonController.clearSelection();
             return null;
         }
     }
@@ -48,6 +48,9 @@ export class SelectionManager {
         }
         const wallEntity = object.userData?.entity || object.parent?.userData?.entity;
         const type = (wallEntity?.parentArc || wallEntity?.type === 'arc' || (wallEntity?.walls && Array.isArray(wallEntity.walls))) ? 'arc' : 'wall';
+        if (this.system.commonController) {
+            this.system.commonController.select(wallEntity, object, type);
+        }
         return { type, side: object.userData?.side || 'front' };
     }
 
@@ -332,28 +335,31 @@ export class SelectionManager {
 
     selectBasic(object) {
         let type = null;
-        if (object.userData.isPlatform || object.userData.entity?.type === 'platform') type = 'platform';
+        const ent = object.userData?.entity || object;
+        const rawType = (ent.type || '').toString().toLowerCase();
+
+        if (object.userData.isPlatform || rawType === 'platform' || rawType.startsWith('platform')) type = 'platform';
+        else if (object.userData.isStair || rawType.startsWith('stair') || rawType === 'staircase' || ent.constructor?.name === 'PremiumStaircase') type = 'stair';
+        else if (object.userData.isFloor || rawType === 'room' || rawType.startsWith('room')) type = 'room';
         else if (object.userData.isShape || object.userData.isFloorCutProxy) type = 'shape';
         else if (object.userData.isFurniture) type = 'furniture';
-        else if (object.userData.isFloor) type = 'room';
-        else if (object.userData.isWidget) type = object.userData.entity?.type || 'widget';
+        else if (object.userData.isWidget) type = ent.type || 'widget';
         else if (object.userData.isMolding) type = 'molding';
         else if (object.userData.isRoof) type = 'roof';
         else if (object.userData.isRoofAddon || object.userData.isRoofSculpture || object.userData.isSkylight) type = 'roof_addon';
         else if (object.userData.isPattern) type = 'advance_openings';
-        else if (object.userData.isStair) type = 'stair';
-        else if (object.userData.isElevationSegment || object.userData.entity?.type === 'elevation_segment') type = 'elevation_segment';
-        else if (object.userData.isFacadeRibbon || object.userData.entity?.type === 'facade_ribbon') type = 'facade_ribbon';
+        else if (object.userData.isElevationSegment || rawType === 'elevation_segment') type = 'elevation_segment';
+        else if (object.userData.isFacadeRibbon || rawType === 'facade_ribbon') type = 'facade_ribbon';
         
         this.system.setHighlight(object, true);
             
-        if (['furniture', 'shape', 'widget', 'door', 'window', 'molding', 'advance_openings', 'roof', 'stair', 'room', 'roof_addon', 'platform'].includes(type)) {
-            if (this.ctx.showTransformMenu) this.ctx.showTransformMenu(true);
-            if (object.userData.isFloorCutProxy && this.ctx.setTransformMode) {
-                this.ctx.setTransformMode('polygon_edges', true);
-            }
-        } else {
-            if (this.ctx.showTransformMenu) this.ctx.showTransformMenu(false);
+        if (object.userData.isFloorCutProxy && this.ctx.setTransformMode) {
+            this.ctx.setTransformMode('polygon_edges', true);
+        }
+
+        const entity = object.userData?.entity || object;
+        if (this.system.commonController) {
+            this.system.commonController.select(entity, object, type);
         }
         
         return { type, side: null };

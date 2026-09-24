@@ -110,55 +110,55 @@ export class WallPlugin3DPlacementSystem {
             position: fixed;
             display: none;
             pointer-events: auto;
-            top: 24px;
+            bottom: 24px;
             left: 50%;
             transform: translateX(-50%);
-            background: rgba(15, 23, 42, 0.96);
-            backdrop-filter: blur(16px);
-            border: 1.5px solid rgba(56, 189, 248, 0.85);
-            box-shadow: 0 12px 36px rgba(0, 0, 0, 0.65);
-            border-radius: 12px;
-            padding: 9px 13px;
-            color: #f8fafc;
-            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background: rgba(15, 23, 42, 0.94);
+            backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px);
+            border: 1px solid rgba(0, 240, 255, 0.45);
+            box-shadow: 0 14px 36px rgba(0, 0, 0, 0.7), 0 0 16px rgba(0, 240, 255, 0.2);
+            border-radius: 9999px;
+            padding: 6px 14px;
+            color: #f1f5f9;
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
             font-size: 12px;
             font-weight: 600;
-            letter-spacing: 0.3px;
-            z-index: 100000;
+            z-index: 995;
             user-select: none;
             -webkit-user-select: none;
             touch-action: manipulation;
-            transition: opacity 0.15s ease;
+            transition: all 0.15s ease;
         `;
 
         this.badgeDom.innerHTML = `
-            <div style="display: flex; flex-direction: column; gap: 6px; min-width: 280px;">
-                <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px;">
-                    <div style="display: flex; align-items: center; gap: 7px;">
-                        <span id="wall-ui-dot" style="display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: #00f0ff; box-shadow: 0 0 10px #00f0ff;"></span>
-                        <span id="wall-ui-title" style="color: #38bdf8; font-weight: 700; font-size: 12px;">Door / Window</span>
-                    </div>
-                    <div style="display: flex; align-items: center; gap: 6px;">
-                        <span id="wall-ui-level-badge" style="background: rgba(56, 189, 248, 0.18); border: 1px solid rgba(56, 189, 248, 0.5); color: #38bdf8; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px; display: none;">FLOOR</span>
-                        <span id="wall-ui-side" style="color: #94a3b8; font-size: 11px;">Face: <strong id="wall-ui-facetxt" style="color: #38bdf8;">FRONT</strong></span>
-                    </div>
+            <div style="display: flex; align-items: center; gap: 8px; white-space: nowrap;">
+                <div style="display: flex; align-items: center; gap: 6px;">
+                    <span id="wall-ui-dot" style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #00f0ff; box-shadow: 0 0 8px #00f0ff;"></span>
+                    <span id="wall-ui-title" style="color: #38bdf8; font-weight: 700; font-size: 12px;">Door / Window</span>
+                    <span id="wall-ui-level-badge" style="background: rgba(56, 189, 248, 0.18); border: 1px solid rgba(56, 189, 248, 0.5); color: #38bdf8; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px; display: none;">FLOOR</span>
                 </div>
                 
+                <div style="width: 1px; height: 20px; background: rgba(255, 255, 255, 0.15);"></div>
+
                 <div id="wall-ui-specs" style="color: #cbd5e1; font-size: 11px; font-weight: 500;">
                     120 cm ← → 180 cm
                 </div>
+                <span id="wall-ui-side" style="color: #94a3b8; font-size: 11px;">Face: <strong id="wall-ui-facetxt" style="color: #38bdf8;">FRONT</strong></span>
 
-                <div style="display: flex; align-items: center; gap: 6px; padding-top: 5px; border-top: 1px solid rgba(255,255,255,0.12); margin-top: 2px;">
-                    <button id="wall-ui-btn-scope" type="button" style="display: none; align-items: center; justify-content: center; gap: 3px; background: rgba(147, 51, 234, 0.22); border: 1.5px solid #a855f7; color: #c084fc; border-radius: 7px; padding: 6px 9px; font-size: 11px; font-weight: 700; cursor: pointer; touch-action: manipulation;">
+                <div style="width: 1px; height: 20px; background: rgba(255, 255, 255, 0.15);"></div>
+
+                <div style="display: flex; align-items: center; gap: 5px;">
+                    <button id="wall-ui-btn-scope" type="button" style="display: none; align-items: center; justify-content: center; gap: 3px; background: rgba(147, 51, 234, 0.22); border: 1px solid #a855f7; color: #c084fc; border-radius: 8px; padding: 5px 8px; font-size: 11px; font-weight: 700; cursor: pointer; min-height: 30px;">
                         ⎘ Single Wall
                     </button>
-                    <button id="wall-ui-btn-flip" type="button" style="flex: 1; display: flex; align-items: center; justify-content: center; gap: 4px; background: rgba(56, 189, 248, 0.25); border: 1.5px solid #38bdf8; color: #38bdf8; border-radius: 7px; padding: 6px 10px; font-size: 12px; font-weight: 700; cursor: pointer; touch-action: manipulation;">
+                    <button id="wall-ui-btn-flip" type="button" title="Flip Face (Key: F / Tab)" style="display: inline-flex; align-items: center; justify-content: center; gap: 4px; background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(255, 255, 255, 0.12); color: #f1f5f9; border-radius: 8px; padding: 5px 10px; font-size: 12px; font-weight: 600; cursor: pointer; min-height: 30px;">
                         ⇄ Flip Face
                     </button>
-                    <button id="wall-ui-btn-place" type="button" style="flex: 1.3; display: flex; align-items: center; justify-content: center; gap: 4px; background: #059669; border: 1.5px solid #10b981; color: #ffffff; border-radius: 7px; padding: 6px 12px; font-size: 12px; font-weight: 700; cursor: pointer; touch-action: manipulation; box-shadow: 0 2px 8px rgba(16, 185, 129, 0.4);">
+                    <button id="wall-ui-btn-place" type="button" title="Confirm Placement (Key: Enter / Space)" style="display: inline-flex; align-items: center; justify-content: center; gap: 4px; background: #22c55e; border: none; color: #0f172a; border-radius: 8px; padding: 5px 12px; font-size: 12px; font-weight: 700; cursor: pointer; min-height: 30px;">
                         ✓ Place
                     </button>
-                    <button id="wall-ui-btn-cancel" type="button" style="display: flex; align-items: center; justify-content: center; background: rgba(239, 68, 68, 0.22); border: 1.5px solid rgba(239, 68, 68, 0.6); color: #f87171; border-radius: 7px; padding: 6px 10px; font-size: 12px; font-weight: 700; cursor: pointer; touch-action: manipulation;">
+                    <button id="wall-ui-btn-cancel" type="button" title="Cancel Placement (Key: Esc)" style="display: inline-flex; align-items: center; justify-content: center; background: rgba(255, 255, 255, 0.1); border: none; color: #94a3b8; border-radius: 50%; width: 28px; height: 28px; font-size: 12px; font-weight: 700; cursor: pointer;">
                         ✕
                     </button>
                 </div>
@@ -905,18 +905,10 @@ export class WallPlugin3DPlacementSystem {
         if (this.elSpecs) this.elSpecs.textContent = statusText;
 
         const isMobileScreen = this.isTouchDevice();
-
-        if (isMobileScreen) {
-            this.badgeDom.style.left = '50%';
-            this.badgeDom.style.top = 'auto';
-            this.badgeDom.style.bottom = '90px';
-            this.badgeDom.style.transform = 'translateX(-50%)';
-        } else {
-            this.badgeDom.style.bottom = 'auto';
-            this.badgeDom.style.top = '24px';
-            this.badgeDom.style.left = '50%';
-            this.badgeDom.style.transform = 'translateX(-50%)';
-        }
+        this.badgeDom.style.left = '50%';
+        this.badgeDom.style.top = 'auto';
+        this.badgeDom.style.bottom = isMobileScreen ? '64px' : '24px';
+        this.badgeDom.style.transform = 'translateX(-50%)';
 
         this.badgeDom.style.borderColor = statusColor;
         this.badgeDom.style.display = 'block';

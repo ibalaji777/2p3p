@@ -33,6 +33,20 @@ export class GizmoManager {
         // Pre-warm 3D preview renderers in background idle time
         glassPreviewRenderer.prewarm(GLASS_REGISTRY);
 
+        this._onInteractionStateChanged = (state) => {
+            if (state && (state.state === 'action_active' || state.activeAction)) {
+                if (this.openingPanel) this.openingPanel.style.display = 'none';
+                if (this.roofSpinPanel) this.roofSpinPanel.style.display = 'none';
+                if (this.cornerPanel) this.cornerPanel.style.display = 'none';
+                if (this.stylePanel) this.stylePanel.style.display = 'none';
+                if (this.transformMenu) this.transformMenu.style.display = 'none';
+                if (this.btnDone) this.btnDone.style.display = 'none';
+            }
+        };
+        if (coreEventBus) {
+            coreEventBus.on('InteractionStateChanged', this._onInteractionStateChanged);
+        }
+
         this.transformMenu = document.createElement('div');
         this.transformMenu.className = 'transform-menu-3d';
         this.transformMenu.style.display = 'none';
@@ -1353,7 +1367,8 @@ export class GizmoManager {
         if (this.materialPanel) {
             this.materialPanel.style.display = 'flex';
             setTimeout(() => this.materialPanel.classList.add('active'), 10);
-            if (this.btnDone) this.btnDone.style.display = 'flex';
+            const isUnifiedHUDActive = Boolean(this.ctx.commonTools || (typeof document !== 'undefined' && document.querySelector('.contextual-action-hud-container')));
+            if (this.btnDone) this.btnDone.style.display = isUnifiedHUDActive ? 'none' : 'flex';
         }
 
         let realSelectedObj = this.ctx.interactions.selectedObject;
@@ -3086,26 +3101,8 @@ export class GizmoManager {
     showTransformMenu(visible) {
         if (this.ctx.isRebuildingScene) return;
         if (this.transformMenu) {
-            if (this.menuVisible === visible) return;
-            this.menuVisible = visible;
-            
-            // Toggle global body class to hide/show main UI
-            if (visible) {
-                
-            } else {
-                
-            }
-
-            if (!visible) {
-                this.transformMenu.style.display = 'none';
-                this.setTransformMode('none', true);
-            } else {
-                if (this.transformMenu.style.display !== 'flex') {
-                    this._menuPointerDown = false;
-                }
-                this.transformMenu.style.display = 'flex';
-                this.setTransformMode('none', true);
-            }
+            this.menuVisible = false;
+            this.transformMenu.style.display = 'none';
         }
     }
 
@@ -3550,9 +3547,16 @@ export class GizmoManager {
             if (this.btnRoofCorners) this.btnRoofCorners.style.display = activeGizmos.includes('roofCorners') ? 'flex' : 'none';
             if (this.btnRoofOverhang) this.btnRoofOverhang.style.display = 'none';
             if (this.btnPolygonEdges) this.btnPolygonEdges.style.display = activeGizmos.includes('polygonEdges') ? 'flex' : 'none';
-            if (this.btnPushPull) this.btnPushPull.style.display = activeGizmos.includes('pushPull') ? 'flex' : 'none';
             if (this.btnCloseMenu) this.btnCloseMenu.style.display = 'flex';
-            if (this.transformMenu) this.transformMenu.style.display = 'flex';
+            const isUnifiedHUDActive = Boolean(
+                this.ctx.commonTools ||
+                (typeof document !== 'undefined' && (
+                    document.querySelector('.contextual-action-hud-container') ||
+                    document.querySelector('.action-hud-card') ||
+                    document.querySelector('.common-toolbar-3d')
+                ))
+            );
+            if (this.transformMenu) this.transformMenu.style.display = isUnifiedHUDActive ? 'none' : 'flex';
             if (this.xyPanel) this.xyPanel.style.display = 'none';
             if (this.openingPanel) this.openingPanel.style.display = 'none';
             if (this.materialPanel) {
@@ -3597,7 +3601,8 @@ export class GizmoManager {
         if (this.btnPushPull) this.btnPushPull.style.display = 'none';
         if (this.btnCloseMenu) this.btnCloseMenu.style.display = 'none';
         if (this.transformMenu) this.transformMenu.style.display = 'none';
-        if (this.btnDone) this.btnDone.style.display = 'flex';
+        const isUnifiedHUDActive = Boolean(this.ctx.commonTools || (typeof document !== 'undefined' && document.querySelector('.contextual-action-hud-container')));
+        if (this.btnDone) this.btnDone.style.display = isUnifiedHUDActive ? 'none' : 'flex';
 
         if (selectedObj) tc.detach();
 
@@ -3795,24 +3800,8 @@ export class GizmoManager {
     }
 
     updateTransformMenu() {
-        if (!this.transformMenu || !this.ctx.interactions.selectedObject || !this.menuVisible) {
-            if (this.transformMenu) this.transformMenu.style.display = 'none';
-            return;
-        }
-        
-        const pos = new THREE.Vector3();
-        this.ctx.interactions.selectedObject.getWorldPosition(pos);
-        pos.project(this.ctx.camera);
-        
-        if (pos.z > 1) {
+        if (this.transformMenu) {
             this.transformMenu.style.display = 'none';
-        } else {
-            if (this.transformMenu.style.display !== 'flex') {
-                this._menuPointerDown = false;
-            }
-            this.transformMenu.style.display = 'flex';
-            this.transformMenu.style.left = '';
-            this.transformMenu.style.top = '';
         }
     }
 
@@ -4008,6 +3997,9 @@ export class GizmoManager {
         if (this._activeDragCleanups) {
             this._activeDragCleanups.forEach(fn => fn());
             this._activeDragCleanups = [];
+        }
+        if (coreEventBus) {
+            coreEventBus.off('InteractionStateChanged', this._onInteractionStateChanged);
         }
         if (this.openingPanel && this.openingPanel.parentNode) this.openingPanel.parentNode.removeChild(this.openingPanel);
         if (this.roofSpinPanel && this.roofSpinPanel.parentNode) this.roofSpinPanel.parentNode.removeChild(this.roofSpinPanel);

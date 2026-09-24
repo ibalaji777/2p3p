@@ -142,40 +142,48 @@ export class Ribbon3DDrawSystem {
             position: fixed;
             display: none;
             pointer-events: auto;
-            top: 24px;
+            bottom: 24px;
             left: 50%;
             transform: translateX(-50%);
-            background: rgba(15, 23, 42, 0.96);
-            backdrop-filter: blur(16px);
-            border: 1.5px solid rgba(56, 189, 248, 0.85);
-            box-shadow: 0 12px 36px rgba(0, 0, 0, 0.65);
-            border-radius: 12px;
-            padding: 9px 16px;
-            color: #f8fafc;
-            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background: rgba(15, 23, 42, 0.94);
+            backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px);
+            border: 1px solid rgba(0, 240, 255, 0.45);
+            box-shadow: 0 14px 36px rgba(0, 0, 0, 0.7), 0 0 16px rgba(0, 240, 255, 0.2);
+            border-radius: 9999px;
+            padding: 6px 14px;
+            color: #f1f5f9;
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
             font-size: 12px;
             font-weight: 600;
-            z-index: 100000;
+            z-index: 995;
             user-select: none;
+            -webkit-user-select: none;
+            touch-action: manipulation;
+            transition: all 0.15s ease;
         `;
 
         this.badgeDom.innerHTML = `
-            <div style="display: flex; flex-direction: column; gap: 6px; min-width: 250px;">
-                <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px;">
-                    <div style="display: flex; align-items: center; gap: 7px;">
-                        <span style="display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: #38bdf8; box-shadow: 0 0 10px #38bdf8;"></span>
-                        <span style="color: #38bdf8; font-weight: 700; font-size: 12px;">3D Facade Ribbon</span>
-                    </div>
+            <div style="display: flex; align-items: center; gap: 8px; white-space: nowrap;">
+                <div style="display: flex; align-items: center; gap: 6px;">
+                    <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #38bdf8; box-shadow: 0 0 8px #38bdf8;"></span>
+                    <span style="color: #38bdf8; font-weight: 700; font-size: 12px;">3D Facade Ribbon</span>
                     <span id="ribbon-ui-pointcount" style="background: rgba(56, 189, 248, 0.2); border: 1px solid rgba(56, 189, 248, 0.5); color: #38bdf8; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px;">Click 1: Start</span>
                 </div>
+                
+                <div style="width: 1px; height: 20px; background: rgba(255, 255, 255, 0.15);"></div>
+
                 <div id="ribbon-ui-specs" style="color: #cbd5e1; font-size: 11px; font-weight: 500;">
                     Click wall to start ribbon
                 </div>
-                <div style="display: flex; align-items: center; gap: 6px; padding-top: 5px; border-top: 1px solid rgba(255,255,255,0.12); margin-top: 2px;">
-                    <button id="ribbon-ui-btn-finish" type="button" style="flex: 1; display: flex; align-items: center; justify-content: center; gap: 4px; background: #059669; border: 1.5px solid #10b981; color: #ffffff; border-radius: 7px; padding: 6px 12px; font-size: 12px; font-weight: 700; cursor: pointer;">
+
+                <div style="width: 1px; height: 20px; background: rgba(255, 255, 255, 0.15);"></div>
+
+                <div style="display: flex; align-items: center; gap: 5px;">
+                    <button id="ribbon-ui-btn-finish" type="button" title="Finish Ribbon (Enter)" style="display: inline-flex; align-items: center; justify-content: center; gap: 4px; background: #22c55e; border: none; color: #0f172a; border-radius: 8px; padding: 5px 12px; font-size: 12px; font-weight: 700; cursor: pointer; min-height: 30px;">
                         ✓ Finish
                     </button>
-                    <button id="ribbon-ui-btn-cancel" type="button" style="display: flex; align-items: center; justify-content: center; background: rgba(239, 68, 68, 0.22); border: 1.5px solid rgba(239, 68, 68, 0.6); color: #f87171; border-radius: 7px; padding: 6px 10px; font-size: 12px; font-weight: 700; cursor: pointer;">
+                    <button id="ribbon-ui-btn-cancel" type="button" title="Cancel (Esc)" style="display: inline-flex; align-items: center; justify-content: center; background: rgba(255, 255, 255, 0.1); border: none; color: #94a3b8; border-radius: 50%; width: 28px; height: 28px; font-size: 12px; font-weight: 700; cursor: pointer;">
                         ✕
                     </button>
                 </div>
@@ -721,12 +729,16 @@ export class Ribbon3DDrawSystem {
 
     updateBadge(specsText) {
         if (!this.badgeDom) return;
+        this.badgeDom.style.left = '50%';
+        this.badgeDom.style.top = 'auto';
+        this.badgeDom.style.bottom = '24px';
+        this.badgeDom.style.transform = 'translateX(-50%)';
         this.badgeDom.style.display = 'block';
 
         if (this.badgeSpecs) this.badgeSpecs.textContent = specsText;
         if (this.badgeCount) {
             const pts = this.drawingPoints.length;
-            this.badgeCount.textContent = pts > 0 ? `${pts} Points Locked` : 'Click 1: Start';
+            this.badgeCount.textContent = pts > 0 ? `${pts} Points` : 'Click 1: Start';
         }
     }
 

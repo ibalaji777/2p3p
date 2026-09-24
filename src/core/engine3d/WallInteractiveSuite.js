@@ -112,6 +112,11 @@ export class WallInteractiveSuite extends THREE.Group {
         this._onPointerMove = this._onPointerMove.bind(this);
         this._onPointerDown = this._onPointerDown.bind(this);
         this._onPointerUp = this._onPointerUp.bind(this);
+        this._onInteractionStateChanged = this._onInteractionStateChanged.bind(this);
+
+        if (coreEventBus) {
+            coreEventBus.on('InteractionStateChanged', this._onInteractionStateChanged);
+        }
 
         if (this.ctx.controls) {
             this.ctx.controls.addEventListener('change', this._onCameraChange);
@@ -121,6 +126,32 @@ export class WallInteractiveSuite extends THREE.Group {
         dom.addEventListener('pointermove', this._onPointerMove, { passive: false });
         dom.addEventListener('pointerdown', this._onPointerDown, { passive: false });
         dom.addEventListener('pointerup', this._onPointerUp, { passive: false });
+    }
+
+    _isActionActive() {
+        const commonTools = this.ctx.commonTools || 
+                            this.ctx.preview3D?.commonTools || 
+                            this.ctx.interactions?.commonController || 
+                            (typeof window !== 'undefined' ? (window.renderer3D?.commonTools || window.planner?.engine3d?.commonTools) : null);
+        if (!commonTools) return false;
+        if (typeof commonTools.isActionActive === 'function') {
+            return commonTools.isActionActive();
+        }
+        return Boolean(commonTools.activeAction || commonTools.interactionState === 'action_active');
+    }
+
+    _onInteractionStateChanged(state) {
+        if (state && (state.state === 'action_active' || state.activeAction)) {
+            if (this.domHUD) this.domHUD.style.display = 'none';
+            if (this.domConfirmBar) this.domConfirmBar.style.display = 'none';
+            return;
+        }
+        if (!this.target || !this.visible) return;
+        if (state && state.state === 'object_selected' && (state.selectedEntity === this.target.userData?.entity || state.selectedEntity?.id === this.target.userData?.entity?.id)) {
+            this.update();
+        } else if (state && state.state === 'idle') {
+            this.detach();
+        }
     }
 
     _buildBiDirectionalExtrudeHandle() {
@@ -614,7 +645,7 @@ export class WallInteractiveSuite extends THREE.Group {
             this._hideSplitLaser();
             this._hideExtrudeGhost();
             if (this.domConfirmBar) this.domConfirmBar.style.display = 'none';
-            if (this.domHUD) this.domHUD.style.display = 'flex';
+            if (this.domHUD) this.domHUD.style.display = this._isActionActive() ? 'none' : 'flex';
             this._refreshHUDButtonStates();
             if (this.ctx.requestRender) this.ctx.requestRender();
             return;
@@ -1396,7 +1427,7 @@ export class WallInteractiveSuite extends THREE.Group {
         if ((!this.domHUD && !this.domConfirmBar) || !this.target || !this.ctx.camera || !this.ctx.renderer) return;
 
         const wall = this.target.userData?.entity;
-        if (!wall) {
+        if (!wall || this._isActionActive()) {
             if (this.domHUD) this.domHUD.style.display = 'none';
             if (this.domConfirmBar) this.domConfirmBar.style.display = 'none';
             return;
@@ -1554,6 +1585,9 @@ export class WallInteractiveSuite extends THREE.Group {
         this.heightGizmo.dispose();
         if (this.splitLaserPlane.geometry) this.splitLaserPlane.geometry.dispose();
         if (this.extrudeGhostMesh.geometry) this.extrudeGhostMesh.geometry.dispose();
+        if (coreEventBus) {
+            coreEventBus.off('InteractionStateChanged', this._onInteractionStateChanged);
+        }
         this.detach();
     }
 }

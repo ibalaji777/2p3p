@@ -252,4 +252,45 @@ describe('StairInteractiveSuite - Sims 4 Advanced Staircase Controls', () => {
             expect(rayHit).toBe(false);
         });
     });
+
+    describe('8. Centralized Interaction Coordination & Action Suppression', () => {
+        it('should provide Move and Spin action buttons on the floating HUD', () => {
+            expect(suite.btnMove).toBeDefined();
+            expect(suite.btnSpin).toBeDefined();
+
+            mockCtx.commonTools = {
+                activateAction: vi.fn(),
+                isActionActive: () => false
+            };
+
+            suite.btnMove.click();
+            expect(mockCtx.commonTools.activateAction).toHaveBeenCalledWith('move');
+
+            suite.btnSpin.click();
+            expect(mockCtx.commonTools.activateAction).toHaveBeenCalledWith('spin');
+        });
+
+        it('should suppress domHUD and handles when an action is active', () => {
+            suite.attach(stairGroup);
+            expect(suite.domHUD.style.display).toBe('flex');
+
+            // Simulate action activation
+            mockCtx.commonTools = {
+                isActionActive: () => true
+            };
+
+            suite.update();
+            expect(suite.domHUD.style.display).toBe('none');
+            expect(suite.handlesGroup.visible).toBe(false);
+
+            // Simulate action completion
+            mockCtx.commonTools = {
+                isActionActive: () => false
+            };
+
+            suite.update();
+            expect(suite.domHUD.style.display).toBe('flex');
+            expect(suite.handlesGroup.visible).toBe(true);
+        });
+    });
 });

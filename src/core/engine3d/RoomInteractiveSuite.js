@@ -105,6 +105,12 @@ export class RoomInteractiveSuite extends THREE.Group {
             }
         };
 
+        this._onInteractionStateChanged = this._onInteractionStateChanged.bind(this);
+
+        if (coreEventBus) {
+            coreEventBus.on('InteractionStateChanged', this._onInteractionStateChanged);
+        }
+
         if (typeof window !== 'undefined') {
             window.addEventListener('keydown', this._onKeyDown);
         }
@@ -118,6 +124,34 @@ export class RoomInteractiveSuite extends THREE.Group {
             dom.addEventListener('pointerdown', this._onPointerDown, { passive: false });
             dom.addEventListener('pointermove', this._onPointerMove, { passive: false });
             dom.addEventListener('pointerup', this._onPointerUp, { passive: false });
+        }
+    }
+
+    _isActionActive() {
+        const commonTools = this.ctx.commonTools || 
+                            this.ctx.preview3D?.commonTools || 
+                            this.ctx.interactions?.commonController || 
+                            (typeof window !== 'undefined' ? (window.renderer3D?.commonTools || window.planner?.engine3d?.commonTools) : null);
+        if (!commonTools) return false;
+        if (typeof commonTools.isActionActive === 'function') {
+            return commonTools.isActionActive();
+        }
+        return Boolean(commonTools.activeAction || commonTools.interactionState === 'action_active');
+    }
+
+    _onInteractionStateChanged(state) {
+        if (state && (state.state === 'action_active' || state.activeAction)) {
+            if (this.domRoomHUD) this.domRoomHUD.style.display = 'none';
+            if (this.domBuildingHUD) this.domBuildingHUD.style.display = 'none';
+            if (this.liftHandleGroup) this.liftHandleGroup.visible = false;
+            return;
+        }
+        if (!this.room || !this.visible) return;
+        if (state && state.state === 'object_selected' && (state.selectedEntity === this.room || state.selectedEntity?.id === this.room.id)) {
+            if (this.liftHandleGroup) this.liftHandleGroup.visible = true;
+            this.update();
+        } else if (state && state.state === 'idle') {
+            this.detach();
         }
     }
 
@@ -1588,10 +1622,11 @@ export class RoomInteractiveSuite extends THREE.Group {
         }
 
         this.visible = true;
-        this.liftHandleGroup.visible = true;
+        const actionActive = this._isActionActive();
+        this.liftHandleGroup.visible = !actionActive;
         this.roomCage.visible = true;
-        this.edgeArrowsGroup.visible = true;
-        if (this.domRoomHUD) this.domRoomHUD.style.display = 'flex';
+        this.edgeArrowsGroup.visible = !actionActive;
+        if (this.domRoomHUD) this.domRoomHUD.style.display = actionActive ? 'none' : 'flex';
 
         this.update();
         if (this.ctx.requestRender) this.ctx.requestRender('room_suite_attached');
@@ -1750,7 +1785,7 @@ export class RoomInteractiveSuite extends THREE.Group {
      */
     updateHUDPosition() {
         if (!this.room || !this.ctx.camera || !this.ctx.renderer || !this.domRoomHUD) return;
-        if (!this.visible) {
+        if (!this.visible || this._isActionActive()) {
             this.domRoomHUD.style.display = 'none';
             return;
         }
@@ -1789,6 +1824,15 @@ export class RoomInteractiveSuite extends THREE.Group {
         if (!this.room || !this.ctx.camera || !this.ctx.renderer) {
             if (this.domRoomHUD) this.domRoomHUD.style.display = 'none';
             return;
+        }
+
+        if (this._isActionActive()) {
+            if (this.domRoomHUD) this.domRoomHUD.style.display = 'none';
+            if (this.domBuildingHUD) this.domBuildingHUD.style.display = 'none';
+            if (this.liftHandleGroup) this.liftHandleGroup.visible = false;
+            return;
+        } else {
+            if (this.liftHandleGroup) this.liftHandleGroup.visible = true;
         }
 
         const isBuilding = (this.scopeMode === 'building');
@@ -3477,6 +3521,9 @@ export class RoomInteractiveSuite extends THREE.Group {
         }
         if (this.domTooltip && this.domTooltip.parentNode) {
             this.domTooltip.parentNode.removeChild(this.domTooltip);
+        }
+        if (coreEventBus) {
+            coreEventBus.off('InteractionStateChanged', this._onInteractionStateChanged);
         }
         this.detach();
     }

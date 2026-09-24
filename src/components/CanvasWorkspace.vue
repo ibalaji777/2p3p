@@ -15,13 +15,22 @@
         </div>
     </div>
 
-    <!-- Left Vertical CAD Manipulation Strip (3D Mode) -->
     <CommonToolbar3D 
         :view-mode="viewMode" 
         :is-desktop="isDesktop" 
         :is-drawer-open="isDrawerOpen"
         :controller="commonController" 
         @toggle-catalog="$emit('toggle-catalog')" 
+    />
+
+    <!-- Centralized Contextual Interaction HUD (Unified across 2D & 3D, Desktop, Tablet, Mobile) -->
+    <ContextualActionHUD
+        :controller="commonController"
+        :view-mode="viewMode"
+        :is-desktop="isDesktop"
+        :is-tablet="isTablet"
+        :is-mobile="isMobile"
+        @toggle-properties="$emit('toggle-properties')"
     />
 
     <!-- Unified Top-Right 3D Camera Controls Bar (Paired with Navigation Cube) -->
@@ -93,12 +102,15 @@
 <script setup>
 import { ref } from 'vue';
 import CommonToolbar3D from './common/CommonToolbar3D.vue';
+import ContextualActionHUD from './common/ContextualActionHUD.vue';
 
 const props = defineProps({
   hintData: Object, viewMode: String, showGuide: Boolean, showAdvancedTools: Boolean, isAdvancedToolActive: Boolean,
   activeTool: String, isWallTrackingEnabled: Boolean, isXRayMode: Boolean, wallCutawayMode: { type: String, default: 'walls_up' }, floorPlanSettings: Object,
   isRebuilding: Boolean, viewMode3D: String, mode3D: String, selectedType: String,
   isDesktop: { type: Boolean, default: true },
+  isTablet: { type: Boolean, default: false },
+  isMobile: { type: Boolean, default: false },
   isDrawerOpen: { type: Boolean, default: false },
   commonController: { type: Object, default: null }
 });
@@ -106,7 +118,7 @@ const props = defineProps({
 const emit = defineEmits([
   'update:showGuide', 'update:showAdvancedTools', 'handle-adv-trigger-click', 'set-advanced-tool',
   'toggle-wall-tracking', 'toggle-xray-mode', 'set-wall-cutaway-mode', 'zoom-in', 'zoom-out', 'reset-zoom', 'reset-camera',
-  'set-sims4-view', 'set-topdown-view', 'rotate-camera-left', 'rotate-camera-right', 'toggle-catalog'
+  'set-sims4-view', 'set-topdown-view', 'rotate-camera-left', 'rotate-camera-right', 'toggle-catalog', 'toggle-properties'
 ]);
 
 const cycleWallMode = () => {

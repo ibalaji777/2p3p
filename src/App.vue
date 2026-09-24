@@ -1,5 +1,6 @@
 <template>
   <div class="app-root" :style="{ '--app-unit': `'${displayUnit}'` }">
+    <AppToast />
     <TopToolbar
       :view-mode="viewMode"
       :view-mode3D="viewMode3D"
@@ -80,12 +81,15 @@
         :mode3D="mode3D"
         :selected-type="selectedType"
         :is-desktop="isDesktop"
+        :is-tablet="isTablet"
+        :is-mobile="isMobile"
         :is-drawer-open="isDrawerOpen"
         :common-controller="renderer3D?.commonTools"
         @update:show-guide="showGuide = $event"
         @update:show-advanced-tools="showAdvancedTools = $event"
         @handle-adv-trigger-click="handleAdvTriggerClick"
         @toggle-catalog="toggleMobileTab('tools')"
+        @toggle-properties="handleToggleProperties"
         @set-advanced-tool="setAdvancedTool"
         @toggle-wall-tracking="toggleWallTracking"
         @toggle-xray-mode="toggleXRayMode"
@@ -216,6 +220,7 @@ import SmartWizardPopup from './components/SmartWizardPopup.vue';
 import SavePopup from './components/SavePopup.vue';
 import CreditsPopup from './components/CreditsPopup.vue';
 import MobileBottomNav from './components/MobileBottomNav.vue';
+import AppToast from './components/common/AppToast.vue';
 
 import { storeToRefs } from 'pinia';
 import { useUIStore } from './stores/useUIStore.js';
@@ -314,6 +319,10 @@ const handleSidebarBottomNav = (tabId) => {
             activeRightTab.value = tabId;
         }
     }
+};
+
+const handleToggleProperties = () => {
+    handleSidebarBottomNav('properties');
 };
 
 const toggleMobileTab = (tabId) => {
@@ -724,7 +733,9 @@ onMounted(() => {
         }
 
         if (entity) {
-            activeRightTab.value = 'properties';
+            renderer3D.value?.commonTools?.select(entity, entity?.mesh3D, type);
+        } else {
+            renderer3D.value?.commonTools?.deselect();
         }
     };
 
@@ -772,8 +783,10 @@ onMounted(() => {
             }
         }
 
-        if (entity && !isRebuilding.value) {
-            activeRightTab.value = 'properties';
+        if (entity) {
+            renderer3D.value?.commonTools?.select(entity, entity?.mesh3D, type);
+        } else if (!isRebuilding.value) {
+            renderer3D.value?.commonTools?.deselect();
         }
     };
     
@@ -907,6 +920,14 @@ onMounted(() => {
         if (selectedEntity.value && selectedEntity.value.params) {
             selectedEntity.value.params.materialTarget = data.face;
             uiTrigger.value++;
+        }
+    }));
+
+    eventBusUnsubscribers.push(coreEventBus.on('InteractionStateChanged', (state) => {
+        if (state && state.hudMode === 'action_minimal') {
+            if (isMobile.value || isTablet.value) {
+                mobileMenuOpen.value = false;
+            }
         }
     }));
 
