@@ -107,8 +107,11 @@ export class PremiumFurniture {
                 const endX = this.group.x();
                 const endY = this.group.y();
                 if (Math.abs(endX - this.dragStartPos.x) > 0.001 || Math.abs(endY - this.dragStartPos.y) > 0.001) {
-                    this.group.position(this.dragStartPos);
-                    if (this.planner && this.planner.move) this.planner.move(this.id, endX, endY);
+                    if (this.planner) {
+                        TransformEngine.executeDiscreteStep(this.planner, this, {
+                            absolutePosition: { x: endX, y: endY }
+                        });
+                    }
                 }
             }
             this.dragStartPos = null;

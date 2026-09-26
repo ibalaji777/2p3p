@@ -677,6 +677,25 @@ export class GizmoManager {
         this.transformMenu.appendChild(this.btnRoofOverhang);
         this.transformMenu.appendChild(this.btnPolygonEdges);
         this.transformMenu.appendChild(this.btnPushPull);
+
+        this.btnDelete = document.createElement('button');
+        this.btnDelete.className = 'transform-menu-btn delete-btn';
+        this.btnDelete.innerHTML = '🗑️<br>Delete';
+        this.btnDelete.style.display = 'none';
+        this.btnDelete.onclick = () => {
+            const ent = this.ctx.interactions?.selectedObject?.userData?.entity;
+            if (ent) {
+                if (this.ctx.onDeleteRequested) {
+                    this.ctx.onDeleteRequested(ent);
+                } else if (this.ctx.planner?.delete) {
+                    this.ctx.planner.delete(ent.id || ent);
+                } else if (typeof window !== 'undefined' && window.planner?.delete) {
+                    window.planner.delete(ent.id || ent);
+                }
+            }
+            if (this.ctx.interactions) this.ctx.interactions.deselect();
+        };
+        this.transformMenu.appendChild(this.btnDelete);
         
         this.btnCloseMenu = document.createElement('button');
         this.btnCloseMenu.className = 'transform-menu-btn';
@@ -3101,8 +3120,14 @@ export class GizmoManager {
     showTransformMenu(visible) {
         if (this.ctx.isRebuildingScene) return;
         if (this.transformMenu) {
-            this.menuVisible = false;
-            this.transformMenu.style.display = 'none';
+            this.menuVisible = visible;
+            if (!visible) {
+                this.transformMenu.style.display = 'none';
+                this.setTransformMode('none', true);
+            } else {
+                this.transformMenu.style.display = 'flex';
+                this.setTransformMode('none', true);
+            }
         }
     }
 
@@ -3116,17 +3141,18 @@ export class GizmoManager {
         }
         this.ctx.currentTransformMode = mode;
 
-        this.btnMove.classList.remove('active');
+        if (this.btnMove) this.btnMove.classList.remove('active');
         if (this.btnPlace) this.btnPlace.classList.remove('active');
         if (this.btnScale) this.btnScale.classList.remove('active');
-        this.btnSpin.classList.remove('active');
-        this.btnTilt.classList.remove('active');
+        if (this.btnSpin) this.btnSpin.classList.remove('active');
+        if (this.btnTilt) this.btnTilt.classList.remove('active');
         if (this.btnOpening) this.btnOpening.classList.remove('active');
         if (this.btnMaterial) this.btnMaterial.classList.remove('active');
         if (this.btnStyle) this.btnStyle.classList.remove('active');
         if (this.btnCorner) this.btnCorner.classList.remove('active');
         if (this.btnPolygonEdges) this.btnPolygonEdges.classList.remove('active');
         if (this.btnPushPull) this.btnPushPull.classList.remove('active');
+        if (this.btnDelete) this.btnDelete.classList.remove('active');
 
         if (this.ctx.interactions.openingGizmo) {
             this.ctx.interactions.openingGizmo.detach();
@@ -3186,11 +3212,12 @@ export class GizmoManager {
         let type = '';
         let isOpening = false;
         let supportsFaceMaterials = false;
+        let isSolidProtrusion = false;
         
         if (selectedObj) {
             entity = selectedObj.userData.entity || {};
             type = entity.type || '';
-            const isSolidProtrusion = !!selectedObj.userData.isProtrusion || type === 'solid_protrusion' || selectedObj.userData.widget?.type === 'solid_protrusion';
+            isSolidProtrusion = !!selectedObj.userData.isProtrusion || type === 'solid_protrusion' || selectedObj.userData.widget?.type === 'solid_protrusion';
             isOpening = !isSolidProtrusion && (selectedObj.userData.isWidget || selectedObj.userData.isPattern || ['door', 'window', 'arch_opening', 'circular_opening', 'custom_shape_opening', 'pattern_opening', 'boolean_cut', 'niche_recess'].includes(type));
             const compType = selectedObj?.userData?.entity?.type || '';
             const isStaircaseOrRailing = compType.startsWith('stair_') || compType.startsWith('glass_') || compType.startsWith('metal_') || compType.startsWith('wood_') || compType.startsWith('cable_') || compType === 'staircase' || compType === 'railing';
@@ -3205,7 +3232,7 @@ export class GizmoManager {
         if (isRoof) {
             tc.visible = false;
             tc.enabled = false;
-            tc.detach();
+            if (tc.detach) tc.detach();
             if (this.ctx.controls) this.ctx.controls.enabled = true;
 
             // Keep all roof menu buttons visible in toolbar
@@ -3504,7 +3531,6 @@ export class GizmoManager {
 
             let activeGizmos = GIZMO_REGISTRY.default;
             if (selectedObj) {
-                const isSolidProt = !!selectedObj.userData.isProtrusion || type === 'solid_protrusion' || selectedObj.userData.widget?.type === 'solid_protrusion';
                 if (selectedObj.userData.isRoof || (selectedObj.userData?.entity && selectedObj.userData.entity.type === 'roof')) {
                     activeGizmos = GIZMO_REGISTRY.roof;
                 } else if (selectedObj.userData.isRoofAddon || selectedObj.userData.isRoofSculpture || selectedObj.userData.isSkylight) {
@@ -3513,7 +3539,7 @@ export class GizmoManager {
                     activeGizmos = entity.doorType === 'french' ? GIZMO_REGISTRY.door_french : GIZMO_REGISTRY.door;
                 } else if (type === 'window') {
                     activeGizmos = GIZMO_REGISTRY.window || GIZMO_REGISTRY.door;
-                } else if (isSolidProt) {
+                } else if (isSolidProtrusion) {
                     activeGizmos = ['pushPull', 'material'];
                 } else if (isOpening) {
                     activeGizmos = GIZMO_REGISTRY.opening;
@@ -3534,11 +3560,11 @@ export class GizmoManager {
                 }
             }
             
-            this.btnMove.style.display = activeGizmos.includes('move') ? 'flex' : 'none';
+            if (this.btnMove) this.btnMove.style.display = activeGizmos.includes('move') ? 'flex' : 'none';
             if (this.btnPlace) this.btnPlace.style.display = activeGizmos.includes('place') ? 'flex' : 'none';
             if (this.btnScale) this.btnScale.style.display = activeGizmos.includes('scale') ? 'flex' : 'none';
-            this.btnSpin.style.display = activeGizmos.includes('spin') ? 'flex' : 'none';
-            this.btnTilt.style.display = activeGizmos.includes('tilt') ? 'flex' : 'none';
+            if (this.btnSpin) this.btnSpin.style.display = activeGizmos.includes('spin') ? 'flex' : 'none';
+            if (this.btnTilt) this.btnTilt.style.display = activeGizmos.includes('tilt') ? 'flex' : 'none';
             if (this.btnOpening) this.btnOpening.style.display = activeGizmos.includes('opening') ? 'flex' : 'none';
             if (this.btnMaterial) this.btnMaterial.style.display = activeGizmos.includes('material') ? 'flex' : 'none';
             if (this.btnStyle) this.btnStyle.style.display = activeGizmos.includes('style') ? 'flex' : 'none';
@@ -3547,16 +3573,25 @@ export class GizmoManager {
             if (this.btnRoofCorners) this.btnRoofCorners.style.display = activeGizmos.includes('roofCorners') ? 'flex' : 'none';
             if (this.btnRoofOverhang) this.btnRoofOverhang.style.display = 'none';
             if (this.btnPolygonEdges) this.btnPolygonEdges.style.display = activeGizmos.includes('polygonEdges') ? 'flex' : 'none';
+            if (this.btnDelete) this.btnDelete.style.display = activeGizmos.includes('delete') ? 'flex' : 'none';
             if (this.btnCloseMenu) this.btnCloseMenu.style.display = 'flex';
-            const isUnifiedHUDActive = Boolean(
-                this.ctx.commonTools ||
-                (typeof document !== 'undefined' && (
-                    document.querySelector('.contextual-action-hud-container') ||
-                    document.querySelector('.action-hud-card') ||
-                    document.querySelector('.common-toolbar-3d')
-                ))
-            );
-            if (this.transformMenu) this.transformMenu.style.display = isUnifiedHUDActive ? 'none' : 'flex';
+            const isDedicatedMenuEntity = Boolean(selectedObj && (isOpening || type === 'door' || type === 'window' || type === 'jali_panel' || type === 'sunshade' || type === 'elevation_fascia' || type === 'niche_recess' || isSolidProtrusion));
+            if (isDedicatedMenuEntity) {
+                if (this.transformMenu) {
+                    this.transformMenu.style.display = 'flex';
+                    this.menuVisible = true;
+                }
+            } else {
+                const isUnifiedHUDActive = Boolean(
+                    this.ctx.commonTools ||
+                    (typeof document !== 'undefined' && (
+                        document.querySelector('.contextual-action-hud-container') ||
+                        document.querySelector('.action-hud-card') ||
+                        document.querySelector('.common-toolbar-3d')
+                    ))
+                );
+                if (this.transformMenu) this.transformMenu.style.display = isUnifiedHUDActive ? 'none' : 'flex';
+            }
             if (this.xyPanel) this.xyPanel.style.display = 'none';
             if (this.openingPanel) this.openingPanel.style.display = 'none';
             if (this.materialPanel) {
@@ -3570,7 +3605,7 @@ export class GizmoManager {
             if (selectedObj) {
                 this.ctx.interactions.setHighlight(selectedObj, true);
             }
-            tc.detach(); // Completely detach the gizmo to avoid hidden raycast interference
+            if (tc.detach) tc.detach(); // Completely detach the gizmo to avoid hidden raycast interference
             if (this.ctx.controls) this.ctx.controls.enabled = true;
             
             return;
@@ -3585,11 +3620,11 @@ export class GizmoManager {
         
         if (selectedObj) this.ctx.interactions.setHighlight(selectedObj, false);
 
-        this.btnMove.style.display = 'none';
+        if (this.btnMove) this.btnMove.style.display = 'none';
         if (this.btnPlace) this.btnPlace.style.display = 'none';
         if (this.btnScale) this.btnScale.style.display = 'none';
-        this.btnSpin.style.display = 'none';
-        this.btnTilt.style.display = 'none';
+        if (this.btnSpin) this.btnSpin.style.display = 'none';
+        if (this.btnTilt) this.btnTilt.style.display = 'none';
         if (this.btnOpening) this.btnOpening.style.display = 'none';
         if (this.btnMaterial) this.btnMaterial.style.display = 'none';
         if (this.btnStyle) this.btnStyle.style.display = 'none';
@@ -3599,12 +3634,18 @@ export class GizmoManager {
         if (this.btnRoofOverhang) this.btnRoofOverhang.style.display = 'none';
         if (this.btnPolygonEdges) this.btnPolygonEdges.style.display = 'none';
         if (this.btnPushPull) this.btnPushPull.style.display = 'none';
+        if (this.btnDelete) this.btnDelete.style.display = 'none';
         if (this.btnCloseMenu) this.btnCloseMenu.style.display = 'none';
         if (this.transformMenu) this.transformMenu.style.display = 'none';
-        const isUnifiedHUDActive = Boolean(this.ctx.commonTools || (typeof document !== 'undefined' && document.querySelector('.contextual-action-hud-container')));
-        if (this.btnDone) this.btnDone.style.display = isUnifiedHUDActive ? 'none' : 'flex';
+        const isDedicatedMenuEntity = Boolean(selectedObj && (isOpening || type === 'door' || type === 'window' || type === 'jali_panel' || type === 'sunshade' || type === 'elevation_fascia' || type === 'niche_recess' || isSolidProtrusion));
+        if (isDedicatedMenuEntity) {
+            if (this.btnDone) this.btnDone.style.display = 'flex';
+        } else {
+            const isUnifiedHUDActive = Boolean(this.ctx.commonTools || (typeof document !== 'undefined' && document.querySelector('.contextual-action-hud-container')));
+            if (this.btnDone) this.btnDone.style.display = isUnifiedHUDActive ? 'none' : 'flex';
+        }
 
-        if (selectedObj) tc.detach();
+        if (selectedObj && tc.detach) tc.detach();
 
         if (mode === 'opening') {
             tc.visible = false;
@@ -3752,21 +3793,44 @@ export class GizmoManager {
             if (tc.detach) tc.detach();
             if (this.btnMove) this.btnMove.classList.add('active');
             if (this.btnPlace) this.btnPlace.classList.add('active');
-            if (this.ctx.interactions.universalMoveGizmo && selectedObj) {
-                this.ctx.interactions.universalMoveGizmo.attach(selectedObj);
-            }
+
             if (isOpening) {
-                if (this.ctx.interactions.openingGizmo && selectedObj) {
+                if (this.ctx.interactions?.universalMoveGizmo) {
+                    this.ctx.interactions.universalMoveGizmo.detach();
+                }
+                if (this.ctx.interactions?.openingGizmo && selectedObj) {
                     this.ctx.interactions.openingGizmo.attach(selectedObj, 'move');
+                    this.updateOpeningPanel(selectedObj.userData.entity);
                 }
                 return;
             }
+
             const isRoof = selectedObj && (selectedObj.userData.isRoof || (entity && entity.type === 'roof'));
             if (isRoof) {
-                if (this.ctx.interactions.roofPitchGizmo && selectedObj) {
-                    this.ctx.interactions.roofPitchGizmo.attach(selectedObj, 'move');
+                if (this.ctx.interactions?.universalMoveGizmo) {
+                    this.ctx.interactions.universalMoveGizmo.detach();
+                }
+                const conf = selectedObj?.userData?.entity?.config || selectedObj?.userData?.entity;
+                const isFlat = conf?.roofType === 'flat';
+                const isGable = conf?.roofType === 'gable';
+                const isHalfGable = conf?.roofType === 'shed' || conf?.roofType === 'half_gable';
+                const isCurvedPortal = conf?.roofType === 'curved_portal';
+                if (isCurvedPortal) {
+                    if (this.ctx.interactions.curvedPortalRoofGizmo) this.ctx.interactions.curvedPortalRoofGizmo.attach(selectedObj, 'move');
+                } else if (isFlat) {
+                    if (this.ctx.interactions.flatRoofGizmo) this.ctx.interactions.flatRoofGizmo.attach(selectedObj, 'move');
+                } else if (isGable) {
+                    if (this.ctx.interactions.gableRoofGizmo) this.ctx.interactions.gableRoofGizmo.attach(selectedObj, 'move');
+                } else if (isHalfGable) {
+                    if (this.ctx.interactions.halfGableRoofGizmo) this.ctx.interactions.halfGableRoofGizmo.attach(selectedObj, 'move');
+                } else {
+                    if (this.ctx.interactions.roofPitchGizmo) this.ctx.interactions.roofPitchGizmo.attach(selectedObj, 'move');
                 }
                 return;
+            }
+
+            if (this.ctx.interactions?.universalMoveGizmo && selectedObj) {
+                this.ctx.interactions.universalMoveGizmo.attach(selectedObj);
             }
             return;
         } else if (mode === 'scale') {
@@ -3778,30 +3842,69 @@ export class GizmoManager {
             tc.mode = 'rotate';
             tc.showTranslate = false; tc.showRotate = true; tc.showScale = false;
             tc.showX = true; tc.showY = false; tc.showZ = false;
-            this.btnTilt.classList.add('active'); // Tilt
+            if (this.btnTilt) this.btnTilt.classList.add('active'); // Tilt
         } else if (mode === 'rotateY' || mode === 'spin') {
             tc.visible = false;
             tc.enabled = false;
             if (tc.detach) tc.detach();
             if (this.btnSpin) this.btnSpin.classList.add('active');
-            if (this.ctx.interactions?.universalSpinGizmo && selectedObj) {
-                this.ctx.interactions.universalSpinGizmo.attach(selectedObj);
-            }
+
             const isRoof = selectedObj && (selectedObj.userData.isRoof || (entity && entity.type === 'roof'));
             if (isRoof) {
-                if (this.ctx.interactions.roofPitchGizmo && selectedObj) {
-                    this.ctx.interactions.roofPitchGizmo.attach(selectedObj, 'spin');
+                if (this.ctx.interactions?.universalSpinGizmo) {
+                    this.ctx.interactions.universalSpinGizmo.detach();
                 }
+                const conf = selectedObj?.userData?.entity?.config || selectedObj?.userData?.entity;
+                const isFlat = conf?.roofType === 'flat';
+                const isGable = conf?.roofType === 'gable';
+                const isHalfGable = conf?.roofType === 'shed' || conf?.roofType === 'half_gable';
+                const isCurvedPortal = conf?.roofType === 'curved_portal';
+                if (isCurvedPortal) {
+                    if (this.ctx.interactions.curvedPortalRoofGizmo) this.ctx.interactions.curvedPortalRoofGizmo.attach(selectedObj, 'spin');
+                } else if (isFlat) {
+                    if (this.ctx.interactions.flatRoofGizmo) this.ctx.interactions.flatRoofGizmo.attach(selectedObj, 'spin');
+                } else if (isGable) {
+                    if (this.ctx.interactions.gableRoofGizmo) this.ctx.interactions.gableRoofGizmo.attach(selectedObj, 'spin');
+                } else if (isHalfGable) {
+                    if (this.ctx.interactions.halfGableRoofGizmo) this.ctx.interactions.halfGableRoofGizmo.attach(selectedObj, 'spin');
+                } else {
+                    if (this.ctx.interactions.roofPitchGizmo) this.ctx.interactions.roofPitchGizmo.attach(selectedObj, 'spin');
+                }
+                return;
+            }
+
+            if (isOpening) {
+                if (this.ctx.interactions?.universalSpinGizmo) {
+                    this.ctx.interactions.universalSpinGizmo.detach();
+                }
+                return;
+            }
+
+            if (this.ctx.interactions?.universalSpinGizmo && selectedObj) {
+                this.ctx.interactions.universalSpinGizmo.attach(selectedObj);
             }
             return;
         }
 
-        if (selectedObj && tc.visible) tc.attach(selectedObj);
+        if (selectedObj && tc.visible && tc.attach) tc.attach(selectedObj);
     }
 
     updateTransformMenu() {
-        if (this.transformMenu) {
+        if (!this.transformMenu || !this.ctx.interactions?.selectedObject || !this.menuVisible) {
+            if (this.transformMenu) this.transformMenu.style.display = 'none';
+            return;
+        }
+        
+        const pos = new THREE.Vector3();
+        this.ctx.interactions.selectedObject.getWorldPosition(pos);
+        pos.project(this.ctx.camera);
+        
+        if (pos.z > 1) {
             this.transformMenu.style.display = 'none';
+        } else {
+            this.transformMenu.style.display = 'flex';
+            this.transformMenu.style.left = '';
+            this.transformMenu.style.top = '';
         }
     }
 

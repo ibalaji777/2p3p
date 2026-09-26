@@ -321,5 +321,63 @@ describe('TransformEngine & TransformCommand Universal Pipeline', () => {
             setRotSpy.mockRestore();
             setPtsSpy.mockRestore();
         });
+
+        it('should clamp wall opening elevation to sloped top profile height (Fix 10)', () => {
+            const slopedWall = {
+                id: 'sloped_wall_1',
+                length3D: 200,
+                topProfileType: 'single',
+                startHeight: 200,
+                endHeight: 100, // drops from 200 to 100
+                height: 200
+            };
+            const windowEntity = {
+                id: 'win_sloped',
+                type: 'window',
+                wall: slopedWall,
+                t: 0.8, // At t=0.8, wall height is 200 + 0.8*(100-200) = 120cm
+                elevation: 30,
+                height: 50 // opH = 50cm. Max allowable elev = 120 - 50 = 70cm
+            };
+
+            TransformEngine.startSession(windowEntity, 'move');
+
+            // Attempt to drag elevation upward by +100cm (would reach 130cm without clamp)
+            TransformEngine.previewMove(windowEntity, { y: 100 });
+
+            // Must clamp to wallHeightAtT - opH = 120 - 50 = 70cm
+            expect(windowEntity.elevation).toBe(70);
+
+            TransformEngine.cancelSession(mockPlanner);
+        });
+
+        it('should project 3D drag vector along angled wall vector in TransformEngine (Fix 1)', () => {
+            // Wall running from (0, 0) to (0, 200) along Z-axis
+            const zWall = {
+                id: 'z_wall_1',
+                startX: 0,
+                startY: 0,
+                endX: 0,
+                endY: 200,
+                length3D: 200,
+                height: 280
+            };
+            const doorEntity = {
+                id: 'door_z',
+                type: 'door',
+                wall: zWall,
+                t: 0.5 // initial localX = 100cm
+            };
+
+            TransformEngine.startSession(doorEntity, 'move');
+
+            // Move by +50cm along world Z (which is the longitudinal axis of zWall)
+            TransformEngine.previewMove(doorEntity, { x: 0, z: 50 });
+
+            // New localX should be 100 + 50 = 150cm => t = 150/200 = 0.75
+            expect(doorEntity.t).toBeCloseTo(0.75);
+
+            TransformEngine.cancelSession(mockPlanner);
+        });
     });
 });

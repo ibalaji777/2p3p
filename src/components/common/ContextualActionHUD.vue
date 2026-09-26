@@ -101,28 +101,39 @@
       </div>
     </div>
 
-    <!-- MODE 2: ACTIVE MOVE ACTION HUD -->
-    <div v-else-if="hudMode === 'action_minimal' && activeAction === 'move'" class="hud-card action-mode move-mode">
+    <!-- MODE 2: ACTIVE MOVE & PLACEMENT ACTION HUD (Unified) -->
+    <div v-else-if="hudMode === 'action_minimal' && (activeAction === 'move' || activeAction === 'place')" class="hud-card action-mode move-mode">
+      <!-- Entity Badge -->
+      <div class="hud-entity-badge">
+        <span class="entity-icon">{{ entityIcon }}</span>
+        <span class="entity-title">{{ entityTitle }}</span>
+      </div>
+
+      <div class="hud-divider"></div>
+
+      <!-- Action Coords & Angle -->
       <div class="action-header">
-        <span class="action-badge move">✥ MOVE</span>
         <div class="action-coords">
           <label>X: <input type="number" :value="liveX" @change="onXChange" class="coord-input" step="10" /></label>
           <label>Z: <input type="number" :value="liveZ" @change="onZChange" class="coord-input" step="10" /></label>
+          <span class="action-rot-badge">({{ liveAngle }}°)</span>
+        </div>
+
+        <!-- Precision D-Pad Nudge Steppers -->
+        <div class="action-dpad">
+          <button class="dpad-btn" @click="stepMove(-1, 0)" title="Nudge Left (←)">←</button>
+          <button class="dpad-btn" @click="stepMove(0, -1)" title="Nudge Forward (↑)">↑</button>
+          <button class="dpad-btn" @click="stepMove(0, 1)" title="Nudge Backward (↓)">↓</button>
+          <button class="dpad-btn" @click="stepMove(1, 0)" title="Nudge Right (→)">→</button>
         </div>
       </div>
 
-      <!-- D-Pad Cardinal Step Buttons -->
-      <div class="action-dpad">
-        <button class="dpad-btn" @click="stepMove(0, -1)" title="Move North (-Z)">▲</button>
-        <button class="dpad-btn" @click="stepMove(-1, 0)" title="Move West (-X)">◀</button>
-        <button class="dpad-btn" @click="stepMove(1, 0)" title="Move East (+X)">▶</button>
-        <button class="dpad-btn" @click="stepMove(0, 1)" title="Move South (+Z)">▼</button>
-      </div>
+      <div class="hud-divider"></div>
 
       <!-- Snap Mode Pills -->
       <div class="action-snaps">
         <button 
-          v-for="snap in [1, 10, 50, 0]" 
+          v-for="snap in [0, 1, 10, 50]" 
           :key="snap" 
           class="snap-pill" 
           :class="{ active: moveSnapMode === snap }"
@@ -132,10 +143,33 @@
         </button>
       </div>
 
+      <!-- Wall Snap Toggle Button -->
+      <button 
+        class="wall-snap-btn" 
+        :class="{ active: wallSnapEnabled }"
+        @click="toggleWallSnap"
+        title="Toggle Wall Collision & Magnetic Snap"
+      >
+        🧲 Wall Snap: {{ wallSnapEnabled ? 'ON' : 'OFF' }}
+      </button>
+
+      <div class="hud-divider"></div>
+
+      <!-- Rotate Button (90° Step) -->
+      <button 
+        class="hud-btn" 
+        @click="rotateStep(90)"
+        title="Rotate 90° (Key: R)"
+      >
+        ↻ Rotate
+      </button>
+
       <!-- Commit / Revert -->
       <div class="action-buttons">
-        <button class="commit-btn done" @click="handleDone" title="Confirm Move">✓ Done</button>
-        <button class="commit-btn cancel" @click="handleCancel" title="Cancel Move">✕</button>
+        <button class="commit-btn done" @click="handleDone" :title="activeAction === 'place' ? 'Confirm Placement' : 'Confirm Move'">
+          {{ activeAction === 'place' ? '✓ Place' : '✓ Done' }}
+        </button>
+        <button class="commit-btn cancel" @click="handleCancel" :title="activeAction === 'place' ? 'Cancel Placement' : 'Cancel Move'">✕</button>
       </div>
     </div>
 
@@ -217,19 +251,51 @@ const capabilities = ref({
   tiltable: false
 });
 
-// Live Coordinates & Rotation
 const liveX = ref(0);
 const liveZ = ref(0);
 const liveAngle = ref(0);
 const moveSnapMode = ref(10);
 const spinSnapMode = ref(15);
+const wallSnapEnabled = ref(true);
+
+const getActiveTransformSystem = () => {
+  const ctrl = effectiveController.value;
+  if (!ctrl) return null;
+  const interactions = ctrl.ctx?.interactions;
+  if (interactions?.furniturePlacementSystem?.isRelocating || (activeAction.value === 'place' && interactions?.furniturePlacementSystem?.isPlacementTool?.())) {
+    return interactions.furniturePlacementSystem;
+  }
+  if (interactions?.stairPlacementSystem?.isRelocating || (activeAction.value === 'place' && interactions?.stairPlacementSystem?.isPlacementTool?.())) {
+    return interactions.stairPlacementSystem;
+  }
+  return interactions?.universalMoveGizmo || null;
+};
+
+const toggleWallSnap = () => {
+  const sys = getActiveTransformSystem();
+  if (sys && typeof sys.toggleWallSnap === 'function') {
+    const res = sys.toggleWallSnap();
+    if (typeof res === 'boolean') wallSnapEnabled.value = res;
+    else wallSnapEnabled.value = !!sys.wallSnapEnabled;
+  } else {
+    wallSnapEnabled.value = !wallSnapEnabled.value;
+  }
+};
+
+const rotateStep = (deg = 90) => {
+  const sys = getActiveTransformSystem();
+  if (sys) {
+    if (typeof sys.rotateStep === 'function') sys.rotateStep(deg);
+    else if (typeof sys.rotate === 'function') sys.rotate(deg);
+  }
+};
 
 const effectiveController = computed(() => {
   return props.controller || (typeof window !== 'undefined' ? (window.renderer3D?.commonTools || window.planner?.engine3d?.commonTools) : null);
 });
 
 const hasInSceneHUD = computed(() => {
-  if (props.isDesktop && selectedEntity.value) {
+  if (selectedEntity.value) {
     const ent = selectedEntity.value;
     const type = (ent.type || '').toString().toLowerCase();
     const isStair = type.startsWith('stair') || type.includes('stair') || !!ent.isStair || ent.constructor?.name === 'PremiumStaircase';
@@ -237,7 +303,10 @@ const hasInSceneHUD = computed(() => {
     const isRoom = type.startsWith('room') || type === 'floor' || !!ent.isRoom || !!ent.isFloor;
     const isWall = type === 'wall' || type === 'outer' || type === 'inner' || type === 'arc' || type === 'compound' || type.startsWith('wall') || !!ent.isWall;
     const isRoof = type.startsWith('roof') || type.includes('roof') || !!ent.isRoof;
-    if (isStair || isPlatform || isRoom || isWall || isRoof) {
+    const isDoor = type === 'door' || type.startsWith('door');
+    const isWindow = type === 'window' || type.startsWith('window');
+    const isOpening = isDoor || isWindow || type === 'opening' || type.includes('opening') || !!ent.isWidget || !!ent.isOpening || type === 'niche_recess' || type === 'solid_protrusion';
+    if (isStair || isPlatform || isRoom || isWall || isRoof || isOpening) {
       return true;
     }
   }
@@ -245,6 +314,9 @@ const hasInSceneHUD = computed(() => {
 });
 
 const isVisible = computed(() => {
+  if (activeAction.value === 'place') {
+    return hudMode.value !== 'none';
+  }
   if (!selectedEntity.value) return false;
   if (hudMode.value === 'none') return false;
   // In contextual selection mode, do not show duplicate bottom card if entity has an in-scene 3D HUD
@@ -310,6 +382,14 @@ const handleDeselect = () => {
 
 const handleDone = () => {
   const ctrl = effectiveController.value;
+  if (activeAction.value === 'place') {
+    const sys = getActiveTransformSystem();
+    if (sys) {
+      if (typeof sys.placeFurniture === 'function') sys.placeFurniture();
+      else if (typeof sys.placeStaircase === 'function') sys.placeStaircase();
+    }
+    return;
+  }
   if (ctrl) {
     ctrl.completeAction();
   }
@@ -317,6 +397,25 @@ const handleDone = () => {
 
 const handleCancel = () => {
   const ctrl = effectiveController.value;
+  if (activeAction.value === 'place') {
+    const sys = getActiveTransformSystem();
+    if (sys && typeof sys.hideGhost === 'function') {
+      sys.hideGhost();
+      const pl = ctrl?.ctx?.planner;
+      if (pl) {
+        pl.tool = 'select';
+        if (typeof pl.updateToolStates === 'function') pl.updateToolStates();
+        pl.syncAll();
+      }
+    }
+    coreEventBus.emit('InteractionStateChanged', {
+      state: INTERACTION_STATE.IDLE,
+      activeAction: null,
+      hudMode: 'none',
+      selectedEntity: null
+    });
+    return;
+  }
   if (ctrl) {
     ctrl.cancelAction();
   }
@@ -324,6 +423,11 @@ const handleCancel = () => {
 
 // D-Pad Stepping for Move Mode
 const stepMove = (dx, dz) => {
+  const sys = getActiveTransformSystem();
+  if (sys && typeof sys.nudge === 'function') {
+    sys.nudge(dx, dz);
+    return;
+  }
   const ctrl = effectiveController.value;
   const gizmo = ctrl?.ctx?.interactions?.universalMoveGizmo;
   if (gizmo && typeof gizmo.step === 'function') {
@@ -333,28 +437,41 @@ const stepMove = (dx, dz) => {
 
 const onXChange = (e) => {
   const val = parseFloat(e.target.value) || 0;
-  const ctrl = effectiveController.value;
-  const gizmo = ctrl?.ctx?.interactions?.universalMoveGizmo;
-  if (gizmo && typeof gizmo.setCoordinates === 'function') {
-    gizmo.setCoordinates(val, liveZ.value);
+  const sys = getActiveTransformSystem();
+  if (sys) {
+    if (typeof sys.setCoordinates === 'function') {
+      sys.setCoordinates(val, liveZ.value);
+    } else if (sys.inputX) {
+      sys.inputX.value = val;
+      if (typeof sys._onCoordInputChange === 'function') sys._onCoordInputChange();
+    } else if (sys.activePos) {
+      sys.activePos.x = val;
+      if (typeof sys.updateGhostTransform === 'function') sys.updateGhostTransform();
+    }
   }
 };
 
 const onZChange = (e) => {
   const val = parseFloat(e.target.value) || 0;
-  const ctrl = effectiveController.value;
-  const gizmo = ctrl?.ctx?.interactions?.universalMoveGizmo;
-  if (gizmo && typeof gizmo.setCoordinates === 'function') {
-    gizmo.setCoordinates(liveX.value, val);
+  const sys = getActiveTransformSystem();
+  if (sys) {
+    if (typeof sys.setCoordinates === 'function') {
+      sys.setCoordinates(liveX.value, val);
+    } else if (sys.inputZ) {
+      sys.inputZ.value = val;
+      if (typeof sys._onCoordInputChange === 'function') sys._onCoordInputChange();
+    } else if (sys.activePos) {
+      sys.activePos.z = val;
+      if (typeof sys.updateGhostTransform === 'function') sys.updateGhostTransform();
+    }
   }
 };
 
 const setMoveSnap = (snap) => {
   moveSnapMode.value = snap;
-  const ctrl = effectiveController.value;
-  const gizmo = ctrl?.ctx?.interactions?.universalMoveGizmo;
-  if (gizmo && typeof gizmo.setSnapMode === 'function') {
-    gizmo.setSnapMode(snap);
+  const sys = getActiveTransformSystem();
+  if (sys && typeof sys.setSnapMode === 'function') {
+    sys.setSnapMode(snap);
   }
 };
 
@@ -414,9 +531,12 @@ onMounted(() => {
   }));
 
   // Sync live Move transformation
-  unsubs.push(coreEventBus.on('UniversalMoveChanged', ({ x, z }) => {
-    liveX.value = x;
-    liveZ.value = z;
+  unsubs.push(coreEventBus.on('UniversalMoveChanged', ({ x, z, rotation, wallSnap, snapMode }) => {
+    if (x !== undefined) liveX.value = x;
+    if (z !== undefined) liveZ.value = z;
+    if (rotation !== undefined) liveAngle.value = rotation;
+    if (wallSnap !== undefined) wallSnapEnabled.value = wallSnap;
+    if (snapMode !== undefined) moveSnapMode.value = snapMode;
   }));
 
   // Sync live Spin transformation
@@ -629,6 +749,40 @@ onBeforeUnmount(() => {
   font-weight: 700;
   text-align: right;
   outline: none;
+}
+
+.action-rot-badge {
+  font-size: 11px;
+  color: #38bdf8;
+  font-weight: 700;
+  margin-left: 2px;
+}
+
+.wall-snap-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  font-size: 11px;
+  font-weight: 700;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #94a3b8;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.wall-snap-btn:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: #f1f5f9;
+}
+
+.wall-snap-btn.active {
+  background: rgba(16, 185, 129, 0.22);
+  border-color: rgba(16, 185, 129, 0.6);
+  color: #34d399;
 }
 
 .spin-angle-box {

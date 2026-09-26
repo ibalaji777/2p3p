@@ -19,6 +19,9 @@ import { StairEngine } from '../stairs/StairEngine.js';
 import { globalSpatialDependencyEngine } from '../spatial/SpatialDependencyEngine.js';
 import { TransformEngine } from '../transform/TransformEngine.js';
 import { coreEventBus } from '../EventBus.js';
+import { WallCollisionEngine } from '../wall/WallCollisionEngine.js';
+import { SnapEngine } from '../snap/SnapEngine.js';
+import { VerticalPropagationEngine } from '../vertical/VerticalPropagationEngine.js';
 
 export class UniversalMoveGizmo extends THREE.Group {
     /**
@@ -42,6 +45,8 @@ export class UniversalMoveGizmo extends THREE.Group {
         this.startGizmoPos = new THREE.Vector3();
         this.startEntityPosition = { x: 0, y: 0, z: 0, elevation: 0, t: 0.5 };
         this.snapMode = 10; // 10cm default CAD snap
+        this.wallCollisionEnabled = true;
+        this.wallSnapEnabled = true;
         this._activePointerId = null;
 
         // Visual Components
@@ -64,6 +69,21 @@ export class UniversalMoveGizmo extends THREE.Group {
         // Raycasting
         this.raycaster = new THREE.Raycaster();
         this.mouse = new THREE.Vector2();
+
+        // Luminous Move Mode & Styling state (Exact parity with placement)
+        this.isMoveModeActive = false;
+        this._isLuminousActive = false;
+        this._savedMaterials = new Map();
+        this._grabOffset = new THREE.Vector3(0, 0, 0);
+        this._hasSetGrabOffset = false;
+        this.luminousFootprintMesh = null;
+        this.luminousFootprintMat = null;
+        this.snapGuideMesh = null;
+        this.snapGuideMat = null;
+        this.apertureVoidMesh = null;
+        this.apertureVoidMat = null;
+        this.apertureEdgesMesh = null;
+        this.apertureEdgeMat = null;
 
         // Build DOM Badges & HUD Panel
         this._createHUDPanel();
@@ -100,6 +120,22 @@ export class UniversalMoveGizmo extends THREE.Group {
             return;
         }
 
+        // Strict Scope Authority:
+        // Centralized Move Gizmo ONLY attaches to GLB models, Furniture/Objects, Staircases, Shapes, and Rooms.
+        // Dedicated systems (Doors, Windows, Roofs, Wall Plugins, Base Walls) MUST NOT use UniversalMoveGizmo.
+        const entType = entity?.type || mesh.userData?.type || '';
+        const isRoof = Boolean(mesh.userData?.isRoof || entType === 'roof' || entity?.config?.roofType);
+        const isOpening = Boolean(mesh.userData?.isWidget || mesh.userData?.isOpening || ['door', 'window', 'arch_opening', 'circular_opening', 'custom_shape_opening', 'pattern_opening', 'boolean_cut', 'niche_recess'].includes(entType));
+        const isWallPlugin = Boolean(['sunshade', 'jali_panel', 'curtain', 'wall_art', 'elevation_fascia', 'molding'].includes(entType) || entType.startsWith('molding_') || entType.startsWith('sunshade_') || entType.startsWith('jali_') || entType.startsWith('curtain_') || entType.startsWith('decor_wall_'));
+        const isSolidProtrusion = Boolean(mesh.userData?.isProtrusion || entType === 'solid_protrusion' || mesh.userData?.widget?.type === 'solid_protrusion');
+        const isRoom = Boolean(mesh.userData?.isFloor || mesh.userData?.isRoomFloor || (entity && entity.path));
+        const isBaseWall = !isRoom && Boolean(mesh.userData?.isWallSide || mesh.userData?.isWallMesh || ['outer', 'inner', 'compound', 'wall', 'wallDecor', 'arc'].includes(entType) || entity?.startX !== undefined);
+
+        if (isRoof || isOpening || isWallPlugin || isSolidProtrusion || isBaseWall) {
+            this.detach();
+            return;
+        }
+
         this.attachedObject = mesh;
         this.attachedEntity = entity;
 
@@ -120,15 +156,14 @@ export class UniversalMoveGizmo extends THREE.Group {
 
         if (entity) {
             this.startEntityPosition = {
-                x: mesh.position.x,
-                y: mesh.position.z,
-                z: mesh.position.y,
-                elevation: entity.elevation !== undefined ? entity.elevation : mesh.position.y,
+                x: entity.x !== undefined ? Number(entity.x) : mesh.position.x,
+                y: entity.y !== undefined ? Number(entity.y) : mesh.position.z,
+                z: entity.elevation !== undefined ? Number(entity.elevation) : mesh.position.y,
+                elevation: entity.elevation !== undefined ? Number(entity.elevation) : mesh.position.y,
                 t: entity.t !== undefined ? entity.t : 0.5
             };
         }
 
-        const isRoom = Boolean(mesh.userData?.isFloor || mesh.userData?.isRoomFloor || (entity && entity.path));
         if (isRoom && entity) {
             this.isRoomMove = true;
             const planner = this.ctx.planner || window.planner?.value || window.planner || window.plannerInstance;
@@ -149,6 +184,37 @@ export class UniversalMoveGizmo extends THREE.Group {
             });
 
             const rId = entity.id || entity._id;
+
+            // Fix 6: Collect contained furniture, stairs, and shapes inside the room polygon
+            const isPtInPoly = (pt, poly) => {
+                if (!poly || poly.length < 3) return false;
+                let inside = false;
+                for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+                    const xi = poly[i].x, yi = poly[i].y;
+                    const xj = poly[j].x, yj = poly[j].y;
+                    const intersect = ((yi > pt.y) !== (yj > pt.y)) && (pt.x < (xj - xi) * (pt.y - yi) / (yj - yi) + xi);
+                    if (intersect) inside = !inside;
+                }
+                return inside;
+            };
+
+            const roomPoly = entity.path || [];
+            const containedList = [];
+            const candidates = [
+                ...(planner?.furniture || []),
+                ...(planner?.stairs || []),
+                ...(planner?.shapes || [])
+            ];
+            candidates.forEach(item => {
+                if (item && isPtInPoly({ x: item.x, y: item.y }, roomPoly)) {
+                    containedList.push({
+                        entity: item,
+                        startX: item.x,
+                        startY: item.y
+                    });
+                }
+            });
+
             this.roomMoveData = {
                 room: entity,
                 walls: matchedWalls,
@@ -160,7 +226,8 @@ export class UniversalMoveGizmo extends THREE.Group {
                     platform: p,
                     startX: p.x,
                     startY: p.y
-                }))
+                })),
+                containedEntities: containedList
             };
         } else {
             this.isRoomMove = false;
@@ -169,10 +236,13 @@ export class UniversalMoveGizmo extends THREE.Group {
 
         // Build 3D Move Handles
         this._buildGizmoGeometry(bbox);
+        this.gizmoVisuals.visible = true;
 
         this.visible = true;
-        this.showHUD();
         this.syncHUD();
+
+        // SC Logic: Immediately enter luminous pick-and-move mode on attach
+        this.startMoveMode();
 
         if (this.ctx.requestRender) this.ctx.requestRender('universal_move_attach');
     }
@@ -181,6 +251,11 @@ export class UniversalMoveGizmo extends THREE.Group {
      * Detaches Move Gizmo and cleans up visual elements.
      */
     detach() {
+        if (this.isMoveModeActive) {
+            this.cancelMoveMode();
+        } else if (this._isLuminousActive) {
+            this._restoreOriginalMaterials();
+        }
         this.attachedObject = null;
         this.attachedEntity = null;
         this.isDragging = false;
@@ -203,6 +278,26 @@ export class UniversalMoveGizmo extends THREE.Group {
             this.dynamicLeaderLine.parent.remove(this.dynamicLeaderLine);
             this.dynamicLeaderLine.geometry.dispose();
             this.dynamicLeaderLine = null;
+        }
+        if (this.luminousFootprintMesh) {
+            if (this.luminousFootprintMesh.parent) this.luminousFootprintMesh.parent.remove(this.luminousFootprintMesh);
+            if (this.luminousFootprintMesh.geometry) this.luminousFootprintMesh.geometry.dispose();
+            this.luminousFootprintMesh = null;
+        }
+        if (this.apertureVoidMesh) {
+            if (this.apertureVoidMesh.parent) this.apertureVoidMesh.parent.remove(this.apertureVoidMesh);
+            if (this.apertureVoidMesh.geometry) this.apertureVoidMesh.geometry.dispose();
+            this.apertureVoidMesh = null;
+        }
+        if (this.apertureEdgesMesh) {
+            if (this.apertureEdgesMesh.parent) this.apertureEdgesMesh.parent.remove(this.apertureEdgesMesh);
+            if (this.apertureEdgesMesh.geometry) this.apertureEdgesMesh.geometry.dispose();
+            this.apertureEdgesMesh = null;
+        }
+        if (this.snapGuideMesh) {
+            if (this.snapGuideMesh.parent) this.snapGuideMesh.parent.remove(this.snapGuideMesh);
+            if (this.snapGuideMesh.geometry) this.snapGuideMesh.geometry.dispose();
+            this.snapGuideMesh = null;
         }
     }
 
@@ -332,12 +427,490 @@ export class UniversalMoveGizmo extends THREE.Group {
             yLine.renderOrder = 9998;
             this.gizmoVisuals.add(yLine);
 
-            const coneGeo = new THREE.ConeGeometry(arrowW * 0.8, arrowLen * 0.9, 16);
-            const handlePosY = new THREE.Mesh(coneGeo, this.matAxisY);
-            handlePosY.position.set(0, yHeight, 0);
-            handlePosY.name = 'handle_y';
-            handlePosY.renderOrder = 9999;
-            this.gizmoVisuals.add(handlePosY);
+            const coneGeo = new THREE.ConeGeometry(arrowW * 0.7, arrowLen, 16);
+            const coneMesh = new THREE.Mesh(coneGeo, this.matAxisY);
+            coneMesh.position.set(0, yHeight, 0);
+            coneMesh.name = 'handle_y';
+            coneMesh.renderOrder = 9999;
+            this.gizmoVisuals.add(coneMesh);
+        }
+
+        this.gizmoVisuals.visible = true;
+    }
+
+    /* -------------------------------------------------------------------------- */
+    /*                         LUMINOUS MOVE & STYLING ENGINE                     */
+    /* -------------------------------------------------------------------------- */
+
+    _applyLuminousHighlight(object) {
+        if (!object || this._isLuminousActive) return;
+        this._isLuminousActive = true;
+        this._savedMaterials = new Map();
+
+        // 1. Check if wall plugin / opening
+        const ent = this.attachedEntity;
+        if (ent && ent.wall && ent.wall.mesh3D) {
+            this._updateApertureHighlight();
+        }
+
+        // 2. Apply Sims 4 glowing cyan holographic highlight to actual 3D model meshes
+        object.traverse(c => {
+            if (c.isMesh && !c.userData?.isHitbox && c.material && c.material.visible !== false) {
+                this._savedMaterials.set(c, c.material);
+                const ghostMat = new THREE.MeshStandardMaterial({
+                    color: 0x38bdf8,
+                    transparent: true,
+                    opacity: 0.88,
+                    roughness: 0.3,
+                    metalness: 0.1,
+                    side: THREE.DoubleSide
+                });
+                if (ghostMat.emissive) {
+                    ghostMat.emissive.setHex(0x0284c7);
+                    ghostMat.emissiveIntensity = 0.5;
+                }
+                    c.material = ghostMat;
+            }
+        });
+
+        // 3. Show luminous cyan floor footprint
+        this._updateLuminousFootprint();
+
+        if (this.ctx && typeof this.ctx.requestRender === 'function') {
+            this.ctx.requestRender('luminous_highlight_applied');
+        }
+    }
+
+    _restoreOriginalMaterials() {
+        if (!this._isLuminousActive) return;
+        this._isLuminousActive = false;
+
+        if (this._savedMaterials) {
+            this._savedMaterials.forEach((origMat, mesh) => {
+                if (mesh) {
+                    if (mesh.material) {
+                        if (Array.isArray(mesh.material)) {
+                            mesh.material.forEach(m => m && m.dispose && m.dispose());
+                        } else if (mesh.material.dispose) {
+                            mesh.material.dispose();
+                        }
+                    }
+                    mesh.material = origMat;
+                }
+            });
+            this._savedMaterials.clear();
+        }
+
+        if (this.luminousFootprintMesh) {
+            this.luminousFootprintMesh.visible = false;
+        }
+        if (this.apertureVoidMesh) {
+            this.apertureVoidMesh.visible = false;
+        }
+        if (this.apertureEdgesMesh) {
+            this.apertureEdgesMesh.visible = false;
+        }
+        if (this.snapGuideMesh) {
+            this.snapGuideMesh.visible = false;
+        }
+
+        if (this.ctx.interactions?.highlightRenderer && this.attachedObject) {
+            this.ctx.interactions.highlightRenderer.refresh(this.attachedObject);
+        }
+        if (this.ctx && typeof this.ctx.requestRender === 'function') {
+            this.ctx.requestRender('luminous_materials_restored');
+        }
+    }
+
+    _updateLuminousFootprint() {
+        if (!this.attachedObject) return;
+
+        if (!this.luminousFootprintMesh) {
+            this.luminousFootprintMat = new THREE.LineBasicMaterial({
+                color: 0x00f0ff,
+                linewidth: 2.5,
+                depthTest: false,
+                transparent: true,
+                opacity: 0.95
+            });
+            this.luminousFootprintMesh = new THREE.LineSegments(new THREE.BufferGeometry(), this.luminousFootprintMat);
+            this.luminousFootprintMesh.renderOrder = 1008;
+            this.luminousFootprintMesh.raycast = () => {};
+            this.ctx.scene.add(this.luminousFootprintMesh);
+        }
+
+        const ent = this.attachedEntity;
+        const mesh = this.attachedObject;
+        mesh.updateMatrixWorld(true);
+        const bbox = new THREE.Box3().setFromObject(mesh);
+        if (bbox.isEmpty() || !isFinite(bbox.min.x)) {
+            this.luminousFootprintMesh.visible = false;
+            return;
+        }
+
+        let linePoints = null;
+        const isStair = Boolean(
+            ent?.type === 'staircase' ||
+            (typeof ent?.type === 'string' && ent.type.startsWith('stair')) ||
+            ent?.constructor?.name === 'PremiumStaircase'
+        );
+        if (isStair) {
+            const pts = StairEngine.getCutoutPolygon(ent);
+            if (pts && pts.length >= 3) {
+                let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+                pts.forEach(p => {
+                    if (p.x < minX) minX = p.x;
+                    if (p.x > maxX) maxX = p.x;
+                    if (p.y < minY) minY = p.y;
+                    if (p.y > maxY) maxY = p.y;
+                });
+                const cx = (minX + maxX) / 2;
+                const cz = (minY + maxY) / 2;
+                linePoints = [];
+                for (let i = 0; i < pts.length; i++) {
+                    const p1 = pts[i];
+                    const p2 = pts[(i + 1) % pts.length];
+                    linePoints.push(new THREE.Vector3(p1.x - cx, 0.5, p1.y - cz));
+                    linePoints.push(new THREE.Vector3(p2.x - cx, 0.5, p2.y - cz));
+                }
+            }
+        }
+
+        if (!linePoints) {
+            const width = Number(ent?.width) || (bbox.max.x - bbox.min.x);
+            const depth = Number(ent?.depth || ent?.length) || (bbox.max.z - bbox.min.z);
+            const halfW = width / 2;
+            const halfD = depth / 2;
+
+            linePoints = [
+                new THREE.Vector3(-halfW, 0.5, -halfD),
+                new THREE.Vector3(halfW, 0.5, -halfD),
+                new THREE.Vector3(halfW, 0.5, -halfD),
+                new THREE.Vector3(halfW, 0.5, halfD),
+                new THREE.Vector3(halfW, 0.5, halfD),
+                new THREE.Vector3(-halfW, 0.5, halfD),
+                new THREE.Vector3(-halfW, 0.5, halfD),
+                new THREE.Vector3(-halfW, 0.5, -halfD)
+            ];
+        }
+
+        if (this.luminousFootprintMesh.geometry) this.luminousFootprintMesh.geometry.dispose();
+        this.luminousFootprintMesh.geometry = new THREE.BufferGeometry().setFromPoints(linePoints);
+
+        const groundY = bbox.min.y;
+        this.luminousFootprintMesh.position.set(this.position.x, groundY, this.position.z);
+        this.luminousFootprintMesh.rotation.y = mesh.rotation.y;
+        this.luminousFootprintMesh.visible = false;
+    }
+
+    _updateApertureHighlight() {
+        const ent = this.attachedEntity;
+        if (!ent || !ent.wall || !ent.wall.mesh3D) return;
+
+        if (!this.apertureVoidMesh) {
+            this.apertureVoidMat = new THREE.MeshBasicMaterial({
+                color: 0x00f0ff,
+                transparent: true,
+                opacity: 0.28,
+                depthTest: false,
+                side: THREE.DoubleSide
+            });
+            this.apertureVoidMesh = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), this.apertureVoidMat);
+            this.apertureVoidMesh.renderOrder = 1005;
+            this.apertureVoidMesh.raycast = () => {};
+            this.ctx.scene.add(this.apertureVoidMesh);
+
+            this.apertureEdgeMat = new THREE.LineBasicMaterial({
+                color: 0x00f0ff,
+                linewidth: 2,
+                depthTest: false,
+                transparent: true,
+                opacity: 0.95
+            });
+            this.apertureEdgesMesh = new THREE.LineSegments(new THREE.BufferGeometry(), this.apertureEdgeMat);
+            this.apertureEdgesMesh.renderOrder = 1006;
+            this.apertureEdgesMesh.raycast = () => {};
+            this.ctx.scene.add(this.apertureEdgesMesh);
+        }
+
+        const w = Number(ent.width) || 80;
+        const h = Number(ent.height) || (ent.type === 'door' ? 210 : 120);
+        const wallThick = Number(ent.wall.thickness) || 20;
+
+        // Position void box centered at opening
+        this.attachedObject.updateMatrixWorld(true);
+        const center = new THREE.Vector3();
+        this.attachedObject.getWorldPosition(center);
+
+        this.apertureVoidMesh.geometry.dispose();
+        this.apertureVoidMesh.geometry = new THREE.BoxGeometry(w, h, wallThick + 4);
+        this.apertureVoidMesh.position.set(center.x, center.y + h / 2, center.z);
+        this.apertureVoidMesh.rotation.copy(this.attachedObject.rotation);
+        this.apertureVoidMesh.visible = true;
+
+        const edgeGeo = new THREE.EdgesGeometry(this.apertureVoidMesh.geometry);
+        if (this.apertureEdgesMesh.geometry) this.apertureEdgesMesh.geometry.dispose();
+        this.apertureEdgesMesh.geometry = edgeGeo;
+        this.apertureEdgesMesh.position.copy(this.apertureVoidMesh.position);
+        this.apertureEdgesMesh.rotation.copy(this.apertureVoidMesh.rotation);
+        this.apertureEdgesMesh.visible = true;
+    }
+
+    _updateSnapGuideLine(segment, elev = 0) {
+        if (!this.snapGuideMesh) {
+            this.snapGuideMat = new THREE.LineBasicMaterial({
+                color: 0x10b981,
+                linewidth: 3,
+                depthTest: false,
+                transparent: true,
+                opacity: 0.95
+            });
+            this.snapGuideMesh = new THREE.LineSegments(new THREE.BufferGeometry(), this.snapGuideMat);
+            this.snapGuideMesh.name = 'UniversalMoveGizmo_SnapGuide';
+            this.snapGuideMesh.renderOrder = 1010;
+            this.snapGuideMesh.raycast = () => {};
+            this.snapGuideMesh.visible = false;
+            if (this.ctx?.scene?.add) {
+                this.ctx.scene.add(this.snapGuideMesh);
+            }
+        }
+
+        if (!segment || !segment.p1 || !segment.p2) {
+            this.snapGuideMesh.visible = false;
+            return;
+        }
+
+        const p1 = segment.p1;
+        const p2 = segment.p2;
+        const y = (elev || 0) + 0.3;
+
+        const vertices = new Float32Array([
+            p1.x, y, (p1.z !== undefined ? p1.z : p1.y),
+            p2.x, y, (p2.z !== undefined ? p2.z : p2.y)
+        ]);
+        const geo = new THREE.BufferGeometry();
+        geo.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
+        if (this.snapGuideMesh.geometry) this.snapGuideMesh.geometry.dispose();
+        this.snapGuideMesh.geometry = geo;
+        this.snapGuideMesh.visible = true;
+    }
+
+    _raycastFloor(e) {
+        const dom = this.ctx.renderer?.domElement;
+        if (!dom) return null;
+        const rect = dom.getBoundingClientRect();
+        if (e.clientX < rect.left || e.clientX > rect.right || e.clientY < rect.top || e.clientY > rect.bottom) {
+            return null;
+        }
+        this.mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+        this.mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+        this.raycaster.setFromCamera(this.mouse, this.ctx.camera);
+
+        const elev = this.attachedEntity?.elevation !== undefined ? Number(this.attachedEntity.elevation) : 0;
+        const floorPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -elev);
+        const hitPoint = new THREE.Vector3();
+        if (!this.raycaster.ray.intersectPlane(floorPlane, hitPoint)) return null;
+
+        const isFine = e.shiftKey;
+        const gridStep = this.snapMode === 0 || isFine ? 1 : this.snapMode;
+        const snapped = SnapEngine.snapToGrid({ x: hitPoint.x, z: hitPoint.z }, gridStep);
+        const snappedX = snapped.x !== undefined ? snapped.x : hitPoint.x;
+        const snappedZ = snapped.z !== undefined ? snapped.z : hitPoint.z;
+
+        const planner = this.ctx.planner || (this.ctx.appState && this.ctx.appState.planner) || window.planner?.value || window.planner;
+        let targetElev = elev;
+        let hostPlatformId = null;
+        if (planner && planner.platforms) {
+            for (const p of planner.platforms) {
+                if (VerticalPropagationEngine.isPointInPlatform(snappedX, snappedZ, p)) {
+                    const pTop = (Number(p.elevation) || 0) + (Number(p.height) > 0 ? Number(p.height) : 0);
+                    targetElev = pTop;
+                    hostPlatformId = p.id;
+                    break;
+                }
+            }
+        }
+
+        return {
+            x: snappedX,
+            z: snappedZ,
+            elev: targetElev,
+            hostPlatformId
+        };
+    }
+
+    _isHitOnFootprint(e) {
+        if (!this.attachedObject) return false;
+        const floor = this._raycastFloor(e);
+        if (!floor) return false;
+
+        const curX = this.position.x;
+        const curZ = this.position.z;
+        const rotY = this.attachedObject.rotation?.y || 0;
+
+        const dx = floor.x - curX;
+        const dz = floor.z - curZ;
+        const cos = Math.cos(rotY);
+        const sin = Math.sin(rotY);
+        const localX = dx * cos + dz * sin;
+        const localZ = -dx * sin + dz * cos;
+
+        const bbox = new THREE.Box3().setFromObject(this.attachedObject);
+        const halfW = (!bbox.isEmpty() && isFinite(bbox.min.x)) ? Math.max(20, (bbox.max.x - bbox.min.x) / 2 + 15) : 35;
+        const halfD = (!bbox.isEmpty() && isFinite(bbox.min.x)) ? Math.max(20, (bbox.max.z - bbox.min.z) / 2 + 15) : 35;
+
+        return Math.abs(localX) <= halfW && Math.abs(localZ) <= halfD;
+    }
+
+    startMoveMode(initialPointerEvent = null) {
+        if (!this.attachedObject || !this.attachedEntity) return;
+        if (this.isMoveModeActive) return; // Idempotent: already in SC move mode
+        this.isMoveModeActive = true;
+
+        const ent = this.attachedEntity;
+        this.startOrigin.copy(this.position);
+        this.startMeshPos.copy(this.attachedObject.position);
+        this.startGizmoPos.copy(this.position);
+
+        this.startEntityPosition = {
+            x: ent.x !== undefined ? Number(ent.x) : this.startMeshPos.x,
+            y: ent.y !== undefined ? Number(ent.y) : this.startMeshPos.z,
+            z: ent.elevation !== undefined ? Number(ent.elevation) : this.startMeshPos.y,
+            elevation: ent.elevation !== undefined ? Number(ent.elevation) : this.startMeshPos.y,
+            t: ent.t !== undefined ? ent.t : 0.5,
+            rotation: ent.rotation !== undefined ? Number(ent.rotation) : 0
+        };
+
+        if (!TransformEngine.isSessionActive() && !this.isRoomMove) {
+            TransformEngine.startSession(ent, 'move');
+        }
+
+        // Apply Sims 4 luminous holographic styling
+        this._applyLuminousHighlight(this.attachedObject);
+
+        // Compute grab offset if pointer event available
+        if (initialPointerEvent) {
+            const floor = this._raycastFloor(initialPointerEvent);
+            if (floor) {
+                this._grabOffset.set(
+                    this.startMeshPos.x - floor.x,
+                    0,
+                    this.startMeshPos.z - floor.z
+                );
+                this._hasSetGrabOffset = true;
+            } else {
+                this._grabOffset.set(0, 0, 0);
+                this._hasSetGrabOffset = false;
+            }
+        } else {
+            this._grabOffset.set(0, 0, 0);
+            this._hasSetGrabOffset = false;
+        }
+
+        // Update HUD
+        if (coreEventBus) {
+            coreEventBus.emit('InteractionStateChanged', {
+                state: 'ACTION_ACTIVE',
+                activeAction: 'move',
+                hudMode: 'action_minimal',
+                selectedEntity: ent
+            });
+            coreEventBus.emit('UniversalMoveChanged', {
+                x: Math.round(this.startEntityPosition.x),
+                z: Math.round(this.startEntityPosition.y),
+                rotation: this.startEntityPosition.rotation,
+                wallSnap: this.wallSnapEnabled,
+                snapMode: this.snapMode
+            });
+        }
+
+        // Show DOM HUD panel (coordinate inputs, D-pad, snap pills)
+        this.showHUD();
+
+        if (this.ctx && typeof this.ctx.requestRender === 'function') {
+            this.ctx.requestRender('start_move_mode');
+        }
+    }
+
+    commitMoveMode() {
+        if (!this.isMoveModeActive && !this.isDragging) return;
+        this.isMoveModeActive = false;
+        this.isDragging = false;
+        this.activeHandle = null;
+        this._hasSetGrabOffset = false;
+
+        this._restoreOriginalMaterials();
+        this._commitTranslationToPlanner();
+
+        if (this.dynamicLeaderLine && this.dynamicLeaderLine.parent) {
+            this.dynamicLeaderLine.parent.remove(this.dynamicLeaderLine);
+        }
+
+        if (this.ctx.controls) this.ctx.controls.enabled = true;
+        if (this.ctx.cameraController?.controls) this.ctx.cameraController.controls.enabled = true;
+        if (this.ctx.cameraController && typeof this.ctx.cameraController.enableOrbit === 'function') {
+            this.ctx.cameraController.enableOrbit();
+        }
+
+        if (this.ctx && typeof this.ctx.requestRender === 'function') {
+            this.ctx.requestRender('commit_move_mode');
+        }
+    }
+
+    cancelMoveMode() {
+        if (!this.isMoveModeActive && !this.isDragging) return;
+        this.isMoveModeActive = false;
+        this.isDragging = false;
+        this.activeHandle = null;
+        this._hasSetGrabOffset = false;
+
+        // Revert entity to starting position
+        const ent = this.attachedEntity;
+        if (ent && this.startEntityPosition) {
+            if (TransformEngine.isSessionActive()) {
+                TransformEngine.cancelSession();
+            }
+
+            if (ent.wall && ent.wall.mesh3D) {
+                ent.t = this.startEntityPosition.t;
+                ent.elevation = this.startEntityPosition.elevation;
+                if (this.ctx.realtimeUpdate) this.ctx.realtimeUpdate.markDirty(ent, 'geometry');
+            } else {
+                ent.x = this.startEntityPosition.x;
+                ent.y = this.startEntityPosition.y;
+                if (this.startEntityPosition.elevation !== undefined) {
+                    ent.elevation = this.startEntityPosition.elevation;
+                }
+                if (this.startEntityPosition.rotation !== undefined) {
+                    ent.rotation = this.startEntityPosition.rotation;
+                }
+                if (this.attachedObject) {
+                    this.attachedObject.position.set(this.startEntityPosition.x, this.startEntityPosition.elevation || 0, this.startEntityPosition.y);
+                    if (this.startEntityPosition.rotation !== undefined) {
+                        this.attachedObject.rotation.y = -(this.startEntityPosition.rotation * Math.PI / 180);
+                    }
+                    this.attachedObject.updateMatrixWorld(true);
+                }
+                if (this.ctx.realtimeUpdate) this.ctx.realtimeUpdate.markDirty(ent, 'transform');
+            }
+
+            this.position.copy(this.startGizmoPos);
+        }
+
+        this._restoreOriginalMaterials();
+
+        if (this.dynamicLeaderLine && this.dynamicLeaderLine.parent) {
+            this.dynamicLeaderLine.parent.remove(this.dynamicLeaderLine);
+        }
+
+        if (this.ctx.controls) this.ctx.controls.enabled = true;
+        if (this.ctx.cameraController?.controls) this.ctx.cameraController.controls.enabled = true;
+        if (this.ctx.cameraController && typeof this.ctx.cameraController.enableOrbit === 'function') {
+            this.ctx.cameraController.enableOrbit();
+        }
+
+        if (this.ctx && typeof this.ctx.requestRender === 'function') {
+            this.ctx.requestRender('cancel_move_mode');
         }
     }
 
@@ -349,9 +922,17 @@ export class UniversalMoveGizmo extends THREE.Group {
         const dom = this.ctx.renderer?.domElement || window;
 
         this._onPointerDown = (e) => {
-            if (e.button !== 0 && e.pointerType === 'mouse') return;
+            if (e.button !== 0 && e.pointerType === 'mouse') {
+                if (this.ctx.controls) this.ctx.controls.enabled = true;
+                return;
+            }
             if (this.ctx.viewMode3D === 'preview') return;
             if (!this.visible || !this.attachedObject) return;
+
+            // Don't drag if clicking on HUD/toolbar elements
+            if (e.target && (e.target.closest?.('.contextual-action-hud-container') || e.target.closest?.('.action-hud-card') || e.target.closest?.('.universal-move-hud-panel') || e.target.closest?.('.common-toolbar-3d') || e.target.closest?.('.sims4-staircase-3d-hud'))) {
+                return;
+            }
 
             this._updateMouseCoords(e);
             this.raycaster.setFromCamera(this.mouse, this.ctx.camera);
@@ -374,13 +955,9 @@ export class UniversalMoveGizmo extends THREE.Group {
                 }
             }
 
-            // 2b. Check if clicked on any bounding walls of the attached room
-            if (!handleName && this.isRoomMove && this.roomMoveData?.walls) {
-                const wallMeshes = this.roomMoveData.walls.map(w => w.mesh3D).filter(Boolean);
-                const wallIntersects = this.raycaster.intersectObjects(wallMeshes, true);
-                if (wallIntersects.length > 0) {
-                    handleName = 'handle_center';
-                }
+            // 3. Fallback: Check floor footprint hit (especially helpful on touch devices & ghost models)
+            if (!handleName && this._isHitOnFootprint(e)) {
+                handleName = 'handle_center';
             }
 
             if (handleName && this.attachedObject) {
@@ -394,54 +971,28 @@ export class UniversalMoveGizmo extends THREE.Group {
                     this.ctx.cameraController.disableOrbit();
                 }
 
-                try {
-                    if (dom.setPointerCapture && e.pointerId !== undefined) {
-                        dom.setPointerCapture(e.pointerId);
-                        this._activePointerId = e.pointerId;
-                    }
-                } catch (_) {}
-
-                // Setup Drag Plane
-                if (this.activeHandle === 'y') {
-                    const normal = new THREE.Vector3();
-                    this.ctx.camera.getWorldDirection(normal);
-                    normal.y = 0;
-                    normal.normalize();
-                    this.dragPlane.setFromNormalAndCoplanarPoint(normal, this.position);
-                } else {
-                    this.dragPlane.set(new THREE.Vector3(0, 1, 0), -this.position.y);
+                // Compute initial intersection plane & grab offset
+                const floor = this._raycastFloor(e);
+                if (floor) {
+                    this._grabOffset.set(
+                        this.startMeshPos.x - floor.x,
+                        0,
+                        this.startMeshPos.z - floor.z
+                    );
+                    this._hasSetGrabOffset = true;
                 }
-
-                this.raycaster.ray.intersectPlane(this.dragPlane, this.startIntersection);
-                this.startOrigin.copy(this.position);
-                this.startMeshPos.copy(this.attachedObject.position);
-                this.startGizmoPos.copy(this.position);
-
-                const ent = this.attachedEntity;
-                if (ent) {
-                    this.startEntityPosition = {
-                        x: this.startMeshPos.x,
-                        y: this.startMeshPos.z,
-                        z: this.startMeshPos.y,
-                        elevation: ent.elevation !== undefined ? ent.elevation : this.startMeshPos.y,
-                        t: ent.t !== undefined ? ent.t : 0.5
-                    };
-                    if (!this.isRoomMove && (ent.id || ent.group)) {
-                        TransformEngine.startSession(ent, 'move', { clientX: e.clientX, clientY: e.clientY });
-                    }
+                if (this.ctx.renderer?.domElement) {
+                    this.ctx.renderer.domElement.style.cursor = 'grabbing';
                 }
-
-                // Immediate highlight & footprint lock
-                if (this.ctx.interactions?.highlightRenderer) {
-                    this.ctx.interactions.highlightRenderer.setSelectionHighlight(this.attachedObject);
-                }
-                if (this.ctx.interactions?._updateSims4Footprint) {
-                    this.ctx.interactions._updateSims4Footprint(this.attachedObject);
-                }
-
                 e.stopPropagation();
-                if (typeof e.stopImmediatePropagation === 'function') e.stopImmediatePropagation();
-                e.preventDefault();
+            } else {
+                // Clicked outside gizmo and object: camera orbit remains enabled, DO NOT drag, DO NOT drop/commit!
+                this.isDragging = false;
+                if (this.ctx.controls) this.ctx.controls.enabled = true;
+                if (this.ctx.cameraController?.controls) this.ctx.cameraController.controls.enabled = true;
+                if (this.ctx.cameraController && typeof this.ctx.cameraController.enableOrbit === 'function') {
+                    this.ctx.cameraController.enableOrbit();
+                }
             }
         };
 
@@ -449,67 +1000,55 @@ export class UniversalMoveGizmo extends THREE.Group {
             if (this.ctx.viewMode3D === 'preview') return;
             this._updateMouseCoords(e);
 
-            if (this.isDragging && this.attachedObject) {
+            if (!this.isDragging) {
+                // Update cursor when hovering over gizmo or object
                 this.raycaster.setFromCamera(this.mouse, this.ctx.camera);
-                const currentHit = new THREE.Vector3();
-
-                if (this.raycaster.ray.intersectPlane(this.dragPlane, currentHit)) {
-                    const delta = new THREE.Vector3().subVectors(currentHit, this.startIntersection);
-
-                    // Constrain delta according to active handle
-                    if (this.activeHandle === 'x') {
-                        delta.z = 0;
-                        delta.y = 0;
-                    } else if (this.activeHandle === 'z') {
-                        delta.x = 0;
-                        delta.y = 0;
-                    } else if (this.activeHandle === 'y') {
-                        delta.x = 0;
-                        delta.z = 0;
-                    } else if (e.shiftKey) {
-                        // Shift-lock: predominant single horizontal axis
-                        if (Math.abs(delta.x) > Math.abs(delta.z)) {
-                            delta.z = 0;
-                        } else {
-                            delta.x = 0;
-                        }
-                    }
-
-                    // Apply Magnetic Grid Snapping
-                    if (this.snapMode > 1 && !e.altKey) {
-                        delta.x = Math.round(delta.x / this.snapMode) * this.snapMode;
-                        delta.y = Math.round(delta.y / this.snapMode) * this.snapMode;
-                        delta.z = Math.round(delta.z / this.snapMode) * this.snapMode;
-                    }
-
-                    this._applyTranslation(delta);
-                    this._updateLeaderLine(this.startGizmoPos, this.position);
-                    this.syncHUD();
-
-                    // Keep visual highlight, footprint and dimensions 100% updated in real-time
-                    if (this.ctx.interactions?.highlightRenderer) {
-                        this.ctx.interactions.highlightRenderer.refresh(this.attachedObject);
-                    }
-                    if (this.ctx.interactions?._updateSims4Footprint) {
-                        this.ctx.interactions._updateSims4Footprint(this.attachedObject);
-                    }
-                    if (this.ctx.interactions?.dimensionManager) {
-                        this.ctx.interactions.dimensionManager.update();
-                    }
-
-                    if (this.ctx.requestRender) this.ctx.requestRender('universal_move_drag');
+                const hasHover = (this.gizmoVisuals.children.length > 0 && this.raycaster.intersectObjects(this.gizmoVisuals.children, true).length > 0) ||
+                                 (this.attachedObject && this.raycaster.intersectObject(this.attachedObject, true).length > 0) ||
+                                 this._isHitOnFootprint(e);
+                if (this.ctx.renderer?.domElement) {
+                    this.ctx.renderer.domElement.style.cursor = hasHover ? 'grab' : 'auto';
                 }
-            } else if (this.visible && this.attachedObject) {
-                // Hover cursor
-                this.raycaster.setFromCamera(this.mouse, this.ctx.camera);
-                const intersects = this.raycaster.intersectObjects(this.gizmoVisuals.children, true);
-                if (intersects.length > 0) {
-                    dom.style.cursor = 'grab';
-                } else if (this.raycaster.intersectObject(this.attachedObject, true).length > 0) {
-                    dom.style.cursor = 'grab';
-                } else if (dom.style.cursor === 'grab') {
-                    dom.style.cursor = 'default';
+                return;
+            }
+
+            // Actively dragging!
+            if (this.ctx.renderer?.domElement) {
+                this.ctx.renderer.domElement.style.cursor = 'grabbing';
+            }
+
+            const floor = this._raycastFloor(e);
+            if (floor && this.attachedObject) {
+                let targetX = floor.x + this._grabOffset.x;
+                let targetZ = floor.z + this._grabOffset.z;
+
+                if (this.activeHandle === 'x') {
+                    targetZ = this.startMeshPos.z;
+                } else if (this.activeHandle === 'z') {
+                    targetX = this.startMeshPos.x;
                 }
+
+                const delta = new THREE.Vector3(
+                    targetX - this.startMeshPos.x,
+                    (floor.elev !== undefined ? (floor.elev - this.startMeshPos.y) : 0),
+                    targetZ - this.startMeshPos.z
+                );
+
+                this._applyTranslation(delta, { x: targetX, z: targetZ, elev: floor.elev, hostPlatformId: floor.hostPlatformId });
+                this._updateLeaderLine(this.startGizmoPos, this.position);
+                this.syncHUD();
+
+                if (this.ctx.interactions?.highlightRenderer) {
+                    this.ctx.interactions.highlightRenderer.refresh(this.attachedObject);
+                }
+                if (this.ctx.interactions?._updateSims4Footprint) {
+                    this.ctx.interactions._updateSims4Footprint(this.attachedObject);
+                }
+                if (this.ctx.interactions?.dimensionManager) {
+                    this.ctx.interactions.dimensionManager.update();
+                }
+
+                if (this.ctx.requestRender) this.ctx.requestRender('universal_move_drag');
             }
         };
 
@@ -518,35 +1057,52 @@ export class UniversalMoveGizmo extends THREE.Group {
                 this.isDragging = false;
                 this.activeHandle = null;
 
-                try {
-                    if (dom.releasePointerCapture && this._activePointerId !== undefined && this._activePointerId !== null) {
-                        dom.releasePointerCapture(this._activePointerId);
-                        this._activePointerId = null;
-                    }
-                } catch (_) {}
-
+                // Re-enable camera controls
                 if (this.ctx.controls) this.ctx.controls.enabled = true;
                 if (this.ctx.cameraController?.controls) this.ctx.cameraController.controls.enabled = true;
                 if (this.ctx.cameraController && typeof this.ctx.cameraController.enableOrbit === 'function') {
                     this.ctx.cameraController.enableOrbit();
                 }
+                if (this.ctx.renderer?.domElement) {
+                    this.ctx.renderer.domElement.style.cursor = 'grab';
+                }
                 this._commitTranslationToPlanner();
-                if (this.dynamicLeaderLine && this.dynamicLeaderLine.parent) {
-                    this.dynamicLeaderLine.parent.remove(this.dynamicLeaderLine);
-                }
-                if (this.ctx.interactions?.highlightRenderer) {
-                    this.ctx.interactions.highlightRenderer.refresh(this.attachedObject);
-                }
-                if (this.ctx.interactions?._updateSims4Footprint) {
-                    this.ctx.interactions._updateSims4Footprint(this.attachedObject);
-                }
                 if (this.ctx.requestRender) this.ctx.requestRender('universal_move_end');
+            }
+        };
+
+        this._onKeyDown = (e) => {
+            if (!this.attachedObject || !this.visible) return;
+            if (this.ctx.viewMode3D === 'preview') return;
+            if (['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName)) return;
+            if (e.key === 'Escape') {
+                if (this.isMoveModeActive) {
+                    this.cancelMoveMode();
+                    e.preventDefault();
+                    return;
+                }
+            }
+            if (e.key === 'Enter' || e.key === ' ') {
+                if (this.isMoveModeActive) {
+                    this.commitMoveMode();
+                    e.preventDefault();
+                    return;
+                }
+            }
+            if (e.key === 'r' || e.key === 'R' || e.key === ']' || e.key === '.') {
+                const step = e.shiftKey ? -90 : 90;
+                this.rotate(step);
+                e.preventDefault();
+            } else if (e.key === '[' || e.key === ',') {
+                this.rotate(-90);
+                e.preventDefault();
             }
         };
 
         dom.addEventListener('pointerdown', this._onPointerDown, { capture: true, passive: false });
         window.addEventListener('pointermove', this._onPointerMove);
         window.addEventListener('pointerup', this._onPointerUp);
+        window.addEventListener('keydown', this._onKeyDown);
     }
 
     _updateMouseCoords(e) {
@@ -568,26 +1124,30 @@ export class UniversalMoveGizmo extends THREE.Group {
 
         // 1. Wall-Mounted Opening / Plugin Translation along Host Wall
         if (ent.wall && ent.wall.mesh3D) {
-            const wall = ent.wall;
-            const wallLength = wall.length3D || 100;
-            const startT = this.startEntityPosition.t !== undefined ? this.startEntityPosition.t : 0.5;
-            const startLocalX = startT * wallLength;
-            const newLocalX = Math.max(5, Math.min(wallLength - 5, startLocalX + delta.x));
-            ent.t = newLocalX / wallLength;
+            if (!TransformEngine.isSessionActive()) {
+                TransformEngine.startSession(ent, 'move');
+            }
 
             const isDoor = isFloorAnchoredDoor(ent);
-            if (isDoor) {
-                ent.elevation = 0;
-            } else if (delta.y !== 0 && ent.elevation !== undefined) {
-                const wallH = wall.height || wall.config?.height || 300;
-                const opH = ent.height || 80;
-                const startElev = this.startEntityPosition.elevation || 0;
-                ent.elevation = Math.max(0, Math.min(wallH - opH, startElev + delta.y));
-            }
+            const wall = ent.wall;
+            const p1 = wall.startAnchor ? (typeof wall.startAnchor.position === 'function' ? wall.startAnchor.position() : wall.startAnchor) : { x: wall.startX || 0, y: wall.startY || 0 };
+            const p2 = wall.endAnchor ? (typeof wall.endAnchor.position === 'function' ? wall.endAnchor.position() : wall.endAnchor) : { x: wall.endX || 0, y: wall.endY || 0 };
+            const dxW = p2.x - p1.x;
+            const dzW = p2.y - p1.y;
+            const len = Math.hypot(dxW, dzW);
+            const ux = len > 0.001 ? (dxW / len) : 1;
+            const uz = len > 0.001 ? (dzW / len) : 0;
+            const alongWall = delta.x * ux + delta.z * uz;
 
-            if (this.ctx.realtimeUpdate) {
-                this.ctx.realtimeUpdate.markDirty(ent, 'geometry');
-            }
+            TransformEngine.previewMove(ent, {
+                x: delta.x,
+                y: isDoor ? 0 : delta.y,
+                z: delta.z,
+                alongWall
+            }, {
+                planner: this.ctx.planner || (this.ctx.appState && this.ctx.appState.planner) || window.planner?.value || window.planner,
+                realtimeUpdate: this.ctx.realtimeUpdate
+            });
 
             // Keep gizmo centered on opening
             this.attachedObject.updateMatrixWorld(true);
@@ -596,6 +1156,10 @@ export class UniversalMoveGizmo extends THREE.Group {
             if (!bbox.isEmpty() && isFinite(bbox.min.x)) {
                 bbox.getCenter(center);
                 this.position.set(center.x, bbox.min.y + 0.05, center.z);
+            }
+
+            if (this._isLuminousActive) {
+                this._updateApertureHighlight();
             }
         } else if (this.isRoomMove && this.roomMoveData) {
             const dx = delta.x;
@@ -617,6 +1181,27 @@ export class UniversalMoveGizmo extends THREE.Group {
                 }
             });
 
+            // Fix 6: Translate contained furniture, stairs, and shapes
+            if (Array.isArray(this.roomMoveData.containedEntities)) {
+                this.roomMoveData.containedEntities.forEach(c => {
+                    c.entity.x = Math.round(c.startX + dx);
+                    c.entity.y = Math.round(c.startY + dy);
+                    if (c.entity.mesh3D) {
+                        c.entity.mesh3D.position.x = c.entity.x;
+                        c.entity.mesh3D.position.z = c.entity.y;
+                        if (typeof c.entity.mesh3D.updateMatrixWorld === 'function') {
+                            c.entity.mesh3D.updateMatrixWorld(true);
+                        }
+                    }
+                    if (c.entity.group && typeof c.entity.group.position === 'function') {
+                        c.entity.group.position({ x: c.entity.x, y: c.entity.y });
+                    }
+                    if (this.ctx.realtimeUpdate) {
+                        this.ctx.realtimeUpdate.markDirty(c.entity, 'transform');
+                    }
+                });
+            }
+
             // Live-update 3D wall meshes
             if (this.ctx.interactions?.roomInteractiveSuite) {
                 this.ctx.interactions.roomInteractiveSuite._syncWalls3D(this.roomMoveData.walls);
@@ -634,72 +1219,77 @@ export class UniversalMoveGizmo extends THREE.Group {
 
         // 2. Free Planar Objects (Furniture, Shapes, Stairs, Roofs, Elevation Elements)
         else {
-            const newX = this.startMeshPos.x + delta.x;
-            const newZ = this.startMeshPos.z + delta.z;
-            const newY = this.startMeshPos.y + (delta.y || 0);
-
-            this.attachedObject.position.x = newX;
-            this.attachedObject.position.z = newZ;
-            if (delta.y !== 0) {
-                this.attachedObject.position.y = newY;
-            }
-            this.attachedObject.updateMatrixWorld(true);
-
-            ent.x = newX;
-            ent.y = newZ;
-            if (ent.elevation !== undefined && delta.y !== 0) {
-                ent.elevation = newY;
+            // Fix 9: Rotated Coordinate Inversion for Roofs
+            let moveDeltaX = delta.x;
+            let moveDeltaZ = delta.z;
+            if ((ent.type === 'roof' || ent.isRoof) && ent.rotation) {
+                const rotRad = (ent.rotation * Math.PI) / 180;
+                const cosR = Math.cos(rotRad);
+                const sinR = Math.sin(rotRad);
+                moveDeltaX = delta.x * cosR + delta.z * sinR;
+                moveDeltaZ = -delta.x * sinR + delta.z * cosR;
             }
 
-            // Sims 4 Dynamic Staircase Auto-Detect Height during drag
-            const isStair = !ent.isFloor && !ent.isPlatform && Boolean(
-                (typeof ent.type === 'string' && ent.type.startsWith('stair')) ||
-                ent.constructor?.name === 'PremiumStaircase' ||
-                ent.totalSteps !== undefined
-            );
+            let newX = targetWorldPos?.x !== undefined ? targetWorldPos.x : (this.startMeshPos.x + moveDeltaX);
+            let newZ = targetWorldPos?.z !== undefined ? targetWorldPos.z : (this.startMeshPos.z + moveDeltaZ);
+            let newY = targetWorldPos?.elev !== undefined ? targetWorldPos.elev : (this.startMeshPos.y + (delta.y || 0));
+
+            // Platform height detection if not already provided in targetWorldPos
             const planner = this.ctx.planner || (this.ctx.appState && this.ctx.appState.planner) || window.planner?.value || window.planner;
-
-            if (isStair && planner) {
-                const detection = StairHeightDetector.detect({
-                    x: newX,
-                    z: newZ,
-                    elevation: ent.elevation || 0,
-                    rotation: ent.rotation || 0,
-                    preset: ent,
-                    planner,
-                    isCenterAnchored: false
-                });
-
-                if (detection.hasTarget) {
-                    const currentH = Number(ent.height) || 300;
-                    if (Math.abs(currentH - detection.detectedHeight) > 1) {
-                        StairEngine.batchUpdate(planner, ent, {
-                            height: detection.detectedHeight,
-                            totalSteps: detection.optimalSteps,
-                            flight1Steps: detection.flight1Steps,
-                            flight2Steps: detection.flight2Steps,
-                            stepHeight: detection.stepHeight,
-                            length: detection.flightLength
-                        });
-                        if (this.ctx.realtimeUpdate) {
-                            this.ctx.realtimeUpdate.markDirty(ent, 'geometry');
-                        }
+            if (targetWorldPos?.elev === undefined && planner && planner.platforms && !ent.isRoof && ent.type !== 'roof') {
+                for (const p of planner.platforms) {
+                    if (VerticalPropagationEngine.isPointInPlatform(newX, newZ, p)) {
+                        const pTop = (Number(p.elevation) || 0) + (Number(p.height) > 0 ? Number(p.height) : 0);
+                        newY = pTop;
+                        break;
                     }
                 }
             }
 
-            if (ent.group && typeof ent.group.x === 'function') {
-                ent.group.x(newX);
-                ent.group.y(newZ);
+            // Wall Collision & Wall Snap Resolution (Fix 5: only if actively dragged to avoid instant click-teleportation)
+            const dragMag = Math.hypot(delta.x, delta.z);
+            if (planner && (this.wallCollisionEnabled || this.wallSnapEnabled) && !this.isRoomMove && (dragMag > 0.05 || this.isMoveModeActive)) {
+                const w = Number(ent.width) || 80;
+                const d = Number(ent.depth || ent.length) || 80;
+                const rot = Number(ent.rotation) || 0;
+                const resolved = SnapEngine.resolvePosition({
+                    x: newX,
+                    z: newZ,
+                    rotation: rot,
+                    width: w,
+                    depth: d
+                }, { planner }, {
+                    enableCollision: this.wallCollisionEnabled !== false,
+                    enableWallSnap: this.wallSnapEnabled !== false,
+                    enableWallContour: true,
+                    enableWallAlign: false,
+                    snapDistance: 20,
+                    enableGridSnap: false
+                });
+                newX = resolved.x;
+                newZ = resolved.z;
+
+                if (resolved.isSnapped && resolved.snappedSegment) {
+                    this._updateSnapGuideLine(resolved.snappedSegment, newY);
+                } else if (this.snapGuideMesh) {
+                    this.snapGuideMesh.visible = false;
+                }
+            } else if (this.snapGuideMesh) {
+                this.snapGuideMesh.visible = false;
             }
 
-            if (typeof ent.update2D === 'function') {
-                ent.update2D();
+            if (!TransformEngine.isSessionActive()) {
+                TransformEngine.startSession(ent, 'move');
             }
 
-            if (this.ctx.realtimeUpdate) {
-                this.ctx.realtimeUpdate.markDirty(ent, 'transform');
-            }
+            TransformEngine.previewMove(ent, {
+                absoluteX: newX,
+                absoluteY: newZ,
+                absoluteElevation: (this.activeHandle === 'handle_y' || this.activeHandle === 'y' || targetWorldPos?.elev !== undefined || (delta.y !== undefined && delta.y !== 0)) ? newY : undefined
+            }, {
+                planner,
+                realtimeUpdate: this.ctx.realtimeUpdate
+            });
 
             if (planner) {
                 globalSpatialDependencyEngine.onHostTransformed(ent, planner);
@@ -713,6 +1303,10 @@ export class UniversalMoveGizmo extends THREE.Group {
                 this.position.set(center.x, bbox.min.y + 0.05, center.z);
             } else {
                 this.position.set(newX, newY + 0.05, newZ);
+            }
+
+            if (this._isLuminousActive) {
+                this._updateLuminousFootprint();
             }
         }
     }
@@ -781,6 +1375,12 @@ export class UniversalMoveGizmo extends THREE.Group {
                 p.startX = p.platform.x;
                 p.startY = p.platform.y;
             });
+            if (Array.isArray(this.roomMoveData.containedEntities)) {
+                this.roomMoveData.containedEntities.forEach(c => {
+                    c.startX = c.entity.x;
+                    c.startY = c.entity.y;
+                });
+            }
 
             if (this.ctx.interactions?.roomInteractiveSuite) {
                 const suite = this.ctx.interactions.roomInteractiveSuite;
@@ -795,21 +1395,29 @@ export class UniversalMoveGizmo extends THREE.Group {
         }
 
         const id = ent.id || (ent.group && typeof ent.group.id === 'function' ? ent.group.id() : null);
-        const plannerInst = window.planner?.value || window.planner || window.plannerInstance || this.ctx.planner;
+        const plannerInst = this.ctx.planner || window.planner?.value || window.planner || window.plannerInstance;
 
         if (plannerInst) {
             if (TransformEngine.isSessionActive()) {
-                TransformEngine.commitSession(plannerInst);
-            } else {
-                const startPos = (this.startEntityPosition && typeof this.startEntityPosition.x === 'number' && typeof this.startEntityPosition.y === 'number')
-                    ? { x: this.startEntityPosition.x, y: this.startEntityPosition.y }
-                    : null;
-                if (typeof plannerInst.move === 'function' && id) {
-                    plannerInst.move(id, ent.x, ent.y, startPos);
-                } else if (typeof plannerInst.setEntityPosition === 'function' && id) {
-                    plannerInst.setEntityPosition(id, ent.x, ent.y, ent.elevation);
+                const s = TransformEngine.getSession();
+                if (s && s.currentState) {
+                    s.currentState.x = ent.x;
+                    s.currentState.y = ent.y;
+                    if (ent.elevation !== undefined) s.currentState.elevation = ent.elevation;
                 }
-                globalSpatialDependencyEngine.onHostTransformed(ent, plannerInst);
+                TransformEngine.commitSession(plannerInst);
+            } else if (typeof plannerInst.move === 'function' && id && this.startEntityPosition && (this.startEntityPosition.x !== ent.x || this.startEntityPosition.y !== ent.y)) {
+                plannerInst.move(id, ent.x, ent.y, this.startEntityPosition);
+            } else {
+                TransformEngine.executeDiscreteStep(plannerInst, ent, {
+                    absolutePosition: { x: ent.x, y: ent.y, elevation: ent.elevation },
+                    t: ent.t
+                });
+            }
+
+            // Fix 12: Trigger dynamic stair recalculation if platform elevation was changed
+            if (ent && (ent.isPlatform || ent.type === 'platform')) {
+                VerticalPropagationEngine.onPlatformHeightChanged(ent, ent.height || 20, ent.height || 20, plannerInst);
             }
 
             // Update startEntityPosition for consecutive drags without re-attaching
@@ -817,6 +1425,8 @@ export class UniversalMoveGizmo extends THREE.Group {
                 this.startEntityPosition.x = ent.x;
                 this.startEntityPosition.y = ent.y;
                 this.startEntityPosition.z = ent.elevation || 0;
+                this.startEntityPosition.elevation = ent.elevation || 0;
+                this.startEntityPosition.t = ent.t;
             }
             if (this.attachedObject) {
                 this.startMeshPos.copy(this.attachedObject.position);
@@ -971,14 +1581,16 @@ export class UniversalMoveGizmo extends THREE.Group {
         }
 
         // D-Pad Steppers (N, S, W, E)
-        const step = (dx, dz) => {
+        const step = (dx, dz, shouldCommit = true) => {
             if (!this.attachedObject) return;
             const stepDist = this.snapMode > 0 ? this.snapMode : 10;
             const delta = new THREE.Vector3(dx * stepDist, 0, dz * stepDist);
             this.startMeshPos.copy(this.attachedObject.position);
             this.startGizmoPos.copy(this.position);
             this._applyTranslation(delta);
-            this._commitTranslationToPlanner();
+            if (shouldCommit) {
+                this._commitTranslationToPlanner();
+            }
             this.syncHUD();
             if (this.ctx.interactions?.highlightRenderer) {
                 this.ctx.interactions.highlightRenderer.refresh(this.attachedObject);
@@ -998,12 +1610,20 @@ export class UniversalMoveGizmo extends THREE.Group {
             if (!btn) return;
             let timer = null;
             let interval = null;
+            let holding = false;
+            let handledByPointer = false;
 
             const start = (e) => {
-                step(dx, dz);
+                if (e.button !== 0 && e.pointerType === 'mouse') return;
+                handledByPointer = true;
+                holding = true;
+                if (!TransformEngine.isSessionActive() && this.attachedEntity) {
+                    TransformEngine.startSession(this.attachedEntity, 'move');
+                }
+                step(dx, dz, false);
                 timer = setTimeout(() => {
                     interval = setInterval(() => {
-                        step(dx, dz);
+                        step(dx, dz, false);
                     }, 80);
                 }, 250);
             };
@@ -1011,13 +1631,23 @@ export class UniversalMoveGizmo extends THREE.Group {
             const stop = () => {
                 if (timer) { clearTimeout(timer); timer = null; }
                 if (interval) { clearInterval(interval); interval = null; }
+                if (holding) {
+                    holding = false;
+                    this._commitTranslationToPlanner();
+                    this.syncHUD();
+                }
+                setTimeout(() => { handledByPointer = false; }, 50);
             };
 
             btn.addEventListener('pointerdown', start);
             btn.addEventListener('pointerup', stop);
             btn.addEventListener('pointerleave', stop);
             btn.addEventListener('pointercancel', stop);
-            btn.onclick = () => step(dx, dz);
+
+            btn.addEventListener('click', () => {
+                if (handledByPointer) return;
+                step(dx, dz, true);
+            });
         };
 
         bindButtonHold(btnN, 0, 1);
@@ -1025,26 +1655,33 @@ export class UniversalMoveGizmo extends THREE.Group {
         bindButtonHold(btnW, -1, 0);
         bindButtonHold(btnE, 1, 0);
 
-        // Center / Reset Button
+        // Center / Reset Button (Fix 3: single TransformCommand without double execution)
         const btnCenter = this.hudPanel.querySelector('#move-btn-center-reset');
         if (btnCenter) {
             btnCenter.onclick = () => {
                 if (this.attachedEntity && this.attachedObject) {
+                    const planner = this.ctx.planner || (this.ctx.appState && this.ctx.appState.planner) || window.planner?.value || window.planner;
+                    if (planner) {
+                        TransformEngine.executeDiscreteStep(planner, this.attachedEntity, {
+                            absolutePosition: { x: 0, y: 0, elevation: this.attachedEntity.elevation || 0 }
+                        });
+                    } else {
+                        this.attachedEntity.x = 0;
+                        this.attachedEntity.y = 0;
+                        this.attachedObject.position.x = 0;
+                        this.attachedObject.position.z = 0;
+                        this.attachedObject.updateMatrixWorld(true);
+
+                        if (this.attachedEntity.group && typeof this.attachedEntity.group.x === 'function') {
+                            this.attachedEntity.group.x(0);
+                            this.attachedEntity.group.y(0);
+                        }
+                        if (typeof this.attachedEntity.update2D === 'function') {
+                            this.attachedEntity.update2D();
+                        }
+                    }
+
                     this.startMeshPos.set(0, this.attachedObject.position.y, 0);
-                    this.attachedEntity.x = 0;
-                    this.attachedEntity.y = 0;
-                    this.attachedObject.position.x = 0;
-                    this.attachedObject.position.z = 0;
-                    this.attachedObject.updateMatrixWorld(true);
-
-                    if (this.attachedEntity.group && typeof this.attachedEntity.group.x === 'function') {
-                        this.attachedEntity.group.x(0);
-                        this.attachedEntity.group.y(0);
-                    }
-                    if (typeof this.attachedEntity.update2D === 'function') {
-                        this.attachedEntity.update2D();
-                    }
-
                     const bbox = new THREE.Box3().setFromObject(this.attachedObject);
                     const center = new THREE.Vector3();
                     if (!bbox.isEmpty() && isFinite(bbox.min.x)) {
@@ -1053,8 +1690,13 @@ export class UniversalMoveGizmo extends THREE.Group {
                     } else {
                         this.position.set(0, this.position.y, 0);
                     }
+                    this.startGizmoPos.copy(this.position);
 
-                    this._commitTranslationToPlanner();
+                    if (this.startEntityPosition) {
+                        this.startEntityPosition.x = 0;
+                        this.startEntityPosition.y = 0;
+                    }
+
                     this.syncHUD();
                     if (this.ctx.interactions?.highlightRenderer) {
                         this.ctx.interactions.highlightRenderer.refresh(this.attachedObject);
@@ -1199,12 +1841,108 @@ export class UniversalMoveGizmo extends THREE.Group {
         }
     }
 
+    rotateStep(deltaDeg = 90) {
+        this.rotate(deltaDeg);
+    }
+
+    rotate(deltaDeg = 90) {
+        if (!this.attachedEntity || !this.attachedObject) return;
+        const ent = this.attachedEntity;
+        const planner = this.ctx.planner || (this.ctx.appState && this.ctx.appState.planner) || window.planner?.value || window.planner;
+
+        if (planner) {
+            TransformEngine.executeDiscreteStep(planner, ent, {
+                deltaRotation: deltaDeg
+            });
+        } else {
+            const curRot = Number(ent.rotation) || 0;
+            const newRot = ((curRot + deltaDeg) % 360 + 360) % 360;
+            ent.rotation = newRot;
+
+            if (this.attachedObject) {
+                this.attachedObject.rotation.y = -newRot * Math.PI / 180;
+                this.attachedObject.updateMatrixWorld(true);
+            }
+
+            if (typeof ent.update2D === 'function') ent.update2D();
+            if (this.ctx.realtimeUpdate) this.ctx.realtimeUpdate.markDirty(ent, 'transform');
+        }
+
+        // Re-resolve wall collision and snap contour if applicable
+        if (planner && (this.wallCollisionEnabled || this.wallSnapEnabled) && !this.isRoomMove && !ent.wall) {
+            const w = Number(ent.width) || 80;
+            const d = Number(ent.depth || ent.length) || 80;
+            const rot = Number(ent.rotation) || 0;
+            const curX = ent.x !== undefined ? Number(ent.x) : this.attachedObject.position.x;
+            const curZ = ent.y !== undefined ? Number(ent.y) : this.attachedObject.position.z;
+            const resolved = SnapEngine.resolvePosition({
+                x: curX,
+                z: curZ,
+                rotation: rot,
+                width: w,
+                depth: d
+            }, { planner }, {
+                enableCollision: this.wallCollisionEnabled !== false,
+                enableWallSnap: this.wallSnapEnabled !== false,
+                enableWallContour: true,
+                enableWallAlign: false,
+                snapDistance: 20,
+                enableGridSnap: false
+            });
+            if (resolved.x !== curX || resolved.z !== curZ) {
+                ent.x = resolved.x;
+                ent.y = resolved.z;
+                if (this.attachedObject) {
+                    this.attachedObject.position.x = resolved.x;
+                    this.attachedObject.position.z = resolved.z;
+                    this.attachedObject.updateMatrixWorld(true);
+                }
+                if (this.ctx.realtimeUpdate) this.ctx.realtimeUpdate.markDirty(ent, 'transform');
+            }
+            if (resolved.isSnapped && resolved.snappedSegment) {
+                this._updateSnapGuideLine(resolved.snappedSegment, this.attachedObject?.position?.y || 0);
+            } else if (this.snapGuideMesh) {
+                this.snapGuideMesh.visible = false;
+            }
+        } else if (this.snapGuideMesh) {
+            this.snapGuideMesh.visible = false;
+        }
+
+        if (this._isLuminousActive) {
+            this._updateLuminousFootprint();
+            if (ent.wall) this._updateApertureHighlight();
+        }
+
+        this.syncHUD();
+        if (this.ctx.interactions?.highlightRenderer) {
+            this.ctx.interactions.highlightRenderer.refresh(this.attachedObject);
+        }
+        if (this.ctx.interactions?._updateSims4Footprint) {
+            this.ctx.interactions._updateSims4Footprint(this.attachedObject);
+        }
+        if (this.ctx.requestRender) this.ctx.requestRender('universal_move_rotate');
+    }
+
+    toggleWallSnap() {
+        this.wallSnapEnabled = !this.wallSnapEnabled;
+        this.syncHUD();
+        return this.wallSnapEnabled;
+    }
+
     syncHUD() {
         if (!this.attachedObject) return;
 
         const curX = Math.round(this.attachedEntity?.x !== undefined ? this.attachedEntity.x : this.attachedObject.position.x);
         const curZ = Math.round(this.attachedEntity?.y !== undefined ? this.attachedEntity.y : this.attachedObject.position.z);
-        coreEventBus.emit('UniversalMoveChanged', { x: curX, z: curZ });
+        const curRot = Math.round(this.attachedEntity?.rotation || 0);
+
+        coreEventBus.emit('UniversalMoveChanged', {
+            x: curX,
+            z: curZ,
+            rotation: curRot,
+            wallSnap: this.wallSnapEnabled,
+            snapMode: this.snapMode
+        });
 
         if (!this.hudPanel) return;
 
@@ -1227,8 +1965,16 @@ export class UniversalMoveGizmo extends THREE.Group {
         }
         if (this._onPointerMove) window.removeEventListener('pointermove', this._onPointerMove);
         if (this._onPointerUp) window.removeEventListener('pointerup', this._onPointerUp);
+        if (this._onKeyDown) window.removeEventListener('keydown', this._onKeyDown);
         if (this.hudPanel && this.hudPanel.parentNode) {
             this.hudPanel.parentNode.removeChild(this.hudPanel);
+        }
+        if (this.snapGuideMesh) {
+            if (this.snapGuideMesh.parent) this.snapGuideMesh.parent.remove(this.snapGuideMesh);
+            if (this.snapGuideMesh.geometry) this.snapGuideMesh.geometry.dispose();
+            if (this.snapGuideMat) this.snapGuideMat.dispose();
+            this.snapGuideMesh = null;
+            this.snapGuideMat = null;
         }
     }
 }

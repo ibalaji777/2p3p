@@ -358,6 +358,10 @@ export class SelectionManager {
         }
 
         const entity = object.userData?.entity || object;
+        const isDedicatedOpeningOrWidget = ['door', 'window', 'opening', 'widget', 'jali_panel', 'sunshade', 'elevation_fascia', 'niche_recess', 'solid_protrusion', 'advance_openings'].includes(type) || object.userData.isWidget || object.userData.isOpening;
+        if (isDedicatedOpeningOrWidget) {
+            if (this.ctx.showTransformMenu) this.ctx.showTransformMenu(true);
+        }
         if (this.system.commonController) {
             this.system.commonController.select(entity, object, type);
         }

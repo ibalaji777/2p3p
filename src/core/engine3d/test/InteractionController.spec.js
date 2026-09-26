@@ -46,6 +46,9 @@ describe('Centralized Interaction Controller & State Machine', () => {
                 universalMoveGizmo: {
                     attach: vi.fn(),
                     detach: vi.fn(),
+                    startMoveMode: vi.fn(),
+                    commitMoveMode: vi.fn(),
+                    cancelMoveMode: vi.fn(),
                     step: vi.fn(),
                     setCoordinates: vi.fn(),
                     setSnapMode: vi.fn()
@@ -189,6 +192,7 @@ describe('Centralized Interaction Controller & State Machine', () => {
             expect(controller.hudMode).toBe('action_minimal');
 
             expect(mockCtx.interactions.universalMoveGizmo.attach).toHaveBeenCalledWith(mesh);
+            expect(mockCtx.interactions.universalMoveGizmo.startMoveMode).toHaveBeenCalled();
             expect(mockCtx.interactions.universalSpinGizmo.detach).toHaveBeenCalled();
         });
 
@@ -214,6 +218,14 @@ describe('Centralized Interaction Controller & State Machine', () => {
             expect(mockCtx.interactions.universalSpinGizmo.attach).toHaveBeenCalledWith(mesh);
         });
 
+        it('should attach universalMoveGizmo when Move action is activated', () => {
+            controller.activateAction(INTERACTION_ACTIONS.MOVE);
+
+            expect(mockCtx.interactions.universalMoveGizmo.attach).toHaveBeenCalledWith(mesh);
+            expect(controller.activeAction).toBe(INTERACTION_ACTIONS.MOVE);
+            expect(controller.interactionState).toBe(INTERACTION_STATE.ACTION_ACTIVE);
+        });
+
         it('should return to OBJECT_SELECTED with selection intact when completeAction is called', () => {
             controller.activateAction(INTERACTION_ACTIONS.MOVE);
             expect(controller.interactionState).toBe(INTERACTION_STATE.ACTION_ACTIVE);
@@ -237,6 +249,32 @@ describe('Centralized Interaction Controller & State Machine', () => {
             expect(controller.activeAction).toBeNull();
             expect(controller.hudMode).toBe('contextual');
             expect(mockCtx.interactions.universalSpinGizmo.detach).toHaveBeenCalled();
+        });
+
+        it('should route Move for doors to dedicated opening mode and NOT attach universalMoveGizmo', () => {
+            const door = { id: 'door_main', type: 'door', width: 90, height: 210 };
+            const doorMesh = new THREE.Mesh();
+            doorMesh.userData = { entity: door, isWidget: true };
+            controller.select(door, doorMesh, 'door');
+
+            controller.activateAction(INTERACTION_ACTIONS.MOVE);
+
+            expect(mockCtx.gizmoManager.setTransformMode).toHaveBeenCalledWith('opening', true);
+            expect(mockCtx.interactions.universalMoveGizmo.attach).not.toHaveBeenCalledWith(doorMesh);
+            expect(mockCtx.interactions.universalMoveGizmo.detach).toHaveBeenCalled();
+        });
+
+        it('should route Move for roofs to dedicated roof move mode and NOT attach universalMoveGizmo', () => {
+            const roof = { id: 'roof_1', type: 'roof', config: { roofType: 'flat' } };
+            const roofMesh = new THREE.Mesh();
+            roofMesh.userData = { entity: roof, isRoof: true };
+            controller.select(roof, roofMesh, 'roof');
+
+            controller.activateAction(INTERACTION_ACTIONS.MOVE);
+
+            expect(mockCtx.gizmoManager.setTransformMode).toHaveBeenCalledWith('translate', true);
+            expect(mockCtx.interactions.universalMoveGizmo.attach).not.toHaveBeenCalledWith(roofMesh);
+            expect(mockCtx.interactions.universalMoveGizmo.detach).toHaveBeenCalled();
         });
     });
 
@@ -366,6 +404,76 @@ describe('Centralized Interaction Controller & State Machine', () => {
             controller.completeAction();
             expect(controller.isActionActive()).toBe(false);
             expect(controller.isAction('move')).toBe(false);
+        });
+    });
+
+    describe('7. Door & Window Dedicated Menu & Isolation', () => {
+        it('should correctly configure capabilities for doors and windows without rotatable flag', () => {
+            const door = { id: 'door_entry', type: 'door', width: 90, height: 210 };
+            const doorMesh = new THREE.Mesh();
+            doorMesh.userData = { entity: door, isWidget: true };
+
+            const caps = controller.getCapabilities(door, doorMesh);
+            expect(caps.selectable).toBe(true);
+            expect(caps.movable).toBe(true);
+            expect(caps.material).toBe(true);
+            expect(caps.rotatable).toBe(false);
+            expect(caps.tiltable).toBe(false);
+            expect(caps.apertureResizable).toBe(true);
+        });
+
+        it('should retain dedicated GIZMO_REGISTRY actions for doors and windows', async () => {
+            const { GIZMO_REGISTRY } = await import('../../registry.js');
+            expect(GIZMO_REGISTRY.door).toEqual(['move', 'opening', 'material', 'style', 'delete']);
+            expect(GIZMO_REGISTRY.window).toEqual(['move', 'opening', 'material', 'style', 'delete']);
+            expect(GIZMO_REGISTRY.opening).toEqual(['move', 'opening', 'material', 'delete']);
+        });
+
+        it('should never attach universalSpinGizmo to a door or window', () => {
+            const win = { id: 'win_1', type: 'window', width: 120, height: 100 };
+            const winMesh = new THREE.Mesh();
+            winMesh.userData = { entity: win, isWidget: true };
+            controller.select(win, winMesh, 'window');
+
+            const result = controller.activateAction(INTERACTION_ACTIONS.SPIN);
+            expect(result).toBe(false);
+            expect(mockCtx.interactions.universalSpinGizmo.attach).not.toHaveBeenCalled();
+        });
+
+        it('should safely execute setTransformMode("none") without selected object or with door', async () => {
+            const { GizmoManager } = await import('../GizmoManager.js');
+            const container = document.createElement('div');
+            const mockFullCtx = {
+                container,
+                renderer: { domElement: document.createElement('canvas') },
+                scene: new THREE.Scene(),
+                camera: new THREE.PerspectiveCamera(),
+                interactions: {
+                    transformControls: new THREE.Object3D(),
+                    selectedObject: null,
+                    setHighlight: vi.fn(),
+                    openingGizmo: { attach: vi.fn(), detach: vi.fn() },
+                    materialGizmo: { attach: vi.fn(), detach: vi.fn() }
+                },
+                controls: { enabled: true }
+            };
+            const gm = new GizmoManager(mockFullCtx, container);
+            gm.init();
+            expect(() => gm.setTransformMode('none')).not.toThrow();
+
+            const door = { id: 'd1', type: 'door' };
+            const doorMesh = new THREE.Mesh();
+            doorMesh.userData = { entity: door, isWidget: true };
+            mockFullCtx.interactions.selectedObject = doorMesh;
+
+            expect(() => gm.setTransformMode('none')).not.toThrow();
+            expect(gm.transformMenu.style.display).toBe('flex');
+            expect(gm.btnOpening.style.display).toBe('flex');
+            expect(gm.btnMove.style.display).toBe('flex');
+            expect(gm.btnStyle.style.display).toBe('flex');
+            expect(gm.btnSpin.style.display).toBe('none');
+
+            gm.dispose();
         });
     });
 });

@@ -260,24 +260,15 @@ export class FloorPlanner {
     }
     
     move(entityId, x, y, customStartPos = null) {
-        const entity = this.getEntities().find(e => e.id === entityId || (e.group && typeof e.group.id === 'function' && e.group.id() === entityId));
-        if (!entity) return;
-        const startPos = (customStartPos && typeof customStartPos.x === 'number' && typeof customStartPos.y === 'number')
-            ? { x: customStartPos.x, y: customStartPos.y }
-            : { 
-                x: entity.group && typeof entity.group.x === 'function' ? entity.group.x() : (entity.x || 0), 
-                y: entity.group && typeof entity.group.y === 'function' ? entity.group.y() : (entity.y || 0) 
-            };
-        const cmd = new MoveCommand(this, entityId, startPos, { x, y });
-        this.commandManager.execute(cmd);
+        return TransformEngine.executeDiscreteStep(this, entityId, {
+            absolutePosition: { x, y }
+        });
     }
     
     rotate(entityId, angle, customStartRot = null) {
-        const entity = this.getEntities().find(e => e.id === entityId || (e.group && typeof e.group.id === 'function' && e.group.id() === entityId));
-        if (!entity) return;
-        const startRot = (typeof customStartRot === 'number') ? customStartRot : (entity.rotation || 0);
-        const cmd = new RotateCommand(this, entityId, startRot, angle);
-        this.commandManager.execute(cmd);
+        return TransformEngine.executeDiscreteStep(this, entityId, {
+            absoluteRotation: angle
+        });
     }
     
     resize(entityId, values, customStartValues = null) {

@@ -415,20 +415,21 @@ export class InteractionSystem {
         this._syncUI = () => { 
             if (this.selectedObject && this.selectedObject.userData && this.selectedObject.userData.entity) {
                 const ent = this.selectedObject.userData.entity;
-                ent.x = this.selectedObject.position.x;
-                ent.y = this.selectedObject.position.z;
-                if (ent.group && typeof ent.group.x === 'function') {
-                    ent.group.x(ent.x);
-                    ent.group.y(ent.y);
-                }
-                if (typeof ent.update2D === 'function') ent.update2D();
-                
-                if (this.ctx.realtimeUpdate) {
-                    if (ent.wall) {
-                        this.ctx.realtimeUpdate.markDirty(ent, 'geometry');
-                    } else {
-                        this.ctx.realtimeUpdate.markDirty(ent, 'transform');
-                    }
+                const session = TransformEngine.getSession();
+                if (session && session.operation === 'move') {
+                    TransformEngine.previewMove(ent, {
+                        absoluteX: this.selectedObject.position.x,
+                        absoluteY: this.selectedObject.position.z,
+                        absoluteElevation: this.selectedObject.position.y
+                    }, {
+                        planner: this.ctx.planner || window.planner?.value || window.planner,
+                        realtimeUpdate: this.ctx.realtimeUpdate
+                    });
+                } else if (session && session.operation === 'spin') {
+                    const angleDeg = -(this.selectedObject.rotation.y * 180 / Math.PI);
+                    TransformEngine.previewSpin(ent, angleDeg, {
+                        realtimeUpdate: this.ctx.realtimeUpdate
+                    });
                 }
             }
             if (this.ctx.syncToUI) this.ctx.syncToUI(); 
@@ -443,28 +444,20 @@ export class InteractionSystem {
                 const posX = ent.x !== undefined ? ent.x : (ent.group ? ent.group.x() : e.object.position.x);
                 const posY = ent.y !== undefined ? ent.y : (ent.group ? ent.group.y() : e.object.position.z);
                 this.drag3DStartPos = { x: posX, y: posY };
+                TransformEngine.startSession(ent, 'move');
             }
         };
 
         this._onMoveEnd = (e) => {
             if (e.object && e.object.userData && e.object.userData.entity && this.drag3DStartPos) {
                 const ent = e.object.userData.entity;
-                const id = ent.id || (ent.group && typeof ent.group.id === 'function' ? ent.group.id() : null);
-                const endX = e.object.position.x;
-                const endY = e.object.position.z;
-                
-                if (Math.abs(endX - this.drag3DStartPos.x) > 0.001 || Math.abs(endY - this.drag3DStartPos.y) > 0.001) {
-                    const plannerInst = window.planner?.value || window.planner;
-                    if (plannerInst && typeof plannerInst.move === 'function' && id) {
-                        plannerInst.move(id, endX, endY, { x: this.drag3DStartPos.x, y: this.drag3DStartPos.y });
-                    } else if (ent) {
-                        ent.x = endX;
-                        ent.y = endY;
-                        if (ent.group && typeof ent.group.x === 'function') {
-                            ent.group.x(endX);
-                            ent.group.y(endY);
-                        }
-                    }
+                const plannerInst = window.planner?.value || window.planner || this.ctx.planner;
+                if (TransformEngine.isSessionActive()) {
+                    TransformEngine.commitSession(plannerInst);
+                } else if (plannerInst) {
+                    TransformEngine.executeDiscreteStep(plannerInst, ent, {
+                        absolutePosition: { x: e.object.position.x, y: e.object.position.z, elevation: e.object.position.y }
+                    });
                 }
                 this.drag3DStartPos = null;
             }
@@ -472,27 +465,25 @@ export class InteractionSystem {
 
         this._onRotateStart = (e) => {
             if (e.object && e.object.userData && e.object.userData.entity) {
+                const ent = e.object.userData.entity;
                 this.drag3DStartRot = e.object.rotation.y;
+                TransformEngine.startSession(ent, 'spin');
             }
         };
 
         this._onRotateEnd = (e) => {
             if (e.object && e.object.userData && e.object.userData.entity && this.drag3DStartRot !== null) {
                 const ent = e.object.userData.entity;
-                const id = ent.id || (ent.group && typeof ent.group.id === 'function' ? ent.group.id() : null);
                 const endRotRad = e.object.rotation.y;
+                const plannerInst = window.planner?.value || window.planner || this.ctx.planner;
                 
-                if (Math.abs(endRotRad - this.drag3DStartRot) > 0.001) {
+                if (TransformEngine.isSessionActive()) {
+                    TransformEngine.commitSession(plannerInst);
+                } else if (plannerInst && Math.abs(endRotRad - this.drag3DStartRot) > 0.001) {
                     const endRotDegrees = -(endRotRad * 180 / Math.PI);
-                    const plannerInst = window.planner?.value || window.planner;
-                    if (plannerInst && typeof plannerInst.rotate === 'function' && id) {
-                        plannerInst.rotate(id, endRotDegrees);
-                    } else if (ent) {
-                        ent.rotation = endRotDegrees;
-                        if (ent.group && typeof ent.group.rotation === 'function') {
-                            ent.group.rotation(endRotDegrees);
-                        }
-                    }
+                    TransformEngine.executeDiscreteStep(plannerInst, ent, {
+                        absoluteRotation: endRotDegrees
+                    });
                 }
                 this.drag3DStartRot = null;
             }
@@ -731,6 +722,7 @@ export class InteractionSystem {
                 return;
             }
 
+            if (this.universalMoveGizmo && this.universalMoveGizmo.isMoveModeActive) return;
             if (this.transformControls && this.transformControls.active) return;
             if (e.button !== 0) return;
 
@@ -1064,6 +1056,7 @@ export class InteractionSystem {
                 return;
             }
 
+            if (this.universalMoveGizmo && this.universalMoveGizmo.isMoveModeActive) return;
             if (this.transformControls && this.transformControls.active) return;
             
             if (this.ctx.currentTransformMode && this.ctx.currentTransformMode !== 'none' && this.ctx.currentTransformMode !== 'translate' && this.ctx.currentTransformMode !== 'move' && this.ctx.currentTransformMode !== 'rotateY' && this.ctx.currentTransformMode !== 'spin') {
@@ -1180,6 +1173,12 @@ export class InteractionSystem {
                 }
             }
 
+            if (this.stairPlacementSystem && this.stairPlacementSystem.isPlacementTool()) {
+                if (this.stairPlacementSystem.onPointerUp && this.stairPlacementSystem.onPointerUp(e)) return;
+            }
+            if (this.furniturePlacementSystem && this.furniturePlacementSystem.isPlacementTool()) {
+                if (this.furniturePlacementSystem.onPointerUp && this.furniturePlacementSystem.onPointerUp(e)) return;
+            }
             if (this.wall3DDrawSystem && this.wall3DDrawSystem.isWallDrawingTool()) {
                 if (this.wall3DDrawSystem.onPointerUp && this.wall3DDrawSystem.onPointerUp(e)) return;
             }
@@ -1367,58 +1366,96 @@ export class InteractionSystem {
             if (this.vertexSlopeGizmo) this.vertexSlopeGizmo.detach();
             if (this.roofCornerGizmo) this.roofCornerGizmo.detach();
             if (this.roofOverhangGizmo) this.roofOverhangGizmo.detach();
-            const isRoof = this.selectedObject && (this.selectedObject.userData?.isRoof || this.selectedObject.userData?.entity?.type === 'roof');
-            const conf = this.selectedObject?.userData?.entity?.config || this.selectedObject?.userData?.entity;
-            const isFlat = isRoof && conf?.roofType === 'flat';
-            const isGable = isRoof && conf?.roofType === 'gable';
-            const isHalfGable = isRoof && (conf?.roofType === 'shed' || conf?.roofType === 'half_gable');
-            const isCurvedPortal = isRoof && conf?.roofType === 'curved_portal';
+
+            const entity = this.selectedObject?.userData?.entity;
+            const entType = entity?.type || this.selectedObject?.userData?.type || '';
+            const isOpening = Boolean(this.selectedObject?.userData?.isWidget || this.selectedObject?.userData?.isOpening || ['door', 'window', 'arch_opening', 'circular_opening', 'custom_shape_opening', 'pattern_opening', 'boolean_cut', 'niche_recess'].includes(entType));
+            const isRoof = Boolean(this.selectedObject && (this.selectedObject.userData?.isRoof || entType === 'roof' || entity?.config?.roofType));
+
+            if (isOpening) {
+                if (this.universalMoveGizmo) this.universalMoveGizmo.detach();
+                if (this.universalSpinGizmo) this.universalSpinGizmo.detach();
+                if (this.roofPitchGizmo) this.roofPitchGizmo.detach();
+                if (this.flatRoofGizmo) this.flatRoofGizmo.detach();
+                if (this.gableRoofGizmo) this.gableRoofGizmo.detach();
+                if (this.halfGableRoofGizmo) this.halfGableRoofGizmo.detach();
+                if (this.curvedPortalRoofGizmo) this.curvedPortalRoofGizmo.detach();
+
+                if (mode === 'move' || mode === 'translate') {
+                    if (this.openingGizmo && this.selectedObject) {
+                        this.openingGizmo.attach(this.selectedObject, 'move');
+                    }
+                } else if (mode === 'none') {
+                    if (this.openingGizmo) this.openingGizmo.detach();
+                }
+                return;
+            }
+
             if (isRoof) {
+                if (this.universalMoveGizmo) this.universalMoveGizmo.detach();
+                if (this.universalSpinGizmo) this.universalSpinGizmo.detach();
+                if (this.openingGizmo) this.openingGizmo.detach();
+
+                const conf = this.selectedObject?.userData?.entity?.config || this.selectedObject?.userData?.entity;
+                const isFlat = conf?.roofType === 'flat';
+                const isGable = conf?.roofType === 'gable';
+                const isHalfGable = conf?.roofType === 'shed' || conf?.roofType === 'half_gable';
+                const isCurvedPortal = conf?.roofType === 'curved_portal';
                 const subMode = (mode === 'spin' || mode === 'rotateY') ? 'spin' : (mode === 'move' || mode === 'translate') ? 'move' : 'corners';
                 if (isCurvedPortal) {
                     if (this.flatRoofGizmo) this.flatRoofGizmo.detach();
                     if (this.roofPitchGizmo) this.roofPitchGizmo.detach();
                     if (this.gableRoofGizmo) this.gableRoofGizmo.detach();
                     if (this.halfGableRoofGizmo) this.halfGableRoofGizmo.detach();
-                    if (this.curvedPortalRoofGizmo) this.curvedPortalRoofGizmo.attach(this.selectedObject, subMode);
+                    if (this.curvedPortalRoofGizmo && this.selectedObject) this.curvedPortalRoofGizmo.attach(this.selectedObject, subMode);
                 } else if (isFlat) {
                     if (this.roofPitchGizmo) this.roofPitchGizmo.detach();
                     if (this.gableRoofGizmo) this.gableRoofGizmo.detach();
                     if (this.halfGableRoofGizmo) this.halfGableRoofGizmo.detach();
                     if (this.curvedPortalRoofGizmo) this.curvedPortalRoofGizmo.detach();
-                    if (this.flatRoofGizmo) this.flatRoofGizmo.attach(this.selectedObject, subMode);
+                    if (this.flatRoofGizmo && this.selectedObject) this.flatRoofGizmo.attach(this.selectedObject, subMode);
                 } else if (isGable) {
                     if (this.flatRoofGizmo) this.flatRoofGizmo.detach();
                     if (this.roofPitchGizmo) this.roofPitchGizmo.detach();
                     if (this.halfGableRoofGizmo) this.halfGableRoofGizmo.detach();
                     if (this.curvedPortalRoofGizmo) this.curvedPortalRoofGizmo.detach();
-                    if (this.gableRoofGizmo) this.gableRoofGizmo.attach(this.selectedObject, subMode);
+                    if (this.gableRoofGizmo && this.selectedObject) this.gableRoofGizmo.attach(this.selectedObject, subMode);
                 } else if (isHalfGable) {
                     if (this.flatRoofGizmo) this.flatRoofGizmo.detach();
                     if (this.roofPitchGizmo) this.roofPitchGizmo.detach();
                     if (this.gableRoofGizmo) this.gableRoofGizmo.detach();
                     if (this.curvedPortalRoofGizmo) this.curvedPortalRoofGizmo.detach();
-                    if (this.halfGableRoofGizmo) this.halfGableRoofGizmo.attach(this.selectedObject, subMode);
+                    if (this.halfGableRoofGizmo && this.selectedObject) this.halfGableRoofGizmo.attach(this.selectedObject, subMode);
                 } else {
                     if (this.flatRoofGizmo) this.flatRoofGizmo.detach();
                     if (this.gableRoofGizmo) this.gableRoofGizmo.detach();
                     if (this.halfGableRoofGizmo) this.halfGableRoofGizmo.detach();
                     if (this.curvedPortalRoofGizmo) this.curvedPortalRoofGizmo.detach();
-                    if (this.roofPitchGizmo) this.roofPitchGizmo.attach(this.selectedObject, subMode);
+                    if (this.roofPitchGizmo && this.selectedObject) this.roofPitchGizmo.attach(this.selectedObject, subMode);
                 }
-            } else {
-                if (this.roofPitchGizmo) this.roofPitchGizmo.detach();
-                if (this.flatRoofGizmo) this.flatRoofGizmo.detach();
-                if (this.gableRoofGizmo) this.gableRoofGizmo.detach();
-                if (this.halfGableRoofGizmo) this.halfGableRoofGizmo.detach();
-                if (this.curvedPortalRoofGizmo) this.curvedPortalRoofGizmo.detach();
+                return;
             }
+
+            // Other entities: GLB, Furniture, Staircase, Shapes, Rooms
+            if (this.roofPitchGizmo) this.roofPitchGizmo.detach();
+            if (this.flatRoofGizmo) this.flatRoofGizmo.detach();
+            if (this.gableRoofGizmo) this.gableRoofGizmo.detach();
+            if (this.halfGableRoofGizmo) this.halfGableRoofGizmo.detach();
+            if (this.curvedPortalRoofGizmo) this.curvedPortalRoofGizmo.detach();
+
             if (mode === 'spin' || mode === 'rotateY') {
                 if (this.universalSpinGizmo && this.selectedObject) {
                     this.universalSpinGizmo.attach(this.selectedObject);
                 }
             } else {
                 if (this.universalSpinGizmo) this.universalSpinGizmo.detach();
+            }
+            if (mode === 'move' || mode === 'translate') {
+                if (this.universalMoveGizmo && this.selectedObject) {
+                    this.universalMoveGizmo.attach(this.selectedObject);
+                }
+            } else {
+                if (this.universalMoveGizmo) this.universalMoveGizmo.detach();
             }
         } else {
             if (this.universalSpinGizmo) this.universalSpinGizmo.detach();
@@ -1444,16 +1481,55 @@ export class InteractionSystem {
         if (this.ctx.onRelocateStateChange) this.ctx.onRelocateStateChange(active);
     }
 
+    startRelocation(entity, mesh = null) {
+        if (!entity) return false;
+
+        const isStair = Boolean(
+            entity.type === 'staircase' ||
+            (typeof entity.type === 'string' && entity.type.startsWith('stair')) ||
+            entity.constructor?.name === 'PremiumStaircase'
+        );
+
+        if (isStair && this.stairPlacementSystem) {
+            if (this.universalMoveGizmo) this.universalMoveGizmo.detach();
+            this.setRelocationState(true);
+            this.stairPlacementSystem.startRelocation(entity);
+            return true;
+        }
+
+        const isFurniture = Boolean(
+            entity.type === 'furniture' ||
+            entity.configId ||
+            entity.constructor?.name === 'PremiumFurniture'
+        );
+
+        if (isFurniture && this.furniturePlacementSystem) {
+            if (this.universalMoveGizmo) this.universalMoveGizmo.detach();
+            this.setRelocationState(true);
+            this.furniturePlacementSystem.startRelocation(entity);
+            return true;
+        }
+
+        return false;
+    }
+
     cancelRelocation() {
         this.setRelocationState(false);
-        if (this.stairPlacementSystem && this.stairPlacementSystem.hideGhost) {
+        if (this.universalMoveGizmo && this.universalMoveGizmo.isMoveModeActive) {
+            this.universalMoveGizmo.cancelMoveMode();
+        }
+        if (this.stairPlacementSystem && typeof this.stairPlacementSystem.cancelRelocation === 'function') {
+            this.stairPlacementSystem.cancelRelocation();
+        } else if (this.stairPlacementSystem && this.stairPlacementSystem.hideGhost) {
             this.stairPlacementSystem.hideGhost();
+        }
+        if (this.furniturePlacementSystem && typeof this.furniturePlacementSystem.cancelRelocation === 'function') {
+            this.furniturePlacementSystem.cancelRelocation();
+        } else if (this.furniturePlacementSystem && this.furniturePlacementSystem.hideGhost) {
+            this.furniturePlacementSystem.hideGhost();
         }
         if (this.wallPluginPlacementSystem && this.wallPluginPlacementSystem.hideGhost) {
             this.wallPluginPlacementSystem.hideGhost();
-        }
-        if (this.furniturePlacementSystem && this.furniturePlacementSystem.hideGhost) {
-            this.furniturePlacementSystem.hideGhost();
         }
         if (this.roofPlacementSystem && this.roofPlacementSystem.hideGhost) {
             this.roofPlacementSystem.hideGhost();
@@ -1655,7 +1731,23 @@ export class InteractionSystem {
 
             if (effectiveType && this.ctx.onEntitySelect) this.ctx.onEntitySelect(effectiveEntity, effectiveType, side);
             if (this.commonController) this.commonController.setSelection(effectiveEntity, object);
-            if (this.commonController?.activeTool === COMMON_TOOLS.MOVE || this.ctx.currentTransformMode === 'translate' || this.ctx.currentTransformMode === 'move') {
+            const isObjRoof = Boolean(object.userData?.isRoof || object.userData?.entity?.type === 'roof' || object.userData?.entity?.config?.roofType);
+            const isObjOpening = Boolean(object.userData?.isWidget || object.userData?.isOpening || ['door', 'window', 'arch_opening', 'circular_opening', 'custom_shape_opening', 'pattern_opening', 'boolean_cut', 'niche_recess'].includes(effectiveType || object.userData?.entity?.type));
+
+            if (isObjOpening) {
+                if (this.universalMoveGizmo) this.universalMoveGizmo.detach();
+                if (this.universalSpinGizmo) this.universalSpinGizmo.detach();
+                if (this.openingGizmo) this.openingGizmo.detach();
+                if (this.ctx.gizmoManager) {
+                    this.ctx.gizmoManager.setTransformMode('none', true);
+                }
+                if (this.ctx.showTransformMenu) {
+                    this.ctx.showTransformMenu(true);
+                }
+            } else if (isObjRoof) {
+                if (this.universalMoveGizmo) this.universalMoveGizmo.detach();
+                if (this.universalSpinGizmo) this.universalSpinGizmo.detach();
+            } else if (this.commonController?.activeTool === COMMON_TOOLS.MOVE || this.ctx.currentTransformMode === 'translate' || this.ctx.currentTransformMode === 'move') {
                 if (this.universalMoveGizmo) this.universalMoveGizmo.attach(object);
                 if (this.universalSpinGizmo) this.universalSpinGizmo.detach();
             } else if (this.commonController?.activeTool === COMMON_TOOLS.SPIN || this.ctx.currentTransformMode === 'rotateY' || this.ctx.currentTransformMode === 'spin') {

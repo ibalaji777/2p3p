@@ -31,6 +31,26 @@ export class Stair3DBuilder {
 
         stairs.forEach(stair => {
             if (!stair.type) return;
+
+            // Purge existing 3D group for this stair in parentGroup to prevent duplicate meshes
+            if (parentGroup && parentGroup.children) {
+                const existingGroups = parentGroup.children.filter(c => 
+                    c.userData?.entity === stair || 
+                    (stair.id && c.userData?.entity?.id === stair.id) || 
+                    c === stair.mesh3D
+                );
+                existingGroups.forEach(existing => {
+                    parentGroup.remove(existing);
+                    if (Array.isArray(this.interactables)) {
+                        const idx = this.interactables.indexOf(existing);
+                        if (idx !== -1) this.interactables.splice(idx, 1);
+                    }
+                    existing.traverse(child => {
+                        if (child.geometry) child.geometry.dispose();
+                    });
+                });
+            }
+
             const group = new THREE.Group();
             
             const getMat = (slotId) => {

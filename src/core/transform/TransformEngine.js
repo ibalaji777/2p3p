@@ -20,6 +20,7 @@ import { WallEngine } from '../wall/WallEngine.js';
 import { StairEngine } from '../stairs/StairEngine.js';
 import { RoofEngine } from '../roof/RoofEngine.js';
 import { StairHeightDetector } from '../../features/stairs/StairHeightDetector.js';
+import { SnapEngine } from '../snap/SnapEngine.js';
 
 /**
  * Computes the 3D local bounding box center of any object/mesh in its own local coordinate frame.
@@ -132,36 +133,14 @@ export class TransformEngine {
 
     /**
      * Snaps a raw angle in degrees based on CAD constraints.
+     * Delegates to centralized SnapEngine authority.
+     * 
      * @param {number} rawAngleDeg 
      * @param {Object} [options={}]
-     * @param {number} [options.step=15] - Base snapping interval in degrees.
-     * @param {number} [options.magneticZone=3.5] - Magnetic latch threshold in degrees.
-     * @param {boolean} [options.free=false] - Alt key override for continuous rotation.
-     * @param {boolean} [options.lock45=false] - Shift key lock to 45° increments.
      * @returns {{ angle: number, isSnapped: boolean }}
      */
     static snapAngle(rawAngleDeg, options = {}) {
-        let angle = ((rawAngleDeg % 360) + 360) % 360;
-
-        if (options.free) {
-            return { angle: Math.round(angle * 10) / 10, isSnapped: false };
-        }
-
-        const step = options.lock45 ? 45 : (options.step || 15);
-        if (step <= 1) {
-            return { angle: Math.round(angle * 10) / 10, isSnapped: false };
-        }
-
-        const snapped = Math.round(angle / step) * step;
-        const normalizedSnapped = ((snapped % 360) + 360) % 360;
-        const diff = Math.abs(angle - normalizedSnapped);
-        const magneticZone = options.magneticZone !== undefined ? options.magneticZone : 3.5;
-
-        if (diff <= magneticZone || options.lock45) {
-            return { angle: normalizedSnapped, isSnapped: true };
-        }
-
-        return { angle: Math.round(angle * 10) / 10, isSnapped: false };
+        return SnapEngine.resolveAngle(rawAngleDeg, options);
     }
 
     /**
@@ -300,15 +279,44 @@ export class TransformEngine {
             const wallLength = wall.length3D || (typeof wall.getLength === 'function' ? wall.getLength() : 100);
             const startT = s.initialState.t !== null ? s.initialState.t : 0.5;
             const startLocalX = startT * wallLength;
-            const deltaX = delta.x || 0;
-            const newLocalX = Math.max(5, Math.min(wallLength - 5, startLocalX + deltaX));
+
+            // Fix 1: Projected longitudinal delta along wall baseline
+            let deltaAlongWall = delta.alongWall;
+            if (deltaAlongWall === undefined) {
+                if (delta.z !== undefined && delta.x !== undefined) {
+                    const p1 = wall.startAnchor ? (typeof wall.startAnchor.position === 'function' ? wall.startAnchor.position() : wall.startAnchor) : { x: wall.startX || 0, y: wall.startY || 0 };
+                    const p2 = wall.endAnchor ? (typeof wall.endAnchor.position === 'function' ? wall.endAnchor.position() : wall.endAnchor) : { x: wall.endX || 0, y: wall.endY || 0 };
+                    const dxW = p2.x - p1.x;
+                    const dyW = p2.y - p1.y;
+                    const len = Math.hypot(dxW, dyW);
+                    if (len > 0.001) {
+                        deltaAlongWall = delta.x * (dxW / len) + delta.z * (dyW / len);
+                    }
+                }
+            }
+            if (deltaAlongWall === undefined) {
+                deltaAlongWall = delta.x || 0;
+            }
+
+            const newLocalX = Math.max(5, Math.min(wallLength - 5, startLocalX + deltaAlongWall));
             const newT = newLocalX / wallLength;
 
             entity.t = newT;
             s.currentState.t = newT;
 
+            // Fix 10: Elevation clamping with sloped/gable top profiles support
             if (delta.y !== undefined && delta.y !== 0 && entity.elevation !== undefined) {
-                const wallH = wall.height || wall.config?.height || 300;
+                let wallH = wall.height || wall.config?.height || 300;
+                if (wall.topProfileType === 'single') {
+                    const sH = Number(wall.startHeight) || wallH;
+                    const eH = Number(wall.endHeight) || wallH;
+                    wallH = sH + newT * (eH - sH);
+                } else if (wall.topProfileType === 'gable') {
+                    const sH = Number(wall.startHeight) || wallH;
+                    const eH = Number(wall.endHeight) || wallH;
+                    const pH = Number(wall.peakHeight) || wallH;
+                    wallH = newT <= 0.5 ? (sH + 2 * newT * (pH - sH)) : (pH + 2 * (newT - 0.5) * (eH - pH));
+                }
                 const opH = entity.height || 80;
                 const startElev = s.initialState.elevation || 0;
                 entity.elevation = Math.max(0, Math.min(wallH - opH, startElev + delta.y));
@@ -337,6 +345,7 @@ export class TransformEngine {
         const dx = delta.x || 0;
         const dy = delta.z !== undefined ? delta.z : (delta.y || 0);
         const dElev = delta.y !== undefined && delta.z !== undefined ? delta.y : 0;
+        const isExplicitElev = (dElev !== 0 || delta.absoluteElevation !== undefined);
 
         const newX = delta.absoluteX !== undefined ? Math.round(delta.absoluteX * 10) / 10 : Math.round((s.initialState.x + dx) * 10) / 10;
         const newY = delta.absoluteY !== undefined ? Math.round(delta.absoluteY * 10) / 10 : Math.round((s.initialState.y + dy) * 10) / 10;
@@ -344,19 +353,25 @@ export class TransformEngine {
 
         entity.x = newX;
         entity.y = newY;
-        if ((dElev !== 0 || delta.absoluteElevation !== undefined) && entity.elevation !== undefined) {
+        if (isExplicitElev && entity.elevation !== undefined) {
             entity.elevation = newElev;
         }
 
         s.currentState.x = newX;
         s.currentState.y = newY;
-        s.currentState.elevation = entity.elevation || newElev;
+        if (isExplicitElev) {
+            s.currentState.elevation = entity.elevation || newElev;
+            s.hasExplicitElevation = true;
+        } else {
+            delete s.currentState.elevation;
+            s.hasExplicitElevation = false;
+        }
 
         // In-place 3D mesh sync
         if (entity.mesh3D) {
             entity.mesh3D.position.x = newX;
             entity.mesh3D.position.z = newY;
-            if (dElev !== 0) entity.mesh3D.position.y = newElev;
+            if (isExplicitElev) entity.mesh3D.position.y = newElev;
             if (typeof entity.mesh3D.updateMatrixWorld === 'function') entity.mesh3D.updateMatrixWorld(true);
         }
 
@@ -384,15 +399,14 @@ export class TransformEngine {
             if (detection.hasTarget) {
                 const currentH = Number(entity.height) || 300;
                 if (Math.abs(currentH - detection.detectedHeight) > 1) {
-                    StairEngine.batchUpdate(options.planner, entity, {
+                    s.pendingStairUpdate = {
                         height: detection.detectedHeight,
                         totalSteps: detection.optimalSteps,
                         flight1Steps: detection.flight1Steps,
                         flight2Steps: detection.flight2Steps,
                         stepHeight: detection.stepHeight,
                         length: detection.flightLength
-                    });
-                    if (options.realtimeUpdate) options.realtimeUpdate.markDirty(entity, 'geometry');
+                    };
                 }
             }
         }
@@ -484,14 +498,25 @@ export class TransformEngine {
         const before = s.initialState;
         const after = s.currentState;
 
+        if (!s.hasExplicitElevation) {
+            delete after.elevation;
+        }
+
         // Check if anything actually changed
         const posChanged = Math.abs((after.x || 0) - (before.x || 0)) > 0.001 || Math.abs((after.y || 0) - (before.y || 0)) > 0.001;
         const rotChanged = Math.abs((after.rotation || 0) - (before.rotation || 0)) > 0.001;
-        const elevChanged = Math.abs((after.elevation || 0) - (before.elevation || 0)) > 0.001;
+        const elevChanged = s.hasExplicitElevation && Math.abs((after.elevation || 0) - (before.elevation || 0)) > 0.001;
         const tChanged = before.t !== null && after.t !== null && Math.abs(after.t - before.t) > 0.0001;
 
         if (!posChanged && !rotChanged && !elevChanged && !tChanged) {
             return null;
+        }
+
+        if (s.pendingStairUpdate && s.entity && (s.entityType === 'staircase' || (typeof s.entityType === 'string' && s.entityType.startsWith('stair')))) {
+            StairEngine.batchUpdate(p, s.entity, s.pendingStairUpdate);
+            if (p.scene3D?.realtimeUpdate) {
+                p.scene3D.realtimeUpdate.markDirty(s.entity, 'geometry');
+            }
         }
 
         const cmd = new TransformCommand(p, s.entityId, s.entityType, before, after);
@@ -549,6 +574,12 @@ export class TransformEngine {
         };
 
         const afterState = { ...beforeState };
+
+        const hasExplicitElevation = (params.deltaPosition && params.deltaPosition.elevation !== undefined) ||
+            (params.absolutePosition && params.absolutePosition.elevation !== undefined);
+        if (!hasExplicitElevation) {
+            delete afterState.elevation;
+        }
 
         // Rotation Step (Center-Compensated)
         if (params.deltaRotation !== undefined || params.absoluteRotation !== undefined) {
@@ -646,13 +677,15 @@ export class TransformEngine {
             if (isMovableChild && p) {
                 const hostRes = SpatialHostResolver.findHostAt(p, state.x, state.y, entity.type, {
                     rotation: entity.rotation,
-                    elevation: entity.elevation,
+                    elevation: state.elevation !== undefined ? state.elevation : entity.elevation,
                     ignoreEntity: entity
                 });
 
                 if (hostRes && hostRes.host) {
                     if (hostRes.hostType === 'platform') {
-                        entity.elevation = hostRes.surfaceElevation;
+                        if (state.elevation === undefined) {
+                            entity.elevation = hostRes.surfaceElevation;
+                        }
                         entity.hostPlatformId = hostRes.hostId;
                         if (isStair) {
                             const targetH = Math.max(20, (Number(hostRes.host.elevation) || 0) + (Number(hostRes.host.height) || 0) - (Number(entity.baseElevation) || 0));
@@ -669,7 +702,9 @@ export class TransformEngine {
                     });
                 } else if (entity.hostPlatformId || entity.hostId || entity.parentWallId) {
                     globalSpatialDependencyEngine.detach(entity);
-                    entity.elevation = Number(entity.baseElevation) || 0;
+                    if (state.elevation === undefined) {
+                        entity.elevation = Number(entity.baseElevation) || 0;
+                    }
                     entity.hostPlatformId = null;
                     entity.parentWallId = null;
                     entity.hostId = null;
@@ -685,6 +720,8 @@ export class TransformEngine {
         // 2. Vertical Elevation
         if (state.elevation !== undefined) {
             entity.elevation = state.elevation;
+        } else {
+            state.elevation = Number(entity.elevation) || 0;
         }
 
         // 3. Rotation (Degrees)

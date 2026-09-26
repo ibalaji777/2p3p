@@ -1,5 +1,5 @@
-
 import { TransformEngine } from '../transform/TransformEngine.js';
+import { WallCollisionEngine } from '../wall/WallCollisionEngine.js';
 
 /**
  * Handles all drag-related events for the 2D Engine.
@@ -33,8 +33,35 @@ export function setupDragEvents(planner) {
                 planner.snapAndAlign(e.target);
             }
             if (activeDragEntity && TransformEngine.isSessionActive()) {
-                const curX = typeof e.target.x === 'function' ? e.target.x() : activeDragEntity.group.x();
-                const curY = typeof e.target.y === 'function' ? e.target.y() : activeDragEntity.group.y();
+                let curX = typeof e.target.x === 'function' ? e.target.x() : activeDragEntity.group.x();
+                let curY = typeof e.target.y === 'function' ? e.target.y() : activeDragEntity.group.y();
+
+                if (planner.wallCollisionEnabled !== false && (activeDragEntity.type === 'furniture' || activeDragEntity.totalSteps !== undefined || activeDragEntity.constructor?.name === 'PremiumFurniture')) {
+                    const w = Number(activeDragEntity.width) || 80;
+                    const d = Number(activeDragEntity.depth || activeDragEntity.length) || 80;
+                    const rot = Number(activeDragEntity.rotation) || 0;
+                    const res = WallCollisionEngine.resolvePlacement({
+                        x: curX,
+                        z: curY,
+                        rotation: rot,
+                        width: w,
+                        depth: d,
+                        planner,
+                        options: {
+                            enableCollision: true,
+                            enableWallSnap: false,
+                            enableWallAlign: false
+                        }
+                    });
+                    if (res && res.isColliding) {
+                        curX = res.x;
+                        curY = res.z;
+                        if (typeof e.target.position === 'function') {
+                            e.target.position({ x: curX, y: curY });
+                        }
+                    }
+                }
+
                 TransformEngine.previewMove(activeDragEntity, { absoluteX: curX, absoluteY: curY });
             }
         }
@@ -49,11 +76,18 @@ export function setupDragEvents(planner) {
             planner.smartGuides.clear();
         }
 
-        if (TransformEngine.isSessionActive() && activeDragEntity) {
+        if (activeDragEntity) {
             const curX = activeDragEntity.group ? activeDragEntity.group.x() : activeDragEntity.x;
             const curY = activeDragEntity.group ? activeDragEntity.group.y() : activeDragEntity.y;
-            TransformEngine.previewMove(activeDragEntity, { absoluteX: curX, absoluteY: curY });
-            TransformEngine.commitSession(planner);
+
+            if (TransformEngine.isSessionActive()) {
+                TransformEngine.previewMove(activeDragEntity, { absoluteX: curX, absoluteY: curY });
+                TransformEngine.commitSession(planner);
+            } else if (dragStartPos2D && (Math.abs(curX - dragStartPos2D.x) > 0.001 || Math.abs(curY - dragStartPos2D.y) > 0.001)) {
+                TransformEngine.executeDiscreteStep(planner, activeDragEntity, {
+                    absolutePosition: { x: curX, y: curY }
+                });
+            }
             activeDragEntity = null;
             dragStartPos2D = null;
         } else if (dragStartPos2D && (e.target.nodeType === 'Group' || e.target.nodeType === 'Shape')) {
@@ -64,12 +98,12 @@ export function setupDragEvents(planner) {
                     const endX = entity.group.x();
                     const endY = entity.group.y();
                     if (Math.abs(endX - dragStartPos2D.x) > 0.001 || Math.abs(endY - dragStartPos2D.y) > 0.001) {
-                        entity.group.position({ x: dragStartPos2D.x, y: dragStartPos2D.y });
-                        planner.move(id, endX, endY);
+                        TransformEngine.executeDiscreteStep(planner, entity, {
+                            absolutePosition: { x: endX, y: endY }
+                        });
                     }
                 }
             }
-            activeDragEntity = null;
             dragStartPos2D = null;
         }
         planner.uiLayer.batchDraw();

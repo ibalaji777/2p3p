@@ -4,6 +4,9 @@ import { FurnitureEngine } from '../furniture/FurnitureEngine.js';
 import { SnapshotCommand } from '../commands/SnapshotCommand.js';
 import { VerticalPropagationEngine } from '../vertical/VerticalPropagationEngine.js';
 import { SpatialDependencyEngine, RELATIONSHIP_TYPES, globalSpatialDependencyEngine } from '../spatial/SpatialDependencyEngine.js';
+import { SpatialHostResolver } from '../spatial/SpatialHostResolver.js';
+import { SnapEngine } from '../snap/SnapEngine.js';
+import { coreEventBus } from '../EventBus.js';
 
 /**
  * Furniture3DPlacementSystem
@@ -33,11 +36,19 @@ export class Furniture3DPlacementSystem {
         this.activePos = new THREE.Vector3();
         this.activeRotation = 0; // Degrees (0, 90, 180, 270)
         this.activeElevation = 0;
+        this.wallCollisionEnabled = true;
+        this.wallSnapEnabled = true;
+        this.snapMode = 10; // cm default CAD snap
+
+        // Relocation / Move Mode State for existing furniture
+        this.isRelocating = false;
+        this.relocatingEntity = null;
 
         // Grab offset: preserves relative distance when user touches/clicks anywhere
         // on the model (beginning, center, end, edge) — preventing reposition jumps
         this._grabOffset = new THREE.Vector3(0, 0, 0);
         this._isGrabbing = false;
+        this._isDragging = false;
 
         // Master Ghost Group in 3D Scene
         this.ghostGroup = new THREE.Group();
@@ -62,7 +73,13 @@ export class Furniture3DPlacementSystem {
         this.footprintMesh = new THREE.LineSegments(new THREE.BufferGeometry(), this.footprintMat);
         this.footprintMesh.renderOrder = 1008;
         this.footprintMesh.raycast = () => {};
+        this.footprintMesh.visible = false;
         this.ghostGroup.add(this.footprintMesh);
+
+        // Relative delta tracking for zero-teleport relocation
+        this._initialHit = null;
+        this._initialPos = null;
+        this.initialEntityPosition = null;
 
         // 3. Create Stable Static DOM HUD Action Bar
         this.createBadgeDOM();
@@ -105,6 +122,7 @@ export class Furniture3DPlacementSystem {
 
         this.badgeDom.innerHTML = `
             <div style="display: flex; align-items: center; gap: 8px; white-space: nowrap;">
+                <!-- Entity Badge -->
                 <div style="display: flex; align-items: center; gap: 6px;">
                     <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #00f0ff; box-shadow: 0 0 8px #00f0ff;"></span>
                     <span id="furn-ui-title" style="color: #38bdf8; font-weight: 700; font-size: 12px;">Furniture Item</span>
@@ -112,17 +130,54 @@ export class Furniture3DPlacementSystem {
                 
                 <div style="width: 1px; height: 20px; background: rgba(255, 255, 255, 0.15);"></div>
 
-                <div id="furn-ui-specs" style="color: #cbd5e1; font-size: 11px; font-weight: 500;">
-                    1000 × 1000 × 800 mm
+                <!-- Action Coords & Angle -->
+                <div style="display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 700; color: #94a3b8;">
+                    <label style="display: flex; align-items: center; gap: 2px;">
+                        X: <input id="furn-ui-coord-x" type="number" style="width: 44px; background: rgba(0, 0, 0, 0.45); border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 4px; color: #fff; padding: 2px 4px; font-size: 11px; font-weight: 700; text-align: right; outline: none;" step="10" />
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 2px;">
+                        Z: <input id="furn-ui-coord-z" type="number" style="width: 44px; background: rgba(0, 0, 0, 0.45); border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 4px; color: #fff; padding: 2px 4px; font-size: 11px; font-weight: 700; text-align: right; outline: none;" step="10" />
+                    </label>
+                    <span style="color: #38bdf8; font-weight: 700; margin-left: 2px;">(<span id="furn-ui-rot">0°</span>)</span>
                 </div>
-                <span style="color: #94a3b8; font-size: 11px;">(<strong id="furn-ui-rot" style="color: #38bdf8;">0°</strong>)</span>
+
+                <!-- Precision D-Pad Nudge Steppers -->
+                <div style="display: flex; align-items: center; gap: 2px;">
+                    <button id="furn-ui-nudge-left" type="button" title="Nudge Left (-X)" style="display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 6px; color: #f1f5f9; font-size: 13px; font-weight: 700; cursor: pointer;">←</button>
+                    <button id="furn-ui-nudge-fwd" type="button" title="Nudge Forward (-Z)" style="display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 6px; color: #f1f5f9; font-size: 13px; font-weight: 700; cursor: pointer;">↑</button>
+                    <button id="furn-ui-nudge-back" type="button" title="Nudge Backward (+Z)" style="display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 6px; color: #f1f5f9; font-size: 13px; font-weight: 700; cursor: pointer;">↓</button>
+                    <button id="furn-ui-nudge-right" type="button" title="Nudge Right (+X)" style="display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 6px; color: #f1f5f9; font-size: 13px; font-weight: 700; cursor: pointer;">→</button>
+                </div>
 
                 <div style="width: 1px; height: 20px; background: rgba(255, 255, 255, 0.15);"></div>
 
+                <!-- Snap Mode Pills -->
+                <div id="furn-ui-snaps" style="display: flex; align-items: center; gap: 4px;">
+                    <button type="button" class="furn-snap-pill" data-snap="0" style="padding: 3px 7px; font-size: 10px; font-weight: 700; border-radius: 6px; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); color: #94a3b8; cursor: pointer;">FREE</button>
+                    <button type="button" class="furn-snap-pill" data-snap="1" style="padding: 3px 7px; font-size: 10px; font-weight: 700; border-radius: 6px; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); color: #94a3b8; cursor: pointer;">1cm</button>
+                    <button type="button" class="furn-snap-pill active" data-snap="10" style="padding: 3px 7px; font-size: 10px; font-weight: 700; border-radius: 6px; background: rgba(0, 240, 255, 0.2); border: 1px solid rgba(0, 240, 255, 0.5); color: #00f0ff; cursor: pointer;">10cm</button>
+                    <button type="button" class="furn-snap-pill" data-snap="50" style="padding: 3px 7px; font-size: 10px; font-weight: 700; border-radius: 6px; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); color: #94a3b8; cursor: pointer;">50cm</button>
+                </div>
+
+                <!-- Wall Snap Toggle Button -->
+                <button 
+                    id="furn-ui-btn-wallsnap" 
+                    type="button" 
+                    title="Toggle Wall Collision & Magnetic Snap"
+                    style="display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px; font-size: 11px; font-weight: 700; border-radius: 6px; background: rgba(16, 185, 129, 0.22); border: 1px solid rgba(16, 185, 129, 0.6); color: #34d399; cursor: pointer; transition: all 0.15s ease; white-space: nowrap;"
+                >
+                    🧲 Wall Snap: <span id="furn-ui-wallsnap-status">ON</span>
+                </button>
+
+                <div style="width: 1px; height: 20px; background: rgba(255, 255, 255, 0.15);"></div>
+
+                <!-- Rotate Button -->
+                <button id="furn-ui-btn-rot" type="button" title="Rotate (Key: R)" style="display: inline-flex; align-items: center; justify-content: center; gap: 4px; background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(255, 255, 255, 0.12); color: #f1f5f9; border-radius: 8px; padding: 5px 10px; font-size: 12px; font-weight: 600; cursor: pointer; min-height: 30px;">
+                    ↻ Rotate
+                </button>
+
+                <!-- Commit & Cancel Buttons -->
                 <div style="display: flex; align-items: center; gap: 5px;">
-                    <button id="furn-ui-btn-rot" type="button" title="Rotate (Key: R)" style="display: inline-flex; align-items: center; justify-content: center; gap: 4px; background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(255, 255, 255, 0.12); color: #f1f5f9; border-radius: 8px; padding: 5px 10px; font-size: 12px; font-weight: 600; cursor: pointer; min-height: 30px;">
-                        ↻ Rotate
-                    </button>
                     <button id="furn-ui-btn-place" type="button" title="Confirm Placement (Key: Enter / Space)" style="display: inline-flex; align-items: center; justify-content: center; gap: 4px; background: #22c55e; border: none; color: #0f172a; border-radius: 8px; padding: 5px 12px; font-size: 12px; font-weight: 700; cursor: pointer; min-height: 30px;">
                         ✓ Place
                     </button>
@@ -136,28 +191,82 @@ export class Furniture3DPlacementSystem {
 
         // Cache stable DOM references
         this.elTitle = this.badgeDom.querySelector('#furn-ui-title');
+        this.inputX = this.badgeDom.querySelector('#furn-ui-coord-x');
+        this.inputZ = this.badgeDom.querySelector('#furn-ui-coord-z');
         this.elRot = this.badgeDom.querySelector('#furn-ui-rot');
-        this.elSpecs = this.badgeDom.querySelector('#furn-ui-specs');
+        this.btnWallSnap = this.badgeDom.querySelector('#furn-ui-btn-wallsnap');
+        this.elWallSnapStatus = this.badgeDom.querySelector('#furn-ui-wallsnap-status');
         this.btnRot = this.badgeDom.querySelector('#furn-ui-btn-rot');
         this.btnPlace = this.badgeDom.querySelector('#furn-ui-btn-place');
         this.btnCancel = this.badgeDom.querySelector('#furn-ui-btn-cancel');
 
-        // Wire handlers once without DOM recreation
+        // Coordinate input handlers
+        [this.inputX, this.inputZ].forEach(input => {
+            if (!input) return;
+            input.addEventListener('pointerdown', (e) => e.stopPropagation());
+            input.addEventListener('click', (e) => e.stopPropagation());
+            input.addEventListener('keydown', (e) => e.stopPropagation());
+            input.addEventListener('change', () => this._onCoordInputChange());
+        });
+
+        // D-Pad Nudge Buttons
+        const nudgeButtons = [
+            { id: '#furn-ui-nudge-left', dx: -1, dz: 0 },
+            { id: '#furn-ui-nudge-fwd', dx: 0, dz: -1 },
+            { id: '#furn-ui-nudge-back', dx: 0, dz: 1 },
+            { id: '#furn-ui-nudge-right', dx: 1, dz: 0 }
+        ];
+        nudgeButtons.forEach(({ id, dx, dz }) => {
+            const btn = this.badgeDom.querySelector(id);
+            if (btn) {
+                btn.addEventListener('pointerdown', (e) => e.stopPropagation());
+                btn.addEventListener('click', (ev) => {
+                    ev.preventDefault(); ev.stopPropagation();
+                    this.nudge(dx, dz);
+                });
+            }
+        });
+
+        // Snap Pills
+        const pills = this.badgeDom.querySelectorAll('.furn-snap-pill');
+        pills.forEach(pill => {
+            pill.addEventListener('pointerdown', (e) => e.stopPropagation());
+            pill.addEventListener('click', (ev) => {
+                ev.preventDefault(); ev.stopPropagation();
+                const snapVal = Number(pill.getAttribute('data-snap'));
+                this.setSnapMode(snapVal);
+            });
+        });
+
+        // Wall Snap toggle
+        this.btnWallSnap.addEventListener('pointerdown', (e) => e.stopPropagation());
+        this.btnWallSnap.addEventListener('click', (ev) => {
+            ev.preventDefault(); ev.stopPropagation();
+            this.toggleWallSnap();
+        });
+
+        // Rotate button
         this.btnRot.addEventListener('pointerdown', (e) => e.stopPropagation());
         this.btnRot.addEventListener('click', (ev) => {
             ev.preventDefault(); ev.stopPropagation();
             this.rotateStep(90);
         });
 
+        // Place button
         this.btnPlace.addEventListener('pointerdown', (e) => e.stopPropagation());
         this.btnPlace.addEventListener('click', (ev) => {
             ev.preventDefault(); ev.stopPropagation();
             this.placeFurniture();
         });
 
+        // Cancel button
         this.btnCancel.addEventListener('pointerdown', (e) => e.stopPropagation());
         this.btnCancel.addEventListener('click', (ev) => {
             ev.preventDefault(); ev.stopPropagation();
+            if (this.isRelocating) {
+                this.cancelRelocation();
+                return;
+            }
             const pl = this.getPlanner();
             if (pl) {
                 pl.tool = 'select';
@@ -168,7 +277,136 @@ export class Furniture3DPlacementSystem {
         });
     }
 
+    _onCoordInputChange() {
+        if (!this.inputX || !this.inputZ) return;
+        let newX = parseFloat(this.inputX.value);
+        let newZ = parseFloat(this.inputZ.value);
+        if (isNaN(newX)) newX = this.activePos.x;
+        if (isNaN(newZ)) newZ = this.activePos.z;
+
+        const planner = this.getPlanner();
+        if (planner && (this.wallCollisionEnabled || this.wallSnapEnabled)) {
+            const preset = planner.activePresetParams || {};
+            const configId = preset.type || preset.id || planner.tool;
+            const config = FURNITURE_REGISTRY[configId] || {};
+            const w = Number(preset.width) || Number(config.default?.width) || 100;
+            const d = Number(preset.depth) || Number(config.default?.depth) || 100;
+
+            const resolved = SnapEngine.resolvePosition({
+                x: newX,
+                z: newZ,
+                rotation: this.activeRotation,
+                width: w,
+                depth: d
+            }, { planner }, {
+                enableCollision: this.wallCollisionEnabled !== false,
+                enableWallSnap: this.wallSnapEnabled !== false,
+                enableWallContour: true,
+                enableWallAlign: false,
+                snapDistance: 20,
+                enableGridSnap: false
+            });
+            newX = resolved.x;
+            newZ = resolved.z;
+            this.inputX.value = Math.round(newX);
+            this.inputZ.value = Math.round(newZ);
+        }
+
+        this.activePos.x = newX;
+        this.activePos.z = newZ;
+        this.updateGhostTransform();
+        if (coreEventBus) {
+            coreEventBus.emit('UniversalMoveChanged', {
+                x: Math.round(newX),
+                z: Math.round(newZ)
+            });
+        }
+        if (this.ctx && typeof this.ctx.requestRender === 'function') {
+            this.ctx.requestRender();
+        }
+    }
+
+    setSnapMode(snapVal) {
+        this.snapMode = Number(snapVal);
+        const pills = this.badgeDom.querySelectorAll('.furn-snap-pill');
+        pills.forEach(p => {
+            const val = Number(p.getAttribute('data-snap'));
+            if (val === this.snapMode) {
+                p.style.background = 'rgba(0, 240, 255, 0.2)';
+                p.style.borderColor = 'rgba(0, 240, 255, 0.5)';
+                p.style.color = '#00f0ff';
+            } else {
+                p.style.background = 'rgba(255, 255, 255, 0.05)';
+                p.style.borderColor = 'rgba(255, 255, 255, 0.1)';
+                p.style.color = '#94a3b8';
+            }
+        });
+        if (coreEventBus) {
+            coreEventBus.emit('UniversalMoveChanged', {
+                snapMode: this.snapMode
+            });
+        }
+    }
+
+    toggleWallSnap() {
+        this.wallSnapEnabled = !this.wallSnapEnabled;
+        this.wallCollisionEnabled = this.wallSnapEnabled;
+
+        if (this.btnWallSnap && this.elWallSnapStatus) {
+            this.elWallSnapStatus.textContent = this.wallSnapEnabled ? 'ON' : 'OFF';
+            if (this.wallSnapEnabled) {
+                this.btnWallSnap.style.background = 'rgba(16, 185, 129, 0.22)';
+                this.btnWallSnap.style.borderColor = 'rgba(16, 185, 129, 0.6)';
+                this.btnWallSnap.style.color = '#34d399';
+            } else {
+                this.btnWallSnap.style.background = 'rgba(255, 255, 255, 0.06)';
+                this.btnWallSnap.style.borderColor = 'rgba(255, 255, 255, 0.15)';
+                this.btnWallSnap.style.color = '#94a3b8';
+            }
+        }
+        if (coreEventBus) {
+            coreEventBus.emit('UniversalMoveChanged', {
+                wallSnap: this.wallSnapEnabled
+            });
+        }
+
+        if (this.wallSnapEnabled) {
+            const planner = this.getPlanner();
+            if (planner) {
+                const preset = planner.activePresetParams || {};
+                const configId = preset.type || preset.id || planner.tool;
+                const config = FURNITURE_REGISTRY[configId] || {};
+                const w = Number(preset.width) || Number(config.default?.width) || 100;
+                const d = Number(preset.depth) || Number(config.default?.depth) || 100;
+
+                const resolved = SnapEngine.resolvePosition({
+                    x: this.activePos.x,
+                    z: this.activePos.z,
+                    rotation: this.activeRotation,
+                    width: w,
+                    depth: d
+                }, { planner }, {
+                    enableCollision: true,
+                    enableWallSnap: true,
+                    enableWallContour: true,
+                    enableWallAlign: false,
+                    snapDistance: 20,
+                    enableGridSnap: false
+                });
+                this.activePos.x = resolved.x;
+                this.activePos.z = resolved.z;
+                this.updateGhostTransform();
+                if (this.inputX) this.inputX.value = Math.round(this.activePos.x);
+                if (this.inputZ) this.inputZ.value = Math.round(this.activePos.z);
+                if (this.ctx && typeof this.ctx.requestRender === 'function') {
+                    this.ctx.requestRender();
+                }
+            }
+        }
+    }
+
     isPlacementTool() {
+        if (this.isRelocating) return true;
         const planner = this.getPlanner();
         if (!planner) return false;
         const tool = planner.tool;
@@ -204,13 +442,123 @@ export class Furniture3DPlacementSystem {
     }
 
     isTouchDevice() {
-        return window.innerWidth <= 768 || (('ontouchstart' in window) && (navigator.maxTouchPoints > 1) && window.innerWidth <= 1024);
+        return typeof window !== 'undefined' && (window.innerWidth <= 768 || (('ontouchstart' in window) && (navigator.maxTouchPoints > 1) && window.innerWidth <= 1024));
     }
 
     rotateStep(deltaDeg) {
         this.activeRotation = (this.activeRotation + deltaDeg + 360) % 360;
+
+        // Re-resolve Wall Collision & Wall Snap with the new orientation
+        const planner = this.getPlanner();
+        if (planner && (this.wallCollisionEnabled || this.wallSnapEnabled)) {
+            const preset = planner.activePresetParams || {};
+            const configId = preset.type || preset.id || planner.tool;
+            const config = FURNITURE_REGISTRY[configId] || {};
+            const w = Number(preset.width) || Number(config.default?.width) || 100;
+            const d = Number(preset.depth) || Number(config.default?.depth) || 100;
+
+            const resolved = SnapEngine.resolvePosition({
+                x: this.activePos.x,
+                z: this.activePos.z,
+                rotation: this.activeRotation,
+                width: w,
+                depth: d
+            }, { planner }, {
+                enableCollision: this.wallCollisionEnabled !== false,
+                enableWallSnap: this.wallSnapEnabled !== false,
+                enableWallContour: true,
+                enableWallAlign: false,
+                snapDistance: 20,
+                enableGridSnap: false
+            });
+            this.activePos.x = resolved.x;
+            this.activePos.z = resolved.z;
+        }
+
         this.updateGhostTransform();
         if (this.elRot) this.elRot.textContent = `${this.activeRotation % 360}°`;
+        if (this.inputX && document.activeElement !== this.inputX) this.inputX.value = Math.round(this.activePos.x);
+        if (this.inputZ && document.activeElement !== this.inputZ) this.inputZ.value = Math.round(this.activePos.z);
+        if (coreEventBus) {
+            coreEventBus.emit('UniversalMoveChanged', {
+                rotation: this.activeRotation,
+                x: Math.round(this.activePos.x),
+                z: Math.round(this.activePos.z)
+            });
+        }
+        if (this.ctx && typeof this.ctx.requestRender === 'function') {
+            this.ctx.requestRender();
+        }
+    }
+
+    nudge(dirX, dirZ) {
+        const step = this.snapMode === 0 ? 10 : (this.snapMode || 10);
+        let newX = this.activePos.x + dirX * step;
+        let newZ = this.activePos.z + dirZ * step;
+
+        const planner = this.getPlanner();
+        const preset = this.isRelocating ? (this.relocatingEntity || {}) : (planner?.activePresetParams || {});
+        const elev = this.getActiveElevation();
+
+        if (planner && (this.wallCollisionEnabled || this.wallSnapEnabled)) {
+            const configId = preset.type || preset.id || planner.tool;
+            const config = FURNITURE_REGISTRY[configId] || {};
+            const w = Number(preset.width) || Number(config.default?.width) || 100;
+            const d = Number(preset.depth) || Number(config.default?.depth) || 100;
+
+            const resolved = SnapEngine.resolvePosition({
+                x: newX,
+                z: newZ,
+                rotation: this.activeRotation,
+                width: w,
+                depth: d
+            }, { planner }, {
+                enableCollision: this.wallCollisionEnabled !== false,
+                enableWallSnap: this.wallSnapEnabled !== false,
+                enableWallContour: true,
+                enableWallAlign: false,
+                snapDistance: 20,
+                enableGridSnap: false
+            });
+            newX = resolved.x;
+            newZ = resolved.z;
+        }
+
+        this.activePos.set(newX, elev, newZ);
+        this.updateGhostModel(preset, newX, elev, newZ, this.activeRotation);
+        this.updateBadgeContent();
+
+        if (coreEventBus) {
+            coreEventBus.emit('UniversalMoveChanged', {
+                x: Math.round(newX),
+                z: Math.round(newZ),
+                rotation: this.activeRotation,
+                wallSnap: this.wallSnapEnabled,
+                snapMode: this.snapMode
+            });
+        }
+
+        if (this.ctx && typeof this.ctx.requestRender === 'function') {
+            this.ctx.requestRender();
+        }
+    }
+
+    setCoordinates(x, z) {
+        const newX = isNaN(x) ? this.activePos.x : Number(x);
+        const newZ = isNaN(z) ? this.activePos.z : Number(z);
+        this.activePos.set(newX, this.activeElevation, newZ);
+        const preset = this.isRelocating ? (this.relocatingEntity || {}) : (this.getPlanner()?.activePresetParams || {});
+        this.updateGhostModel(preset, newX, this.activeElevation, newZ, this.activeRotation);
+        this.updateBadgeContent();
+        if (coreEventBus) {
+            coreEventBus.emit('UniversalMoveChanged', {
+                x: Math.round(newX),
+                z: Math.round(newZ),
+                rotation: this.activeRotation,
+                wallSnap: this.wallSnapEnabled,
+                snapMode: this.snapMode
+            });
+        }
         if (this.ctx && typeof this.ctx.requestRender === 'function') {
             this.ctx.requestRender();
         }
@@ -229,6 +577,11 @@ export class Furniture3DPlacementSystem {
             this.rotateStep(-90);
             e.preventDefault();
         } else if (e.key === 'Escape') {
+            if (this.isRelocating) {
+                this.cancelRelocation();
+                e.preventDefault();
+                return;
+            }
             const planner = this.getPlanner();
             if (planner) {
                 planner.tool = 'select';
@@ -256,9 +609,10 @@ export class Furniture3DPlacementSystem {
         if (!this.raycaster.ray.intersectPlane(floorPlane, hitPoint)) return null;
 
         const isFine = e.shiftKey;
-        const gridStep = isFine ? 1 : 10;
-        const snappedX = Math.round(hitPoint.x / gridStep) * gridStep;
-        const snappedZ = Math.round(hitPoint.z / gridStep) * gridStep;
+        const gridStep = this.snapMode === 0 || isFine ? 1 : this.snapMode;
+        const snapped = SnapEngine.snapToGrid({ x: hitPoint.x, z: hitPoint.z }, gridStep);
+        const snappedX = snapped.x !== undefined ? snapped.x : hitPoint.x;
+        const snappedZ = snapped.z !== undefined ? snapped.z : hitPoint.z;
 
         const planner = this.getPlanner();
         let targetElev = elev;
@@ -282,28 +636,174 @@ export class Furniture3DPlacementSystem {
         };
     }
 
+    _isHitOnGhost(floorPoint, margin = 25) {
+        if (!floorPoint || !this.ghostGroup.visible) return false;
+        const dx = floorPoint.x - this.activePos.x;
+        const dz = floorPoint.z - this.activePos.z;
+        const rotY = -this.activeRotation * Math.PI / 180;
+        const cosR = Math.cos(-rotY);
+        const sinR = Math.sin(-rotY);
+        const localX = dx * cosR + dz * sinR;
+        const localZ = -dx * sinR + dz * cosR;
+
+        const minX = (this._localBounds?.minX ?? -50) - margin;
+        const maxX = (this._localBounds?.maxX ?? 50) + margin;
+        const minZ = (this._localBounds?.minZ ?? -50) - margin;
+        const maxZ = (this._localBounds?.maxZ ?? 50) + margin;
+
+        return localX >= minX && localX <= maxX && localZ >= minZ && localZ <= maxZ;
+    }
+
     onPointerMove(e) {
         if (!this.isPlacementTool()) {
             this.hideGhost();
             return false;
         }
 
-        const planner = this.getPlanner();
+        // Check for Right-Click or Middle-Click Drag for Free Camera Orbit
+        const isRightClick = (e.buttons & 2) !== 0 || e.button === 2;
+        const isMiddleClick = (e.buttons & 4) !== 0 || e.button === 1;
+        if (isRightClick || isMiddleClick) {
+            if (this.ctx && this.ctx.controls) {
+                this.ctx.controls.enableRotate = true;
+            }
+            return false;
+        }
+
+        const isTouch = e.pointerType === 'touch' || (e.pointerType !== 'mouse' && this.isTouchDevice());
+        // Multi-touch gestures (pinch-to-zoom / 2-finger orbit) pass through to OrbitControls
+        if (isTouch && e.touches && e.touches.length >= 2) {
+            if (this.ctx && this.ctx.controls) {
+                this.ctx.controls.enableRotate = true;
+            }
+            return false;
+        }
+
         const floor = this._raycastFloor(e);
         if (!floor) {
             this.hideGhost();
             return false;
         }
 
+        const dom = this.ctx?.renderer?.domElement;
+        const planner = this.getPlanner();
+        const preset = this.isRelocating ? (this.relocatingEntity || {}) : (planner?.activePresetParams || {});
+
+        if (this.isRelocating) {
+            if (!this._isDragging) {
+                if (this._isHitOnGhost(floor, 25)) {
+                    if (dom) dom.style.cursor = 'grab';
+                } else {
+                    if (dom) dom.style.cursor = 'auto';
+                }
+                if (this.ctx && this.ctx.controls) {
+                    this.ctx.controls.enableRotate = true;
+                }
+                return false;
+            }
+
+            // Actively dragging in relocation mode
+            if (this.ctx && this.ctx.controls) {
+                this.ctx.controls.enableRotate = false;
+            }
+            if (dom) dom.style.cursor = 'grabbing';
+
+            let worldX = floor.x - this._grabOffset.x;
+            let worldZ = floor.z - this._grabOffset.z;
+
+            // Resolve Wall Collision & Wall Snap
+            if (planner && (this.wallCollisionEnabled || this.wallSnapEnabled)) {
+                const configId = preset.type || preset.id || planner.tool;
+                const config = FURNITURE_REGISTRY[configId] || {};
+                const w = Number(preset.width) || Number(config.default?.width) || 100;
+                const d = Number(preset.depth) || Number(config.default?.depth) || 100;
+
+                const resolved = SnapEngine.resolvePosition({
+                    x: worldX,
+                    z: worldZ,
+                    rotation: this.activeRotation,
+                    width: w,
+                    depth: d
+                }, { planner }, {
+                    enableCollision: this.wallCollisionEnabled !== false,
+                    enableWallSnap: this.wallSnapEnabled !== false,
+                    enableWallContour: true,
+                    enableWallAlign: false,
+                    snapDistance: 20,
+                    enableGridSnap: false
+                });
+                worldX = resolved.x;
+                worldZ = resolved.z;
+            }
+
+            this.activePos.set(worldX, floor.elev, worldZ);
+            this.activeElevation = floor.elev;
+            this._lastHostPlatformId = floor.hostPlatformId || null;
+
+            // Update Ghost 3D Mesh
+            this.updateGhostModel(preset, worldX, floor.elev, worldZ, this.activeRotation);
+
+            // Update HUD Badge Information
+            this.updateBadgeContent(e);
+
+            if (coreEventBus) {
+                coreEventBus.emit('InteractionStateChanged', {
+                    state: 'ACTION_ACTIVE',
+                    activeAction: 'move',
+                    hudMode: 'action_minimal',
+                    selectedEntity: {
+                        type: 'furniture',
+                        name: preset.name || preset.type || 'Furniture'
+                    }
+                });
+                coreEventBus.emit('UniversalMoveChanged', {
+                    x: Math.round(worldX),
+                    z: Math.round(worldZ),
+                    rotation: this.activeRotation,
+                    wallSnap: this.wallSnapEnabled,
+                    snapMode: this.snapMode
+                });
+            }
+
+            if (this.ctx && typeof this.ctx.requestRender === 'function') {
+                this.ctx.requestRender();
+            }
+            return true;
+        }
+
+        // Initial Placement Mode (from side nav)
         if (this.ctx && this.ctx.controls) {
             this.ctx.controls.enableRotate = false;
         }
+        if (dom) dom.style.cursor = 'move';
 
-        const preset = planner.activePresetParams || {};
+        let worldX = floor.x + this._grabOffset.x;
+        let worldZ = floor.z + this._grabOffset.z;
 
-        // Apply grab offset: preserves relative distance so the model does not jump
-        const worldX = floor.x + this._grabOffset.x;
-        const worldZ = floor.z + this._grabOffset.z;
+        // Resolve Wall Collision & Wall Snap
+        if (planner && (this.wallCollisionEnabled || this.wallSnapEnabled)) {
+            const configId = preset.type || preset.id || planner.tool;
+            const config = FURNITURE_REGISTRY[configId] || {};
+            const w = Number(preset.width) || Number(config.default?.width) || 100;
+            const d = Number(preset.depth) || Number(config.default?.depth) || 100;
+
+            const resolved = SnapEngine.resolvePosition({
+                x: worldX,
+                z: worldZ,
+                rotation: this.activeRotation,
+                width: w,
+                depth: d
+            }, { planner }, {
+                enableCollision: this.wallCollisionEnabled !== false,
+                enableWallSnap: this.wallSnapEnabled !== false,
+                enableWallContour: true,
+                enableWallAlign: false,
+                snapDistance: 20,
+                enableGridSnap: false
+            });
+            worldX = resolved.x;
+            worldZ = resolved.z;
+        }
 
         this.activePos.set(worldX, floor.elev, worldZ);
         this.activeElevation = floor.elev;
@@ -315,7 +815,25 @@ export class Furniture3DPlacementSystem {
         // Update HUD Badge Information
         this.updateBadgeContent(e);
 
-        this.ctx.renderer.domElement.style.cursor = 'crosshair';
+        if (coreEventBus) {
+            coreEventBus.emit('InteractionStateChanged', {
+                state: 'ACTION_ACTIVE',
+                activeAction: 'place',
+                hudMode: 'action_minimal',
+                selectedEntity: {
+                    type: 'furniture',
+                    name: preset.name || preset.type || 'Furniture'
+                }
+            });
+            coreEventBus.emit('UniversalMoveChanged', {
+                x: Math.round(worldX),
+                z: Math.round(worldZ),
+                rotation: this.activeRotation,
+                wallSnap: this.wallSnapEnabled,
+                snapMode: this.snapMode
+            });
+        }
+
         if (this.ctx && typeof this.ctx.requestRender === 'function') {
             this.ctx.requestRender();
         }
@@ -331,14 +849,14 @@ export class Furniture3DPlacementSystem {
         const config = FURNITURE_REGISTRY[configId] || {};
         const title = preset.name || config.label || 'Furniture Item';
 
-        const w = Number(preset.width) || Number(config.default?.width) || 100;
-        const d = Number(preset.depth) || Number(config.default?.depth) || 100;
-        const h = Number(preset.height) || Number(config.default?.height) || 80;
-        const specsText = `${Math.round(w * 10)} × ${Math.round(d * 10)} × ${Math.round(h * 10)} mm`;
-
         if (this.elTitle) this.elTitle.textContent = title;
         if (this.elRot) this.elRot.textContent = `${this.activeRotation % 360}°`;
-        if (this.elSpecs) this.elSpecs.textContent = specsText;
+        if (this.inputX && document.activeElement !== this.inputX) {
+            this.inputX.value = Math.round(this.activePos.x);
+        }
+        if (this.inputZ && document.activeElement !== this.inputZ) {
+            this.inputZ.value = Math.round(this.activePos.z);
+        }
 
         const isMobileScreen = this.isTouchDevice();
         this.badgeDom.style.left = '50%';
@@ -346,7 +864,7 @@ export class Furniture3DPlacementSystem {
         this.badgeDom.style.bottom = isMobileScreen ? '64px' : '24px';
         this.badgeDom.style.transform = 'translateX(-50%)';
 
-        this.badgeDom.style.display = 'block';
+        this.badgeDom.style.display = 'none';
     }
 
     updateGhostTransform() {
@@ -439,6 +957,13 @@ export class Furniture3DPlacementSystem {
 
             this.modelPreviewGroup.add(tempContainer);
 
+            this._localBounds = {
+                minX: -itemW / 2,
+                maxX: itemW / 2,
+                minZ: -itemD / 2,
+                maxZ: itemD / 2
+            };
+
             // Build Footprint Floor Rectangle
             this.updateFootprintGeometry(itemW, itemD);
 
@@ -449,43 +974,58 @@ export class Furniture3DPlacementSystem {
     }
 
     updateFootprintGeometry(width, depth) {
-        const halfW = width / 2;
-        const halfD = depth / 2;
-        const linePoints = [
-            new THREE.Vector3(-halfW, 0.5, -halfD),
-            new THREE.Vector3(halfW, 0.5, -halfD),
-            new THREE.Vector3(halfW, 0.5, -halfD),
-            new THREE.Vector3(halfW, 0.5, halfD),
-            new THREE.Vector3(halfW, 0.5, halfD),
-            new THREE.Vector3(-halfW, 0.5, halfD),
-            new THREE.Vector3(-halfW, 0.5, halfD),
-            new THREE.Vector3(-halfW, 0.5, -halfD)
-        ];
-        const geo = new THREE.BufferGeometry().setFromPoints(linePoints);
-        this.footprintMesh.geometry.dispose();
-        this.footprintMesh.geometry = geo;
-        this.footprintMesh.visible = true;
+        // Floating wireframe footprint removed as per user requirement
+        if (this.footprintMesh) {
+            this.footprintMesh.visible = false;
+        }
     }
 
     onPointerDown(e) {
         if (!this.isPlacementTool()) return false;
 
-        const isTouch = e.pointerType === 'touch' || (e.pointerType !== 'mouse' && this.isTouchDevice());
-
-        if (this.ghostGroup.visible) {
-            // Ghost is already visible.
-            // Compute grab offset to lock relative distance wherever clicked/touched.
-            const floor = this._raycastFloor(e);
-            if (floor) {
-                this._grabOffset.set(
-                    this.activePos.x - floor.x,
-                    0,
-                    this.activePos.z - floor.z
-                );
-                this._isGrabbing = true;
+        const isRightClick = (e.buttons & 2) !== 0 || e.button === 2;
+        const isMiddleClick = (e.buttons & 4) !== 0 || e.button === 1;
+        if (isRightClick || isMiddleClick) {
+            if (this.ctx && this.ctx.controls) {
+                this.ctx.controls.enableRotate = true;
             }
+            return false;
+        }
 
-            // Desktop: left-click places at exact activePos
+        const isTouch = e.pointerType === 'touch' || (e.pointerType !== 'mouse' && this.isTouchDevice());
+        if (isTouch && e.touches && e.touches.length >= 2) {
+            if (this.ctx && this.ctx.controls) {
+                this.ctx.controls.enableRotate = true;
+            }
+            return false;
+        }
+
+        const floor = this._raycastFloor(e);
+        if (!floor) return false;
+
+        if (this.isRelocating) {
+            // Relocation / Move mode: drag only when interacting with the object footprint
+            if (this._isHitOnGhost(floor, isTouch ? 35 : 25)) {
+                this._isDragging = true;
+                this._grabOffset.set(floor.x - this.activePos.x, 0, floor.z - this.activePos.z);
+                if (this.ctx && this.ctx.controls) {
+                    this.ctx.controls.enableRotate = false;
+                }
+                const dom = this.ctx.renderer?.domElement;
+                if (dom) dom.style.cursor = 'grabbing';
+                return true;
+            } else {
+                // Clicking/touching outside the object: let OrbitControls rotate/pan freely!
+                this._isDragging = false;
+                if (this.ctx && this.ctx.controls) {
+                    this.ctx.controls.enableRotate = true;
+                }
+                return false;
+            }
+        }
+
+        // Initial Placement Mode (from side nav):
+        if (this.ghostGroup.visible) {
             if (!isTouch && e.button === 0) {
                 return this.placeFurniture();
             }
@@ -493,23 +1033,66 @@ export class Furniture3DPlacementSystem {
         }
 
         // Ghost not visible yet — first interaction initializes position
-        const floor = this._raycastFloor(e);
-        if (floor) {
-            this.activeElevation = floor.elev;
-            this._grabOffset.set(0, 0, 0);
-            this._isGrabbing = false;
-            this.activePos.set(floor.x, floor.elev, floor.z);
-            const preset = this.getPlanner()?.activePresetParams || {};
-            this.updateGhostModel(preset, floor.x, floor.elev, floor.z, this.activeRotation);
-            this.updateBadgeContent(e);
-            if (this.ctx && typeof this.ctx.requestRender === 'function') this.ctx.requestRender();
+        this.activeElevation = floor.elev;
+        this._grabOffset.set(0, 0, 0);
+        this._isGrabbing = false;
+        let startX = floor.x;
+        let startZ = floor.z;
+        const planner = this.getPlanner();
+        const preset = planner?.activePresetParams || {};
+
+        if (planner && (this.wallCollisionEnabled || this.wallSnapEnabled)) {
+            const configId = preset.type || preset.id || planner.tool;
+            const config = FURNITURE_REGISTRY[configId] || {};
+            const w = Number(preset.width) || Number(config.default?.width) || 100;
+            const d = Number(preset.depth) || Number(config.default?.depth) || 100;
+
+            const resolved = SnapEngine.resolvePosition({
+                x: startX,
+                z: startZ,
+                rotation: this.activeRotation,
+                width: w,
+                depth: d
+            }, { planner }, {
+                enableCollision: this.wallCollisionEnabled !== false,
+                enableWallSnap: this.wallSnapEnabled !== false,
+                enableWallContour: true,
+                enableWallAlign: false,
+                snapDistance: 20,
+                enableGridSnap: false
+            });
+            startX = resolved.x;
+            startZ = resolved.z;
         }
+
+        this.activePos.set(startX, floor.elev, startZ);
+        this.updateGhostModel(preset, startX, floor.elev, startZ, this.activeRotation);
+        this.updateBadgeContent(e);
+        if (this.ctx && typeof this.ctx.requestRender === 'function') this.ctx.requestRender();
 
         if (!isTouch && e.button === 0) {
             return this.placeFurniture();
         }
-
         return true;
+    }
+
+    onPointerUp(e) {
+        if (!this.isPlacementTool()) return false;
+        if (this.isRelocating) {
+            if (this._isDragging) {
+                this._isDragging = false;
+                if (this.ctx && this.ctx.controls) {
+                    this.ctx.controls.enableRotate = true;
+                }
+                const dom = this.ctx.renderer?.domElement;
+                if (dom) dom.style.cursor = 'grab';
+                return true;
+            }
+        }
+        if (this.ctx && this.ctx.controls) {
+            this.ctx.controls.enableRotate = true;
+        }
+        return false;
     }
 
     placeFurniture() {
@@ -558,32 +1141,66 @@ export class Furniture3DPlacementSystem {
             }
         }
 
-        // 2. Instantiate and Position PremiumFurniture Entity via FurnitureEngine
-        const newFurn = FurnitureEngine.createFurniture(planner, {
-            x: this.activePos.x,
-            y: this.activePos.z,
-            configId,
-            width: preset.width ? Number(preset.width) : undefined,
-            depth: preset.depth ? Number(preset.depth) : undefined,
-            height: preset.height ? Number(preset.height) : undefined,
-            elevation: this.activeElevation + (Number(preset.elevation) || 0),
-            rotation: this.activeRotation,
-            hostPlatformId: hostType === 'platform' ? hostEntity.id : undefined,
-            parentWallId: hostType === 'wall' ? hostEntity.id : undefined,
-            hostId: hostEntity ? hostEntity.id : undefined,
-            hostType: hostType || undefined,
-            relationshipType: relationshipType || undefined,
-            localTransform: localTransform || undefined,
-            relativeElevation: localTransform ? localTransform.elevation : (this._lastHostPlatformId ? (Number(preset.elevation) || 0) : undefined),
-            materials: preset.materials ? JSON.parse(JSON.stringify(preset.materials)) : undefined,
-            addToPlanner: true
-        });
+        let resultingFurn = null;
 
-        if (newFurn && hostEntity) {
-            globalSpatialDependencyEngine.attach(newFurn, hostEntity, {
-                relationshipType: relationshipType || RELATIONSHIP_TYPES.SURFACE_ATTACHED,
-                localTransform: localTransform
+        if (this.isRelocating && this.relocatingEntity) {
+            const furn = this.relocatingEntity;
+            const updatePayload = {
+                x: this.activePos.x,
+                y: this.activePos.z,
+                elevation: this.activeElevation + (Number(preset.elevation) || 0),
+                rotation: this.activeRotation,
+                hostPlatformId: hostType === 'platform' ? hostEntity.id : undefined,
+                parentWallId: hostType === 'wall' ? hostEntity.id : undefined,
+                hostId: hostEntity ? hostEntity.id : undefined,
+                hostType: hostType || undefined,
+                relationshipType: relationshipType || undefined,
+                localTransform: localTransform || undefined,
+                relativeElevation: localTransform ? localTransform.elevation : (this._lastHostPlatformId ? (Number(preset.elevation) || 0) : undefined)
+            };
+            FurnitureEngine.batchUpdate(planner, furn, updatePayload);
+
+            if (furn.mesh3D) {
+                furn.mesh3D.visible = true;
+            }
+
+            if (hostEntity) {
+                globalSpatialDependencyEngine.attach(furn, hostEntity, {
+                    relationshipType: relationshipType || RELATIONSHIP_TYPES.SURFACE_ATTACHED,
+                    localTransform: localTransform
+                });
+            }
+
+            this.isRelocating = false;
+            this.relocatingEntity = null;
+            resultingFurn = furn;
+        } else {
+            resultingFurn = FurnitureEngine.createFurniture(planner, {
+                x: this.activePos.x,
+                y: this.activePos.z,
+                configId,
+                width: preset.width ? Number(preset.width) : undefined,
+                depth: preset.depth ? Number(preset.depth) : undefined,
+                height: preset.height ? Number(preset.height) : undefined,
+                elevation: this.activeElevation + (Number(preset.elevation) || 0),
+                rotation: this.activeRotation,
+                hostPlatformId: hostType === 'platform' ? hostEntity.id : undefined,
+                parentWallId: hostType === 'wall' ? hostEntity.id : undefined,
+                hostId: hostEntity ? hostEntity.id : undefined,
+                hostType: hostType || undefined,
+                relationshipType: relationshipType || undefined,
+                localTransform: localTransform || undefined,
+                relativeElevation: localTransform ? localTransform.elevation : (this._lastHostPlatformId ? (Number(preset.elevation) || 0) : undefined),
+                materials: preset.materials ? JSON.parse(JSON.stringify(preset.materials)) : undefined,
+                addToPlanner: true
             });
+
+            if (resultingFurn && hostEntity) {
+                globalSpatialDependencyEngine.attach(resultingFurn, hostEntity, {
+                    relationshipType: relationshipType || RELATIONSHIP_TYPES.SURFACE_ATTACHED,
+                    localTransform: localTransform
+                });
+            }
         }
 
         // 3. Finalize Undo Command
@@ -610,9 +1227,9 @@ export class Furniture3DPlacementSystem {
         }
 
         // 5. Select Placed Furniture in 3D Scene
-        if (newFurn.mesh3D && this.interactions) {
-            newFurn.mesh3D.updateWorldMatrix(true, true);
-            this.interactions.selectObject(newFurn.mesh3D, null, true);
+        if (resultingFurn?.mesh3D && typeof this.interactions?.selectObject === 'function') {
+            resultingFurn.mesh3D.updateWorldMatrix(true, true);
+            this.interactions.selectObject(resultingFurn.mesh3D, null, true);
         }
 
         // 6. Reset tool and sync
@@ -630,15 +1247,141 @@ export class Furniture3DPlacementSystem {
     }
 
     hideGhost() {
+        this._initialHit = null;
+        this._initialPos = null;
         if (this.ghostGroup) this.ghostGroup.visible = false;
+        if (this.footprintMesh) this.footprintMesh.visible = false;
         if (this.badgeDom) this.badgeDom.style.display = 'none';
         this._grabOffset.set(0, 0, 0);
         this._isGrabbing = false;
+        if (coreEventBus) {
+            coreEventBus.emit('InteractionStateChanged', {
+                state: 'IDLE',
+                activeAction: null,
+                hudMode: 'none',
+                selectedEntity: null
+            });
+        }
         if (this.ctx && this.ctx.controls) {
-            this.ctx.controls.enableRotate = (this.interactions?.mode === 'camera');
+            this.ctx.controls.enableRotate = true;
+        }
+        if (this.ctx?.renderer?.domElement) {
+            this.ctx.renderer.domElement.style.cursor = 'auto';
         }
         if (this.ctx && typeof this.ctx.requestRender === 'function') {
             this.ctx.requestRender();
+        }
+    }
+
+    startRelocate(furnitureEntity) {
+        this.startRelocation(furnitureEntity);
+    }
+
+    startRelocation(furnitureEntity) {
+        if (!furnitureEntity) return;
+        this.isRelocating = true;
+        this.relocatingEntity = furnitureEntity;
+        this._initialHit = null;
+
+        // Hide original mesh during relocation preview
+        if (furnitureEntity.mesh3D) {
+            furnitureEntity.mesh3D.visible = false;
+        }
+
+        this.initialEntityPosition = {
+            x: Number(furnitureEntity.x) || 0,
+            y: Number(furnitureEntity.y) || 0,
+            rotation: Number(furnitureEntity.rotation) || 0,
+            elevation: Number(furnitureEntity.elevation) || 0
+        };
+
+        const elev = furnitureEntity.elevation !== undefined ? Number(furnitureEntity.elevation) : this.getActiveElevation();
+        this.activeElevation = elev;
+        this.activeRotation = Number(furnitureEntity.rotation) || 0;
+
+        const worldX = Number(furnitureEntity.x) || 0;
+        const worldZ = Number(furnitureEntity.y) || 0;
+
+        this.activePos.set(worldX, elev, worldZ);
+        this._initialPos = this.activePos.clone();
+        this._initialHit = null;
+        this._grabOffset.set(0, 0, 0);
+        this._isGrabbing = false;
+        this._isDragging = false;
+
+        if (this.ctx && this.ctx.controls) {
+            this.ctx.controls.enableRotate = true;
+        }
+        if (this.ctx?.renderer?.domElement) {
+            this.ctx.renderer.domElement.style.cursor = 'grab';
+        }
+
+        const preset = {
+            id: furnitureEntity.configId || furnitureEntity.type,
+            type: furnitureEntity.configId || furnitureEntity.type,
+            name: furnitureEntity.config?.label || furnitureEntity.name || 'Furniture Item',
+            width: furnitureEntity.width,
+            depth: furnitureEntity.depth,
+            height: furnitureEntity.height,
+            elevation: 0,
+            materials: furnitureEntity.materials
+        };
+
+        const planner = this.getPlanner();
+        if (planner) {
+            planner.activePresetParams = preset;
+        }
+
+        this._lastPresetHash = '';
+        this.updateGhostModel(preset, worldX, elev, worldZ, this.activeRotation);
+        this.updateBadgeContent();
+
+        if (coreEventBus) {
+            coreEventBus.emit('InteractionStateChanged', {
+                state: 'ACTION_ACTIVE',
+                activeAction: 'move',
+                hudMode: 'action_minimal',
+                selectedEntity: furnitureEntity
+            });
+            coreEventBus.emit('UniversalMoveChanged', {
+                x: Math.round(worldX),
+                z: Math.round(worldZ),
+                rotation: this.activeRotation,
+                wallSnap: this.wallSnapEnabled,
+                snapMode: this.snapMode
+            });
+        }
+
+        if (this.ctx && typeof this.ctx.requestRender === 'function') {
+            this.ctx.requestRender('furniture_start_relocate');
+        }
+    }
+
+    cancelRelocation() {
+        if (this.isRelocating) {
+            if (this.relocatingEntity) {
+                if (this.initialEntityPosition) {
+                    this.relocatingEntity.x = this.initialEntityPosition.x;
+                    this.relocatingEntity.y = this.initialEntityPosition.y;
+                    this.relocatingEntity.rotation = this.initialEntityPosition.rotation;
+                    this.relocatingEntity.elevation = this.initialEntityPosition.elevation;
+                }
+                if (this.relocatingEntity.mesh3D) {
+                    this.relocatingEntity.mesh3D.visible = true;
+                }
+            }
+            this.isRelocating = false;
+            this.relocatingEntity = null;
+            this._initialHit = null;
+            this._initialPos = null;
+            this._isDragging = false;
+            if (this.ctx && this.ctx.controls) {
+                this.ctx.controls.enableRotate = true;
+            }
+            this.hideGhost();
+            if (this.ctx && typeof this.ctx.requestRender === 'function') {
+                this.ctx.requestRender();
+            }
         }
     }
 

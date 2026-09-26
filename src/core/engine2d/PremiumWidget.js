@@ -1,6 +1,7 @@
 import Konva from 'konva';
 import { WIDGET_REGISTRY } from '../registry.js';
 import { WallEngine, isFloorAnchoredDoor } from '../wall/WallEngine.js';
+import { TransformEngine } from '../transform/TransformEngine.js';
 
 export class PremiumWidget {
     constructor(planner, wall, t, configId) {
@@ -75,7 +76,10 @@ export class PremiumWidget {
         this.visualGroup.on('mouseenter', () => { if (this.planner.tool === 'select') document.body.style.cursor = 'pointer'; }); 
         this.visualGroup.on('mouseleave', () => { document.body.style.cursor = 'default'; }); 
         this.visualGroup.on('mousedown touchstart', () => { this.visualGroup.moveToTop(); });
-        this.visualGroup.on('dragstart', () => { this.isDragging = true; }); 
+        this.visualGroup.on('dragstart', () => { 
+            this.isDragging = true; 
+            TransformEngine.startSession(this, 'move');
+        }); 
         this.visualGroup.on('dragmove', () => { 
             if (!this.hasEvent("drag_along_wall")) return; 
             const pos = this.planner.getPointerPos ? this.planner.getPointerPos() : this.planner.stage.getPointerPosition();
@@ -108,11 +112,18 @@ export class PremiumWidget {
             } 
             t = Math.max(minT, Math.min(maxT, t)); 
             if (this.hasEvent("prevent_overlap") && this.checkOverlap(this.wall, t, this.width)) return; 
-            this.t = t; this.update(); 
+            this.t = t; 
+            this.update(); 
+            if (TransformEngine.isSessionActive()) {
+                TransformEngine.previewMove(this, { absoluteT: t });
+            }
         }); 
         this.visualGroup.on('dragend', () => { 
             if (this.dragTimeout) clearTimeout(this.dragTimeout);
             this.dragTimeout = setTimeout(() => { this.isDragging = false; }, 100); 
+            if (TransformEngine.isSessionActive()) {
+                TransformEngine.commitSession(this.planner);
+            }
             this.planner.syncAll(); 
         }); 
         this.visualGroup.on('click tap', (e) => { 

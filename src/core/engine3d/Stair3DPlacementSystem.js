@@ -5,6 +5,8 @@ import { StairEngine } from '../stairs/StairEngine.js';
 import { SnapshotCommand } from '../commands/SnapshotCommand.js';
 import { StairHeightDetector } from '../../features/stairs/StairHeightDetector.js';
 import { SpatialDependencyEngine, RELATIONSHIP_TYPES, globalSpatialDependencyEngine } from '../spatial/SpatialDependencyEngine.js';
+import { SnapEngine } from '../snap/SnapEngine.js';
+import { coreEventBus } from '../EventBus.js';
 
 /**
  * Stair3DPlacementSystem
@@ -40,6 +42,9 @@ export class Stair3DPlacementSystem {
         this.activeRotation = 0;                // Degrees (0, 90, 180, 270)
         this.activeElevation = 0;
         this.activeTurnDirection = 'right';
+        this.wallCollisionEnabled = true;
+        this.wallSnapEnabled = true;
+        this.snapMode = 10;
         
         // Center offset in LOCAL (unrotated) space: the vector from staircase origin to its bounding box center.
         // Used to shift the ghost so the cursor sits at the geometric center.
@@ -50,12 +55,17 @@ export class Stair3DPlacementSystem {
         // staircase doesn't jump when the user touches its edge, beginning, or end.
         this._grabOffset = new THREE.Vector3(0, 0, 0);
         this._isGrabbing = false;
+        this._isDragging = false;
 
         this.stairBuilder = new Stair3DBuilder(ctx.assets, [], ctx.helpers);
 
         // Sims 4 Dynamic Height Auto-Detection State
         this.autoHeightEnabled = true;
         this.lastDetection = null;
+
+        // Relocation / Move Mode State for existing staircases
+        this.isRelocating = false;
+        this.relocatingEntity = null;
 
         // Master Ghost Group in 3D Scene — positioned at cursor = visual center
         this.ghostGroup = new THREE.Group();
@@ -80,6 +90,7 @@ export class Stair3DPlacementSystem {
         this.footprintMesh = new THREE.LineSegments(new THREE.BufferGeometry(), this.footprintMat);
         this.footprintMesh.renderOrder = 1008;
         this.footprintMesh.raycast = () => {};
+        this.footprintMesh.visible = false;
         this.ghostGroup.add(this.footprintMesh);
 
         // 3. Glowing Edge Snap Guideline in 3D Scene
@@ -96,6 +107,11 @@ export class Stair3DPlacementSystem {
         this.snapGuideMesh.raycast = () => {};
         this.snapGuideMesh.visible = false;
         if (this.ctx.scene) this.ctx.scene.add(this.snapGuideMesh);
+
+        // Relative delta tracking for zero-teleport relocation
+        this._initialHit = null;
+        this._initialPos = null;
+        this.initialEntityPosition = null;
 
         // 4. Create Stable Static DOM HUD Action Bar
         this.createBadgeDOM();
@@ -254,6 +270,10 @@ export class Stair3DPlacementSystem {
         this.btnCancel.addEventListener('pointerdown', (e) => e.stopPropagation());
         this.btnCancel.addEventListener('click', (ev) => {
             ev.preventDefault(); ev.stopPropagation();
+            if (this.isRelocating) {
+                this.cancelRelocation();
+                return;
+            }
             const pl = this.getPlanner();
             if (pl) {
                 pl.tool = 'select';
@@ -265,6 +285,7 @@ export class Stair3DPlacementSystem {
     }
 
     isPlacementTool() {
+        if (this.isRelocating) return true;
         const planner = this.getPlanner();
         if (!planner) return false;
         const tool = planner.tool || planner._tool || (planner.tools && planner.tools.currentTool) || '';
@@ -305,10 +326,37 @@ export class Stair3DPlacementSystem {
         return window.innerWidth <= 768 || (('ontouchstart' in window) && (navigator.maxTouchPoints > 1) && window.innerWidth <= 1024);
     }
 
+    toggleWallSnap() {
+        this.wallSnapEnabled = !this.wallSnapEnabled;
+        this.wallCollisionEnabled = this.wallSnapEnabled;
+        if (coreEventBus) {
+            coreEventBus.emit('UniversalMoveChanged', {
+                wallSnap: this.wallSnapEnabled
+            });
+        }
+        return this.wallSnapEnabled;
+    }
+
+    setSnapMode(snapVal) {
+        this.snapMode = Number(snapVal);
+        if (coreEventBus) {
+            coreEventBus.emit('UniversalMoveChanged', {
+                snapMode: this.snapMode
+            });
+        }
+    }
+
     rotateStep(deltaDeg) {
         this.activeRotation = (this.activeRotation + deltaDeg + 360) % 360;
         this.updateGhostTransform();
         if (this.elRot) this.elRot.textContent = `${this.activeRotation % 360}°`;
+        if (coreEventBus) {
+            coreEventBus.emit('UniversalMoveChanged', {
+                rotation: this.activeRotation,
+                x: Math.round(this.activePos.x),
+                z: Math.round(this.activePos.z)
+            });
+        }
         if (this.ctx && typeof this.ctx.requestRender === 'function') {
             this.ctx.requestRender();
         }
@@ -319,6 +367,78 @@ export class Stair3DPlacementSystem {
         this._lastPresetHash = '';
         const preset = this.getPlanner()?.activePresetParams || {};
         this.updateGhostModel(preset, this.activePos.x, this.activeElevation, this.activePos.z, this.activeRotation);
+        if (this.ctx && typeof this.ctx.requestRender === 'function') {
+            this.ctx.requestRender();
+        }
+    }
+
+    nudge(dirX, dirZ) {
+        const step = this.snapMode === 0 ? 10 : (this.snapMode || 10);
+        let newX = this.activePos.x + dirX * step;
+        let newZ = this.activePos.z + dirZ * step;
+
+        const planner = this.getPlanner();
+        const preset = this.isRelocating ? (this.relocatingEntity || {}) : (planner?.activePresetParams || {});
+        const elev = this.getActiveElevation();
+
+        if (planner && (this.wallCollisionEnabled || this.wallSnapEnabled)) {
+            const width = Number(preset.width) || 100;
+            const totalSteps = this.lastDetection?.optimalSteps || preset.totalSteps || (Number(preset.flight1Steps || 8) + Number(preset.flight2Steps || 7));
+            const length = Number(preset.length) || (totalSteps * (Number(preset.stepDepth) || 28));
+
+            const resolved = SnapEngine.resolvePosition({
+                x: newX,
+                z: newZ,
+                rotation: this.activeRotation,
+                width: width,
+                depth: length
+            }, { planner }, {
+                enableCollision: this.wallCollisionEnabled !== false,
+                enableWallSnap: this.wallSnapEnabled !== false,
+                enableWallContour: true,
+                enableWallAlign: false,
+                snapDistance: 20,
+                enableGridSnap: false
+            });
+            newX = resolved.x;
+            newZ = resolved.z;
+        }
+
+        this.activePos.set(newX, elev, newZ);
+        this.updateGhostModel(preset, newX, elev, newZ, this.activeRotation);
+        this.updateBadgeContent();
+
+        if (coreEventBus) {
+            coreEventBus.emit('UniversalMoveChanged', {
+                x: Math.round(newX),
+                z: Math.round(newZ),
+                rotation: this.activeRotation,
+                wallSnap: this.wallSnapEnabled,
+                snapMode: this.snapMode
+            });
+        }
+
+        if (this.ctx && typeof this.ctx.requestRender === 'function') {
+            this.ctx.requestRender();
+        }
+    }
+
+    setCoordinates(x, z) {
+        const newX = isNaN(x) ? this.activePos.x : Number(x);
+        const newZ = isNaN(z) ? this.activePos.z : Number(z);
+        this.activePos.set(newX, this.activeElevation, newZ);
+        const preset = this.isRelocating ? (this.relocatingEntity || {}) : (this.getPlanner()?.activePresetParams || {});
+        this.updateGhostModel(preset, newX, this.activeElevation, newZ, this.activeRotation);
+        this.updateBadgeContent();
+        if (coreEventBus) {
+            coreEventBus.emit('UniversalMoveChanged', {
+                x: Math.round(newX),
+                z: Math.round(newZ),
+                rotation: this.activeRotation,
+                wallSnap: this.wallSnapEnabled,
+                snapMode: this.snapMode
+            });
+        }
         if (this.ctx && typeof this.ctx.requestRender === 'function') {
             this.ctx.requestRender();
         }
@@ -340,6 +460,11 @@ export class Stair3DPlacementSystem {
             this.flipTurnDirection();
             e.preventDefault();
         } else if (e.key === 'Escape') {
+            if (this.isRelocating) {
+                this.cancelRelocation();
+                e.preventDefault();
+                return;
+            }
             const planner = this.getPlanner();
             if (planner) {
                 planner.tool = 'select';
@@ -351,13 +476,30 @@ export class Stair3DPlacementSystem {
         }
     }
 
+    _isHitOnGhost(floorPoint, margin = 25) {
+        if (!floorPoint || !this.ghostGroup.visible) return false;
+        const dx = floorPoint.x - this.activePos.x;
+        const dz = floorPoint.z - this.activePos.z;
+        const rotY = -this.activeRotation * Math.PI / 180;
+        const cosR = Math.cos(-rotY);
+        const sinR = Math.sin(-rotY);
+        const localX = dx * cosR + dz * sinR;
+        const localZ = -dx * sinR + dz * cosR;
+
+        const minX = (this._localBounds?.minX ?? -50) - margin;
+        const maxX = (this._localBounds?.maxX ?? 50) + margin;
+        const minZ = (this._localBounds?.minZ ?? -150) - margin;
+        const maxZ = (this._localBounds?.maxZ ?? 150) + margin;
+
+        return localX >= minX && localX <= maxX && localZ >= minZ && localZ <= maxZ;
+    }
+
     onPointerMove(e) {
         if (!this.isPlacementTool()) {
             this.hideGhost();
             return false;
         }
 
-        const planner = this.getPlanner();
         const dom = this.ctx.renderer.domElement;
         const rect = dom.getBoundingClientRect();
 
@@ -366,37 +508,130 @@ export class Stair3DPlacementSystem {
             return false;
         }
 
-        this.mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
-        this.mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+        // Check for Right-Click or Middle-Click Drag for Free Camera Orbit
+        const isRightClick = (e.buttons & 2) !== 0 || e.button === 2;
+        const isMiddleClick = (e.buttons & 4) !== 0 || e.button === 1;
+        if (isRightClick || isMiddleClick) {
+            if (this.ctx && this.ctx.controls) {
+                this.ctx.controls.enableRotate = true;
+            }
+            return false;
+        }
 
-        this.raycaster.setFromCamera(this.mouse, this.ctx.camera);
+        const isTouch = e.pointerType === 'touch' || (e.pointerType !== 'mouse' && this.isTouchDevice());
+        // Multi-touch gestures (pinch-to-zoom / 2-finger orbit) pass through to OrbitControls
+        if (isTouch && e.touches && e.touches.length >= 2) {
+            if (this.ctx && this.ctx.controls) {
+                this.ctx.controls.enableRotate = true;
+            }
+            return false;
+        }
+
+        const floor = this._raycastFloor(e);
+        if (!floor) return false;
 
         const elev = this.getActiveElevation();
         this.activeElevation = elev;
 
-        // Raycast Floor Plane (y = elev)
-        const floorPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -elev);
-        const hitPoint = new THREE.Vector3();
-        const hasHit = this.raycaster.ray.intersectPlane(floorPlane, hitPoint);
+        const planner = this.getPlanner();
+        const preset = this.isRelocating ? (this.relocatingEntity || {}) : (planner.activePresetParams || {});
 
-        if (!hasHit) {
-            this.hideGhost();
-            return false;
+        // Smooth Grid Snapping via SnapEngine
+        const isFine = e.shiftKey;
+        const gridStep = this.snapMode === 0 || isFine ? 1 : this.snapMode;
+        const snappedGrid = SnapEngine.snapToGrid({ x: floor.x, z: floor.z }, gridStep);
+        const cursorX = snappedGrid.x !== undefined ? snappedGrid.x : floor.x;
+        const cursorZ = snappedGrid.z !== undefined ? snappedGrid.z : floor.z;
+
+        if (this.isRelocating) {
+            if (!this._isDragging) {
+                if (this._isHitOnGhost(floor, 25)) {
+                    dom.style.cursor = 'grab';
+                } else {
+                    dom.style.cursor = 'auto';
+                }
+                if (this.ctx && this.ctx.controls) {
+                    this.ctx.controls.enableRotate = true;
+                }
+                return false;
+            }
+
+            // Actively dragging the object in relocation mode
+            if (this.ctx && this.ctx.controls) {
+                this.ctx.controls.enableRotate = false;
+            }
+            dom.style.cursor = 'grabbing';
+
+            let worldX = cursorX - this._grabOffset.x;
+            let worldZ = cursorZ - this._grabOffset.z;
+
+            // Sims 4 Real-Time Height Auto-Detection
+            const detection = this.autoHeightEnabled ? StairHeightDetector.detect({
+                x: worldX,
+                z: worldZ,
+                elevation: elev,
+                rotation: this.activeRotation,
+                preset,
+                planner,
+                isCenterAnchored: true
+            }) : StairHeightDetector.getDefaultResult(preset, elev, this.getActiveMaxWallHeight());
+
+            this.lastDetection = detection;
+
+            if (detection.snappedPos && !e.altKey) {
+                worldX = detection.snappedPos.x;
+                worldZ = detection.snappedPos.z;
+            }
+
+            if (planner && (this.wallCollisionEnabled || this.wallSnapEnabled)) {
+                const width = Number(preset.width) || 100;
+                const totalSteps = detection?.optimalSteps || preset.totalSteps || (Number(preset.flight1Steps || 8) + Number(preset.flight2Steps || 7));
+                const length = Number(preset.length) || (totalSteps * (Number(preset.stepDepth) || 28));
+
+                const resolved = SnapEngine.resolvePosition({
+                    x: worldX,
+                    z: worldZ,
+                    rotation: this.activeRotation,
+                    width: width,
+                    depth: length
+                }, { planner }, {
+                    enableCollision: this.wallCollisionEnabled !== false,
+                    enableWallSnap: this.wallSnapEnabled !== false,
+                    enableWallContour: true,
+                    enableWallAlign: false,
+                    snapDistance: 20,
+                    enableGridSnap: false
+                });
+                worldX = resolved.x;
+                worldZ = resolved.z;
+            }
+
+            this.activePos.set(worldX, elev, worldZ);
+            this.updateGhostModel(preset, worldX, elev, worldZ, this.activeRotation);
+            this.updateBadgeContent(e);
+
+            if (coreEventBus) {
+                coreEventBus.emit('UniversalMoveChanged', {
+                    x: Math.round(worldX),
+                    z: Math.round(worldZ),
+                    rotation: this.activeRotation,
+                    wallSnap: this.wallSnapEnabled,
+                    snapMode: this.snapMode
+                });
+            }
+
+            if (this.ctx && typeof this.ctx.requestRender === 'function') {
+                this.ctx.requestRender();
+            }
+            return true;
         }
 
+        // Initial Placement Mode (from side nav - smooth floor following)
         if (this.ctx && this.ctx.controls) {
             this.ctx.controls.enableRotate = false;
         }
+        dom.style.cursor = 'move';
 
-        const preset = planner.activePresetParams || {};
-
-        // Smooth Grid Snapping
-        const isFine = e.shiftKey;
-        const gridStep = isFine ? 1 : 10;
-        const cursorX = Math.round(hitPoint.x / gridStep) * gridStep;
-        const cursorZ = Math.round(hitPoint.z / gridStep) * gridStep;
-
-        // Apply grab offset: ghost center = cursor + offset
         let worldX = cursorX + this._grabOffset.x;
         let worldZ = cursorZ + this._grabOffset.z;
 
@@ -417,6 +652,30 @@ export class Stair3DPlacementSystem {
         if (detection.snappedPos && !e.altKey) {
             worldX = detection.snappedPos.x;
             worldZ = detection.snappedPos.z;
+        }
+
+        // Apply Wall Collision & Wall Snap via SnapEngine
+        if (planner && (this.wallCollisionEnabled || this.wallSnapEnabled)) {
+            const width = Number(preset.width) || 100;
+            const totalSteps = detection?.optimalSteps || preset.totalSteps || (Number(preset.flight1Steps || 8) + Number(preset.flight2Steps || 7));
+            const length = Number(preset.length) || (totalSteps * (Number(preset.stepDepth) || 28));
+
+            const resolved = SnapEngine.resolvePosition({
+                x: worldX,
+                z: worldZ,
+                rotation: this.activeRotation,
+                width: width,
+                depth: length
+            }, { planner }, {
+                enableCollision: this.wallCollisionEnabled !== false,
+                enableWallSnap: this.wallSnapEnabled !== false,
+                enableWallContour: true,
+                enableWallAlign: false,
+                snapDistance: 20,
+                enableGridSnap: false
+            });
+            worldX = resolved.x;
+            worldZ = resolved.z;
         }
 
         this.activePos.set(worldX, elev, worldZ);
@@ -441,7 +700,25 @@ export class Stair3DPlacementSystem {
         // Update HUD Badge Information
         this.updateBadgeContent(e);
 
-        dom.style.cursor = 'crosshair';
+        if (coreEventBus) {
+            coreEventBus.emit('InteractionStateChanged', {
+                state: 'ACTION_ACTIVE',
+                activeAction: this.isRelocating ? 'move' : 'place',
+                hudMode: 'action_minimal',
+                selectedEntity: {
+                    type: 'staircase',
+                    name: preset.name || 'Custom Staircase'
+                }
+            });
+            coreEventBus.emit('UniversalMoveChanged', {
+                x: Math.round(worldX),
+                z: Math.round(worldZ),
+                rotation: this.activeRotation,
+                wallSnap: this.wallSnapEnabled,
+                snapMode: this.snapMode
+            });
+        }
+
         if (this.ctx && typeof this.ctx.requestRender === 'function') {
             this.ctx.requestRender();
         }
@@ -482,7 +759,7 @@ export class Stair3DPlacementSystem {
         this.badgeDom.style.bottom = isMobileScreen ? '64px' : '24px';
         this.badgeDom.style.transform = 'translateX(-50%)';
 
-        this.badgeDom.style.display = 'block';
+        this.badgeDom.style.display = 'none';
     }
 
     updateGhostTransform() {
@@ -531,6 +808,12 @@ export class Stair3DPlacementSystem {
             bbox.getCenter(center);
             // Only use X and Z for floor-plane centering; Y stays at 0 (vertical center is irrelevant)
             this.localCenterOffset.set(center.x, 0, center.z);
+            this._localBounds = {
+                minX: bbox.min.x - center.x,
+                maxX: bbox.max.x - center.x,
+                minZ: bbox.min.z - center.z,
+                maxZ: bbox.max.z - center.z
+            };
 
             // Shift the model preview so the bounding box center aligns with ghostGroup origin (= cursor)
             tempWrapper.position.set(-center.x, 0, -center.z);
@@ -561,26 +844,8 @@ export class Stair3DPlacementSystem {
     }
 
     updateFootprintGeometry(stairPayload) {
-        // StairEngine.getCutoutPolygon returns [{x, y}, {x, y}, ...] in local coordinates (rotation=0, x=0, y=0)
-        const pts = StairEngine.getCutoutPolygon(stairPayload);
-        const cx = this.localCenterOffset.x;
-        const cz = this.localCenterOffset.z;
-
-        if (pts && pts.length >= 3) {
-            const linePoints = [];
-            for (let i = 0; i < pts.length; i++) {
-                const p1 = pts[i];
-                const p2 = pts[(i + 1) % pts.length];
-                // pts[i].x = local X, pts[i].y = local Z in 3D
-                // Shift by -center so footprint aligns with the centered ghost model
-                linePoints.push(new THREE.Vector3(p1.x - cx, 0.5, p1.y - cz));
-                linePoints.push(new THREE.Vector3(p2.x - cx, 0.5, p2.y - cz));
-            }
-            const geo = new THREE.BufferGeometry().setFromPoints(linePoints);
-            this.footprintMesh.geometry.dispose();
-            this.footprintMesh.geometry = geo;
-            this.footprintMesh.visible = true;
-        } else {
+        // Floating wireframe footprint removed as per user requirement
+        if (this.footprintMesh) {
             this.footprintMesh.visible = false;
         }
     }
@@ -615,49 +880,115 @@ export class Stair3DPlacementSystem {
     onPointerDown(e) {
         if (!this.isPlacementTool()) return false;
 
-        const isTouch = e.pointerType === 'touch' || (e.pointerType !== 'mouse' && this.isTouchDevice());
-
-        if (this.ghostGroup.visible) {
-            // Ghost is already visible.
-            // Compute grab offset = current ghost center - cursor floor point.
-            // This preserves the relative position so the staircase doesn't jump
-            // no matter where the user clicks/touches on the highlight (beginning, center, end).
-            const floor = this._raycastFloor(e);
-            if (floor) {
-                this._grabOffset.set(
-                    this.activePos.x - floor.x,
-                    0,
-                    this.activePos.z - floor.z
-                );
-                this._isGrabbing = true;
+        const isRightClick = (e.buttons & 2) !== 0 || e.button === 2;
+        const isMiddleClick = (e.buttons & 4) !== 0 || e.button === 1;
+        if (isRightClick || isMiddleClick) {
+            if (this.ctx && this.ctx.controls) {
+                this.ctx.controls.enableRotate = true;
             }
+            return false;
+        }
 
-            // Desktop: left-click places at the exact current activePos (no re-raycasting)
+        const isTouch = e.pointerType === 'touch' || (e.pointerType !== 'mouse' && this.isTouchDevice());
+        if (isTouch && e.touches && e.touches.length >= 2) {
+            if (this.ctx && this.ctx.controls) {
+                this.ctx.controls.enableRotate = true;
+            }
+            return false;
+        }
+
+        const floor = this._raycastFloor(e);
+        if (!floor) return false;
+
+        if (this.isRelocating) {
+            // Relocation / Move mode: drag only when interacting with the object footprint
+            if (this._isHitOnGhost(floor, isTouch ? 35 : 25)) {
+                this._isDragging = true;
+                this._grabOffset.set(floor.x - this.activePos.x, 0, floor.z - this.activePos.z);
+                if (this.ctx && this.ctx.controls) {
+                    this.ctx.controls.enableRotate = false;
+                }
+                const dom = this.ctx.renderer?.domElement;
+                if (dom) dom.style.cursor = 'grabbing';
+                return true;
+            } else {
+                // Clicking/touching outside the object: let OrbitControls rotate/pan freely!
+                this._isDragging = false;
+                if (this.ctx && this.ctx.controls) {
+                    this.ctx.controls.enableRotate = true;
+                }
+                return false;
+            }
+        }
+
+        // Initial Placement Mode (from side nav):
+        if (this.ghostGroup.visible) {
             if (!isTouch && e.button === 0) {
                 return this.placeStaircase();
             }
-            // Touch: wait for "Place" button. Touch drag will move with grab offset.
             return true;
         }
 
-        // Ghost not visible yet — first click/touch initializes position (center-anchored)
-        const floor = this._raycastFloor(e);
-        if (floor) {
-            this.activeElevation = floor.elev;
-            this._grabOffset.set(0, 0, 0); // First interaction: cursor = center, no offset
-            this._isGrabbing = false;
-            this.activePos.set(floor.x, floor.elev, floor.z);
-            const preset = this.getPlanner()?.activePresetParams || {};
-            this.updateGhostModel(preset, floor.x, floor.elev, floor.z, this.activeRotation);
-            this.updateBadgeContent(e);
-            if (this.ctx && typeof this.ctx.requestRender === 'function') this.ctx.requestRender();
+        // Ghost not visible yet — first interaction initializes position (center-anchored)
+        this.activeElevation = floor.elev;
+        this._grabOffset.set(0, 0, 0);
+        this._isGrabbing = false;
+        let startX = floor.x;
+        let startZ = floor.z;
+        const planner = this.getPlanner();
+        const preset = planner?.activePresetParams || {};
+
+        if (planner && (this.wallCollisionEnabled || this.wallSnapEnabled)) {
+            const width = Number(preset.width) || 100;
+            const totalSteps = this.lastDetection?.optimalSteps || preset.totalSteps || (Number(preset.flight1Steps || 8) + Number(preset.flight2Steps || 7));
+            const length = Number(preset.length) || (totalSteps * (Number(preset.stepDepth) || 28));
+
+            const resolved = SnapEngine.resolvePosition({
+                x: startX,
+                z: startZ,
+                rotation: this.activeRotation,
+                width: width,
+                depth: length
+            }, { planner }, {
+                enableCollision: this.wallCollisionEnabled !== false,
+                enableWallSnap: this.wallSnapEnabled !== false,
+                enableWallContour: true,
+                enableWallAlign: false,
+                snapDistance: 20,
+                enableGridSnap: false
+            });
+            startX = resolved.x;
+            startZ = resolved.z;
         }
+
+        this.activePos.set(startX, floor.elev, startZ);
+        this.updateGhostModel(preset, startX, floor.elev, startZ, this.activeRotation);
+        this.updateBadgeContent(e);
+        if (this.ctx && typeof this.ctx.requestRender === 'function') this.ctx.requestRender();
 
         if (!isTouch && e.button === 0) {
             return this.placeStaircase();
         }
-
         return true;
+    }
+
+    onPointerUp(e) {
+        if (!this.isPlacementTool()) return false;
+        if (this.isRelocating) {
+            if (this._isDragging) {
+                this._isDragging = false;
+                if (this.ctx && this.ctx.controls) {
+                    this.ctx.controls.enableRotate = true;
+                }
+                const dom = this.ctx.renderer?.domElement;
+                if (dom) dom.style.cursor = 'grab';
+                return true;
+            }
+        }
+        if (this.ctx && this.ctx.controls) {
+            this.ctx.controls.enableRotate = true;
+        }
+        return false;
     }
 
     placeStaircase() {
@@ -733,13 +1064,55 @@ export class Stair3DPlacementSystem {
             stairData.turnDirection = this.activeTurnDirection;
         }
 
-        const newStair = StairEngine.createStair(planner, stairData);
+        let resultingStair = null;
 
-        if (newStair && stairData.hostId && this.lastDetection?.targetSource) {
-            globalSpatialDependencyEngine.attach(newStair, this.lastDetection.targetSource, {
-                relationshipType: RELATIONSHIP_TYPES.SUPPORTED,
-                localTransform: stairData.localTransform
-            });
+        if (this.isRelocating && this.relocatingEntity) {
+            const stair = this.relocatingEntity;
+            const updatePayload = {
+                x: originX,
+                y: originZ,
+                rotation: this.activeRotation,
+                elevation: this.activeElevation
+            };
+            if (stairData.height !== undefined) updatePayload.height = stairData.height;
+            if (stairData.totalSteps !== undefined) updatePayload.totalSteps = stairData.totalSteps;
+            if (stairData.flight1Steps !== undefined) updatePayload.flight1Steps = stairData.flight1Steps;
+            if (stairData.flight2Steps !== undefined) updatePayload.flight2Steps = stairData.flight2Steps;
+            if (stairData.stepHeight !== undefined) updatePayload.stepHeight = stairData.stepHeight;
+            if (stairData.length !== undefined) updatePayload.length = stairData.length;
+            if (stairData.turnDirection) updatePayload.turnDirection = stairData.turnDirection;
+            if (stairData.hostId) updatePayload.hostId = stairData.hostId;
+            if (stairData.hostType) updatePayload.hostType = stairData.hostType;
+            if (stairData.relationshipType) updatePayload.relationshipType = stairData.relationshipType;
+            if (stairData.hostPlatformId) updatePayload.hostPlatformId = stairData.hostPlatformId;
+            if (stairData.localTransform) updatePayload.localTransform = stairData.localTransform;
+            if (stairData.relativeElevation !== undefined) updatePayload.relativeElevation = stairData.relativeElevation;
+
+            StairEngine.batchUpdate(planner, stair, updatePayload);
+
+            if (stair.mesh3D) {
+                stair.mesh3D.visible = true;
+            }
+
+            if (stairData.hostId && this.lastDetection?.targetSource) {
+                globalSpatialDependencyEngine.attach(stair, this.lastDetection.targetSource, {
+                    relationshipType: RELATIONSHIP_TYPES.SUPPORTED,
+                    localTransform: stairData.localTransform
+                });
+            }
+
+            this.isRelocating = false;
+            this.relocatingEntity = null;
+            resultingStair = stair;
+        } else {
+            resultingStair = StairEngine.createStair(planner, stairData);
+
+            if (resultingStair && stairData.hostId && this.lastDetection?.targetSource) {
+                globalSpatialDependencyEngine.attach(resultingStair, this.lastDetection.targetSource, {
+                    relationshipType: RELATIONSHIP_TYPES.SUPPORTED,
+                    localTransform: stairData.localTransform
+                });
+            }
         }
 
         // 3. Finalize Undo Command
@@ -780,9 +1153,9 @@ export class Stair3DPlacementSystem {
         if (typeof planner.debouncedSaveHistory === 'function') planner.debouncedSaveHistory();
 
         // 6. Select Placed Staircase in 3D Scene
-        if (newStair.mesh3D && this.interactions) {
-            newStair.mesh3D.updateWorldMatrix(true, true);
-            this.interactions.selectObject(newStair.mesh3D, null, true);
+        if (resultingStair?.mesh3D && typeof this.interactions?.selectObject === 'function') {
+            resultingStair.mesh3D.updateWorldMatrix(true, true);
+            this.interactions.selectObject(resultingStair.mesh3D, null, true);
         }
 
         this.hideGhost();
@@ -795,16 +1168,162 @@ export class Stair3DPlacementSystem {
     }
 
     hideGhost() {
+        this._initialHit = null;
+        this._initialPos = null;
         if (this.ghostGroup) this.ghostGroup.visible = false;
+        if (this.footprintMesh) this.footprintMesh.visible = false;
         if (this.badgeDom) this.badgeDom.style.display = 'none';
         if (this.snapGuideMesh) this.snapGuideMesh.visible = false;
         this._grabOffset.set(0, 0, 0);
         this._isGrabbing = false;
+        if (coreEventBus) {
+            coreEventBus.emit('InteractionStateChanged', {
+                state: 'IDLE',
+                activeAction: null,
+                hudMode: 'none',
+                selectedEntity: null
+            });
+        }
         if (this.ctx && this.ctx.controls) {
-            this.ctx.controls.enableRotate = (this.interactions?.mode === 'camera');
+            this.ctx.controls.enableRotate = true;
+        }
+        if (this.ctx?.renderer?.domElement) {
+            this.ctx.renderer.domElement.style.cursor = 'auto';
         }
         if (this.ctx && typeof this.ctx.requestRender === 'function') {
             this.ctx.requestRender();
+        }
+    }
+
+    startRelocate(stairEntity) {
+        this.startRelocation(stairEntity);
+    }
+
+    startRelocation(stairEntity) {
+        if (!stairEntity) return;
+        this.isRelocating = true;
+        this.relocatingEntity = stairEntity;
+        this._initialHit = null;
+
+        // Hide original stair mesh during relocation preview
+        if (stairEntity.mesh3D) {
+            stairEntity.mesh3D.visible = false;
+        }
+
+        this.initialEntityPosition = {
+            x: Number(stairEntity.x),
+            y: Number(stairEntity.y),
+            rotation: Number(stairEntity.rotation) || 0,
+            elevation: Number(stairEntity.elevation) || 0,
+            turnDirection: stairEntity.turnDirection || 'right'
+        };
+
+        const elev = stairEntity.elevation !== undefined ? Number(stairEntity.elevation) : this.getActiveElevation();
+        this.activeElevation = elev;
+        this.activeRotation = Number(stairEntity.rotation) || 0;
+        this.activeTurnDirection = stairEntity.turnDirection || 'right';
+
+        // Compute geometric center of the staircase to anchor cursor
+        const stairData = {
+            ...stairEntity,
+            x: 0,
+            y: 0,
+            elevation: 0,
+            rotation: 0
+        };
+        const tempWrapper = new THREE.Group();
+        const targetHeight = Number(stairEntity.height) || this.getActiveMaxWallHeight();
+        this.stairBuilder.build([stairData], tempWrapper, 0, true, targetHeight);
+        const bbox = new THREE.Box3().setFromObject(tempWrapper);
+        const center = new THREE.Vector3();
+        bbox.getCenter(center);
+        this.localCenterOffset.set(center.x, 0, center.z);
+        this._localBounds = {
+            minX: bbox.min.x - center.x,
+            maxX: bbox.max.x - center.x,
+            minZ: bbox.min.z - center.z,
+            maxZ: bbox.max.z - center.z
+        };
+        tempWrapper.traverse(c => {
+            if (c.geometry) c.geometry.dispose();
+        });
+
+        const rotY = -this.activeRotation * Math.PI / 180;
+        const cosR = Math.cos(rotY);
+        const sinR = Math.sin(rotY);
+        const rotatedCx = center.x * cosR + center.z * sinR;
+        const rotatedCz = -center.x * sinR + center.z * cosR;
+
+        const worldCenterX = Number(stairEntity.x) + rotatedCx;
+        const worldCenterZ = Number(stairEntity.y) + rotatedCz;
+
+        this.activePos.set(worldCenterX, elev, worldCenterZ);
+        this._initialPos = this.activePos.clone();
+        this._initialHit = null;
+        this._grabOffset.set(0, 0, 0);
+        this._isGrabbing = false;
+        this._isDragging = false;
+
+        if (this.ctx && this.ctx.controls) {
+            this.ctx.controls.enableRotate = true;
+        }
+        if (this.ctx?.renderer?.domElement) {
+            this.ctx.renderer.domElement.style.cursor = 'grab';
+        }
+
+        this._lastPresetHash = '';
+        this.updateGhostModel(stairEntity, worldCenterX, elev, worldCenterZ, this.activeRotation);
+        this.updateBadgeContent();
+
+        if (coreEventBus) {
+            coreEventBus.emit('InteractionStateChanged', {
+                state: 'ACTION_ACTIVE',
+                activeAction: 'move',
+                hudMode: 'action_minimal',
+                selectedEntity: stairEntity
+            });
+            coreEventBus.emit('UniversalMoveChanged', {
+                x: Math.round(stairEntity.x),
+                z: Math.round(stairEntity.y),
+                rotation: this.activeRotation,
+                wallSnap: this.wallSnapEnabled,
+                snapMode: this.snapMode
+            });
+        }
+
+        if (this.ctx && typeof this.ctx.requestRender === 'function') {
+            this.ctx.requestRender('stair_start_relocate');
+        }
+    }
+
+    cancelRelocation() {
+        if (this.isRelocating) {
+            if (this.relocatingEntity) {
+                if (this.initialEntityPosition) {
+                    this.relocatingEntity.x = this.initialEntityPosition.x;
+                    this.relocatingEntity.y = this.initialEntityPosition.y;
+                    this.relocatingEntity.rotation = this.initialEntityPosition.rotation;
+                    this.relocatingEntity.elevation = this.initialEntityPosition.elevation;
+                    if (this.initialEntityPosition.turnDirection) {
+                        this.relocatingEntity.turnDirection = this.initialEntityPosition.turnDirection;
+                    }
+                }
+                if (this.relocatingEntity.mesh3D) {
+                    this.relocatingEntity.mesh3D.visible = true;
+                }
+            }
+            this.isRelocating = false;
+            this.relocatingEntity = null;
+            this._initialHit = null;
+            this._initialPos = null;
+            this._isDragging = false;
+            if (this.ctx && this.ctx.controls) {
+                this.ctx.controls.enableRotate = true;
+            }
+            this.hideGhost();
+            if (this.ctx && typeof this.ctx.requestRender === 'function') {
+                this.ctx.requestRender();
+            }
         }
     }
 

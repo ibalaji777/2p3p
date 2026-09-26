@@ -286,4 +286,71 @@ export class FurnitureEngine {
 
         return FurnitureEngine.deserialize(planner, serialized, { addToPlanner: true, select: true });
     }
+
+    /**
+     * Authoritative batch property mutation for furniture entities.
+     * @param {Object} planner - The floor planner instance
+     * @param {Object|Array<Object>} furniture - Single entity or array of entities
+     * @param {Object} props - Properties dictionary
+     */
+    static batchUpdate(planner, furniture, props = {}) {
+        if (!furniture) return;
+        const list = Array.isArray(furniture) ? furniture : [furniture];
+
+        for (const item of list) {
+            if (!item) continue;
+
+            if (props.x !== undefined) item.x = Number(props.x);
+            if (props.y !== undefined) item.y = Number(props.y);
+            if (props.elevation !== undefined) item.elevation = Number(props.elevation);
+            if (props.rotation !== undefined) item.rotation = Number(props.rotation);
+            if (props.width !== undefined) item.width = Number(props.width);
+            if (props.depth !== undefined) item.depth = Number(props.depth);
+            if (props.height !== undefined) item.height = Number(props.height);
+
+            if (props.relativeElevation !== undefined) item.relativeElevation = props.relativeElevation !== null ? Number(props.relativeElevation) : undefined;
+            if (props.hostPlatformId !== undefined) item.hostPlatformId = props.hostPlatformId;
+            if (props.parentWallId !== undefined) item.parentWallId = props.parentWallId;
+            if (props.hostFurnitureId !== undefined) item.hostFurnitureId = props.hostFurnitureId;
+            if (props.hostId !== undefined) item.hostId = props.hostId;
+            if (props.hostType !== undefined) item.hostType = props.hostType;
+            if (props.relationshipType !== undefined) item.relationshipType = props.relationshipType;
+            if (props.localTransform !== undefined) item.localTransform = props.localTransform;
+
+            if (props.materials !== undefined) item.materials = JSON.parse(JSON.stringify(props.materials));
+            if (props.params !== undefined) item.params = JSON.parse(JSON.stringify(props.params));
+            if (props.colorBase !== undefined) item.colorBase = props.colorBase;
+            if (props.colorDoor !== undefined) item.colorDoor = props.colorDoor;
+            if (props.colorHandle !== undefined) item.colorHandle = props.colorHandle;
+
+            if (typeof item.update2D === 'function') {
+                item.update2D();
+            } else if (typeof item.update === 'function') {
+                item.update();
+            }
+
+            if (item.mesh3D) {
+                // Update 3D mesh transform immediately
+                if (props.x !== undefined || props.y !== undefined) {
+                    item.mesh3D.position.x = Number(item.x) || 0;
+                    item.mesh3D.position.z = Number(item.y) || 0;
+                }
+                if (props.elevation !== undefined) {
+                    item.mesh3D.position.y = Number(item.elevation) || 0;
+                }
+                if (props.rotation !== undefined) {
+                    item.mesh3D.rotation.y = -Number(item.rotation) * Math.PI / 180;
+                }
+                item.mesh3D.updateWorldMatrix(true, true);
+            }
+        }
+
+        if (typeof window !== 'undefined' && EVENTS?.SCENE_CHANGED) {
+            coreEventBus.emit(EVENTS.SCENE_CHANGED);
+        }
+
+        if (planner && typeof planner.syncAll === 'function') {
+            planner.syncAll();
+        }
+    }
 }

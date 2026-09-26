@@ -123,17 +123,24 @@ export class CommonInteractionController {
                 this.hudMode = 'action_minimal';
             }
             const targetMesh = this.selectedMesh || this.selectedEntity?.mesh3D || this.ctx.interactions?.selectedObject;
+            const targetEntity = this.selectedEntity || targetMesh?.userData?.entity;
+            const entType = targetEntity?.type || targetMesh?.userData?.type || '';
+            const isOpening = Boolean(targetMesh?.userData?.isWidget || targetMesh?.userData?.isOpening || ['door', 'window', 'arch_opening', 'circular_opening', 'custom_shape_opening', 'pattern_opening', 'boolean_cut', 'niche_recess'].includes(entType));
+            const isRoof = Boolean(targetMesh?.userData?.isRoof || entType === 'roof' || targetEntity?.config?.roofType);
+
             if (targetMesh && this.ctx.gizmoManager) {
                 const modeMap = {
-                    [COMMON_TOOLS.MOVE]: 'translate',
+                    [COMMON_TOOLS.MOVE]: isOpening ? 'opening' : 'translate',
                     [COMMON_TOOLS.SPIN]: 'rotateY',
                     [COMMON_TOOLS.TILT]: 'rotateX'
                 };
                 this.ctx.gizmoManager.setTransformMode(modeMap[toolId], true);
             }
             if (toolId === COMMON_TOOLS.MOVE) {
-                if (targetMesh && this.ctx.interactions?.universalMoveGizmo) {
+                if (!isOpening && !isRoof && targetMesh && this.ctx.interactions?.universalMoveGizmo) {
                     this.ctx.interactions.universalMoveGizmo.attach(targetMesh);
+                } else if (this.ctx.interactions?.universalMoveGizmo) {
+                    this.ctx.interactions.universalMoveGizmo.detach();
                 }
             } else {
                 if (this.ctx.interactions?.universalMoveGizmo) {
@@ -141,8 +148,10 @@ export class CommonInteractionController {
                 }
             }
             if (toolId === COMMON_TOOLS.SPIN) {
-                if (targetMesh && this.ctx.interactions?.universalSpinGizmo) {
+                if (!isRoof && !isOpening && targetMesh && this.ctx.interactions?.universalSpinGizmo) {
                     this.ctx.interactions.universalSpinGizmo.attach(targetMesh);
+                } else if (this.ctx.interactions?.universalSpinGizmo) {
+                    this.ctx.interactions.universalSpinGizmo.detach();
                 }
             } else {
                 if (this.ctx.interactions?.universalSpinGizmo) {
@@ -381,6 +390,27 @@ export class CommonInteractionController {
                 this.activeAction = INTERACTION_ACTIONS.MOVE;
                 this.hudMode = 'action_minimal';
                 this.setTool(COMMON_TOOLS.MOVE, options);
+                {
+                    const targetEntity = this.selectedEntity;
+                    const targetMesh = this.selectedMesh || this.selectedEntity?.mesh3D || this.ctx.interactions?.selectedObject;
+                    const entType = targetEntity?.type || targetMesh?.userData?.type || '';
+                    const isOpening = Boolean(targetMesh?.userData?.isWidget || targetMesh?.userData?.isOpening || ['door', 'window', 'arch_opening', 'circular_opening', 'custom_shape_opening', 'pattern_opening', 'boolean_cut', 'niche_recess'].includes(entType));
+                    const isRoof = Boolean(targetMesh?.userData?.isRoof || entType === 'roof' || targetEntity?.config?.roofType);
+
+                    let handledByRelocation = false;
+                    if (!isOpening && !isRoof && this.ctx.interactions && typeof this.ctx.interactions.startRelocation === 'function') {
+                        handledByRelocation = this.ctx.interactions.startRelocation(targetEntity, targetMesh);
+                    }
+
+                    if (!isOpening && !isRoof && !handledByRelocation && targetMesh && this.ctx.interactions?.universalMoveGizmo) {
+                        if (typeof this.ctx.interactions.universalMoveGizmo.attach === 'function') {
+                            this.ctx.interactions.universalMoveGizmo.attach(targetMesh);
+                        }
+                        if (typeof this.ctx.interactions.universalMoveGizmo.startMoveMode === 'function') {
+                            this.ctx.interactions.universalMoveGizmo.startMoveMode();
+                        }
+                    }
+                }
                 coreEventBus.emit('InteractionStateChanged', this.getInteractionState());
                 return true;
 
@@ -432,12 +462,29 @@ export class CommonInteractionController {
 
         this.interactionState = INTERACTION_STATE.ACTION_COMPLETE;
 
+        // Commit active relocation if running in stair/furniture placement systems
+        if (this.ctx.interactions?.stairPlacementSystem?.isRelocating) {
+            this.ctx.interactions.stairPlacementSystem.placeStaircase();
+        }
+        if (this.ctx.interactions?.furniturePlacementSystem?.isRelocating) {
+            this.ctx.interactions.furniturePlacementSystem.placeFurniture();
+        }
+
+        // Commit active move mode if running
+        if (typeof this.ctx.interactions?.universalMoveGizmo?.commitMoveMode === 'function' && this.ctx.interactions.universalMoveGizmo.isMoveModeActive) {
+            this.ctx.interactions.universalMoveGizmo.commitMoveMode();
+        }
+
         // Detach transform gizmos
         if (this.ctx.interactions?.universalMoveGizmo) {
-            this.ctx.interactions.universalMoveGizmo.detach();
+            if (typeof this.ctx.interactions.universalMoveGizmo.detach === 'function') {
+                this.ctx.interactions.universalMoveGizmo.detach();
+            }
         }
         if (this.ctx.interactions?.universalSpinGizmo) {
-            this.ctx.interactions.universalSpinGizmo.detach();
+            if (typeof this.ctx.interactions.universalSpinGizmo.detach === 'function') {
+                this.ctx.interactions.universalSpinGizmo.detach();
+            }
         }
         if (this.ctx.gizmoManager) {
             this.ctx.gizmoManager.setTransformMode('none', true);
@@ -458,6 +505,15 @@ export class CommonInteractionController {
      */
     cancelAction() {
         if (this.interactionState === INTERACTION_STATE.ACTION_ACTIVE) {
+            if (this.ctx.interactions?.stairPlacementSystem?.isRelocating) {
+                this.ctx.interactions.stairPlacementSystem.cancelRelocation();
+            }
+            if (this.ctx.interactions?.furniturePlacementSystem?.isRelocating) {
+                this.ctx.interactions.furniturePlacementSystem.cancelRelocation();
+            }
+            if (typeof this.ctx.interactions?.universalMoveGizmo?.cancelMoveMode === 'function' && this.ctx.interactions.universalMoveGizmo.isMoveModeActive) {
+                this.ctx.interactions.universalMoveGizmo.cancelMoveMode();
+            }
             this.completeAction();
         } else if (this.interactionState === INTERACTION_STATE.OBJECT_SELECTED) {
             this.clearSelection();

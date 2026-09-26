@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { coreEventBus } from '../EventBus.js';
 import { getObjectLocalCenter } from './tools/CommonTransformEngine.js';
 import { TransformEngine } from '../transform/TransformEngine.js';
+import { SnapEngine } from '../snap/SnapEngine.js';
 
 /**
  * UniversalSpinGizmo.js
@@ -90,6 +91,23 @@ export class UniversalSpinGizmo extends THREE.Group {
 
     attach(target) {
         if (!target) return;
+
+        // Strict Scope Authority:
+        // Centralized Spin Gizmo ONLY attaches to GLB models, Furniture/Objects, Staircases, and Shapes.
+        // Dedicated systems (Doors, Windows, Roofs, Wall Plugins, Base Walls) MUST NOT use UniversalSpinGizmo.
+        const entity = target.userData?.entity || target.userData?.widget || {};
+        const entType = entity?.type || target.userData?.type || '';
+        const isRoof = Boolean(target.userData?.isRoof || entType === 'roof' || entity?.config?.roofType);
+        const isOpening = Boolean(target.userData?.isWidget || target.userData?.isOpening || ['door', 'window', 'arch_opening', 'circular_opening', 'custom_shape_opening', 'pattern_opening', 'boolean_cut', 'niche_recess'].includes(entType));
+        const isWallPlugin = Boolean(['sunshade', 'jali_panel', 'curtain', 'wall_art', 'elevation_fascia', 'molding'].includes(entType) || entType.startsWith('molding_') || entType.startsWith('sunshade_') || entType.startsWith('jali_') || entType.startsWith('curtain_') || entType.startsWith('decor_wall_'));
+        const isSolidProtrusion = Boolean(target.userData?.isProtrusion || entType === 'solid_protrusion' || target.userData?.widget?.type === 'solid_protrusion');
+        const isBaseWall = Boolean(target.userData?.isWallSide || target.userData?.isWallMesh || ['outer', 'inner', 'compound', 'wall', 'wallDecor', 'arc'].includes(entType) || entity?.startX !== undefined);
+
+        if (isRoof || isOpening || isWallPlugin || isSolidProtrusion || isBaseWall) {
+            this.detach();
+            return;
+        }
+
         this.target = target;
         this.visible = true;
         this.isDragging = false;
@@ -511,30 +529,19 @@ export class UniversalSpinGizmo extends THREE.Group {
     /* -------------------------------------------------------------------------- */
 
     _applyMagneticSnapping(rawAngle, e) {
-        // Holding Alt forces continuous 0.1° free rotation
-        if (e && e.altKey) {
-            this.isMagneticSnapped = false;
-            return rawAngle;
-        }
+        const free = Boolean(e && e.altKey);
+        const lock45 = Boolean(e && e.shiftKey);
+        const step = lock45 ? 45 : this.snapMode;
 
-        // Holding Shift forces 45° CAD angle locking
-        const step = (e && e.shiftKey) ? 45 : this.snapMode;
-        if (step <= 1) {
-            this.isMagneticSnapped = false;
-            return rawAngle;
-        }
+        const res = SnapEngine.resolveAngle(rawAngle, {
+            step,
+            free,
+            lock45,
+            magneticZone: 3.5
+        });
 
-        const snapped = Math.round(rawAngle / step) * step;
-        const diff = Math.abs(rawAngle - snapped);
-
-        // 3.5° Magnetic Latch Zone
-        if (diff <= 3.5 || (e && e.shiftKey)) {
-            this.isMagneticSnapped = true;
-            return snapped;
-        }
-
-        this.isMagneticSnapped = false;
-        return rawAngle;
+        this.isMagneticSnapped = res.isSnapped;
+        return res.angle;
     }
 
     /* -------------------------------------------------------------------------- */

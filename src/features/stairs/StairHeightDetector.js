@@ -145,8 +145,8 @@ export class StairHeightDetector {
         for (const wall of walls) {
             if (!wall || wall.isUnderStairWall || wall.isDeleted || wall.isHidden) continue;
 
-            const p1 = wall.startAnchor ? wall.startAnchor.position() : { x: Number(wall.startX) || 0, y: Number(wall.startY) || 0 };
-            const p2 = wall.endAnchor ? wall.endAnchor.position() : { x: Number(wall.endX) || 0, y: Number(wall.endY) || 0 };
+            const p1 = wall.startAnchor ? (typeof wall.startAnchor.position === 'function' ? wall.startAnchor.position() : wall.startAnchor) : { x: Number(wall.startX) || 0, y: Number(wall.startY) || 0 };
+            const p2 = wall.endAnchor ? (typeof wall.endAnchor.position === 'function' ? wall.endAnchor.position() : wall.endAnchor) : { x: Number(wall.endX) || 0, y: Number(wall.endY) || 0 };
 
             // In 2D, coordinates are (x, y) where y maps to 3D Z
             const segP1 = { x: p1.x, z: p1.y };

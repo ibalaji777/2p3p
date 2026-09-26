@@ -137,8 +137,8 @@ export class SpatialHostResolver {
         for (const wall of planner.walls) {
             if (!wall || wall.isDeleted || wall.hidden) continue;
 
-            const p1 = wall.startAnchor ? wall.startAnchor.position() : { x: wall.startX || 0, y: wall.startY || 0 };
-            const p2 = wall.endAnchor ? wall.endAnchor.position() : { x: wall.endX || 0, y: wall.endY || 0 };
+            const p1 = (typeof wall.startAnchor?.position === 'function') ? wall.startAnchor.position() : (wall.startAnchor || { x: wall.startX || 0, y: wall.startY || 0 });
+            const p2 = (typeof wall.endAnchor?.position === 'function') ? wall.endAnchor.position() : (wall.endAnchor || { x: wall.endX || 0, y: wall.endY || 0 });
 
             const dx = p2.x - p1.x;
             const dy = p2.y - p1.y;
