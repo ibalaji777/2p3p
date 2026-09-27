@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { ROOF_DECOR_REGISTRY } from '../../../../core/registry.js';
+import { ROOF_DECOR_REGISTRY, offsetPolygon } from '../../../../core/registry.js';
 
 /**
  * Specialized CAD/BIM Generator for Flat Roofs.
@@ -74,23 +74,26 @@ export class FlatRoofGenerator {
         geo.rotateX(Math.PI / 2);
         geo.translate(0, conf.thickness || 2, 0); 
         
-        // UV Fix for Flat Roof (ExtrudeGeometry) - World Space Projection
-        const uvs = geo.attributes.uv;
-        const pos = geo.attributes.position;
-        geo.computeVertexNormals();
-        const norms = geo.attributes.normal;
-        for (let i = 0; i < uvs.count; i++) {
-            const nx = Math.abs(norms.getX(i));
-            const ny = Math.abs(norms.getY(i));
-            const nz = Math.abs(norms.getZ(i));
-            const vx = pos.getX(i) / 100;
-            const vy = pos.getY(i) / 100;
-            const vz = pos.getZ(i) / 100;
-            
-            if (ny > 0.5) uvs.setXY(i, vx, vz); // Top/Bottom
-            else if (nx > nz) uvs.setXY(i, vz, vy); // Side X
-            else uvs.setXY(i, vx, vy); // Side Z
+        function applyWorldSpaceUVs(geometry) {
+            const uvs = geometry.attributes.uv;
+            const pos = geometry.attributes.position;
+            geometry.computeVertexNormals();
+            const norms = geometry.attributes.normal;
+            for (let i = 0; i < uvs.count; i++) {
+                const nx = Math.abs(norms.getX(i));
+                const ny = Math.abs(norms.getY(i));
+                const nz = Math.abs(norms.getZ(i));
+                const vx = pos.getX(i) / 100;
+                const vy = pos.getY(i) / 100;
+                const vz = pos.getZ(i) / 100;
+                
+                if (ny > 0.5) uvs.setXY(i, vx, vz); // Top/Bottom
+                else if (nx > nz) uvs.setXY(i, vz, vy); // Side X
+                else uvs.setXY(i, vx, vy); // Side Z
+            }
         }
+
+        applyWorldSpaceUVs(geo);
 
         let flatMat = mat;
         let flatMatId = conf.material;
@@ -147,7 +150,79 @@ export class FlatRoofGenerator {
         if (flatMat) flatMat.side = THREE.DoubleSide;
         if (flatFasciaMat) flatFasciaMat.side = THREE.DoubleSide;
 
+        const slabMesh = new THREE.Mesh(geo, [flatMat, flatFasciaMat]);
+
+        // Auto-Parapet & Coping Cap Generation for RCC Flat Roofs
+        const hasParapet = conf.hasParapet === true || (conf.parapetHeight && Number(conf.parapetHeight) > 0);
+        if (hasParapet && pts && pts.length >= 3) {
+            const parapetHeight = Number(conf.parapetHeight) || 50; // default 50 cm
+            const parapetThick = Number(conf.parapetThickness) || 15; // default 15 cm
+            const slabThick = conf.thickness || 2;
+
+            const innerPts = offsetPolygon(pts, -parapetThick);
+            if (innerPts && innerPts.length >= 3) {
+                const parapetShape = new THREE.Shape();
+                parapetShape.moveTo(pts[0].x, pts[0].y);
+                for (let i = 1; i < pts.length; i++) parapetShape.lineTo(pts[i].x, pts[i].y);
+                parapetShape.lineTo(pts[0].x, pts[0].y);
+
+                const isOuterCW = THREE.ShapeUtils.isClockWise(pts);
+                const isInnerCW = THREE.ShapeUtils.isClockWise(innerPts);
+                const finalInnerPts = (isOuterCW === isInnerCW) ? [...innerPts].reverse() : innerPts;
+
+                const parapetHole = new THREE.Path();
+                parapetHole.moveTo(finalInnerPts[0].x, finalInnerPts[0].y);
+                for (let i = 1; i < finalInnerPts.length; i++) parapetHole.lineTo(finalInnerPts[i].x, finalInnerPts[i].y);
+                parapetHole.lineTo(finalInnerPts[0].x, finalInnerPts[0].y);
+                parapetShape.holes.push(parapetHole);
+
+                const parapetGeo = new THREE.ExtrudeGeometry(parapetShape, { depth: parapetHeight, bevelEnabled: false });
+                parapetGeo.rotateX(Math.PI / 2);
+                parapetGeo.translate(0, slabThick + parapetHeight, 0);
+                applyWorldSpaceUVs(parapetGeo);
+
+                const parapetMesh = new THREE.Mesh(parapetGeo, [flatFasciaMat, flatFasciaMat]);
+
+                // Coping Stone Cap (protective top cap on parapet)
+                const copingThick = 5; // 5 cm thickness
+                const copingOuterPts = offsetPolygon(pts, 2); // 2 cm exterior overhang
+                const copingInnerPts = offsetPolygon(innerPts, -2); // 2 cm interior overhang
+
+                let copingMesh = null;
+                if (copingOuterPts && copingInnerPts && copingOuterPts.length >= 3 && copingInnerPts.length >= 3) {
+                    const copingShape = new THREE.Shape();
+                    copingShape.moveTo(copingOuterPts[0].x, copingOuterPts[0].y);
+                    for (let i = 1; i < copingOuterPts.length; i++) copingShape.lineTo(copingOuterPts[i].x, copingOuterPts[i].y);
+                    copingShape.lineTo(copingOuterPts[0].x, copingOuterPts[0].y);
+
+                    const isCopOuterCW = THREE.ShapeUtils.isClockWise(copingOuterPts);
+                    const isCopInnerCW = THREE.ShapeUtils.isClockWise(copingInnerPts);
+                    const finalCopInner = (isCopOuterCW === isCopInnerCW) ? [...copingInnerPts].reverse() : copingInnerPts;
+
+                    const copingHole = new THREE.Path();
+                    copingHole.moveTo(finalCopInner[0].x, finalCopInner[0].y);
+                    for (let i = 1; i < finalCopInner.length; i++) copingHole.lineTo(finalCopInner[i].x, finalCopInner[i].y);
+                    copingHole.lineTo(finalCopInner[0].x, finalCopInner[0].y);
+                    copingShape.holes.push(copingHole);
+
+                    const copingGeo = new THREE.ExtrudeGeometry(copingShape, { depth: copingThick, bevelEnabled: false });
+                    copingGeo.rotateX(Math.PI / 2);
+                    copingGeo.translate(0, slabThick + parapetHeight + copingThick, 0);
+                    applyWorldSpaceUVs(copingGeo);
+
+                    const copingMat = (ctx?.helpers?.getDynamicMaterial ? ctx.helpers.getDynamicMaterial(conf.copingMaterial || 'white_plaster_wall', 'wall') : null) || flatFasciaMat;
+                    copingMesh = new THREE.Mesh(copingGeo, [copingMat, copingMat]);
+                }
+
+                const roofGroup = new THREE.Group();
+                roofGroup.add(slabMesh);
+                roofGroup.add(parapetMesh);
+                if (copingMesh) roofGroup.add(copingMesh);
+                return roofGroup;
+            }
+        }
+
         // ExtrudeGeometry index 0 = top/bottom caps (terrace), index 1 = extruded perimeter sides (wall band)
-        return new THREE.Mesh(geo, [flatMat, flatFasciaMat]);
+        return slabMesh;
     }
 }

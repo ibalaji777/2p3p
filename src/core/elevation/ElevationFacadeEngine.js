@@ -451,7 +451,58 @@ export class ElevationFacadeEngine {
         const wallHeight = wall.height || 120;
         const wallTop = wallElevation + wallHeight;
 
+        // Compute current host wall baseline geometry for lateral coordination
+        const p1 = (wall.startAnchor && typeof wall.startAnchor.position === 'function') 
+            ? wall.startAnchor.position() 
+            : (wall.startAnchor || { x: wall.startX || 0, y: wall.startY || 0 });
+        const p2 = (wall.endAnchor && typeof wall.endAnchor.position === 'function') 
+            ? wall.endAnchor.position() 
+            : (wall.endAnchor || { x: wall.endX || 0, y: wall.endY || 0 });
+
+        const dx = p2.x - p1.x;
+        const dz = p2.y - p1.y;
+        const wallLen = Math.hypot(dx, dz) || 1;
+        const dirX = dx / wallLen;
+        const dirZ = dz / wallLen;
+        const wallThick = wall.thickness || 20;
+        const surfaceOffset = (wallThick / 2) + 0.3;
+
         segments.forEach(seg => {
+            const facing = seg.wallFacing || 1;
+            const normX = -dirZ * facing;
+            const normZ = dirX * facing;
+
+            // Lateral synchronization: update (x, z) flush against the updated wall face
+            const updateLateralCoord = (pt) => {
+                if (!pt) return;
+                let u = pt.u;
+                if (u === undefined && pt.t !== undefined) {
+                    u = pt.t * wallLen;
+                } else if (u === undefined) {
+                    const vx = (pt.x || 0) - p1.x;
+                    const vz = (pt.z || 0) - p1.y;
+                    u = vx * dirX + vz * dirZ;
+                    pt.u = u;
+                }
+                pt.x = Math.round(p1.x + dirX * u + normX * surfaceOffset);
+                pt.z = Math.round(p1.y + dirZ * u + normZ * surfaceOffset);
+                pt.normal = { x: normX, y: 0, z: normZ };
+            };
+
+            if (Array.isArray(seg.points)) {
+                seg.points.forEach(updateLateralCoord);
+            }
+            if (Array.isArray(seg.nodes)) {
+                seg.nodes.forEach(updateLateralCoord);
+            }
+            if (Array.isArray(seg.branches)) {
+                seg.branches.forEach(b => {
+                    if (Array.isArray(b.nodes)) {
+                        b.nodes.forEach(updateLateralCoord);
+                    }
+                });
+            }
+
             let delta = 0;
             if (deltaH !== 0 || deltaElev !== 0) {
                 if (seg.anchorMode === 'top' && deltaH !== 0) delta += deltaH;

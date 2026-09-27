@@ -361,6 +361,8 @@
                 :ui-trigger="uiTrigger"
                 :floor-registry="floorRegistry"
                 :roof-decor-registry="roofDecorRegistry"
+                :planner="planner"
+                @open-site-dialog="$emit('open-site-dialog')"
                 @sync-engine="$emit('sync-engine')"
                 @sync-door-angle="$emit('sync-door-angle')"
                 @ui-trigger="$emit('ui-trigger')"
@@ -445,7 +447,8 @@ const props = defineProps({
   roofDecorRegistry: Object,
   layerItems: Array,
   activeTool: String,
-  activePresetParams: Object
+  activePresetParams: Object,
+  planner: Object
 });
 
 const emit = defineEmits([
@@ -483,7 +486,8 @@ const emit = defineEmits([
   'select-layer-item',
   'toggle-layer-visibility',
   'remove-layer-item',
-  'debounced-save-history'
+  'debounced-save-history',
+  'open-site-dialog'
 ]);
 
 const { formatLabel, unitSuffix } = useDimension();

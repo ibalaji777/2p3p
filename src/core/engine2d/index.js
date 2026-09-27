@@ -48,9 +48,11 @@ import { PRESET_REGISTRY, autoAlign } from './presetRegistry.js';
 import { PresetGroup } from './PresetGroup.js';
 import { computeCorridorPolygon } from './corridorUtils.js';
 import { ElevationFacadeEngine } from '../elevation/ElevationFacadeEngine.js';
+import { SiteRenderer2D } from './SiteRenderer2D.js';
+import { SiteEngine } from '../site/SiteEngine.js';
 
 // Export the specific classes that App.vue needs to spawn items
-export { FurnitureEngine, PremiumFurniture, PremiumHipRoof, StairV4Flight, StairV4Landing, PremiumMolding, PremiumOutdoorZone, OutdoorZoneEngine, PremiumPlatform, PlatformEngine, ElevationFacadeEngine };
+export { FurnitureEngine, PremiumFurniture, PremiumHipRoof, StairV4Flight, StairV4Landing, PremiumMolding, PremiumOutdoorZone, OutdoorZoneEngine, PremiumPlatform, PlatformEngine, ElevationFacadeEngine, SiteRenderer2D, SiteEngine };
 
 /**
  * The core orchestrator for the 2D layout engine. Manages application state, entities, rendering layers, and integrations with input sub-systems.
@@ -657,6 +659,10 @@ export class FloorPlanner {
         this.mainLayer = new Konva.Layer();
         this.houseGroup = new Konva.Group();
 
+        this.siteLayer = new Konva.Group();
+        this.siteLayer.batchDraw = () => {
+            if (this.mainLayer) this.mainLayer.batchDraw();
+        };
         this.roomLayer = new Konva.Group(); 
         this.baseLayer = new Konva.Group();
         this.wallLayer = new Konva.Group(); 
@@ -665,7 +671,7 @@ export class FloorPlanner {
         this.furnitureLayer = new Konva.Group(); 
         this.roofLayer = new Konva.Group(); 
 
-        this.houseGroup.add(this.roomLayer, this.baseLayer, this.wallLayer, this.roomLabelLayer, this.widgetLayer, this.furnitureLayer, this.roofLayer);
+        this.houseGroup.add(this.siteLayer, this.roomLayer, this.baseLayer, this.wallLayer, this.roomLabelLayer, this.widgetLayer, this.furnitureLayer, this.roofLayer);
         this.mainLayer.add(this.houseGroup);
 
         this.uiLayer = new Konva.Layer(); 
@@ -1151,6 +1157,11 @@ export class FloorPlanner {
 
         WallEngine.sync(this);
         ElevationFacadeEngine.syncElevationSegments2D(this);
+        if (this.site) {
+            this.syncSite2D();
+        } else if (this.siteLayer) {
+            this.siteLayer.destroyChildren();
+        }
         
         this.anchors.forEach(a => {
             if (a.isArcIntermediate) {
@@ -1207,6 +1218,10 @@ export class FloorPlanner {
         const vecToCenter = { x: this.buildingCenter.x - wallCenter.x, y: this.buildingCenter.y - wallCenter.y };
         if (normal.x * vecToCenter.x + normal.y * vecToCenter.y > 0) { normal.x *= -1; normal.y *= -1; }
         return normal;
+    }
+
+    syncSite2D() {
+        SiteRenderer2D.render(this);
     }
 
     getPointerPos(e) {
@@ -2079,6 +2094,8 @@ export class FloorPlanner {
         if (this.shapeTransformer) this.shapeTransformer.nodes([]);
         this.walls = []; this.furniture = []; this.stairs = []; this.roofs = []; this.balconies = []; this.arcs = []; this.shapes = []; this.outdoorZones = []; this.platforms = []; this.roomPaths = []; this.elevationSegments = [];
         this.anchors.forEach(a => { if(a.node) a.node.destroy(); }); this.anchors = [];
+        this.site = null;
+        if (this.siteLayer) this.siteLayer.destroyChildren();
         if (this.baseLayer) this.baseLayer.destroyChildren();
         if (this.wallLayer) this.wallLayer.destroyChildren(); if (this.furnitureLayer) this.furnitureLayer.destroyChildren(); if (this.widgetLayer) this.widgetLayer.destroyChildren(); if (this.roofLayer) this.roofLayer.destroyChildren();
         if (this.roomLabelLayer) this.roomLabelLayer.destroyChildren();
@@ -2099,6 +2116,7 @@ export class FloorPlanner {
         const state = {
             settings: this.settings,
             unit: this.currentUnit,
+            site: this.site ? SiteEngine.serialize(this.site) : null,
             anchors: this.anchors.map(a => ({ id: a.id || a._id, _id: a._id, x: a.x, y: a.y })),
             walls: standardWalls.map(w => WallSerializer.serialize(w)),
             furniture: this.furniture ? this.furniture.map(f => FurnitureEngine.serialize(f)).filter(Boolean) : [],
@@ -2200,6 +2218,11 @@ export class FloorPlanner {
             }
             if (state.rooms) {
                 this.rooms = state.rooms;
+            }
+            if (state.site) {
+                SiteEngine.deserialize(this, state.site);
+            } else {
+                this.site = null;
             }
 
             const anchorMap = new Map();

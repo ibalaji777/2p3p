@@ -139,6 +139,8 @@
         :layer-items="layerItems"
         :active-tool="activeTool"
         :active-preset-params="activePresetParams"
+        :planner="planner"
+        @open-site-dialog="siteDialogRef?.open()"
         @toggle-all-floors="toggleAllFloors"
         @level-visibility-change="onLevelVisibilityChange"
         @switch-level="switchLevel"
@@ -206,6 +208,13 @@
       />
 
        <CreditsPopup ref="creditsPopupRef" />
+
+       <!-- Site Boundary & Adaptation Dialog -->
+       <SiteBoundaryDialog
+         ref="siteDialogRef"
+         :planner="planner"
+         @sync="handleSiteSync"
+       />
     </div>
   </div>
 </template>
@@ -219,6 +228,7 @@ import CanvasWorkspace from './components/CanvasWorkspace.vue';
 import SmartWizardPopup from './components/SmartWizardPopup.vue';
 import SavePopup from './components/SavePopup.vue';
 import CreditsPopup from './components/CreditsPopup.vue';
+import SiteBoundaryDialog from './components/modals/SiteBoundaryDialog.vue';
 import MobileBottomNav from './components/MobileBottomNav.vue';
 import AppToast from './components/common/AppToast.vue';
 
@@ -400,6 +410,7 @@ const railingRegistry = RAILING_REGISTRY;
 const wizardPopupRef = ref(null);
 const savePopupRef = ref(null);
 const creditsPopupRef = ref(null);
+const siteDialogRef = ref(null);
 const wizardManager = shallowRef(null);
 
 // Removed local floorPlanSettings as it is now in SettingsStore
@@ -639,6 +650,13 @@ const removeLayerItem = (item) => {
 };
 
 const { saveHistory, debouncedSaveHistory, undo, redo, restoreHistoryState } = useHistory({ refresh3DScene: (b) => refresh3DScene(b), handleDeselect: () => handleDeselect() });
+
+const handleSiteSync = () => {
+    debouncedSaveHistory();
+    if (viewMode.value === '3d') {
+        refresh3DScene(true);
+    }
+};
 
 const currentFaceDecors = computed(() => {
     const trigger = uiTrigger.value; 
@@ -1305,6 +1323,7 @@ const {
     isTablet,
     mobileMenuOpen,
     wizardPopupRef,
+    siteDialogRef,
     activeDecorId,
     renderer3D,
     selectedType,

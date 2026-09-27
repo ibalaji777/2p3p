@@ -236,7 +236,21 @@
                 :selected-entity="selectedEntity"
                 @sync-engine="$emit('sync-engine')"
             />
+
+            <SitePropertiesPanel
+                v-else-if="selectedType === 'site' || (selectedEntity && selectedEntity.type === 'site')"
+                :planner="planner"
+                @open-site-dialog="$emit('open-site-dialog')"
+                @sync-engine="$emit('sync-engine')"
+            />
         </div>
+
+        <SitePropertiesPanel
+            v-else-if="planner && planner.site"
+            :planner="planner"
+            @open-site-dialog="$emit('open-site-dialog')"
+            @sync-engine="$emit('sync-engine')"
+        />
 
         <div class="props-empty" v-else-if="!activeTool || !activeTool.startsWith('preset_')">
             <span v-if="viewMode==='2d'">Select a wall, door, window, or object on the canvas to edit its properties here.</span>
@@ -268,6 +282,7 @@ import PlatformPanel from '../panels/PlatformPanel.vue';
 import FacadeRibbonPanel from '../panels/FacadeRibbonPanel.vue';
 import ElevationSegmentPanel from '../panels/ElevationSegmentPanel.vue';
 import CornerPanel from '../panels/CornerPanel.vue';
+import SitePropertiesPanel from '../panels/SitePropertiesPanel.vue';
 
 const props = defineProps({
     activeTool: String,
@@ -283,13 +298,15 @@ const props = defineProps({
     railingRegistry: Object,
     uiTrigger: Number,
     floorRegistry: Object,
-    roofDecorRegistry: Object
+    roofDecorRegistry: Object,
+    planner: Object
 });
 
 const emit = defineEmits([
     'ui-trigger',
     'sync-engine',
     'sync-door-angle',
+    'open-site-dialog',
     'delete-entity', 'toggle-edit-decor', 'delete-specific-decor',
     'decor-update', 'spawn-wall-pattern', 'delete-entity', 'set-floor-material',
     'set-opening-material', 'clear-shape-textures', 'set-roof-material', 'set-shape-material'

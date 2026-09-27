@@ -81,20 +81,53 @@ const open = (pluginId) => {
 };
 
 const updateVisualBoundary = (changedField) => {
-    if (changedField === 'targetWidth' || changedField === 'targetDepth') {
+    if (changedField === 'targetN' || changedField === 'targetS' || changedField === 'targetE' || changedField === 'targetW') {
+        const n = parseFloat(config.value['targetN']) || 0;
+        const s = parseFloat(config.value['targetS']) || 0;
+        const e = parseFloat(config.value['targetE']) || 0;
+        const w = parseFloat(config.value['targetW']) || 0;
+        const avgW = (n + s) / 2;
+        const avgD = (e + w) / 2;
+        config.value['targetSqft'] = Math.round(avgW * avgD);
+        config.value['targetWidth'] = avgW.toFixed(1);
+        config.value['targetDepth'] = avgD.toFixed(1);
+    } else if (changedField === 'targetWidth' || changedField === 'targetDepth') {
         const w = parseFloat(config.value['targetWidth']) || 0;
         const d = parseFloat(config.value['targetDepth']) || 0;
-        config.value['targetSqft'] = (w * d).toFixed(0);
+        config.value['targetSqft'] = Math.round(w * d);
+        if (changedField === 'targetWidth') {
+            config.value['targetN'] = w.toFixed(1);
+            config.value['targetS'] = w.toFixed(1);
+        }
+        if (changedField === 'targetDepth') {
+            config.value['targetE'] = d.toFixed(1);
+            config.value['targetW'] = d.toFixed(1);
+        }
     } else if (changedField === 'targetSqft') {
         const currentSqft = parseFloat(config.value['targetSqft']) || 0;
         if (currentSqft > 0) {
-            const w = parseFloat(config.value['targetWidth']) || 1;
-            const d = parseFloat(config.value['targetDepth']) || 1;
-            const ratio = w / d;
+            const n = parseFloat(config.value['targetN']) || 0;
+            const s = parseFloat(config.value['targetS']) || 0;
+            const e = parseFloat(config.value['targetE']) || 0;
+            const w = parseFloat(config.value['targetW']) || 0;
+            let currentW = (n + s) / 2;
+            let currentD = (e + w) / 2;
+            if (currentW <= 0 || currentD <= 0) {
+                currentW = parseFloat(config.value['targetWidth']) || 30;
+                currentD = parseFloat(config.value['targetDepth']) || 25;
+            }
+            const ratio = (currentW / currentD) || 1.2;
             const newD = Math.sqrt(currentSqft / ratio);
             const newW = currentSqft / newD;
-            config.value['targetWidth'] = newW.toFixed(1);
-            config.value['targetDepth'] = newD.toFixed(1);
+            const newWStr = newW.toFixed(1);
+            const newDStr = newD.toFixed(1);
+
+            config.value['targetN'] = newWStr;
+            config.value['targetS'] = newWStr;
+            config.value['targetE'] = newDStr;
+            config.value['targetW'] = newDStr;
+            config.value['targetWidth'] = newWStr;
+            config.value['targetDepth'] = newDStr;
         }
     }
 };

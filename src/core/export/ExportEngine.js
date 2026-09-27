@@ -12,6 +12,7 @@
  */
 
 import * as THREE from 'three';
+import { SiteSerializer } from '../site/SiteSerializer.js';
 
 export class ExportEngine {
     static SCHEMA_VERSION = '2.0';
@@ -63,9 +64,10 @@ export class ExportEngine {
      * @param {number} [options.activeLevelIndex=0] - Currently active floor index
      * @param {Object} [options.metadata={}] - Project metadata (name, author, etc.)
      * @param {Object} [options.settings={}] - General planner settings
+     * @param {Object} [options.site=null] - Canonical site boundary definition
      * @returns {Object} Canonical project manifest
      */
-    static createProjectPackage({ levels = [], activeLevelIndex = 0, metadata = {}, settings = {} } = {}) {
+    static createProjectPackage({ levels = [], activeLevelIndex = 0, metadata = {}, settings = {}, site = null } = {}) {
         const now = new Date().toISOString();
         const normalizedLevels = Array.isArray(levels) ? levels : [];
 
@@ -84,7 +86,8 @@ export class ExportEngine {
             },
             activeLevelIndex: Math.max(0, Math.min(activeLevelIndex, Math.max(0, normalizedLevels.length - 1))),
             levels: normalizedLevels,
-            settings: settings || {}
+            settings: settings || {},
+            site: site ? (site.vertices ? SiteSerializer.serialize(site) : site) : null
         };
     }
 
@@ -156,7 +159,8 @@ export class ExportEngine {
                 levels: parsed.levels || [],
                 activeLevelIndex: parsed.activeLevelIndex !== undefined ? parsed.activeLevelIndex : 0,
                 metadata: parsed.metadata || { name: parsed.name },
-                settings: parsed.settings || {}
+                settings: parsed.settings || {},
+                site: parsed.site || null
             });
         }
 
@@ -246,7 +250,8 @@ export class ExportEngine {
             manifest = ExportEngine.createProjectPackage({
                 levels: [{ id: 'level-0', name: 'Ground Floor', elevation: 0, height: 280, data: levelData, isVisible: true }],
                 activeLevelIndex: 0,
-                settings: projectData.settings || {}
+                settings: projectData.settings || {},
+                site: projectData.site || null
             });
         } else {
             manifest = projectData;

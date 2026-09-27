@@ -1001,6 +1001,10 @@ export class Preview3D {
             });
         });
 
+        if (planner.site && this.envBuilder && typeof this.envBuilder.buildSite3D === 'function') {
+            this.envBuilder.buildSite3D(planner.site, this.structureGroup);
+        }
+
         if (this.requestRender) this.requestRender('floor_rebuild', 2);
     }
 

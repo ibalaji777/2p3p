@@ -13,6 +13,7 @@ export function useAppTools({
     isTablet,
     mobileMenuOpen,
     wizardPopupRef,
+    siteDialogRef,
     activeDecorId,
     renderer3D,
     selectedType,
@@ -340,6 +341,7 @@ export function useAppTools({
         }
         else if (tool.action === 'auto_roof') { if (planner.value) planner.value.addAutoRoof(); }
         else if (tool.action === 'wizard') { wizardPopupRef.value?.open(tool.id); }
+        else if (tool.action === 'site_dialog' || tool.id === 'site_boundary') { siteDialogRef?.value?.open(); }
         else if (tool.id.startsWith('roof_')) {
             const roofType = tool.params?.roofType || tool.roofType || tool.id.replace('roof_', '');
             const isFlat = roofType === 'flat';

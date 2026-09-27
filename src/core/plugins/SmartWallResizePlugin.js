@@ -1,3 +1,5 @@
+import { WallEngine } from '../wall/WallEngine.js';
+
 export const SmartWallResizePlugin = {
     id: 'smart_wall_resize',
     name: 'Smart Wall Resize',
@@ -303,11 +305,11 @@ export const SmartWallResizePlugin = {
             }
 
             phase3_rebalanceStructuralNodes() {
-                // Intelligently maps wall anchors to new layout bounds
+                // Intelligently maps wall anchors to new layout bounds via canonical WallEngine
                 this.planner.anchors.forEach(a => {
-                    const np = this.transformPoint(a.x, a.y);
-                    if (a.node && typeof a.node.position === 'function') a.node.position(np);
-                    else { a.x = np.x; a.y = np.y; }
+                    const currentPos = typeof a.position === 'function' ? a.position() : a;
+                    const np = this.transformPoint(currentPos.x, currentPos.y);
+                    WallEngine.moveAnchor(a, np, this.planner, false);
                 });
 
                 if (this.planner.arcs) {
@@ -403,16 +405,11 @@ export const SmartWallResizePlugin = {
             }
 
             phase6_finalizeRedesign() {
-                const scaleX = this.targetN / this.bounds.currentW;
-                const scaleY = this.targetW / this.bounds.currentD;
-                const avgScale = (scaleX + scaleY) / 2;
-
-                // Adapt widgets (doors/windows)
+                // Adapt widgets (doors/windows) - preserve manufactured widths
                 if (this.planner.walls) {
                     this.planner.walls.forEach(w => {
                         if (w.attachedWidgets) {
                             w.attachedWidgets.forEach(widget => {
-                                if (widget.width !== undefined) widget.width *= avgScale;
                                 if (widget.update) widget.update();
                             });
                         }
@@ -520,6 +517,9 @@ export const SmartWallResizePlugin = {
 
         // Validate and sync to visual engines
         planner.value.syncAll();
+        if (typeof planner.value.update3D === 'function') {
+            planner.value.update3D({ requiresFullRebuild: true, source: 'smart_wall_resize' });
+        }
         if (syncSettings) syncSettings();
         if (context.refresh3DScene) context.refresh3DScene(true);
 

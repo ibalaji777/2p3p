@@ -228,8 +228,12 @@ export class WallMutationEngine {
 
         affectedWalls.forEach(w => {
             w.wallShapeData = null;
-            if (typeof w.recalculateGeometry === 'function') {
-                w.recalculateGeometry();
+            if (shouldSync) {
+                if (typeof w.update === 'function') {
+                    w.update();
+                } else if (typeof w.recalculateGeometry === 'function') {
+                    w.recalculateGeometry();
+                }
             }
             globalSpatialDependencyEngine.onHostTransformed(w, p);
         });
@@ -472,9 +476,21 @@ export class WallMutationEngine {
             : [];
 
         connectedWalls.forEach(w => {
+            if (w.startAnchor === anchor) {
+                w.startX = newPosition.x;
+                w.startY = newPosition.y;
+            }
+            if (w.endAnchor === anchor) {
+                w.endX = newPosition.x;
+                w.endY = newPosition.y;
+            }
             w.wallShapeData = null;
-            if (typeof w.recalculateGeometry === 'function') {
-                w.recalculateGeometry();
+            if (shouldSync) {
+                if (typeof w.update === 'function') {
+                    w.update();
+                } else if (typeof w.recalculateGeometry === 'function') {
+                    w.recalculateGeometry();
+                }
             }
         });
 

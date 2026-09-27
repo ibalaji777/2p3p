@@ -26,6 +26,10 @@ export class CommandManager {
         }
     }
 
+    executeCommand(command) {
+        return this.execute(command);
+    }
+
     clear() {
         this.undoStack = [];
         this.redoStack = [];

@@ -22,6 +22,7 @@ import { computeLevelElevations } from './helpers/levelElevations.js';
 import { ComponentRegistry } from './ComponentRegistry.js';
 import { FloorSlabEngine } from '../floor/FloorSlabEngine.js';
 import { computeCorridorOffsets } from '../engine2d/corridorUtils.js';
+import { SiteGeometryEngine } from '../site/SiteGeometryEngine.js';
 
 let _sharedPlasterMaterial = null;
 let _plasterUniforms = {
@@ -242,6 +243,11 @@ export class EnvironmentBuilder {
             this.buildElevationSegments(elevSegs, this.ctx.structureGroup);
         }
 
+        const site = planner?.site;
+        if (site && site.vertices && site.vertices.length >= 3 && site.visible !== false) {
+            this.buildSite3D(site, this.ctx.structureGroup);
+        }
+
         const matMain = getPlasterMaterial();
         const matEdgeDark = new THREE.MeshStandardMaterial({ color: 0xeaeaea, roughness: 0.9 });
         const matBaseboard = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.4, metalness: 0.1 });
@@ -411,6 +417,155 @@ export class EnvironmentBuilder {
                 console.error("Error building elevation segment in 3D:", err);
             }
         });
+    }
+
+    buildSite3D(site, targetGroup = this.ctx.structureGroup) {
+        if (!targetGroup) return;
+
+        // Clean up any existing Site3DGroup to prevent duplicate or stale site meshes
+        const existingSiteGroups = targetGroup.children.filter(c => c.name === 'Site3DGroup' || c.userData?.isSite3D);
+        existingSiteGroups.forEach(existing => {
+            if (typeof this.ctx.deepDispose === 'function') {
+                this.ctx.deepDispose(existing);
+            } else {
+                existing.traverse(child => {
+                    if (child.geometry) child.geometry.dispose();
+                    if (child.material) {
+                        if (Array.isArray(child.material)) child.material.forEach(m => m.dispose());
+                        else child.material.dispose();
+                    }
+                });
+            }
+            targetGroup.remove(existing);
+        });
+
+        if (!site || !site.vertices || site.vertices.length < 3 || site.visible === false) return;
+
+        const siteGroup = new THREE.Group();
+        siteGroup.name = 'Site3DGroup';
+        siteGroup.userData = { isSite3D: true, isSiteGroup: true, entity: site };
+
+        const pts = site.vertices;
+        const n = pts.length;
+        const groundY = 0.15; // Just above ground plane (Y = 0 or -0.5)
+
+        // 1. Outer Property Boundary Line Segments (CAD blue)
+        const lineVerts = [];
+        for (let i = 0; i < n; i++) {
+            const p1 = pts[i];
+            const p2 = pts[(i + 1) % n];
+            lineVerts.push(p1.x, groundY, p1.y);
+            lineVerts.push(p2.x, groundY, p2.y);
+        }
+        const lineGeo = new THREE.BufferGeometry();
+        lineGeo.setAttribute('position', new THREE.Float32BufferAttribute(lineVerts, 3));
+        const lineMat = new THREE.LineBasicMaterial({ color: 0x2563eb, linewidth: 2 });
+        const lineMesh = new THREE.LineSegments(lineGeo, lineMat);
+        siteGroup.add(lineMesh);
+
+        // 2. Corner Boundary Marker Pins (Survey boundary monuments)
+        const pinGeo = new THREE.CylinderGeometry(3.5, 4.0, 8, 16);
+        const pinMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.5 });
+        pts.forEach(p => {
+            const pinMesh = new THREE.Mesh(pinGeo, pinMat);
+            pinMesh.position.set(p.x, groundY + 4, p.y);
+            siteGroup.add(pinMesh);
+        });
+
+        // 3. 3D Access Road on roadFrontages edges
+        const cx = pts.reduce((s, p) => s + p.x, 0) / n;
+        const cy = pts.reduce((s, p) => s + p.y, 0) / n;
+        const roadFrontages = Array.isArray(site.roadFrontages)
+            ? site.roadFrontages
+            : [site.roadFrontageIndex !== undefined ? site.roadFrontageIndex : 0];
+
+        const roadW = 200; // 10 ft asphalt road width
+        const roadMat = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.95 });
+        const yellowLineMat = new THREE.LineDashedMaterial({ color: 0xfbbf24, dashSize: 20, gapSize: 12, linewidth: 2 });
+
+        roadFrontages.forEach(rIdx => {
+            if (rIdx < 0 || rIdx >= n) return;
+            const e1 = pts[rIdx];
+            const e2 = pts[(rIdx + 1) % n];
+            const midX = (e1.x + e2.x) / 2;
+            const midY = (e1.y + e2.y) / 2;
+            const dx = midX - cx;
+            const dy = midY - cy;
+            const dLen = Math.hypot(dx, dy) || 1;
+            const ux = dx / dLen;
+            const uy = dy / dLen;
+
+            const p1 = { x: e1.x, y: e1.y };
+            const p2 = { x: e2.x, y: e2.y };
+            const p3 = { x: e2.x + ux * roadW, y: e2.y + uy * roadW };
+            const p4 = { x: e1.x + ux * roadW, y: e1.y + uy * roadW };
+
+            const roadVerts = [
+                p1.x, groundY - 0.05, p1.y,
+                p2.x, groundY - 0.05, p2.y,
+                p3.x, groundY - 0.05, p3.y,
+
+                p1.x, groundY - 0.05, p1.y,
+                p3.x, groundY - 0.05, p3.y,
+                p4.x, groundY - 0.05, p4.y
+            ];
+            const roadMeshGeo = new THREE.BufferGeometry();
+            roadMeshGeo.setAttribute('position', new THREE.Float32BufferAttribute(roadVerts, 3));
+            roadMeshGeo.computeVertexNormals();
+            const roadMesh = new THREE.Mesh(roadMeshGeo, roadMat);
+            siteGroup.add(roadMesh);
+
+            // Yellow Road Centerline (dashed)
+            const c1x = (p1.x + p4.x) / 2, c1y = (p1.y + p4.y) / 2;
+            const c2x = (p2.x + p3.x) / 2, c2y = (p2.y + p3.y) / 2;
+            const yellowLineGeo = new THREE.BufferGeometry();
+            yellowLineGeo.setAttribute('position', new THREE.Float32BufferAttribute([c1x, groundY, c1y, c2x, groundY, c2y], 3));
+            const yellowLine = new THREE.Line(yellowLineGeo, yellowLineMat);
+            yellowLine.computeLineDistances();
+            siteGroup.add(yellowLine);
+        });
+
+        // 4. Buildable Setback Envelope (Dashed green line + translucent buildable zone)
+        const envelope = SiteGeometryEngine.computeBuildableEnvelope(pts, site.setbacks, roadFrontages);
+        if (envelope && envelope.length >= 3) {
+            const envVerts = [];
+            for (let i = 0; i < envelope.length; i++) {
+                const ep1 = envelope[i];
+                const ep2 = envelope[(i + 1) % envelope.length];
+                envVerts.push(ep1.x, groundY + 0.05, ep1.y);
+                envVerts.push(ep2.x, groundY + 0.05, ep2.y);
+            }
+            const envLineGeo = new THREE.BufferGeometry();
+            envLineGeo.setAttribute('position', new THREE.Float32BufferAttribute(envVerts, 3));
+            const envLineMat = new THREE.LineDashedMaterial({ color: 0x16a34a, dashSize: 15, gapSize: 8, linewidth: 2 });
+            const envLine = new THREE.LineSegments(envLineGeo, envLineMat);
+            envLine.computeLineDistances();
+            siteGroup.add(envLine);
+
+            // Translucent green tint for buildable ground zone
+            const envTriangles = [];
+            for (let i = 1; i < envelope.length - 1; i++) {
+                envTriangles.push(
+                    envelope[0].x, groundY + 0.02, envelope[0].y,
+                    envelope[i].x, groundY + 0.02, envelope[i].y,
+                    envelope[i + 1].x, groundY + 0.02, envelope[i + 1].y
+                );
+            }
+            const envZoneGeo = new THREE.BufferGeometry();
+            envZoneGeo.setAttribute('position', new THREE.Float32BufferAttribute(envTriangles, 3));
+            envZoneGeo.computeVertexNormals();
+            const envZoneMat = new THREE.MeshBasicMaterial({
+                color: 0x22c55e,
+                transparent: true,
+                opacity: 0.08,
+                depthWrite: false,
+                side: THREE.DoubleSide
+            });
+            const envZoneMesh = new THREE.Mesh(envZoneGeo, envZoneMat);
+            siteGroup.add(envZoneMesh);
+        }
+
+        targetGroup.add(siteGroup);
     }
 
     buildOutdoorZones(outdoorZones, targetGroup = this.ctx.structureGroup) {
