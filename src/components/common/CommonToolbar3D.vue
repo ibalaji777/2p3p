@@ -1,5 +1,5 @@
 <template>
-  <div class="common-toolbar-3d-wrapper" v-show="viewMode === '3d' && !isDrawerOpen">
+  <div class="common-toolbar-3d-wrapper common-toolbar-3d" v-show="viewMode === '3d' && !isDrawerOpen">
     <div class="common-toolbar-vertical-strip">
       <!-- SELECT TOOL -->
       <button 
@@ -646,7 +646,7 @@ onBeforeUnmount(() => {
   transition: left 0.28s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-@media (min-width: 1200px) {
+@media (min-width: 768px) {
   .common-toolbar-3d-wrapper {
     left: calc(68px + 14px);
   }
@@ -1106,36 +1106,35 @@ onBeforeUnmount(() => {
 /* RESPONSIVE DESIGN */
 @media (max-width: 768px) {
   .common-toolbar-3d-wrapper {
-    top: 68px;
+    top: 64px;
+    left: 10px;
     max-width: calc(100vw - 20px);
   }
 
-  .common-toolbar-capsule {
-    padding: 4px 6px;
+  .common-toolbar-vertical-strip {
+    padding: 5px 3px;
     gap: 4px;
-    border-radius: 24px;
-    overflow-x: auto;
+    border-radius: 20px;
+    max-height: calc(100vh - 140px);
+    overflow-y: auto;
     scrollbar-width: none;
+    touch-action: manipulation;
   }
 
-  .common-toolbar-capsule::-webkit-scrollbar {
+  .common-toolbar-vertical-strip::-webkit-scrollbar {
     display: none;
   }
 
   .tool-btn {
-    padding: 5px 8px;
-    height: 34px;
-    font-size: 12px;
-    gap: 4px;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    border-radius: 50%;
   }
 
   .tool-icon {
     width: 15px;
     height: 15px;
-  }
-
-  .hotkey-badge {
-    display: none;
   }
 
   .shortcuts-grid {
@@ -1149,16 +1148,20 @@ onBeforeUnmount(() => {
 
 @media (max-width: 480px) {
   .common-toolbar-3d-wrapper {
-    top: 64px;
-  }
-
-  .tool-label {
-    display: none;
+    top: 60px;
+    left: 8px;
   }
 
   .tool-btn {
-    padding: 6px 8px;
-    height: 32px;
+    width: 30px;
+    height: 30px;
+    padding: 0;
+    border-radius: 50%;
+  }
+
+  .tool-icon {
+    width: 14px;
+    height: 14px;
   }
 
   .device-tab span {

@@ -159,9 +159,38 @@ export class StairHeightDetector {
 
             if (deltaH <= 4) continue;
 
-            const dTop = this.pointToSegmentDistance(topWorld, segP1, segP2);
+            const wallThick = wall.thickness !== undefined ? Number(wall.thickness) : 15;
+            const faceOffset = wallThick * 0.5;
+
+            // Unit wall vector & normal
+            const wdx = segP2.x - segP1.x;
+            const wdz = segP2.z - segP1.z;
+            const wLen = Math.hypot(wdx, wdz);
+            let wnx = 0, wnz = 1;
+            if (wLen > 0.001) {
+                wnx = -wdz / wLen;
+                wnz = wdx / wLen;
+            }
+
             const dCenter = this.pointToSegmentDistance(centerWorld, segP1, segP2);
-            const dist = Math.min(dTop.distance, dCenter.distance);
+            // Orient normal towards stair center
+            const toCenterX = centerWorld.x - dCenter.point.x;
+            const toCenterZ = centerWorld.z - dCenter.point.z;
+            if (toCenterX * wnx + toCenterZ * wnz < 0) {
+                wnx = -wnx;
+                wnz = -wnz;
+            }
+
+            // Determine if stair orientation is parallel or perpendicular to wall
+            const dotFwdNormal = Math.abs(fwdX * wnx + fwdZ * wnz);
+            const dotRtNormal = Math.abs(-fwdZ * wnx + fwdX * wnz);
+            const isParallel = dotRtNormal > dotFwdNormal;
+            const stairHalfExtent = isParallel ? (width * 0.5) : (approxLength * 0.5);
+
+            // True surface-to-face gap
+            const surfaceGap = Math.max(0, dCenter.distance - (faceOffset + stairHalfExtent));
+            const dTop = this.pointToSegmentDistance(topWorld, segP1, segP2);
+            const dist = Math.min(dTop.distance, dCenter.distance, surfaceGap);
 
             if (dist <= STAIR_PROXIMITY_CONFIG.WALL_PROXIMITY) {
                 const wallTypeLabel = wallH < 150 ? 'Half Wall' : (wallH < 250 ? 'Low Wall' : 'Wall');
@@ -170,11 +199,12 @@ export class StairHeightDetector {
                     name: wallTypeLabel,
                     height: deltaH,
                     targetElevation: wallTop,
-                    distance: dist,
+                    distance: surfaceGap, // Used for edge snap proximity
+                    rawCenterDist: dCenter.distance,
                     edge: { p1: segP1, p2: segP2 },
-                    closestPoint: dTop.distance <= dCenter.distance ? dTop.point : dCenter.point,
+                    closestPoint: dCenter.point,
                     source: wall,
-                    priority: 50 - dist
+                    priority: 50 - surfaceGap
                 });
             }
         }
@@ -262,17 +292,50 @@ export class StairHeightDetector {
                     nz = -nz;
                 }
 
-                // Snap position so top landing rests flush against the edge:
-                // center = closestPoint + normal * (flightLength / 2)
-                snappedPos = {
-                    x: Math.round(candidate.closestPoint.x + nx * (flightLength * 0.5)),
-                    z: Math.round(candidate.closestPoint.z + nz * (flightLength * 0.5))
+                // Check wall face offset
+                const wallThick = candidate.source?.thickness !== undefined ? Number(candidate.source.thickness) : (candidate.type === 'wall' ? 15 : 0);
+                const faceOffset = candidate.type === 'wall' ? (wallThick * 0.5) : 0;
+
+                // Orientation alignment:
+                // Check if staircase orientation is parallel or perpendicular to edge
+                // fwd = (fwdX, fwdZ), right = (-fwdZ, fwdX)
+                const dotFwdNormal = Math.abs(fwdX * nx + fwdZ * nz);
+                const dotRtNormal = Math.abs(-fwdZ * nx + fwdX * nz);
+
+                let halfExtent;
+                let halfExtentParallel;
+                if (candidate.type === 'wall' && dotRtNormal > dotFwdNormal) {
+                    // Parallel to wall: side of stair sits flush against wall face
+                    halfExtent = width * 0.5;
+                    halfExtentParallel = flightLength * 0.5;
+                    snappedRotation = null; // Keep current rotation
+                } else {
+                    // Perpendicular to edge (platform landing or stair facing wall)
+                    halfExtent = flightLength * 0.5;
+                    halfExtentParallel = width * 0.5;
+                    const alignRad = Math.atan2(-nx, -nz);
+                    const alignDeg = Math.round(((alignRad * 180 / Math.PI) + 360) % 360);
+                    snappedRotation = Math.round(alignDeg / 90) * 90 % 360;
+                }
+
+                // Clamp contact point along wall tangent to prevent overhanging wall corners
+                let t = (centerWorld.x - p1.x) * ux + (centerWorld.z - p1.z) * uz;
+                if (edgeLen > 2 * halfExtentParallel) {
+                    t = Math.max(halfExtentParallel, Math.min(edgeLen - halfExtentParallel, t));
+                } else {
+                    t = Math.max(0, Math.min(edgeLen, t));
+                }
+                const clampedPoint = {
+                    x: p1.x + t * ux,
+                    z: p1.z + t * uz
                 };
 
-                // Alignment angle: stairs point into the target edge (-nx, -nz)
-                const alignRad = Math.atan2(-nx, -nz);
-                const alignDeg = Math.round(((alignRad * 180 / Math.PI) + 360) % 360);
-                snappedRotation = Math.round(alignDeg / 90) * 90 % 360;
+                const requiredOffset = faceOffset + halfExtent;
+
+                snappedPos = {
+                    x: Math.round(clampedPoint.x + nx * requiredOffset),
+                    z: Math.round(clampedPoint.z + nz * requiredOffset)
+                };
             }
         }
 

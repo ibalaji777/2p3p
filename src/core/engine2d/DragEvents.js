@@ -1,5 +1,4 @@
 import { TransformEngine } from '../transform/TransformEngine.js';
-import { WallCollisionEngine } from '../wall/WallCollisionEngine.js';
 
 /**
  * Handles all drag-related events for the 2D Engine.
@@ -33,35 +32,8 @@ export function setupDragEvents(planner) {
                 planner.snapAndAlign(e.target);
             }
             if (activeDragEntity && TransformEngine.isSessionActive()) {
-                let curX = typeof e.target.x === 'function' ? e.target.x() : activeDragEntity.group.x();
-                let curY = typeof e.target.y === 'function' ? e.target.y() : activeDragEntity.group.y();
-
-                if (planner.wallCollisionEnabled !== false && (activeDragEntity.type === 'furniture' || activeDragEntity.totalSteps !== undefined || activeDragEntity.constructor?.name === 'PremiumFurniture')) {
-                    const w = Number(activeDragEntity.width) || 80;
-                    const d = Number(activeDragEntity.depth || activeDragEntity.length) || 80;
-                    const rot = Number(activeDragEntity.rotation) || 0;
-                    const res = WallCollisionEngine.resolvePlacement({
-                        x: curX,
-                        z: curY,
-                        rotation: rot,
-                        width: w,
-                        depth: d,
-                        planner,
-                        options: {
-                            enableCollision: true,
-                            enableWallSnap: false,
-                            enableWallAlign: false
-                        }
-                    });
-                    if (res && res.isColliding) {
-                        curX = res.x;
-                        curY = res.z;
-                        if (typeof e.target.position === 'function') {
-                            e.target.position({ x: curX, y: curY });
-                        }
-                    }
-                }
-
+                const curX = typeof e.target.x === 'function' ? e.target.x() : activeDragEntity.group.x();
+                const curY = typeof e.target.y === 'function' ? e.target.y() : activeDragEntity.group.y();
                 TransformEngine.previewMove(activeDragEntity, { absoluteX: curX, absoluteY: curY });
             }
         }

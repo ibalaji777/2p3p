@@ -2,7 +2,6 @@ import * as THREE from 'three';
 import { coreEventBus } from '../EventBus.js';
 import { getObjectLocalCenter } from './tools/CommonTransformEngine.js';
 import { TransformEngine } from '../transform/TransformEngine.js';
-import { SnapEngine } from '../snap/SnapEngine.js';
 
 /**
  * UniversalSpinGizmo.js
@@ -405,7 +404,11 @@ export class UniversalSpinGizmo extends THREE.Group {
                 }
 
                 this._setHandlesActive(true);
-                if (this.ctx.controls) this.ctx.controls.enabled = false;
+                if (this.ctx.cameraController?.freeze) {
+                    this.ctx.cameraController.freeze('universal_spin_gizmo');
+                } else if (this.ctx.controls) {
+                    this.ctx.controls.enabled = false;
+                }
                 if (this.ctx.cameraController && typeof this.ctx.cameraController.disableOrbit === 'function') {
                     this.ctx.cameraController.disableOrbit();
                 }
@@ -497,7 +500,11 @@ export class UniversalSpinGizmo extends THREE.Group {
                 }
             } catch (_) {}
 
-            if (this.ctx.controls) this.ctx.controls.enabled = true;
+            if (this.ctx.cameraController?.unfreeze) {
+                this.ctx.cameraController.unfreeze('universal_spin_gizmo');
+            } else if (this.ctx.controls) {
+                this.ctx.controls.enabled = true;
+            }
             if (this.ctx.cameraController && typeof this.ctx.cameraController.enableOrbit === 'function') {
                 this.ctx.cameraController.enableOrbit();
             }
@@ -531,17 +538,34 @@ export class UniversalSpinGizmo extends THREE.Group {
     _applyMagneticSnapping(rawAngle, e) {
         const free = Boolean(e && e.altKey);
         const lock45 = Boolean(e && e.shiftKey);
-        const step = lock45 ? 45 : this.snapMode;
+        const normalized = Number((((rawAngle % 360) + 360) % 360).toFixed(4));
 
-        const res = SnapEngine.resolveAngle(rawAngle, {
-            step,
-            free,
-            lock45,
-            magneticZone: 3.5
-        });
+        if (free) {
+            this.isMagneticSnapped = false;
+            return normalized;
+        }
 
-        this.isMagneticSnapped = res.isSnapped;
-        return res.angle;
+        if (lock45) {
+            this.isMagneticSnapped = true;
+            return ((Math.round(normalized / 45) * 45 % 360) + 360) % 360;
+        }
+
+        const step = this.snapMode || 15;
+        if (step <= 1) {
+            this.isMagneticSnapped = false;
+            return normalized;
+        }
+
+        const candidate = Math.round(normalized / step) * step;
+        const diff = Math.abs(candidate - normalized);
+
+        if (diff <= 3.5 || Math.abs(diff - 360) <= 3.5) {
+            this.isMagneticSnapped = true;
+            return ((candidate % 360) + 360) % 360;
+        }
+
+        this.isMagneticSnapped = false;
+        return normalized;
     }
 
     /* -------------------------------------------------------------------------- */
@@ -1061,6 +1085,9 @@ export class UniversalSpinGizmo extends THREE.Group {
     /* -------------------------------------------------------------------------- */
 
     dispose() {
+        if (this.ctx.cameraController?.unfreeze) {
+            this.ctx.cameraController.unfreeze('universal_spin_gizmo');
+        }
         this.detach();
         if (this.badge && this.badge.parentNode) {
             this.badge.parentNode.removeChild(this.badge);

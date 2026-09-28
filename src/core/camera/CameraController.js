@@ -34,11 +34,16 @@ export class CameraController {
             RIGHT: THREE.MOUSE.PAN
         };
 
-        // Sims 4 Touch / Mobile Configuration:
+        // Mobile CAD Touch Configuration:
+        // 1 Finger: Orbit / Rotate scene in inspect mode
+        // 2 Fingers: Dolly / Pan across ground plane
         this.controls.touches = {
-            ONE: THREE.TOUCH.PAN,
+            ONE: THREE.TOUCH.ROTATE,
             TWO: THREE.TOUCH.DOLLY_PAN
         };
+
+        // Active interaction freeze lock tracker
+        this.freezeLocks = new Set();
 
         // Animation state
         this.isAnimating = false;
@@ -484,6 +489,24 @@ export class CameraController {
 
         if (this.controls.update()) changed = true;
         return changed;
+    }
+
+    freeze(lockId = 'default') {
+        this.freezeLocks.add(lockId);
+        if (this.controls) {
+            this.controls.enabled = false;
+        }
+    }
+
+    unfreeze(lockId = 'default') {
+        this.freezeLocks.delete(lockId);
+        if (this.freezeLocks.size === 0 && this.controls) {
+            this.controls.enabled = true;
+        }
+    }
+
+    isFrozen() {
+        return this.freezeLocks.size > 0;
     }
 
     dispose() {

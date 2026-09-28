@@ -50,7 +50,13 @@ export class TransformGizmo extends THREE.Group {
             shaft.name = axisName + '_shaft';
             shaft.renderOrder = 998;
             
-            group.add(shaft, handle);
+            // Invisible generous touch hitbox for mobile and finger interaction
+            const hitBox = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.5, 0.5), hitMat);
+            hitBox.position.z = 0.9;
+            hitBox.name = axisName;
+            hitBox.renderOrder = 999;
+
+            group.add(shaft, handle, hitBox);
             return group;
         };
 
@@ -66,6 +72,54 @@ export class TransformGizmo extends THREE.Group {
         scaleGroup.add(uniformHandle);
 
         this.handles.add(scaleGroup);
+
+        // Move / Translate Handles
+        const moveGroup = new THREE.Group();
+        moveGroup.name = 'translate';
+
+        const movePlane = new THREE.Mesh(
+            new THREE.CircleGeometry(1.2, 32),
+            new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.25, depthTest: false, depthWrite: false, side: THREE.DoubleSide })
+        );
+        movePlane.rotation.x = -Math.PI / 2;
+        movePlane.name = 'translateXZ';
+        movePlane.userData = { defaultColor: 0xffffff, defaultOpacity: 0.25, hoverOpacity: 0.55 };
+        moveGroup.add(movePlane);
+
+        const createArrow = (color, rotY, axisName) => {
+            const arrowGroup = new THREE.Group();
+            arrowGroup.rotation.y = rotY;
+            const mat = new THREE.MeshBasicMaterial({ color: color, depthTest: false, depthWrite: false, transparent: true, opacity: 0.9 });
+            const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.7), mat);
+            shaft.rotation.x = Math.PI / 2;
+            shaft.position.z = 0.45;
+            shaft.name = axisName;
+            shaft.userData = { defaultColor: color, defaultOpacity: 0.9, hoverOpacity: 1.0 };
+            shaft.renderOrder = 999;
+            const head = new THREE.Mesh(new THREE.ConeGeometry(0.18, 0.35, 16), mat);
+            head.rotation.x = Math.PI / 2;
+            head.position.z = 0.9;
+            head.name = axisName;
+            head.userData = { defaultColor: color, defaultOpacity: 0.9, hoverOpacity: 1.0 };
+            head.renderOrder = 999;
+
+            // Invisible generous touch hitbox for mobile and finger interaction
+            const hitCylinder = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.25, 1.1, 8), hitMat);
+            hitCylinder.rotation.x = Math.PI / 2;
+            hitCylinder.position.z = 0.55;
+            hitCylinder.name = axisName;
+            hitCylinder.renderOrder = 999;
+
+            arrowGroup.add(shaft, head, hitCylinder);
+            return arrowGroup;
+        };
+
+        moveGroup.add(createArrow(GIZMO_COLOR_X, Math.PI / 2, 'translateX'));
+        moveGroup.add(createArrow(GIZMO_COLOR_X, -Math.PI / 2, 'translateX'));
+        moveGroup.add(createArrow(GIZMO_COLOR_Z, 0, 'translateZ'));
+        moveGroup.add(createArrow(GIZMO_COLOR_Z, Math.PI, 'translateZ'));
+
+        this.handles.add(moveGroup);
     }
     
     updateScaleGizmo(object, finalScale) {
@@ -85,9 +139,12 @@ export class TransformGizmo extends THREE.Group {
 
         // Apply group-level visibility based on mode
         this.handles.children.forEach(child => {
-            if (mode === 'scale') {
+            if (mode === 'translate' || mode === 'move' || mode === 'place') {
+                child.visible = child.name === 'translate';
+            } else if (mode === 'scale') {
                 child.visible = child.name === 'scale';
             } else {
+                if (child.name === 'translate') child.visible = false;
                 if (child.name === 'scale') child.visible = false;
                 if (child.name === 'X') child.visible = !!showX;
                 if (child.name === 'Y') child.visible = !!showY;

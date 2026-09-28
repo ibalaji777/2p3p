@@ -6,7 +6,6 @@ import {
     INTERACTION_STATE, 
     INTERACTION_ACTIONS 
 } from '../tools/CommonInteractionController.js';
-import { UniversalMoveGizmo } from '../UniversalMoveGizmo.js';
 import { UniversalSpinGizmo } from '../UniversalSpinGizmo.js';
 import { coreEventBus } from '../../EventBus.js';
 
@@ -38,20 +37,14 @@ describe('Centralized Interaction Controller & State Machine', () => {
             camera: new THREE.PerspectiveCamera(),
             scene: new THREE.Scene(),
             interactions: {
-                transformControls: { detach: vi.fn() },
+                transformControls: { 
+                    attach: vi.fn(),
+                    detach: vi.fn(),
+                    mode: 'translate'
+                },
                 highlightRenderer: {
                     setSelectionHighlight: vi.fn(),
                     clearSelectionHighlight: vi.fn()
-                },
-                universalMoveGizmo: {
-                    attach: vi.fn(),
-                    detach: vi.fn(),
-                    startMoveMode: vi.fn(),
-                    commitMoveMode: vi.fn(),
-                    cancelMoveMode: vi.fn(),
-                    step: vi.fn(),
-                    setCoordinates: vi.fn(),
-                    setSnapMode: vi.fn()
                 },
                 universalSpinGizmo: {
                     attach: vi.fn(),
@@ -101,7 +94,7 @@ describe('Centralized Interaction Controller & State Machine', () => {
             expect(controller.interactionState).toBe(INTERACTION_STATE.IDLE);
             expect(controller.activeAction).toBeNull();
             expect(controller.hudMode).toBe('none');
-            expect(mockCtx.interactions.universalMoveGizmo.attach).not.toHaveBeenCalled();
+            expect(mockCtx.interactions.transformControls.attach).not.toHaveBeenCalled();
 
             expect(toastEvents.length).toBe(1);
             expect(toastEvents[0].message).toBe('Select an object first');
@@ -191,8 +184,8 @@ describe('Centralized Interaction Controller & State Machine', () => {
             expect(controller.activeAction).toBe(INTERACTION_ACTIONS.MOVE);
             expect(controller.hudMode).toBe('action_minimal');
 
-            expect(mockCtx.interactions.universalMoveGizmo.attach).toHaveBeenCalledWith(mesh);
-            expect(mockCtx.interactions.universalMoveGizmo.startMoveMode).toHaveBeenCalled();
+            expect(mockCtx.interactions.transformControls.attach).toHaveBeenCalledWith(mesh);
+            expect(mockCtx.interactions.transformControls.mode).toBe('translate');
             expect(mockCtx.interactions.universalSpinGizmo.detach).toHaveBeenCalled();
         });
 
@@ -204,7 +197,7 @@ describe('Centralized Interaction Controller & State Machine', () => {
             expect(controller.hudMode).toBe('action_minimal');
 
             expect(mockCtx.interactions.universalSpinGizmo.attach).toHaveBeenCalledWith(mesh);
-            expect(mockCtx.interactions.universalMoveGizmo.detach).toHaveBeenCalled();
+            expect(mockCtx.interactions.transformControls.detach).toHaveBeenCalled();
         });
 
         it('should seamlessly switch between Move and Spin without stacking popups', () => {
@@ -214,14 +207,15 @@ describe('Centralized Interaction Controller & State Machine', () => {
             // Switch to Spin directly
             controller.activateAction(INTERACTION_ACTIONS.SPIN);
             expect(controller.activeAction).toBe(INTERACTION_ACTIONS.SPIN);
-            expect(mockCtx.interactions.universalMoveGizmo.detach).toHaveBeenCalled();
+            expect(mockCtx.interactions.transformControls.detach).toHaveBeenCalled();
             expect(mockCtx.interactions.universalSpinGizmo.attach).toHaveBeenCalledWith(mesh);
         });
 
-        it('should attach universalMoveGizmo when Move action is activated', () => {
+        it('should attach transformControls when Move action is activated', () => {
             controller.activateAction(INTERACTION_ACTIONS.MOVE);
 
-            expect(mockCtx.interactions.universalMoveGizmo.attach).toHaveBeenCalledWith(mesh);
+            expect(mockCtx.interactions.transformControls.attach).toHaveBeenCalledWith(mesh);
+            expect(mockCtx.interactions.transformControls.mode).toBe('translate');
             expect(controller.activeAction).toBe(INTERACTION_ACTIONS.MOVE);
             expect(controller.interactionState).toBe(INTERACTION_STATE.ACTION_ACTIVE);
         });
@@ -236,7 +230,7 @@ describe('Centralized Interaction Controller & State Machine', () => {
             expect(controller.activeAction).toBeNull();
             expect(controller.hudMode).toBe('contextual');
             expect(controller.selectedEntity).toBe(furniture);
-            expect(mockCtx.interactions.universalMoveGizmo.detach).toHaveBeenCalled();
+            expect(mockCtx.interactions.transformControls.detach).toHaveBeenCalled();
         });
 
         it('should return to OBJECT_SELECTED when cancelAction is called', () => {
@@ -251,7 +245,7 @@ describe('Centralized Interaction Controller & State Machine', () => {
             expect(mockCtx.interactions.universalSpinGizmo.detach).toHaveBeenCalled();
         });
 
-        it('should route Move for doors to dedicated opening mode and NOT attach universalMoveGizmo', () => {
+        it('should route Move for doors to dedicated opening mode and NOT attach transformControls', () => {
             const door = { id: 'door_main', type: 'door', width: 90, height: 210 };
             const doorMesh = new THREE.Mesh();
             doorMesh.userData = { entity: door, isWidget: true };
@@ -260,11 +254,10 @@ describe('Centralized Interaction Controller & State Machine', () => {
             controller.activateAction(INTERACTION_ACTIONS.MOVE);
 
             expect(mockCtx.gizmoManager.setTransformMode).toHaveBeenCalledWith('opening', true);
-            expect(mockCtx.interactions.universalMoveGizmo.attach).not.toHaveBeenCalledWith(doorMesh);
-            expect(mockCtx.interactions.universalMoveGizmo.detach).toHaveBeenCalled();
+            expect(mockCtx.interactions.transformControls.attach).not.toHaveBeenCalledWith(doorMesh);
         });
 
-        it('should route Move for roofs to dedicated roof move mode and NOT attach universalMoveGizmo', () => {
+        it('should route Move for roofs to dedicated roof move mode', () => {
             const roof = { id: 'roof_1', type: 'roof', config: { roofType: 'flat' } };
             const roofMesh = new THREE.Mesh();
             roofMesh.userData = { entity: roof, isRoof: true };
@@ -273,8 +266,6 @@ describe('Centralized Interaction Controller & State Machine', () => {
             controller.activateAction(INTERACTION_ACTIONS.MOVE);
 
             expect(mockCtx.gizmoManager.setTransformMode).toHaveBeenCalledWith('translate', true);
-            expect(mockCtx.interactions.universalMoveGizmo.attach).not.toHaveBeenCalledWith(roofMesh);
-            expect(mockCtx.interactions.universalMoveGizmo.detach).toHaveBeenCalled();
         });
     });
 
@@ -338,7 +329,7 @@ describe('Centralized Interaction Controller & State Machine', () => {
     });
 
     describe('6. Redundant Floating Pop-Up Suppression', () => {
-        let moveGizmo, spinGizmo;
+        let spinGizmo;
 
         beforeEach(() => {
             const preview3D = {
@@ -347,25 +338,7 @@ describe('Centralized Interaction Controller & State Machine', () => {
                 domElement: document.createElement('div'),
                 requestRender: vi.fn()
             };
-            moveGizmo = new UniversalMoveGizmo(preview3D);
             spinGizmo = new UniversalSpinGizmo(preview3D);
-        });
-
-        it('should suppress standalone move HUD dialog when ContextualActionHUD is mounted', () => {
-            // Mount dummy contextual action HUD container
-            const hudContainer = document.createElement('div');
-            hudContainer.className = 'contextual-action-hud-container';
-            document.body.appendChild(hudContainer);
-
-            // Trigger move gizmo showHUD
-            moveGizmo.showHUD();
-
-            // Standalone #universal-move-hud-panel should NOT be created
-            const legacyPanel = document.getElementById('universal-move-hud-panel');
-            expect(legacyPanel).toBeNull();
-
-            // Clean up
-            document.body.removeChild(hudContainer);
         });
 
         it('should suppress standalone spin HUD dialog when ContextualActionHUD is mounted', () => {

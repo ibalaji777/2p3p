@@ -122,11 +122,39 @@ export class CommonInteractionController {
                 this.activeAction = toolId;
                 this.hudMode = 'action_minimal';
             }
-            const targetMesh = this.selectedMesh || this.selectedEntity?.mesh3D || this.ctx.interactions?.selectedObject;
-            const targetEntity = this.selectedEntity || targetMesh?.userData?.entity;
-            const entType = targetEntity?.type || targetMesh?.userData?.type || '';
-            const isOpening = Boolean(targetMesh?.userData?.isWidget || targetMesh?.userData?.isOpening || ['door', 'window', 'arch_opening', 'circular_opening', 'custom_shape_opening', 'pattern_opening', 'boolean_cut', 'niche_recess'].includes(entType));
-            const isRoof = Boolean(targetMesh?.userData?.isRoof || entType === 'roof' || targetEntity?.config?.roofType);
+            const targetEntity = this.selectedEntity;
+            const targetMesh = this.selectedMesh || targetEntity?.mesh3D;
+            const entType = (this.selectedType || targetEntity?.type || '').toString().toLowerCase();
+            const isOpening = entType.includes('door') || entType.includes('window') || entType.includes('opening');
+            const isRoof = entType.startsWith('roof') || entType.includes('roof') || targetEntity?.isRoof;
+
+            const isStair = Boolean(
+                targetMesh?.userData?.isStair || 
+                entType?.startsWith('stair') || 
+                targetEntity?.isStair || 
+                targetEntity?.flight1Steps !== undefined || 
+                targetEntity?.constructor?.name === 'PremiumStaircase'
+            );
+
+            // 2a. Sims 4 Move Delegation for Staircases
+            if (toolId === COMMON_TOOLS.MOVE && isStair && targetEntity) {
+                if (this.ctx.gizmoManager) {
+                    this.ctx.gizmoManager.setTransformMode('none', true);
+                }
+                if (this.ctx.interactions?.transformControls) {
+                    this.ctx.interactions.transformControls.detach();
+                }
+                if (this.ctx.interactions?.universalSpinGizmo) {
+                    this.ctx.interactions.universalSpinGizmo.detach();
+                }
+                if (this.ctx.interactions?.stairPlacementSystem) {
+                    this.ctx.interactions.stairPlacementSystem.startRelocation(targetEntity);
+                }
+                coreEventBus.emit('CommonToolChanged', { activeTool: this.activeTool, previousTool });
+                coreEventBus.emit('InteractionStateChanged', this.getInteractionState());
+                if (this.ctx.requestRender) this.ctx.requestRender('stair_move_start');
+                return;
+            }
 
             if (targetMesh && this.ctx.gizmoManager) {
                 const modeMap = {
@@ -137,30 +165,33 @@ export class CommonInteractionController {
                 this.ctx.gizmoManager.setTransformMode(modeMap[toolId], true);
             }
             if (toolId === COMMON_TOOLS.MOVE) {
-                if (!isOpening && !isRoof && targetMesh && this.ctx.interactions?.universalMoveGizmo) {
-                    this.ctx.interactions.universalMoveGizmo.attach(targetMesh);
-                } else if (this.ctx.interactions?.universalMoveGizmo) {
-                    this.ctx.interactions.universalMoveGizmo.detach();
+                if (!isRoof && !isOpening && targetMesh && this.ctx.interactions?.transformControls) {
+                    this.ctx.interactions.transformControls.attach(targetMesh);
+                    this.ctx.interactions.transformControls.mode = 'translate';
                 }
-            } else {
-                if (this.ctx.interactions?.universalMoveGizmo) {
-                    this.ctx.interactions.universalMoveGizmo.detach();
+                if (this.ctx.interactions?.universalSpinGizmo) {
+                    this.ctx.interactions.universalSpinGizmo.detach();
                 }
-            }
-            if (toolId === COMMON_TOOLS.SPIN) {
+            } else if (toolId === COMMON_TOOLS.SPIN) {
+                if (this.ctx.interactions?.transformControls) {
+                    this.ctx.interactions.transformControls.detach();
+                }
                 if (!isRoof && !isOpening && targetMesh && this.ctx.interactions?.universalSpinGizmo) {
                     this.ctx.interactions.universalSpinGizmo.attach(targetMesh);
                 } else if (this.ctx.interactions?.universalSpinGizmo) {
                     this.ctx.interactions.universalSpinGizmo.detach();
                 }
             } else {
+                if (this.ctx.interactions?.transformControls) {
+                    this.ctx.interactions.transformControls.detach();
+                }
                 if (this.ctx.interactions?.universalSpinGizmo) {
                     this.ctx.interactions.universalSpinGizmo.detach();
                 }
             }
         } else {
-            if (this.ctx.interactions?.universalMoveGizmo) {
-                this.ctx.interactions.universalMoveGizmo.detach();
+            if (this.ctx.interactions?.transformControls) {
+                this.ctx.interactions.transformControls.detach();
             }
             if (this.ctx.interactions?.universalSpinGizmo) {
                 this.ctx.interactions.universalSpinGizmo.detach();
@@ -300,8 +331,11 @@ export class CommonInteractionController {
         this.interactionState = INTERACTION_STATE.IDLE;
         this.hudMode = 'none';
 
-        if (this.ctx.interactions?.universalMoveGizmo) {
-            this.ctx.interactions.universalMoveGizmo.detach();
+        if (this.ctx.interactions?.stairPlacementSystem?.isRelocating) {
+            this.ctx.interactions.stairPlacementSystem.cancelRelocation();
+        }
+        if (this.ctx.interactions?.transformControls) {
+            this.ctx.interactions.transformControls.detach();
         }
         if (this.ctx.interactions?.universalSpinGizmo) {
             this.ctx.interactions.universalSpinGizmo.detach();
@@ -390,27 +424,6 @@ export class CommonInteractionController {
                 this.activeAction = INTERACTION_ACTIONS.MOVE;
                 this.hudMode = 'action_minimal';
                 this.setTool(COMMON_TOOLS.MOVE, options);
-                {
-                    const targetEntity = this.selectedEntity;
-                    const targetMesh = this.selectedMesh || this.selectedEntity?.mesh3D || this.ctx.interactions?.selectedObject;
-                    const entType = targetEntity?.type || targetMesh?.userData?.type || '';
-                    const isOpening = Boolean(targetMesh?.userData?.isWidget || targetMesh?.userData?.isOpening || ['door', 'window', 'arch_opening', 'circular_opening', 'custom_shape_opening', 'pattern_opening', 'boolean_cut', 'niche_recess'].includes(entType));
-                    const isRoof = Boolean(targetMesh?.userData?.isRoof || entType === 'roof' || targetEntity?.config?.roofType);
-
-                    let handledByRelocation = false;
-                    if (!isOpening && !isRoof && this.ctx.interactions && typeof this.ctx.interactions.startRelocation === 'function') {
-                        handledByRelocation = this.ctx.interactions.startRelocation(targetEntity, targetMesh);
-                    }
-
-                    if (!isOpening && !isRoof && !handledByRelocation && targetMesh && this.ctx.interactions?.universalMoveGizmo) {
-                        if (typeof this.ctx.interactions.universalMoveGizmo.attach === 'function') {
-                            this.ctx.interactions.universalMoveGizmo.attach(targetMesh);
-                        }
-                        if (typeof this.ctx.interactions.universalMoveGizmo.startMoveMode === 'function') {
-                            this.ctx.interactions.universalMoveGizmo.startMoveMode();
-                        }
-                    }
-                }
                 coreEventBus.emit('InteractionStateChanged', this.getInteractionState());
                 return true;
 
@@ -462,24 +475,14 @@ export class CommonInteractionController {
 
         this.interactionState = INTERACTION_STATE.ACTION_COMPLETE;
 
-        // Commit active relocation if running in stair/furniture placement systems
+        // Complete stair relocation if active
         if (this.ctx.interactions?.stairPlacementSystem?.isRelocating) {
             this.ctx.interactions.stairPlacementSystem.placeStaircase();
         }
-        if (this.ctx.interactions?.furniturePlacementSystem?.isRelocating) {
-            this.ctx.interactions.furniturePlacementSystem.placeFurniture();
-        }
-
-        // Commit active move mode if running
-        if (typeof this.ctx.interactions?.universalMoveGizmo?.commitMoveMode === 'function' && this.ctx.interactions.universalMoveGizmo.isMoveModeActive) {
-            this.ctx.interactions.universalMoveGizmo.commitMoveMode();
-        }
 
         // Detach transform gizmos
-        if (this.ctx.interactions?.universalMoveGizmo) {
-            if (typeof this.ctx.interactions.universalMoveGizmo.detach === 'function') {
-                this.ctx.interactions.universalMoveGizmo.detach();
-            }
+        if (this.ctx.interactions?.transformControls) {
+            this.ctx.interactions.transformControls.detach();
         }
         if (this.ctx.interactions?.universalSpinGizmo) {
             if (typeof this.ctx.interactions.universalSpinGizmo.detach === 'function') {
@@ -504,16 +507,10 @@ export class CommonInteractionController {
      * Cancels the current active action, reverts changes if applicable, and returns to OBJECT_SELECTED.
      */
     cancelAction() {
+        if (this.ctx.interactions?.stairPlacementSystem?.isRelocating) {
+            this.ctx.interactions.stairPlacementSystem.cancelRelocation();
+        }
         if (this.interactionState === INTERACTION_STATE.ACTION_ACTIVE) {
-            if (this.ctx.interactions?.stairPlacementSystem?.isRelocating) {
-                this.ctx.interactions.stairPlacementSystem.cancelRelocation();
-            }
-            if (this.ctx.interactions?.furniturePlacementSystem?.isRelocating) {
-                this.ctx.interactions.furniturePlacementSystem.cancelRelocation();
-            }
-            if (typeof this.ctx.interactions?.universalMoveGizmo?.cancelMoveMode === 'function' && this.ctx.interactions.universalMoveGizmo.isMoveModeActive) {
-                this.ctx.interactions.universalMoveGizmo.cancelMoveMode();
-            }
             this.completeAction();
         } else if (this.interactionState === INTERACTION_STATE.OBJECT_SELECTED) {
             this.clearSelection();

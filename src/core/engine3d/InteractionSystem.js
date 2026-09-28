@@ -16,7 +16,6 @@ import { GableRoofGizmo } from '../../features/roof/GableRoofGizmo.js';
 import { HalfGableRoofGizmo } from '../../features/roof/HalfGableRoofGizmo.js';
 import { PolygonGizmo } from './PolygonGizmo.js';
 import { UniversalSpinGizmo } from './UniversalSpinGizmo.js';
-import { UniversalMoveGizmo } from './UniversalMoveGizmo.js';
 import { WallPushPullGizmo } from './WallPushPullGizmo.js';
 import { WallInteractiveSuite } from './WallInteractiveSuite.js';
 import { ElevationSegmentGizmo } from './ElevationSegmentGizmo.js';
@@ -105,6 +104,7 @@ export class OpeningGizmo extends THREE.Group {
                 e.preventDefault();
                 e.stopPropagation();
                 this.activeHandle = intersects[0].object.name;
+                this.ctx.cameraController?.freeze('opening_gizmo');
                 if (this.target?.userData?.entity) {
                     TransformEngine.startSession(this.target.userData.entity, 'openings', { clientX: e.clientX, clientY: e.clientY });
                 }
@@ -238,6 +238,7 @@ export class OpeningGizmo extends THREE.Group {
             if (this.activeHandle) {
                 e.preventDefault();
                 e.stopPropagation();
+                this.ctx.cameraController?.unfreeze('opening_gizmo');
                 
                 const entity = this.target.userData.entity;
                 this.activeHandle = null;
@@ -266,6 +267,7 @@ export class OpeningGizmo extends THREE.Group {
     }
 
     detach() {
+        this.ctx.cameraController?.unfreeze('opening_gizmo');
         this.target = null;
         this.visible = false;
         this.handles.children.forEach(c => c.scale.set(1, 1, 1));
@@ -326,6 +328,7 @@ export class OpeningGizmo extends THREE.Group {
     }
 
     dispose() {
+        this.ctx.cameraController?.unfreeze('opening_gizmo');
         const dom = this.ctx.renderer.domElement;
         dom.removeEventListener('pointerdown', this._onPointerDown);
         dom.removeEventListener('pointermove', this._onPointerMove);
@@ -439,6 +442,7 @@ export class InteractionSystem {
         this.drag3DStartRot = null;
 
         this._onMoveStart = (e) => {
+            this.ctx.cameraController?.freeze('object_transform_move');
             if (e.object && e.object.userData && e.object.userData.entity) {
                 const ent = e.object.userData.entity;
                 const posX = ent.x !== undefined ? ent.x : (ent.group ? ent.group.x() : e.object.position.x);
@@ -449,6 +453,7 @@ export class InteractionSystem {
         };
 
         this._onMoveEnd = (e) => {
+            this.ctx.cameraController?.unfreeze('object_transform_move');
             if (e.object && e.object.userData && e.object.userData.entity && this.drag3DStartPos) {
                 const ent = e.object.userData.entity;
                 const plannerInst = window.planner?.value || window.planner || this.ctx.planner;
@@ -464,6 +469,7 @@ export class InteractionSystem {
         };
 
         this._onRotateStart = (e) => {
+            this.ctx.cameraController?.freeze('object_transform_rotate');
             if (e.object && e.object.userData && e.object.userData.entity) {
                 const ent = e.object.userData.entity;
                 this.drag3DStartRot = e.object.rotation.y;
@@ -472,6 +478,7 @@ export class InteractionSystem {
         };
 
         this._onRotateEnd = (e) => {
+            this.ctx.cameraController?.unfreeze('object_transform_rotate');
             if (e.object && e.object.userData && e.object.userData.entity && this.drag3DStartRot !== null) {
                 const ent = e.object.userData.entity;
                 const endRotRad = e.object.rotation.y;
@@ -493,12 +500,22 @@ export class InteractionSystem {
         this.transformControls.addEventListener('move-end', this._onMoveEnd);
         this.transformControls.addEventListener('rotate-start', this._onRotateStart);
         this.transformControls.addEventListener('rotate-end', this._onRotateEnd);
+        this.transformControls.addEventListener('spin-start', this._onRotateStart);
+        this.transformControls.addEventListener('spin-end', this._onRotateEnd);
+        this.transformControls.addEventListener('tilt-start', this._onRotateStart);
+        this.transformControls.addEventListener('tilt-end', this._onRotateEnd);
         this.transformControls.addEventListener('move-change', this._syncUI);
         this.transformControls.addEventListener('scale-change', this._syncUI);
         this.transformControls.addEventListener('spin-change', this._syncUI);
         this.transformControls.addEventListener('tilt-change', this._syncUI);
         this.transformControls.addEventListener('rotate-change', this._syncUI);
         this.transformControls.addEventListener('dragging-changed', (event) => {
+            if (this.ctx.cameraController) {
+                if (event.value) this.ctx.cameraController.freeze('transform_controls_drag');
+                else this.ctx.cameraController.unfreeze('transform_controls_drag');
+            } else if (this.ctx.controls) {
+                this.ctx.controls.enabled = !event.value;
+            }
             if (this.ctx.renderCoordinator) {
                 if (event.value) this.ctx.renderCoordinator.startContinuousRender('transform_controls');
                 else this.ctx.renderCoordinator.stopContinuousRender('transform_controls');
@@ -549,9 +566,6 @@ export class InteractionSystem {
 
         this.universalSpinGizmo = new UniversalSpinGizmo(ctx);
         this.ctx.scene.add(this.universalSpinGizmo);
-
-        this.universalMoveGizmo = new UniversalMoveGizmo(ctx);
-        this.ctx.scene.add(this.universalMoveGizmo);
 
         this.wallInteractiveSuite = new WallInteractiveSuite(ctx);
         this.ctx.scene.add(this.wallInteractiveSuite);
@@ -722,7 +736,6 @@ export class InteractionSystem {
                 return;
             }
 
-            if (this.universalMoveGizmo && this.universalMoveGizmo.isMoveModeActive) return;
             if (this.transformControls && this.transformControls.active) return;
             if (e.button !== 0) return;
 
@@ -812,20 +825,6 @@ export class InteractionSystem {
                 if (this.raycaster.intersectObjects(this.roomInteractiveSuite.edgeArrowsGroup.children, true).length > 0) return;
             }
 
-            // Direct check for interactive Universal Move Gizmo handles or attached entity
-            if (this.universalMoveGizmo && this.universalMoveGizmo.visible) {
-                this.raycaster.setFromCamera(this.mouse, this.ctx.camera);
-                const hitsGizmo = this.raycaster.intersectObjects(this.universalMoveGizmo.gizmoVisuals.children, true).length > 0;
-                let hitsAttached = false;
-                if (!hitsGizmo && this.universalMoveGizmo.attachedObject) {
-                    hitsAttached = this.raycaster.intersectObject(this.universalMoveGizmo.attachedObject, true).length > 0;
-                    if (!hitsAttached && this.universalMoveGizmo.isRoomMove && this.universalMoveGizmo.roomMoveData?.walls) {
-                        const wallMeshes = this.universalMoveGizmo.roomMoveData.walls.map(w => w.mesh3D).filter(Boolean);
-                        hitsAttached = this.raycaster.intersectObjects(wallMeshes, true).length > 0;
-                    }
-                }
-                if (hitsGizmo || hitsAttached) return;
-            }
 
             // Direct check for interactive Elevation Segment Gizmo handles (Push/Pull, Extrude, Bend, Elev)
             if (this.elevationSegmentGizmo && this.elevationSegmentGizmo.visible) {
@@ -996,7 +995,9 @@ export class InteractionSystem {
                 if (this.mode !== 'camera' && !this.allWallCornersGizmo?.isActive) {
                     this.deselect();
                 }
-                if (this.ctx.controls) this.ctx.controls.enabled = true;
+                if (this.ctx.controls && !this.ctx.cameraController?.isFrozen()) {
+                    this.ctx.controls.enabled = true;
+                }
             }
         };
 
@@ -1056,7 +1057,6 @@ export class InteractionSystem {
                 return;
             }
 
-            if (this.universalMoveGizmo && this.universalMoveGizmo.isMoveModeActive) return;
             if (this.transformControls && this.transformControls.active) return;
             
             if (this.ctx.currentTransformMode && this.ctx.currentTransformMode !== 'none' && this.ctx.currentTransformMode !== 'translate' && this.ctx.currentTransformMode !== 'move' && this.ctx.currentTransformMode !== 'rotateY' && this.ctx.currentTransformMode !== 'spin') {
@@ -1214,7 +1214,11 @@ export class InteractionSystem {
                     const t2 = e.touches[1];
                     initialTwistAngle = Math.atan2(t2.clientY - t1.clientY, t2.clientX - t1.clientX) * (180 / Math.PI);
                     initialEntityAngle = ent.rotation || 0;
-                    if (this.ctx.controls) this.ctx.controls.enabled = false;
+                    if (this.ctx.cameraController) {
+                        this.ctx.cameraController.freeze('touch_twist');
+                    } else if (this.ctx.controls) {
+                        this.ctx.controls.enabled = false;
+                    }
                     if (this.universalSpinGizmo) {
                         this.universalSpinGizmo.attach(this.selectedObject);
                     }
@@ -1250,7 +1254,11 @@ export class InteractionSystem {
         this._onTouchEnd = (e) => {
             if (isTouchTwisting) {
                 isTouchTwisting = false;
-                if (this.ctx.controls) this.ctx.controls.enabled = (this.mode === 'camera');
+                if (this.ctx.cameraController) {
+                    this.ctx.cameraController.unfreeze('touch_twist');
+                } else if (this.ctx.controls) {
+                    this.ctx.controls.enabled = (this.mode === 'camera');
+                }
                 const plannerInst = window.plannerInstance || window.planner?.value || window.planner;
                 if (TransformEngine.isSessionActive()) {
                     TransformEngine.commitSession(plannerInst);
@@ -1373,7 +1381,7 @@ export class InteractionSystem {
             const isRoof = Boolean(this.selectedObject && (this.selectedObject.userData?.isRoof || entType === 'roof' || entity?.config?.roofType));
 
             if (isOpening) {
-                if (this.universalMoveGizmo) this.universalMoveGizmo.detach();
+                if (this.transformControls) this.transformControls.detach();
                 if (this.universalSpinGizmo) this.universalSpinGizmo.detach();
                 if (this.roofPitchGizmo) this.roofPitchGizmo.detach();
                 if (this.flatRoofGizmo) this.flatRoofGizmo.detach();
@@ -1392,7 +1400,7 @@ export class InteractionSystem {
             }
 
             if (isRoof) {
-                if (this.universalMoveGizmo) this.universalMoveGizmo.detach();
+                if (this.transformControls) this.transformControls.detach();
                 if (this.universalSpinGizmo) this.universalSpinGizmo.detach();
                 if (this.openingGizmo) this.openingGizmo.detach();
 
@@ -1444,18 +1452,22 @@ export class InteractionSystem {
             if (this.curvedPortalRoofGizmo) this.curvedPortalRoofGizmo.detach();
 
             if (mode === 'spin' || mode === 'rotateY') {
+                if (this.transformControls) this.transformControls.detach();
                 if (this.universalSpinGizmo && this.selectedObject) {
                     this.universalSpinGizmo.attach(this.selectedObject);
                 }
-            } else {
+            } else if (mode === 'move' || mode === 'translate') {
                 if (this.universalSpinGizmo) this.universalSpinGizmo.detach();
-            }
-            if (mode === 'move' || mode === 'translate') {
-                if (this.universalMoveGizmo && this.selectedObject) {
-                    this.universalMoveGizmo.attach(this.selectedObject);
+                if (this.transformControls && this.selectedObject) {
+                    this.transformControls.mode = 'translate';
+                    this.transformControls.attach(this.selectedObject);
                 }
             } else {
-                if (this.universalMoveGizmo) this.universalMoveGizmo.detach();
+                if (this.universalSpinGizmo) this.universalSpinGizmo.detach();
+                if (this.transformControls) {
+                    this.transformControls.mode = mode;
+                    this.transformControls.attach(this.selectedObject);
+                }
             }
         } else {
             if (this.universalSpinGizmo) this.universalSpinGizmo.detach();
@@ -1481,51 +1493,16 @@ export class InteractionSystem {
         if (this.ctx.onRelocateStateChange) this.ctx.onRelocateStateChange(active);
     }
 
-    startRelocation(entity, mesh = null) {
-        if (!entity) return false;
-
-        const isStair = Boolean(
-            entity.type === 'staircase' ||
-            (typeof entity.type === 'string' && entity.type.startsWith('stair')) ||
-            entity.constructor?.name === 'PremiumStaircase'
-        );
-
-        if (isStair && this.stairPlacementSystem) {
-            if (this.universalMoveGizmo) this.universalMoveGizmo.detach();
-            this.setRelocationState(true);
-            this.stairPlacementSystem.startRelocation(entity);
-            return true;
-        }
-
-        const isFurniture = Boolean(
-            entity.type === 'furniture' ||
-            entity.configId ||
-            entity.constructor?.name === 'PremiumFurniture'
-        );
-
-        if (isFurniture && this.furniturePlacementSystem) {
-            if (this.universalMoveGizmo) this.universalMoveGizmo.detach();
-            this.setRelocationState(true);
-            this.furniturePlacementSystem.startRelocation(entity);
-            return true;
-        }
-
-        return false;
-    }
-
     cancelRelocation() {
         this.setRelocationState(false);
-        if (this.universalMoveGizmo && this.universalMoveGizmo.isMoveModeActive) {
-            this.universalMoveGizmo.cancelMoveMode();
+        if (this.stairPlacementSystem) {
+            if (this.stairPlacementSystem.isRelocating && typeof this.stairPlacementSystem.cancelRelocation === 'function') {
+                this.stairPlacementSystem.cancelRelocation();
+            } else if (this.stairPlacementSystem.hideGhost) {
+                this.stairPlacementSystem.hideGhost();
+            }
         }
-        if (this.stairPlacementSystem && typeof this.stairPlacementSystem.cancelRelocation === 'function') {
-            this.stairPlacementSystem.cancelRelocation();
-        } else if (this.stairPlacementSystem && this.stairPlacementSystem.hideGhost) {
-            this.stairPlacementSystem.hideGhost();
-        }
-        if (this.furniturePlacementSystem && typeof this.furniturePlacementSystem.cancelRelocation === 'function') {
-            this.furniturePlacementSystem.cancelRelocation();
-        } else if (this.furniturePlacementSystem && this.furniturePlacementSystem.hideGhost) {
+        if (this.furniturePlacementSystem && this.furniturePlacementSystem.hideGhost) {
             this.furniturePlacementSystem.hideGhost();
         }
         if (this.wallPluginPlacementSystem && this.wallPluginPlacementSystem.hideGhost) {
@@ -1735,7 +1712,7 @@ export class InteractionSystem {
             const isObjOpening = Boolean(object.userData?.isWidget || object.userData?.isOpening || ['door', 'window', 'arch_opening', 'circular_opening', 'custom_shape_opening', 'pattern_opening', 'boolean_cut', 'niche_recess'].includes(effectiveType || object.userData?.entity?.type));
 
             if (isObjOpening) {
-                if (this.universalMoveGizmo) this.universalMoveGizmo.detach();
+                if (this.transformControls) this.transformControls.detach();
                 if (this.universalSpinGizmo) this.universalSpinGizmo.detach();
                 if (this.openingGizmo) this.openingGizmo.detach();
                 if (this.ctx.gizmoManager) {
@@ -1745,16 +1722,19 @@ export class InteractionSystem {
                     this.ctx.showTransformMenu(true);
                 }
             } else if (isObjRoof) {
-                if (this.universalMoveGizmo) this.universalMoveGizmo.detach();
+                if (this.transformControls) this.transformControls.detach();
                 if (this.universalSpinGizmo) this.universalSpinGizmo.detach();
             } else if (this.commonController?.activeTool === COMMON_TOOLS.MOVE || this.ctx.currentTransformMode === 'translate' || this.ctx.currentTransformMode === 'move') {
-                if (this.universalMoveGizmo) this.universalMoveGizmo.attach(object);
+                if (this.transformControls) {
+                    this.transformControls.mode = 'translate';
+                    this.transformControls.attach(object);
+                }
                 if (this.universalSpinGizmo) this.universalSpinGizmo.detach();
             } else if (this.commonController?.activeTool === COMMON_TOOLS.SPIN || this.ctx.currentTransformMode === 'rotateY' || this.ctx.currentTransformMode === 'spin') {
                 if (this.universalSpinGizmo) this.universalSpinGizmo.attach(object);
-                if (this.universalMoveGizmo) this.universalMoveGizmo.detach();
+                if (this.transformControls) this.transformControls.detach();
             } else {
-                if (this.universalMoveGizmo) this.universalMoveGizmo.detach();
+                if (this.transformControls) this.transformControls.detach();
                 if (this.universalSpinGizmo) this.universalSpinGizmo.detach();
             }
             if (planner && effectiveEntity && planner.selectedEntity !== effectiveEntity) {
@@ -1818,7 +1798,7 @@ export class InteractionSystem {
             if (this.halfGableRoofGizmo) this.halfGableRoofGizmo.detach();
             if (this.curvedPortalRoofGizmo) this.curvedPortalRoofGizmo.detach();
             if (this.polygonGizmo) this.polygonGizmo.detach();
-            if (this.universalMoveGizmo) this.universalMoveGizmo.detach();
+            if (this.transformControls) this.transformControls.detach();
             if (this.universalSpinGizmo) this.universalSpinGizmo.detach();
             if (this.wallInteractiveSuite) this.wallInteractiveSuite.detach();
             if (this.platformInteractiveSuite) this.platformInteractiveSuite.detach();
@@ -1884,7 +1864,6 @@ export class InteractionSystem {
         if (this.gableRoofGizmo && this.gableRoofGizmo.dispose) this.gableRoofGizmo.dispose();
         if (this.halfGableRoofGizmo && this.halfGableRoofGizmo.dispose) this.halfGableRoofGizmo.dispose();
         if (this.polygonGizmo && this.polygonGizmo.dispose) this.polygonGizmo.dispose();
-        if (this.universalMoveGizmo && this.universalMoveGizmo.dispose) this.universalMoveGizmo.dispose();
         if (this.universalSpinGizmo && this.universalSpinGizmo.dispose) this.universalSpinGizmo.dispose();
         if (this.wallInteractiveSuite && this.wallInteractiveSuite.dispose) this.wallInteractiveSuite.dispose();
         if (this.wall3DDrawSystem && this.wall3DDrawSystem.dispose) this.wall3DDrawSystem.dispose();

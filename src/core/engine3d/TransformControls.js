@@ -11,6 +11,9 @@ export class TransformControls extends THREE.Group {
         this.object = null;
         
         this.raycaster = new THREE.Raycaster();
+        if (this.raycaster.params?.Line) {
+            this.raycaster.params.Line.threshold = 15;
+        }
         
         this.mode = 'rotate';
         this.showX = true;
@@ -201,6 +204,7 @@ export class TransformControls extends THREE.Group {
             this.dragIndicator.style.display = 'block';
 
             this.logic.startInteraction(this.object, this.mode, this.axis, this.worldPosition, this.worldQuaternion, mouse, this.raycaster);
+            this.dispatchEvent({ type: 'dragging-changed', value: true });
             return true;
         }
         return false;
@@ -220,6 +224,7 @@ export class TransformControls extends THREE.Group {
         this.gizmo.updateHighlight(this.axis, this.hoveredAxis);
         this.gizmo.handles.visible = true; // Show the rings/arrows after release
         this.update(); // Triggers updateVisibility which now restores mesh visibility
+        this.dispatchEvent({ type: 'dragging-changed', value: false });
     }
 
     createGhost() {

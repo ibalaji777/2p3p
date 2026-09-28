@@ -1,5 +1,4 @@
 import Konva from 'konva';
-import { SnapEngine } from '../snap/SnapEngine.js';
 
 export class SmartGuidesTrackingSystem {
     constructor(planner) {
@@ -34,22 +33,22 @@ export class SmartGuidesTrackingSystem {
 
         if (dist < 10) return movingPoint;
 
-        const rawAngle = Math.atan2(dy, dx) * 180 / Math.PI;
-        const relativeAngle = rawAngle - referenceAngle;
+        let rawAngle = Math.atan2(dy, dx) * 180 / Math.PI;
+        let relativeAngle = rawAngle - referenceAngle;
+        while (relativeAngle > 180) relativeAngle -= 360;
+        while (relativeAngle <= -180) relativeAngle += 360;
 
-        const res = SnapEngine.resolveAngle(relativeAngle, {
-            step: 15,
-            magneticZone: 5
-        });
-
-        if (res.isSnapped) {
-            const snappedAngle = referenceAngle + res.angle;
-            const rad = snappedAngle * Math.PI / 180;
-            return {
-                x: center.x + dist * Math.cos(rad),
-                y: center.y + dist * Math.sin(rad),
-                snapped: true
-            };
+        const snapIncrements = [0, 15, 30, 45, 60, 75, 90, 105, 120, 135, 150, 165, 180, -15, -30, -45, -60, -75, -90, -105, -120, -135, -150, -165, -180];
+        for (let a of snapIncrements) {
+            if (Math.abs(relativeAngle - a) < 5) {
+                let snappedAngle = referenceAngle + a;
+                let rad = snappedAngle * Math.PI / 180;
+                return {
+                    x: center.x + dist * Math.cos(rad),
+                    y: center.y + dist * Math.sin(rad),
+                    snapped: true
+                };
+            }
         }
         return movingPoint;
     }

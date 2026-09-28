@@ -233,6 +233,8 @@ export class TransformLogic {
         if (mode === 'translate' || mode === 'place') this.dispatchEvent({ type: 'move-end', object: object });
         else if (mode === 'scale') this.dispatchEvent({ type: 'scale-end', object: object });
         else if (mode === 'rotate') {
+            if (axis === 'Y') this.dispatchEvent({ type: 'spin-end', object: object });
+            else if (axis === 'X') this.dispatchEvent({ type: 'tilt-end', object: object });
             this.dispatchEvent({ type: 'rotate-end', object: object });
         }
     }

@@ -57,6 +57,17 @@ export class StairEngine {
         return StairGeometryEngine.getStepMetrics(stair);
     }
 
+    /**
+     * Recalculates staircase geometry and internal representations.
+     * @param {Object} stair 
+     */
+    static recalculateGeometry(stair) {
+        if (!stair) return;
+        if (typeof stair.update === 'function') {
+            stair.update();
+        }
+    }
+
     // ==========================================
     // 2. TOPOLOGY AUTHORITY
     // ==========================================

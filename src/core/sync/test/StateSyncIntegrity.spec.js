@@ -5,7 +5,6 @@ import { MoveCommand } from '../../commands/MoveCommand.js';
 import { RotateCommand } from '../../commands/RotateCommand.js';
 import { EVENTS } from '../../constants/events.js';
 import { coreEventBus } from '../../EventBus.js';
-import { UniversalMoveGizmo } from '../../engine3d/UniversalMoveGizmo.js';
 import { UniversalSpinGizmo } from '../../engine3d/UniversalSpinGizmo.js';
 import { CommonTransformEngine } from '../../engine3d/tools/CommonTransformEngine.js';
 
@@ -82,10 +81,7 @@ describe('2D ↔ 3D State Synchronization & Invariants Integrity Suite', () => {
     });
 
     describe('Invariant 3 & 4: 3D Direct Manipulation & History Command Integrity', () => {
-        it('UniversalMoveGizmo captures true startPos and creates valid MoveCommand with startPos != endPos', () => {
-            const domElement = document.createElement('div');
-            domElement.getBoundingClientRect = () => ({ left: 0, top: 0, width: 800, height: 600 });
-
+        it('captures true startPos and creates valid MoveCommand with startPos != endPos', () => {
             const mesh = new THREE.Mesh(new THREE.BoxGeometry(20, 20, 20), new THREE.MeshBasicMaterial());
             mesh.position.set(100, 0, 100);
 
@@ -105,28 +101,8 @@ describe('2D ↔ 3D State Synchronization & Invariants Integrity Suite', () => {
             mesh.userData = { entity };
             mockPlanner.entities.push(entity);
 
-            const mockCtx = {
-                renderer: { domElement },
-                camera: new THREE.PerspectiveCamera(45, 800 / 600, 1, 1000),
-                scene: new THREE.Scene(),
-                controls: { enabled: true },
-                requestRender: vi.fn(),
-                realtimeUpdate: { markDirty: vi.fn() },
-                interactions: {},
-                planner: mockPlanner
-            };
-            mockCtx.commonController = { transformEngine: new CommonTransformEngine(mockCtx) };
-
-            const gizmo = new UniversalMoveGizmo(mockCtx);
-            gizmo.attach(mesh);
-
-            // Dragged to new coordinates (200, 300)
-            entity.x = 200;
-            entity.y = 300;
-            mesh.position.set(200, 0, 300);
-
-            // Commit translation to planner
-            gizmo._commitTranslationToPlanner();
+            // Execute move from (100, 100) to (200, 300)
+            mockPlanner.move(entity.id, 200, 300, { x: 100, y: 100 });
 
             // Verify MoveCommand on undo stack
             expect(commandManager.undoStack.length).toBe(1);

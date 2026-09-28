@@ -130,31 +130,6 @@
 
       <div class="hud-divider"></div>
 
-      <!-- Snap Mode Pills -->
-      <div class="action-snaps">
-        <button 
-          v-for="snap in [0, 1, 10, 50]" 
-          :key="snap" 
-          class="snap-pill" 
-          :class="{ active: moveSnapMode === snap }"
-          @click="setMoveSnap(snap)"
-        >
-          {{ snap === 0 ? 'FREE' : snap + 'cm' }}
-        </button>
-      </div>
-
-      <!-- Wall Snap Toggle Button -->
-      <button 
-        class="wall-snap-btn" 
-        :class="{ active: wallSnapEnabled }"
-        @click="toggleWallSnap"
-        title="Toggle Wall Collision & Magnetic Snap"
-      >
-        🧲 Wall Snap: {{ wallSnapEnabled ? 'ON' : 'OFF' }}
-      </button>
-
-      <div class="hud-divider"></div>
-
       <!-- Rotate Button (90° Step) -->
       <button 
         class="hud-btn" 
@@ -254,32 +229,19 @@ const capabilities = ref({
 const liveX = ref(0);
 const liveZ = ref(0);
 const liveAngle = ref(0);
-const moveSnapMode = ref(10);
 const spinSnapMode = ref(15);
-const wallSnapEnabled = ref(true);
 
 const getActiveTransformSystem = () => {
   const ctrl = effectiveController.value;
   if (!ctrl) return null;
   const interactions = ctrl.ctx?.interactions;
-  if (interactions?.furniturePlacementSystem?.isRelocating || (activeAction.value === 'place' && interactions?.furniturePlacementSystem?.isPlacementTool?.())) {
-    return interactions.furniturePlacementSystem;
-  }
   if (interactions?.stairPlacementSystem?.isRelocating || (activeAction.value === 'place' && interactions?.stairPlacementSystem?.isPlacementTool?.())) {
     return interactions.stairPlacementSystem;
   }
-  return interactions?.universalMoveGizmo || null;
-};
-
-const toggleWallSnap = () => {
-  const sys = getActiveTransformSystem();
-  if (sys && typeof sys.toggleWallSnap === 'function') {
-    const res = sys.toggleWallSnap();
-    if (typeof res === 'boolean') wallSnapEnabled.value = res;
-    else wallSnapEnabled.value = !!sys.wallSnapEnabled;
-  } else {
-    wallSnapEnabled.value = !wallSnapEnabled.value;
+  if (activeAction.value === 'place' && interactions?.furniturePlacementSystem?.isPlacementTool?.()) {
+    return interactions.furniturePlacementSystem;
   }
+  return null;
 };
 
 const rotateStep = (deg = 90) => {
@@ -287,6 +249,19 @@ const rotateStep = (deg = 90) => {
   if (sys) {
     if (typeof sys.rotateStep === 'function') sys.rotateStep(deg);
     else if (typeof sys.rotate === 'function') sys.rotate(deg);
+    return;
+  }
+  const ctrl = effectiveController.value;
+  if (ctrl && ctrl.selectedEntity) {
+    const ent = ctrl.selectedEntity;
+    const pl = ctrl.ctx?.planner;
+    if (pl?.transformEngine) {
+      pl.transformEngine.startSession(ent, 'rotate');
+      ent.rotation = ((ent.rotation || 0) + deg) % 360;
+      pl.transformEngine.commitSession(ent, 'rotate');
+      if (typeof pl.syncAll === 'function') pl.syncAll();
+      liveAngle.value = Math.round(ent.rotation);
+    }
   }
 };
 
@@ -382,11 +357,11 @@ const handleDeselect = () => {
 
 const handleDone = () => {
   const ctrl = effectiveController.value;
-  if (activeAction.value === 'place') {
-    const sys = getActiveTransformSystem();
+  const sys = getActiveTransformSystem();
+  if (sys?.isRelocating || activeAction.value === 'place') {
     if (sys) {
-      if (typeof sys.placeFurniture === 'function') sys.placeFurniture();
-      else if (typeof sys.placeStaircase === 'function') sys.placeStaircase();
+      if (typeof sys.placeStaircase === 'function') sys.placeStaircase();
+      else if (typeof sys.placeFurniture === 'function') sys.placeFurniture();
     }
     return;
   }
@@ -397,8 +372,13 @@ const handleDone = () => {
 
 const handleCancel = () => {
   const ctrl = effectiveController.value;
+  const sys = getActiveTransformSystem();
+  if (sys?.isRelocating) {
+    if (typeof sys.cancelRelocation === 'function') sys.cancelRelocation();
+    if (ctrl) ctrl.cancelAction();
+    return;
+  }
   if (activeAction.value === 'place') {
-    const sys = getActiveTransformSystem();
     if (sys && typeof sys.hideGhost === 'function') {
       sys.hideGhost();
       const pl = ctrl?.ctx?.planner;
@@ -429,9 +409,25 @@ const stepMove = (dx, dz) => {
     return;
   }
   const ctrl = effectiveController.value;
-  const gizmo = ctrl?.ctx?.interactions?.universalMoveGizmo;
-  if (gizmo && typeof gizmo.step === 'function') {
-    gizmo.step(dx, dz);
+  if (ctrl && ctrl.selectedEntity) {
+    const ent = ctrl.selectedEntity;
+    const nx = (ent.x || 0) + dx * 10;
+    const nz = (ent.y !== undefined ? ent.y : (ent.z || 0)) + dz * 10;
+    const pl = ctrl.ctx?.planner;
+    if (pl?.transformEngine) {
+      pl.transformEngine.startSession(ent, 'translate');
+      if (ent.y !== undefined) {
+        ent.x = nx;
+        ent.y = nz;
+      } else {
+        ent.x = nx;
+        ent.z = nz;
+      }
+      pl.transformEngine.commitSession(ent, 'translate');
+      if (typeof pl.syncAll === 'function') pl.syncAll();
+      liveX.value = Math.round(nx);
+      liveZ.value = Math.round(nz);
+    }
   }
 };
 
@@ -447,6 +443,19 @@ const onXChange = (e) => {
     } else if (sys.activePos) {
       sys.activePos.x = val;
       if (typeof sys.updateGhostTransform === 'function') sys.updateGhostTransform();
+    }
+    return;
+  }
+  const ctrl = effectiveController.value;
+  if (ctrl && ctrl.selectedEntity) {
+    const ent = ctrl.selectedEntity;
+    const pl = ctrl.ctx?.planner;
+    if (pl?.transformEngine) {
+      pl.transformEngine.startSession(ent, 'translate');
+      ent.x = val;
+      pl.transformEngine.commitSession(ent, 'translate');
+      if (typeof pl.syncAll === 'function') pl.syncAll();
+      liveX.value = Math.round(val);
     }
   }
 };
@@ -464,14 +473,20 @@ const onZChange = (e) => {
       sys.activePos.z = val;
       if (typeof sys.updateGhostTransform === 'function') sys.updateGhostTransform();
     }
+    return;
   }
-};
-
-const setMoveSnap = (snap) => {
-  moveSnapMode.value = snap;
-  const sys = getActiveTransformSystem();
-  if (sys && typeof sys.setSnapMode === 'function') {
-    sys.setSnapMode(snap);
+  const ctrl = effectiveController.value;
+  if (ctrl && ctrl.selectedEntity) {
+    const ent = ctrl.selectedEntity;
+    const pl = ctrl.ctx?.planner;
+    if (pl?.transformEngine) {
+      pl.transformEngine.startSession(ent, 'translate');
+      if (ent.y !== undefined) ent.y = val;
+      else ent.z = val;
+      pl.transformEngine.commitSession(ent, 'translate');
+      if (typeof pl.syncAll === 'function') pl.syncAll();
+      liveZ.value = Math.round(val);
+    }
   }
 };
 
@@ -531,12 +546,10 @@ onMounted(() => {
   }));
 
   // Sync live Move transformation
-  unsubs.push(coreEventBus.on('UniversalMoveChanged', ({ x, z, rotation, wallSnap, snapMode }) => {
+  unsubs.push(coreEventBus.on('UniversalMoveChanged', ({ x, z, rotation }) => {
     if (x !== undefined) liveX.value = x;
     if (z !== undefined) liveZ.value = z;
     if (rotation !== undefined) liveAngle.value = rotation;
-    if (wallSnap !== undefined) wallSnapEnabled.value = wallSnap;
-    if (snapMode !== undefined) moveSnapMode.value = snapMode;
   }));
 
   // Sync live Spin transformation
@@ -758,33 +771,6 @@ onBeforeUnmount(() => {
   margin-left: 2px;
 }
 
-.wall-snap-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 4px 8px;
-  font-size: 11px;
-  font-weight: 700;
-  border-radius: 6px;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  color: #94a3b8;
-  cursor: pointer;
-  transition: all 0.15s ease;
-  white-space: nowrap;
-}
-
-.wall-snap-btn:hover {
-  background: rgba(255, 255, 255, 0.12);
-  color: #f1f5f9;
-}
-
-.wall-snap-btn.active {
-  background: rgba(16, 185, 129, 0.22);
-  border-color: rgba(16, 185, 129, 0.6);
-  color: #34d399;
-}
-
 .spin-angle-box {
   display: flex;
   align-items: center;
@@ -845,31 +831,6 @@ onBeforeUnmount(() => {
 
 .dpad-btn:hover {
   background: rgba(56, 189, 248, 0.3);
-}
-
-/* Snaps */
-.action-snaps {
-  display: flex;
-  gap: 3px;
-  background: rgba(0, 0, 0, 0.35);
-  padding: 2px 4px;
-  border-radius: 6px;
-}
-
-.snap-pill {
-  padding: 3px 6px;
-  font-size: 9.5px;
-  font-weight: 700;
-  border-radius: 4px;
-  background: transparent;
-  color: #94a3b8;
-  border: none;
-  cursor: pointer;
-}
-
-.snap-pill.active {
-  background: #00f0ff;
-  color: #0f172a;
 }
 
 /* Commit / Cancel */

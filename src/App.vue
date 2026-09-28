@@ -260,7 +260,10 @@ const displayUnit = computed(() => {
 });
 
 const isDrawerOpen = computed(() => {
-    return !!activeCategory.value || (isMobile.value && mobileMenuOpen.value && activeMobileTab.value === 'tools');
+    if (isMobile.value) {
+        return mobileMenuOpen.value && activeMobileTab.value === 'tools';
+    }
+    return !!activeCategory.value;
 });
 
 const handleCatalogSelect = (item) => {
@@ -291,6 +294,11 @@ const handleCatalogSelect = (item) => {
             planner.value.activePresetParams = params;
             activePresetParams.value = params;
             setTool(fType, params);
+            if (isMobile.value || isTablet.value) {
+                setTimeout(() => {
+                    renderer3D.value?.interactions?.furniturePlacementSystem?.spawnAtViewportCenter();
+                }, 50);
+            }
         } else if (item.toolId === 'furniture' || item.toolId === 'kitchen' || item.toolId === 'bathroom' || item.toolId === 'electronics') {
             spawnFurniture(item.params.type);
         } else if (item.params && item.params.points && item.toolId && item.toolId.startsWith('outdoor_')) {

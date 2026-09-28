@@ -519,8 +519,10 @@ export class WallPlugin3DPlacementSystem {
             return false;
         }
 
-        if (this.ctx && this.ctx.controls) {
-            this.ctx.controls.enableRotate = false;
+        if (this.ctx && this.ctx.cameraController) {
+            this.ctx.cameraController.freeze('wall_plugin_placement');
+        } else if (this.ctx && this.ctx.controls) {
+            this.ctx.controls.enabled = false;
         }
 
         const hitMesh = wallHit.object;
@@ -907,7 +909,7 @@ export class WallPlugin3DPlacementSystem {
         const isMobileScreen = this.isTouchDevice();
         this.badgeDom.style.left = '50%';
         this.badgeDom.style.top = 'auto';
-        this.badgeDom.style.bottom = isMobileScreen ? '64px' : '24px';
+        this.badgeDom.style.bottom = isMobileScreen ? '74px' : '24px';
         this.badgeDom.style.transform = 'translateX(-50%)';
 
         this.badgeDom.style.borderColor = statusColor;
@@ -1371,6 +1373,13 @@ export class WallPlugin3DPlacementSystem {
     onPointerDown(e) {
         if (!this.isPlacementTool()) return false;
 
+        // Mutual exclusion: freeze camera controls during touch interaction
+        if (this.ctx && this.ctx.cameraController) {
+            this.ctx.cameraController.freeze('wall_plugin_placement');
+        } else if (this.ctx && this.ctx.controls) {
+            this.ctx.controls.enabled = false;
+        }
+
         const planner = this.getPlanner();
         const tool = planner?.tool;
 
@@ -1632,7 +1641,10 @@ export class WallPlugin3DPlacementSystem {
         if (hr) {
             hr.clearHoverHighlight();
         }
-        if (this.ctx && this.ctx.controls) {
+        if (this.ctx && this.ctx.cameraController) {
+            this.ctx.cameraController.unfreeze('wall_plugin_placement');
+        } else if (this.ctx && this.ctx.controls) {
+            this.ctx.controls.enabled = true;
             this.ctx.controls.enableRotate = (this.interactions?.mode === 'camera');
         }
         if (changed && this.ctx && typeof this.ctx.requestRender === 'function') {

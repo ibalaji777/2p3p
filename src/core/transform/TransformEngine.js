@@ -20,7 +20,6 @@ import { WallEngine } from '../wall/WallEngine.js';
 import { StairEngine } from '../stairs/StairEngine.js';
 import { RoofEngine } from '../roof/RoofEngine.js';
 import { StairHeightDetector } from '../../features/stairs/StairHeightDetector.js';
-import { SnapEngine } from '../snap/SnapEngine.js';
 
 /**
  * Computes the 3D local bounding box center of any object/mesh in its own local coordinate frame.
@@ -131,16 +130,12 @@ export class TransformEngine {
     // 2. MATHEMATICS & SNAPPING AUTHORITY
     // ==========================================
 
-    /**
-     * Snaps a raw angle in degrees based on CAD constraints.
-     * Delegates to centralized SnapEngine authority.
-     * 
-     * @param {number} rawAngleDeg 
-     * @param {Object} [options={}]
-     * @returns {{ angle: number, isSnapped: boolean }}
-     */
     static snapAngle(rawAngleDeg, options = {}) {
-        return SnapEngine.resolveAngle(rawAngleDeg, options);
+        const step = options.step || 15;
+        const normalized = ((rawAngleDeg % 360) + 360) % 360;
+        const snapped = Math.round(normalized / step) * step;
+        const finalAngle = ((snapped % 360) + 360) % 360;
+        return { angle: finalAngle, isSnapped: Math.abs(snapped - normalized) < 0.01 };
     }
 
     /**

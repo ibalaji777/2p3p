@@ -3178,9 +3178,6 @@ export class GizmoManager {
         if (this.ctx.interactions.curvedPortalRoofGizmo) {
             this.ctx.interactions.curvedPortalRoofGizmo.detach();
         }
-        if (this.ctx.interactions.universalMoveGizmo && mode !== 'translate' && mode !== 'move') {
-            this.ctx.interactions.universalMoveGizmo.detach();
-        }
         if (this.ctx.interactions.universalSpinGizmo && mode !== 'rotateY' && mode !== 'spin') {
             this.ctx.interactions.universalSpinGizmo.detach();
         }
@@ -3788,16 +3785,13 @@ export class GizmoManager {
         }
 
         if (mode === 'translate' || mode === 'move' || mode === 'place') {
-            tc.visible = false;
-            tc.enabled = false;
-            if (tc.detach) tc.detach();
             if (this.btnMove) this.btnMove.classList.add('active');
             if (this.btnPlace) this.btnPlace.classList.add('active');
 
             if (isOpening) {
-                if (this.ctx.interactions?.universalMoveGizmo) {
-                    this.ctx.interactions.universalMoveGizmo.detach();
-                }
+                tc.visible = false;
+                tc.enabled = false;
+                if (tc.detach) tc.detach();
                 if (this.ctx.interactions?.openingGizmo && selectedObj) {
                     this.ctx.interactions.openingGizmo.attach(selectedObj, 'move');
                     this.updateOpeningPanel(selectedObj.userData.entity);
@@ -3807,9 +3801,9 @@ export class GizmoManager {
 
             const isRoof = selectedObj && (selectedObj.userData.isRoof || (entity && entity.type === 'roof'));
             if (isRoof) {
-                if (this.ctx.interactions?.universalMoveGizmo) {
-                    this.ctx.interactions.universalMoveGizmo.detach();
-                }
+                tc.visible = false;
+                tc.enabled = false;
+                if (tc.detach) tc.detach();
                 const conf = selectedObj?.userData?.entity?.config || selectedObj?.userData?.entity;
                 const isFlat = conf?.roofType === 'flat';
                 const isGable = conf?.roofType === 'gable';
@@ -3829,9 +3823,12 @@ export class GizmoManager {
                 return;
             }
 
-            if (this.ctx.interactions?.universalMoveGizmo && selectedObj) {
-                this.ctx.interactions.universalMoveGizmo.attach(selectedObj);
-            }
+            tc.mode = 'translate';
+            tc.showTranslate = true; tc.showRotate = false; tc.showScale = false;
+            tc.showX = true; tc.showY = false; tc.showZ = true;
+            tc.visible = true;
+            tc.enabled = true;
+            if (selectedObj && tc.attach) tc.attach(selectedObj);
             return;
         } else if (mode === 'scale') {
             tc.mode = 'scale';
@@ -4120,9 +4117,6 @@ export class GizmoManager {
         if (this.roofOverhangGizmo && this.roofOverhangGizmo.dispose) this.roofOverhangGizmo.dispose();
         if (this.vertexSlopeGizmo && this.vertexSlopeGizmo.dispose) this.vertexSlopeGizmo.dispose();
         if (this.cornerRadiusGizmo && this.cornerRadiusGizmo.dispose) this.cornerRadiusGizmo.dispose();
-        if (this.ctx?.interactions?.universalMoveGizmo && this.ctx.interactions.universalMoveGizmo.dispose) {
-            this.ctx.interactions.universalMoveGizmo.dispose();
-        }
         if (this.ctx?.interactions?.universalSpinGizmo && this.ctx.interactions.universalSpinGizmo.dispose) {
             this.ctx.interactions.universalSpinGizmo.dispose();
         }

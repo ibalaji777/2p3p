@@ -335,6 +335,11 @@ export function useAppTools({
                     materials: config.default?.materials || null
                 };
                 setTool(tool.id, params);
+                if (isMobile.value || isTablet.value) {
+                    setTimeout(() => {
+                        renderer3D?.value?.interactions?.furniturePlacementSystem?.spawnAtViewportCenter();
+                    }, 50);
+                }
             } else {
                 spawnFurniture(tool.id);
             }

@@ -935,7 +935,7 @@ export class RoomInteractiveSuite extends THREE.Group {
             e.stopPropagation();
             e.preventDefault();
             const moveTarget = (this.room && this.room.mesh3D) ? this.room.mesh3D : this.target;
-            if (this.ctx.interactions?.universalMoveGizmo && moveTarget) {
+            if (moveTarget) {
                 this.ctx.currentTransformMode = 'translate';
                 if (this.ctx.gizmoManager?.setTransformMode) {
                     this.ctx.gizmoManager.setTransformMode('translate', true);
@@ -945,8 +945,11 @@ export class RoomInteractiveSuite extends THREE.Group {
                     if (this.ctx.interactions.commonController) {
                         this.ctx.interactions.commonController.activeTool = 'move';
                     }
+                    if (this.ctx.interactions.transformControls) {
+                        this.ctx.interactions.transformControls.mode = 'translate';
+                        this.ctx.interactions.transformControls.attach(moveTarget);
+                    }
                 }
-                this.ctx.interactions.universalMoveGizmo.attach(moveTarget);
             }
         };
 
