@@ -2,7 +2,7 @@ import { EVENTS } from '../registry.js';
 import { coreEventBus } from '../EventBus.js';
 import * as THREE from 'three';
 import { DOOR_TYPES, WINDOW_TYPES, WALL_DECOR_REGISTRY, WOOD_REGISTRY, DOOR_STYLES_REGISTRY, ROOF_DECOR_REGISTRY, GIZMO_REGISTRY, FABRIC_REGISTRY, LEATHER_REGISTRY, FLOOR_REGISTRY, GLASS_REGISTRY, METAL_REGISTRY, STONE_REGISTRY, BRICK_REGISTRY, MARBLE_REGISTRY, PLASTIC_REGISTRY, parseCompositeMaterialKey, resolveFabricConfig, getFabricBaseConfig } from '../registry.js';
-import { DEFAULT_UNIVERSAL_TILE_SIZE } from '../registries/material.registry.js';
+import { DEFAULT_UNIVERSAL_TILE_SIZE, PAINT_REGISTRY } from '../registries/material.registry.js';
 import { MaterialFactory } from './MaterialFactory.js';
 import { UniversalMaterialManager } from './UniversalMaterialManager.js';
 import { BIMMaterialSystem } from './BIMMaterialSystem.js';
@@ -15,7 +15,14 @@ import { SLOT_DEFINITIONS } from '../constants/materialSlots.js';
 import { applyWallPaintWithScope } from './WallPaintSystem.js';
 import { WallEngine } from '../wall/WallEngine.js';
 import { RoofEngine } from '../roof/RoofEngine.js';
-const TILE_REGISTRY = WALL_DECOR_REGISTRY;
+export const TILE_REGISTRY = Object.fromEntries(
+    Object.entries(FLOOR_REGISTRY).filter(([k, v]) => 
+        k.startsWith('tile_') || 
+        v.id?.startsWith('tile_') || 
+        v.type === 'tile' || 
+        (v.name && v.name.toLowerCase().includes('tile'))
+    )
+);
 const WALL_REGISTRY = WALL_DECOR_REGISTRY;
 const ROOF_REGISTRY = ROOF_DECOR_REGISTRY;
 
@@ -251,230 +258,585 @@ export class GizmoManager {
             const style = document.createElement('style');
             style.id = 'gizmo-material-styles';
             style.innerHTML = `
+                /* Sims 4 Style Non-Obtrusive Light 3D Material HUD & Catalog Dock */
                 .mat-lib-overlay {
                     position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
-                    background: radial-gradient(circle at 50% 50%, rgba(15, 23, 42, 0.35) 0%, rgba(9, 9, 11, 0.75) 100%);
-                    z-index: 99999; display: flex; flex-direction: column; justify-content: flex-start;
-                    padding: 3vh 3.5vw 4vh 3.5vw; box-sizing: border-box;
-                    opacity: 0; transition: opacity 0.3s cubic-bezier(0.16, 1, 0.3, 1); pointer-events: none;
+                    background: transparent !important;
+                    z-index: 99999;
+                    display: flex; flex-direction: column; justify-content: space-between;
+                    padding: 0; box-sizing: border-box;
+                    opacity: 0; pointer-events: none !important;
+                    transition: opacity 0.2s cubic-bezier(0.16, 1, 0.3, 1);
                 }
                 .mat-lib-overlay.active {
-                    opacity: 1; pointer-events: none;
+                    opacity: 1; pointer-events: none !important;
                 }
-                .mat-lib-inner {
-                    width: 100%; max-width: 1550px; margin: 0 auto; height: auto;
-                    display: flex; flex-direction: column; justify-content: flex-start; pointer-events: none;
+
+                /* 1. Top Space-Saving Controls Ribbon (Light Theme) */
+                .mat-sims4-top-hud {
+                    position: fixed;
+                    top: 10px;
+                    left: 50%;
+                    transform: translateX(-50%);
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 6px;
+                    background: rgba(255, 255, 255, 0.96);
+                    backdrop-filter: blur(20px);
+                    -webkit-backdrop-filter: blur(20px);
+                    border: 1px solid rgba(226, 232, 240, 0.95);
+                    box-shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.12), 0 2px 6px -1px rgba(15, 23, 42, 0.04);
+                    border-radius: 999px;
+                    padding: 4px 10px;
+                    z-index: 10001;
+                    pointer-events: auto !important;
+                    user-select: none;
+                    max-width: 96vw;
+                    box-sizing: border-box;
+                    overflow-x: auto;
+                    scrollbar-width: none;
                 }
-                .mat-lib-split-container {
-                    display: flex; flex-direction: row; align-items: stretch; gap: 20px;
-                    width: 100%; box-sizing: border-box;
-                }
-                .mat-lib-col-left {
-                    flex: 1 1 58%; min-width: 0; display: flex; flex-direction: column;
-                }
-                .mat-lib-col-right {
-                    flex: 0 0 42%; max-width: 480px; min-width: 320px; display: flex; flex-direction: column;
-                }
-                .mat-lib-col-right:empty,
-                .mat-lib-col-right > div:empty {
+                .mat-sims4-top-hud::-webkit-scrollbar {
                     display: none;
                 }
-                @media (max-width: 960px) {
-                    .mat-lib-split-container {
-                        flex-direction: column; gap: 16px;
+
+                .mat-hud-chip {
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 6px;
+                    background: #f8fafc;
+                    border: 1px solid #e2e8f0;
+                    padding: 2px 8px 2px 4px;
+                    border-radius: 999px;
+                    cursor: pointer;
+                    transition: all 0.15s ease;
+                    flex-shrink: 0;
+                }
+                .mat-hud-chip:hover {
+                    background: #f1f5f9;
+                    border-color: #cbd5e1;
+                }
+
+                .mat-hud-thumb {
+                    width: 22px;
+                    height: 22px;
+                    border-radius: 50%;
+                    background-color: #2563eb;
+                    background-size: cover;
+                    background-position: center;
+                    border: 1.5px solid #ffffff;
+                    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+                    flex-shrink: 0;
+                }
+
+                .mat-hud-info {
+                    display: flex;
+                    flex-direction: column;
+                    justify-content: center;
+                    line-height: 1.1;
+                }
+
+                .mat-hud-label {
+                    font-size: 7.5px;
+                    font-weight: 800;
+                    color: #64748b;
+                    text-transform: uppercase;
+                    letter-spacing: 0.5px;
+                }
+
+                .mat-hud-name {
+                    font-size: 11px;
+                    font-weight: 700;
+                    color: #0f172a;
+                    max-width: 120px;
+                    white-space: nowrap;
+                    overflow: hidden;
+                    text-overflow: ellipsis;
+                }
+
+                .mat-hud-toggle-tray-btn {
+                    background: #eff6ff;
+                    border: 1px solid #bfdbfe;
+                    color: #2563eb;
+                    font-size: 9.5px;
+                    font-weight: 700;
+                    padding: 2px 7px;
+                    border-radius: 999px;
+                    cursor: pointer;
+                    transition: all 0.15s ease;
+                    margin-left: 2px;
+                }
+                .mat-hud-toggle-tray-btn:hover {
+                    background: #2563eb;
+                    border-color: #2563eb;
+                    color: #ffffff;
+                }
+
+                .mat-hud-divider {
+                    width: 1px;
+                    height: 18px;
+                    background: #e2e8f0;
+                    flex-shrink: 0;
+                }
+
+                .mat-hud-scope-group, .mat-hud-face-group {
+                    display: inline-flex;
+                    background: #f1f5f9;
+                    padding: 2px;
+                    border-radius: 999px;
+                    border: 1px solid #e2e8f0;
+                    gap: 2px;
+                    flex-shrink: 0;
+                }
+
+                .mat-scope-pill, .mat-face-pill {
+                    padding: 3px 8px;
+                    border-radius: 999px;
+                    border: none;
+                    background: transparent;
+                    color: #475569;
+                    font-size: 10px;
+                    font-weight: 600;
+                    cursor: pointer;
+                    transition: all 0.15s ease;
+                    white-space: nowrap;
+                }
+                .mat-scope-pill:hover, .mat-face-pill:hover {
+                    color: #0f172a;
+                    background: #e2e8f0;
+                }
+                .mat-scope-pill.active, .mat-face-pill.active {
+                    background: #2563eb !important;
+                    color: #ffffff !important;
+                    box-shadow: 0 1px 4px rgba(37, 99, 235, 0.35);
+                }
+
+                .mat-hud-btn {
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 4px;
+                    padding: 3px 8px;
+                    border-radius: 999px;
+                    border: 1px solid #e2e8f0;
+                    background: #f8fafc;
+                    color: #475569;
+                    font-size: 10.5px;
+                    font-weight: 600;
+                    cursor: pointer;
+                    transition: all 0.15s ease;
+                    flex-shrink: 0;
+                }
+                .mat-hud-btn:hover {
+                    background: #e2e8f0;
+                    color: #0f172a;
+                }
+                .mat-hud-btn.active {
+                    background: #0284c7 !important;
+                    color: #ffffff !important;
+                    font-weight: 700;
+                    border-color: #0284c7 !important;
+                    box-shadow: 0 1px 6px rgba(2, 132, 199, 0.35);
+                }
+
+                .mat-hud-session-actions {
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 4px;
+                    flex-shrink: 0;
+                }
+                .mat-hud-done-btn {
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 4px;
+                    padding: 3px 10px;
+                    border-radius: 999px;
+                    border: none;
+                    background: #10b981;
+                    color: #ffffff;
+                    font-size: 11px;
+                    font-weight: 700;
+                    cursor: pointer;
+                    transition: all 0.15s ease;
+                    box-shadow: 0 1px 4px rgba(16, 185, 129, 0.35);
+                    flex-shrink: 0;
+                }
+                .mat-hud-done-btn:hover {
+                    background: #059669;
+                    box-shadow: 0 2px 6px rgba(16, 185, 129, 0.45);
+                }
+                .mat-hud-cancel-btn {
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 3px;
+                    padding: 3px 8px;
+                    border-radius: 999px;
+                    border: 1px solid #e2e8f0;
+                    background: #f8fafc;
+                    color: #64748b;
+                    font-size: 10.5px;
+                    font-weight: 600;
+                    cursor: pointer;
+                    transition: all 0.15s ease;
+                    flex-shrink: 0;
+                }
+                .mat-hud-cancel-btn:hover {
+                    background: #fee2e2;
+                    color: #ef4444;
+                    border-color: #fca5a5;
+                }
+
+                .mat-dock-actions-mobile {
+                    display: none;
+                    align-items: center;
+                    gap: 4px;
+                    flex-shrink: 0;
+                }
+                .mat-dock-btn-done {
+                    background: #10b981;
+                    color: white;
+                    border: none;
+                    padding: 2px 8px;
+                    border-radius: 6px;
+                    font-size: 10.5px;
+                    font-weight: 700;
+                    cursor: pointer;
+                }
+                .mat-dock-btn-cancel {
+                    background: #fee2e2;
+                    color: #ef4444;
+                    border: 1px solid #fca5a5;
+                    padding: 2px 6px;
+                    border-radius: 6px;
+                    font-size: 10.5px;
+                    font-weight: 700;
+                    cursor: pointer;
+                }
+
+                .mat-hud-close-btn {
+                    width: 22px;
+                    height: 22px;
+                    border-radius: 50%;
+                    border: 1px solid #e2e8f0;
+                    background: #f8fafc;
+                    color: #64748b;
+                    font-size: 14px;
+                    line-height: 1;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    cursor: pointer;
+                    transition: all 0.15s ease;
+                    flex-shrink: 0;
+                }
+                .mat-hud-close-btn:hover {
+                    background: #fee2e2;
+                    border-color: #fca5a5;
+                    color: #ef4444;
+                }
+
+                /* Mobile Optimization (< 640px) */
+                @media (max-width: 640px) {
+                    .mat-sims4-top-hud {
+                        top: 6px !important;
+                        left: 8px !important;
+                        right: 8px !important;
+                        width: auto !important;
+                        transform: none !important;
+                        padding: 4px 8px !important;
+                        gap: 4px !important;
                     }
-                    .mat-lib-col-left, .mat-lib-col-right {
-                        width: 100%; max-width: 100%; flex: none;
+                    .mat-sims4-bottom-dock {
+                        bottom: 0 !important;
+                        left: 0 !important;
+                        right: 0 !important;
+                        width: 100% !important;
+                        max-width: 100% !important;
+                        transform: none !important;
+                        border-radius: 14px 14px 0 0 !important;
+                        max-height: 168px !important;
+                    }
+                    .mat-dock-actions-mobile {
+                        display: flex !important;
+                    }
+                    .mat-hud-scope-group {
+                        display: flex !important;
+                    }
+                    .mat-hud-face-group {
+                        display: flex !important;
                     }
                 }
-                #gizmo-subgroup-tabs-container, .gizmo-wall-target-bar, .gizmo-decor-chip, .gizmo-slider, .gizmo-input-num {
+
+                /* Tablet Optimization (641px - 1024px) */
+                @media (min-width: 641px) and (max-width: 1024px) {
+                    .mat-sims4-top-hud {
+                        top: 10px !important;
+                        left: 16px !important;
+                        right: 16px !important;
+                        width: auto !important;
+                        transform: none !important;
+                    }
+                    .mat-sims4-bottom-dock {
+                        bottom: 10px !important;
+                        left: 16px !important;
+                        right: 16px !important;
+                        width: auto !important;
+                        max-width: 100% !important;
+                        transform: none !important;
+                        border-radius: 12px !important;
+                    }
+                }
+
+                /* 2. Docked Bottom Material Tray (Light Theme, Ultra Compact) */
+                .mat-sims4-bottom-dock {
+                    position: fixed;
+                    bottom: 0;
+                    left: 0;
+                    right: 0;
+                    width: 100vw;
+                    background: rgba(255, 255, 255, 0.97);
+                    backdrop-filter: blur(20px);
+                    -webkit-backdrop-filter: blur(20px);
+                    border-top: 1px solid #e2e8f0;
+                    box-shadow: 0 -4px 20px -2px rgba(15, 23, 42, 0.08);
+                    z-index: 10000;
                     pointer-events: auto !important;
+                    display: flex;
+                    flex-direction: column;
+                    transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+                    box-sizing: border-box;
+                    max-height: 160px;
                 }
-                .mat-lib-header {
-                    display: flex; flex-direction: row; justify-content: space-between; align-items: center; width: 100%; margin-bottom: 16px;
-                    flex-shrink: 0; pointer-events: auto; position: relative;
+                .mat-sims4-bottom-dock.collapsed {
+                    transform: translateY(calc(100% - 32px));
                 }
-                .mat-header-left {
-                    display: flex; flex-direction: column; justify-content: center;
+
+                .mat-dock-header {
+                    display: flex;
+                    align-items: center;
+                    justify-content: space-between;
+                    padding: 4px 10px;
+                    border-bottom: 1px solid #e2e8f0;
+                    background: #f8fafc;
+                    gap: 6px;
+                    flex-shrink: 0;
+                    height: 32px;
+                    box-sizing: border-box;
                 }
-                .mat-lib-title-text {
-                    font-size: clamp(24px, 3.5vw, 32px); font-weight: 700; color: white; margin: 0 0 6px 0; letter-spacing: 0.5px;
-                    text-shadow: 0 2px 10px rgba(0,0,0,0.8);
-                    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+
+                .mat-cat-nav-wrapper {
+                    display: flex;
+                    align-items: center;
+                    gap: 3px;
+                    flex: 1;
+                    min-width: 0;
+                    overflow: hidden;
                 }
-                .mat-lib-subtitle-text {
-                    font-size: 14px; color: #cbd5e1; font-weight: 500;
-                    text-shadow: 0 2px 10px rgba(0,0,0,0.8);
-                    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+
+                .mat-cat-scroll-arrow {
+                    background: #ffffff;
+                    border: 1px solid #cbd5e1;
+                    border-radius: 999px;
+                    color: #475569;
+                    cursor: pointer;
+                    width: 20px;
+                    height: 20px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    font-size: 8px;
+                    font-weight: bold;
+                    flex-shrink: 0;
+                    transition: all 0.15s ease;
+                    user-select: none;
+                    padding: 0;
                 }
+                .mat-cat-scroll-arrow:hover {
+                    background: #2563eb;
+                    border-color: #2563eb;
+                    color: #ffffff;
+                }
+
+                .mat-dock-categories {
+                    display: flex;
+                    align-items: center;
+                    gap: 5px;
+                    overflow-x: auto;
+                    scrollbar-width: none;
+                    flex: 1;
+                    min-width: 0;
+                }
+                .mat-dock-categories::-webkit-scrollbar {
+                    display: none;
+                }
+
+                .mat-cat-tab-btn {
+                    padding: 3px 9px;
+                    border-radius: 999px;
+                    border: 1px solid #e2e8f0;
+                    background: #ffffff;
+                    color: #475569;
+                    font-size: 10.5px;
+                    font-weight: 600;
+                    cursor: pointer;
+                    transition: all 0.15s ease;
+                    white-space: nowrap;
+                    flex-shrink: 0;
+                }
+                .mat-cat-tab-btn:hover {
+                    background: #f1f5f9;
+                    color: #0f172a;
+                    border-color: #cbd5e1;
+                }
+                .mat-cat-tab-btn.active {
+                    background: #2563eb !important;
+                    border-color: #2563eb !important;
+                    color: #ffffff !important;
+                    box-shadow: 0 1px 6px rgba(37, 99, 235, 0.3);
+                }
+
+                /* Wall Multi-Material Sub-bar */
+                .mat-dock-subbar {
+                    display: none;
+                    align-items: center;
+                    justify-content: flex-start;
+                    gap: 6px;
+                    padding: 2px 10px;
+                    background: #f1f5f9;
+                    border-bottom: 1px solid #e2e8f0;
+                    box-sizing: border-box;
+                    flex-shrink: 0;
+                    height: 28px;
+                    overflow-x: auto;
+                    scrollbar-width: none;
+                }
+                .mat-dock-subbar::-webkit-scrollbar {
+                    display: none;
+                }
+                .mat-dock-face-group, .mat-dock-scope-group {
+                    display: flex;
+                    align-items: center;
+                    gap: 4px;
+                    flex-shrink: 0;
+                }
+                .mat-dock-face-pill, .mat-dock-scope-pill {
+                    padding: 2px 8px;
+                    border-radius: 999px;
+                    border: 1px solid #cbd5e1;
+                    background: #ffffff;
+                    color: #475569;
+                    font-size: 10px;
+                    font-weight: 600;
+                    cursor: pointer;
+                    transition: all 0.15s ease;
+                    white-space: nowrap;
+                    line-height: 1.4;
+                    flex-shrink: 0;
+                }
+                .mat-dock-face-pill:hover, .mat-dock-scope-pill:hover {
+                    background: #e2e8f0;
+                    color: #0f172a;
+                }
+                .mat-dock-face-pill.active, .mat-dock-scope-pill.active {
+                    background: #0284c7 !important;
+                    border-color: #0284c7 !important;
+                    color: #ffffff !important;
+                    box-shadow: 0 1px 4px rgba(2, 132, 199, 0.35);
+                }
+                .mat-dock-divider {
+                    width: 1px;
+                    height: 14px;
+                    background: #cbd5e1;
+                    flex-shrink: 0;
+                }
+
+                .mat-dock-collapse-btn {
+                    background: #ffffff;
+                    border: 1px solid #e2e8f0;
+                    color: #64748b;
+                    width: 24px;
+                    height: 24px;
+                    border-radius: 6px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    cursor: pointer;
+                    transition: all 0.15s ease;
+                    font-size: 10px;
+                    flex-shrink: 0;
+                }
+                .mat-dock-collapse-btn:hover {
+                    background: #f1f5f9;
+                    color: #0f172a;
+                }
+
+                /* Compact Swatch Card Styling inside the Dock (Light Theme) */
                 .mat-lib-grid-wrapper {
-                    width: 100%; overflow-x: auto; padding: 4px 4px 16px 4px; pointer-events: auto;
-                    scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.2) transparent;
+                    width: 100%; overflow-x: auto; padding: 6px 10px 8px 10px; pointer-events: auto;
+                    scrollbar-width: thin; scrollbar-color: #cbd5e1 transparent;
                     -webkit-overflow-scrolling: touch; scroll-behavior: smooth;
-                }
-                .mat-lib-grid-wrapper::-webkit-scrollbar {
-                    height: 6px;
-                }
-                .mat-lib-grid-wrapper::-webkit-scrollbar-thumb {
-                    background: rgba(255,255,255,0.2); border-radius: 99px;
+                    box-sizing: border-box;
                 }
                 .mat-lib-grid {
-                    display: flex; flex-direction: row; gap: 16px; align-items: stretch; width: max-content; min-width: 100%;
+                    display: flex; flex-direction: row; gap: 8px; align-items: stretch; width: max-content; min-width: 100%;
                 }
                 .mat-card {
-                    width: 165px; min-height: 245px; border-radius: 18px;
-                    background: linear-gradient(145deg, rgba(39, 39, 42, 0.85) 0%, rgba(24, 24, 27, 0.95) 100%);
-                    border: 1px solid rgba(255, 255, 255, 0.08); box-shadow: 0 10px 25px rgba(0,0,0,0.5);
-                    display: flex; flex-direction: column; align-items: center; justify-content: space-between;
-                    padding: 14px 12px 16px 12px; box-sizing: border-box; cursor: pointer;
-                    transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1); position: relative;
+                    width: 70px; height: 86px; border-radius: 10px;
+                    background: #ffffff;
+                    border: 1px solid #e2e8f0;
+                    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+                    display: flex; flex-direction: column; align-items: center; justify-content: center;
+                    padding: 4px; box-sizing: border-box; cursor: pointer;
+                    transition: all 0.15s cubic-bezier(0.16, 1, 0.3, 1); position: relative;
                     user-select: none; flex-shrink: 0; touch-action: pan-x;
                 }
                 .mat-card:hover {
-                    transform: translateY(-6px);
-                    border-color: rgba(255, 255, 255, 0.25);
-                    box-shadow: 0 15px 35px rgba(0,0,0,0.7);
-                }
-                .mat-card:active {
-                    transform: scale(0.96);
+                    transform: translateY(-2px);
+                    border-color: #cbd5e1;
+                    box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08);
                 }
                 .mat-card.active-card {
-                    border: 1px solid #f97316 !important;
-                    box-shadow: 0 0 25px rgba(249, 115, 22, 0.3), 0 10px 25px rgba(0,0,0,0.6);
+                    border: 2px solid #2563eb !important;
+                    box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.18), 0 2px 8px rgba(37, 99, 235, 0.15) !important;
                 }
-                .mat-card-icon-badge {
-                    align-self: flex-start; width: 32px; height: 32px; border-radius: 50%;
-                    display: flex; align-items: center; justify-content: center; margin-bottom: 8px;
-                    transition: transform 0.2s; flex-shrink: 0;
+                .mat-card-selected-checkmark {
+                    position: absolute; top: 3px; right: 3px;
+                    width: 14px; height: 14px; border-radius: 50%;
+                    background: #2563eb; color: #ffffff;
+                    font-size: 9px; font-weight: bold;
+                    display: none; align-items: center; justify-content: center;
+                    box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+                    z-index: 2;
                 }
-                .mat-card:hover .mat-card-icon-badge {
-                    transform: scale(1.1);
+                .mat-card.active-card .mat-card-selected-checkmark {
+                    display: flex;
                 }
                 .mat-sphere {
-                    width: 110px; height: 110px; border-radius: 50%; position: relative;
-                    margin: 8px 0;
-                    box-shadow: 
-                        0 15px 25px -5px rgba(0, 0, 0, 0.8),
-                        inset -10px -10px 25px rgba(0, 0, 0, 0.75),
-                        inset 6px 6px 15px rgba(255, 255, 255, 0.35);
+                    width: 44px; height: 44px; border-radius: 50%; position: relative;
+                    margin: 2px 0;
+                    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.15), inset 0 1px 1px rgba(255, 255, 255, 0.4);
+                    border: 1px solid rgba(0, 0, 0, 0.08);
                     overflow: hidden; background-size: cover; background-position: center;
-                    transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); flex-shrink: 0;
-                }
-                .mat-clear-circle {
-                    width: 110px; height: 110px; border-radius: 50%; margin: 8px 0;
-                    border: 3px dashed rgba(255,255,255,0.7);
-                    display: flex; align-items: center; justify-content: center;
-                    transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-                    flex-shrink: 0;
-                }
-                .mat-card:hover .mat-clear-circle {
-                    transform: scale(1.06) rotate(-45deg);
-                }
-                .mat-card:hover .mat-sphere {
-                    transform: scale(1.06) rotate(3deg);
+                    transition: transform 0.15s ease; flex-shrink: 0;
                 }
                 .mat-sphere::after {
                     content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0; border-radius: 50%;
-                    background: radial-gradient(circle at 32% 24%, rgba(255, 255, 255, 0.65) 0%, rgba(255, 255, 255, 0.05) 45%, rgba(0, 0, 0, 0.75) 90%);
+                    background: radial-gradient(circle at 32% 24%, rgba(255, 255, 255, 0.5) 0%, rgba(255, 255, 255, 0.05) 50%, rgba(0, 0, 0, 0.25) 100%);
                     pointer-events: none;
                 }
                 .mat-card-title {
-                    color: white; font-weight: 600; font-size: 14.5px; margin-top: 8px; text-align: center;
+                    color: #0f172a; font-weight: 600; font-size: 9.5px; margin-top: 3px; text-align: center;
                     width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
                 }
                 .mat-card-sub {
-                    color: #94a3b8; font-size: 12px; margin-top: 2px; text-align: center; width: 100%;
-                }
-                .mat-card.active-card .mat-card-sub {
-                    color: #f97316; font-weight: 600;
-                }
-                .mat-card.is-glass-card {
-                    border-radius: 20px !important;
-                    background: linear-gradient(145deg, #242426 0%, #161617 100%) !important;
-                    border: 1px solid rgba(255, 255, 255, 0.08) !important;
-                }
-                .mat-card.is-glass-card.active-card {
-                    border-color: #38bdf8 !important;
-                    box-shadow: 0 0 25px rgba(56, 189, 248, 0.35), 0 10px 25px rgba(0,0,0,0.6) !important;
-                }
-                .mat-card.is-glass-card.active-card .mat-card-sub {
-                    color: #38bdf8 !important; font-weight: 700 !important;
-                }
-                .mat-sphere.is-3d-glass {
-                    background-size: cover !important;
-                    background-position: center !important;
-                    background-color: transparent !important;
-                    box-shadow: 0 12px 28px -4px rgba(0, 0, 0, 0.75), inset 0 0 20px rgba(56, 189, 248, 0.12) !important;
-                }
-                .mat-sphere.is-3d-glass::after {
-                    display: none !important;
+                    display: none;
                 }
 
-                .mat-card-selected-checkmark {
-                    position: absolute; top: 10px; right: 10px; width: 22px; height: 22px; border-radius: 50%;
-                    background: #38bdf8; color: #0f172a; display: flex; align-items: center; justify-content: center;
-                    font-size: 13px; font-weight: 800; box-shadow: 0 2px 8px rgba(56, 189, 248, 0.5);
-                    opacity: 0; transform: scale(0.6); transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
-                    pointer-events: none;
-                }
-                .mat-card.active-card .mat-card-selected-checkmark {
-                    opacity: 1; transform: scale(1);
-                }
-                .mat-search-wrapper {
-                    display: flex; gap: 12px; align-items: center; flex-shrink: 0;
-                }
-                .mat-search-pill {
-                    background: rgba(24, 24, 27, 0.85); border: 1px solid rgba(255, 255, 255, 0.12);
-                    border-radius: 99px; display: flex; align-items: center;
-                    padding: 8px 16px; width: 260px; transition: border-color 0.2s, box-shadow 0.2s;
-                }
-                .mat-search-pill:focus-within {
-                    border-color: #f97316; box-shadow: 0 0 15px rgba(249, 115, 22, 0.2);
-                }
-                .mat-filter-btn {
-                    background: rgba(24, 24, 27, 0.85); border: 1px solid rgba(255, 255, 255, 0.12);
-                    width: 40px; height: 40px; border-radius: 12px; color: #94a3b8; cursor: pointer;
-                    display: flex; align-items: center; justify-content: center; transition: all 0.2s;
-                    flex-shrink: 0;
-                }
-                .mat-filter-btn:hover {
-                    background: rgba(255, 255, 255, 0.1); color: white; border-color: rgba(255, 255, 255, 0.3);
-                }
-                .mat-close-btn {
-                    background: rgba(24, 24, 27, 0.85); border: 1px solid rgba(255, 255, 255, 0.15);
-                    width: 42px; height: 42px; border-radius: 50%; color: white; cursor: pointer;
-                    font-size: 20px; display: flex; align-items: center; justify-content: center; transition: all 0.2s;
-                    margin-left: 8px; flex-shrink: 0;
-                }
-                .mat-close-btn:hover {
-                    background: rgba(239, 68, 68, 0.8); border-color: #ef4444; transform: rotate(90deg);
-                }
                 @media (max-width: 768px) {
-                    .mat-lib-overlay { padding: 2vh 3.5vw; }
-                    .mat-lib-header { flex-direction: column; align-items: flex-start; gap: 14px; margin-bottom: 12px; }
-                    .mat-header-left { padding-right: 54px; width: 100%; box-sizing: border-box; }
-                    .mat-search-wrapper { width: 100%; justify-content: space-between; gap: 8px; }
-                    .mat-search-pill { flex: 1; width: auto; min-width: 140px; }
-                    .mat-close-btn { position: absolute; top: 0; right: 0; margin-left: 0; z-index: 10; }
-                    .mat-lib-grid { gap: 12px; }
-                    .mat-card { width: 130px; min-height: 205px; padding: 12px 10px; border-radius: 16px; }
-                    .mat-sphere { width: 84px; height: 84px; margin: 6px 0; }
-                    .mat-card-title { font-size: 13.5px; margin-top: 6px; }
-                    .mat-card-sub { font-size: 11px; }
-                }
-                @media (max-width: 480px) {
-                    .mat-lib-overlay { padding: 1.5vh 3vw; }
-                    .mat-lib-header { gap: 10px; margin-bottom: 10px; }
-                    .mat-lib-title-text { font-size: 22px; margin-bottom: 4px; }
-                    .mat-lib-subtitle-text { font-size: 12.5px; }
-                    .mat-lib-grid { gap: 10px; }
-                    .mat-card { width: 115px; min-height: 185px; padding: 10px 8px; border-radius: 14px; }
-                    .mat-sphere { width: 74px; height: 74px; margin: 5px 0; }
-                    .mat-card-title { font-size: 12.5px; margin-top: 4px; }
-                    .mat-card-sub { font-size: 10.5px; }
-                    .mat-search-pill { padding: 6px 12px; font-size: 13px; }
-                    .mat-filter-btn { width: 36px; height: 36px; }
-                    .mat-close-btn { width: 38px; height: 38px; font-size: 18px; }
+                    .mat-sims4-top-hud { padding: 3px 6px; gap: 4px; top: 6px; }
+                    .mat-hud-name { max-width: 80px; font-size: 10px; }
+                    .mat-scope-pill, .mat-face-pill { padding: 2.5px 5px; font-size: 9px; }
+                    .mat-card { width: 64px; height: 80px; }
+                    .mat-sphere { width: 38px; height: 38px; }
                 }
             `;
             document.head.appendChild(style);
@@ -485,61 +847,392 @@ export class GizmoManager {
         this.materialPanel.style.display = 'none';
         
         this.materialPanel.innerHTML = `
-              <div class="mat-lib-inner">
-                  <div>
-                      <div class="mat-lib-header">
-                          <div class="mat-header-left">
-                              <h2 class="mat-lib-title-text">Material Library</h2>
-                              <div class="mat-lib-subtitle-text">
-                                  Applying to: <span id="gizmo-material-face-name" style="color: #60a5fa; font-weight: 600; cursor: pointer; text-transform: capitalize;" title="Click to view categories">Select Material Type</span>
-                              </div>
-                          </div>
-                          <div class="mat-search-wrapper">
-                              <div class="mat-search-pill">
-                                  <svg style="width: 18px; height: 18px; color: #94a3b8; flex-shrink: 0; margin-right: 8px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-                                  <input id="mat-lib-search-input" type="text" placeholder="Search materials..." style="background: transparent; border: none; color: white; outline: none; width: 100%; font-size: 14px; font-family: inherit;">
-                              </div>
-                              <button class="mat-filter-btn" title="Filter materials"><svg style="width: 18px; height: 18px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg></button>
-                              <button id="close-material-lib" class="mat-close-btn">&times;</button>
-                          </div>
-                      </div>
-                      
-                      <div class="mat-lib-split-container">
-                          <!-- Left Side: Material Selection & Gallery -->
-                          <div class="mat-lib-col-left">
-                              <div class="mat-lib-grid-wrapper">
-                                  <div id="gizmo-material-grid" class="mat-lib-grid"></div>
-                              </div>
-                          </div>
+            <!-- Sims 4 Style Top Space-Saving Controls Ribbon -->
+            <div class="mat-sims4-top-hud">
+                <!-- Active Brush Pill -->
+                <div class="mat-hud-chip" id="mat-hud-active-brush" title="Active Material Brush">
+                    <div class="mat-hud-thumb" id="mat-hud-brush-thumb"></div>
+                    <div class="mat-hud-info">
+                        <span class="mat-hud-label">ACTIVE BRUSH</span>
+                        <span class="mat-hud-name" id="mat-hud-brush-name">Select Material</span>
+                    </div>
+                    <button class="mat-hud-clear-btn" id="mat-clear-brush-btn" title="Clear active material to switch object type" style="background: none; border: none; cursor: pointer; color: #94a3b8; font-size: 13px; padding: 2px 6px; display: none; line-height: 1;">✕</button>
+                    <button class="mat-hud-toggle-tray-btn" id="mat-toggle-tray-btn" title="Toggle Material Catalog Tray">▼ Swatches</button>
+                </div>
 
-                          <!-- Right Side: Layer & Applied Material Management -->
-                          <div class="mat-lib-col-right">
-                              <div id="gizmo-subgroup-tabs-container"></div>
-                          </div>
-                      </div>
-                  </div>
-              </div>
-          `;
+                <div class="mat-hud-divider"></div>
+
+                <!-- Paint Application Mode Buttons -->
+                <div class="mat-hud-scope-group">
+                    <button class="mat-scope-pill active" data-scope="selectedFace" title="Paint clicked face only">
+                        🧱 Single
+                    </button>
+                    <button class="mat-scope-pill" data-scope="room" title="Paint all room walls (Shortcut: Hold Shift)">
+                        🔄 Room (Shift)
+                    </button>
+                    <button class="mat-scope-pill" data-scope="exterior" title="Paint entire exterior facade (Shortcut: Hold Alt)">
+                        🌐 Exterior (Alt)
+                    </button>
+                    <button class="mat-scope-pill" data-scope="entireObject" title="Paint both front & back faces">
+                        📦 Both
+                    </button>
+                </div>
+
+                <div class="mat-hud-divider"></div>
+
+                <!-- Face Selector (Inner / Outer) -->
+                <div class="mat-hud-face-group" id="mat-hud-face-group">
+                    <button class="mat-face-pill active" data-side="front">Inner Face</button>
+                    <button class="mat-face-pill" data-side="back">Outer Face</button>
+                </div>
+
+                <div class="mat-hud-divider"></div>
+
+                <!-- Eyedropper Tool -->
+                <button class="mat-hud-btn" id="mat-eyedropper-btn" title="Eyedropper: Sample material from any wall in scene">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="m14 2 4 4-8.5 8.5H5.5v-4L14 2z"/><line x1="16" y1="4" x2="20" y2="8"/><line x1="2" y1="22" x2="6" y2="18"/></svg>
+                    <span>Pick</span>
+                </button>
+
+                <div class="mat-hud-divider"></div>
+
+                <!-- Session Commit / Cancel Actions -->
+                <div class="mat-hud-session-actions">
+                    <button class="mat-hud-done-btn" id="mat-hud-done-btn" title="Commit all material changes (Enter)">
+                        ✓ Done
+                    </button>
+                    <button class="mat-hud-cancel-btn" id="mat-hud-cancel-btn" title="Discard all changes (Esc)">
+                        ✕ Cancel
+                    </button>
+                </div>
+
+                <!-- Close / Exit Button -->
+                <button class="mat-hud-close-btn" id="close-material-lib" title="Cancel and Discard Changes (Esc)">
+                    &times;
+                </button>
+            </div>
+
+            <!-- Fallback hidden subtitle element for legacy references -->
+            <span id="gizmo-material-face-name" style="display: none;">Select Material Type</span>
+
+            <!-- Docked Bottom Material Catalog Tray -->
+            <div class="mat-sims4-bottom-dock" id="mat-sims4-bottom-dock">
+                <div class="mat-dock-header">
+                    <div class="mat-cat-nav-wrapper">
+                        <button class="mat-cat-scroll-arrow" id="mat-cat-scroll-left" title="Scroll categories left">◀</button>
+                        <div class="mat-dock-categories" id="mat-dock-categories-bar"></div>
+                        <button class="mat-cat-scroll-arrow" id="mat-cat-scroll-right" title="Scroll categories right">▶</button>
+                    </div>
+                    <div class="mat-search-pill" style="padding: 2px 8px; height: 24px; background: #ffffff; border-radius: 999px; border: 1px solid #e2e8f0; display: flex; align-items: center; width: 90px; flex-shrink: 0;">
+                        <svg style="width: 12px; height: 12px; color: #94a3b8; margin-right: 4px; flex-shrink: 0;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                        <input id="mat-lib-search-input" type="text" placeholder="Search..." style="background: transparent; border: none; color: #0f172a; outline: none; width: 100%; font-size: 10.5px; font-family: inherit;">
+                    </div>
+                    <div class="mat-dock-actions-mobile">
+                        <button class="mat-dock-btn-done" id="mat-dock-btn-done" title="Commit all material changes">✓ Done</button>
+                        <button class="mat-dock-btn-cancel" id="mat-dock-btn-cancel" title="Discard changes">✕ Cancel</button>
+                    </div>
+                    <button class="mat-dock-collapse-btn" id="mat-dock-collapse-btn" title="Collapse / Expand Material Catalog">
+                        ▼
+                    </button>
+                </div>
+
+                <!-- Dock Subbar: Multi-material Wall Faces & Scope Selector -->
+                <div class="mat-dock-subbar" id="mat-dock-subbar">
+                    <div class="mat-dock-face-group" id="mat-dock-face-group">
+                        <button class="mat-dock-face-pill active" data-side="front" title="Inner Face (Face 1)">🧱 Inner Face</button>
+                        <button class="mat-dock-face-pill" data-side="back" title="Outer Face (Face 2)">🧱 Outer Face</button>
+                        <button class="mat-dock-face-pill" data-side="both" title="Both Inner & Outer Faces">📦 Both Faces</button>
+                    </div>
+                    <div class="mat-dock-divider"></div>
+                    <div class="mat-dock-scope-group" id="mat-dock-scope-group">
+                        <button class="mat-dock-scope-pill active" data-scope="selectedFace" title="Paint clicked face only">Single</button>
+                        <button class="mat-dock-scope-pill" data-scope="room" title="Paint all room walls (Shift)">Room (Shift)</button>
+                        <button class="mat-dock-scope-pill" data-scope="exterior" title="Paint entire exterior facade (Alt)">Exterior (Alt)</button>
+                    </div>
+                </div>
+
+                <!-- Horizontal Scrolling Swatches Grid -->
+                <div class="mat-lib-grid-wrapper">
+                    <div id="gizmo-material-grid" class="mat-lib-grid"></div>
+                </div>
+
+                <!-- Hidden / Subgroup tabs container for decor layer controls -->
+            </div>
+        `;
         
-        // Block pointer events from hitting the 3D scene below when clicking interactive UI elements
+        // Block pointer events from hitting the 3D scene below only when interacting with HUD or dock elements
         ['pointerdown', 'pointerup', 'mousedown', 'mouseup', 'click', 'wheel', 'touchstart', 'touchend', 'touchmove'].forEach(evt => {
             this.materialPanel.addEventListener(evt, e => {
-                if (e.target.closest('.mat-lib-inner, .mat-lib-header, .mat-lib-grid-wrapper, #gizmo-subgroup-tabs-container, .gizmo-wall-target-bar, .gizmo-decor-chip, .gizmo-decor-card, .gizmo-slider, .gizmo-input-num, input, button')) {
+                if (e.target.closest('.mat-sims4-top-hud, .mat-sims4-bottom-dock, .mat-lib-grid-wrapper, #gizmo-subgroup-tabs-container, .gizmo-wall-target-bar, .gizmo-decor-chip, .gizmo-decor-card, .gizmo-slider, .gizmo-input-num, input, button')) {
                     e.stopPropagation();
                 }
             }, { passive: false });
         });
         
-        // Add close logic
-        this.materialPanel.querySelector('#close-material-lib').addEventListener('click', () => {
+        // Close and session management logic
+        this.closeMaterialPanel = (isCommitted = false) => {
             this.materialPanel.classList.remove('active');
+            if (!isCommitted && this.ctx?.commonTools?.paintSystem?.isSessionActive) {
+                this.ctx.commonTools.paintSystem.cancelSession();
+            }
             setTimeout(() => {
                 this.materialPanel.style.display = 'none';
                 if (this.currentTransformMode === 'material') {
                     this.setTransformMode('none');
                 }
-            }, 300);
+                if (this.ctx?.commonTools?.paintSystem) {
+                    this.ctx.commonTools.paintSystem.setActive(false);
+                }
+            }, 250);
+        };
+
+        const handleCommitMaterialSession = (e) => {
+            if (e) { e.preventDefault(); e.stopPropagation(); }
+            if (this.ctx?.commonTools?.commitMaterialSession) {
+                this.ctx.commonTools.commitMaterialSession();
+            } else if (this.ctx?.commonTools?.paintSystem?.commitSession) {
+                this.ctx.commonTools.paintSystem.commitSession();
+            } else {
+                this.closeMaterialPanel(true);
+            }
+        };
+
+        const handleCancelMaterialSession = (e) => {
+            if (e) { e.preventDefault(); e.stopPropagation(); }
+            if (this.ctx?.commonTools?.cancelMaterialSession) {
+                this.ctx.commonTools.cancelMaterialSession();
+            } else if (this.ctx?.commonTools?.paintSystem?.cancelSession) {
+                this.ctx.commonTools.paintSystem.cancelSession();
+            } else {
+                this.closeMaterialPanel(false);
+            }
+        };
+
+        this.materialPanel.querySelector('#mat-hud-done-btn')?.addEventListener('click', handleCommitMaterialSession);
+        this.materialPanel.querySelector('#mat-dock-btn-done')?.addEventListener('click', handleCommitMaterialSession);
+        this.materialPanel.querySelector('#mat-hud-cancel-btn')?.addEventListener('click', handleCancelMaterialSession);
+        this.materialPanel.querySelector('#mat-dock-btn-cancel')?.addEventListener('click', handleCancelMaterialSession);
+        this.materialPanel.querySelector('#close-material-lib')?.addEventListener('click', handleCancelMaterialSession);
+
+        const clearBrushBtn = this.materialPanel.querySelector('#mat-clear-brush-btn');
+        if (clearBrushBtn) {
+            clearBrushBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.activeMaterialKey = null;
+                this.updateActiveBrushUI(null);
+                if (this.ctx?.commonTools?.paintSystem) {
+                    this.ctx.commonTools.paintSystem.setActiveMaterial(null);
+                    this.ctx.commonTools.paintSystem.lockedCategory = null;
+                }
+                if (this.highlightSelectedThumb) {
+                    this.highlightSelectedThumb(null);
+                }
+                if (this.ctx?.requestRender) {
+                    this.ctx.requestRender('clear_material_brush');
+                }
+            });
+        }
+
+        window.addEventListener('keydown', (e) => {
+            if (!this.materialPanel || this.materialPanel.style.display === 'none') return;
+            if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) {
+                if (e.key === 'Escape') e.target.blur();
+                return;
+            }
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                handleCommitMaterialSession(e);
+            } else if (e.key === 'Escape') {
+                e.preventDefault();
+                handleCancelMaterialSession(e);
+            }
         });
+
+        // Scope pills in Top HUD
+        const scopeBtns = this.materialPanel.querySelectorAll('.mat-scope-pill');
+        scopeBtns.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                scopeBtns.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                const scope = btn.getAttribute('data-scope');
+                this.materialScope = scope;
+                if (this.ctx?.commonTools?.paintSystem) {
+                    this.ctx.commonTools.paintSystem.setMaterialScope(scope);
+                }
+                const selectedObj = this.ctx?.interactions?.selectedObject;
+                if (selectedObj?.userData?.entity) {
+                    this._updateDockWallPills(selectedObj.userData.entity);
+                    this._renderWallMultiMaterialTabs(selectedObj.userData.entity, selectedObj);
+                }
+            });
+        });
+
+        // Face pills in Top HUD
+        const faceBtns = this.materialPanel.querySelectorAll('.mat-face-pill');
+        faceBtns.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                faceBtns.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                this.activeFace = btn.getAttribute('data-side');
+                this.materialScope = 'selectedFace';
+                if (this.ctx?.commonTools?.paintSystem) {
+                    this.ctx.commonTools.paintSystem.setMaterialScope('selectedFace');
+                }
+                const selectedObj = this.ctx?.interactions?.selectedObject;
+                if (selectedObj?.userData?.entity) {
+                    const wall = selectedObj.userData.entity;
+                    const matOnSide = (this.activeFace === 'back') ? (wall.params?.textureBack || wall.textureBack || wall.params?.texture || wall.texture) : (wall.params?.textureFront || wall.textureFront || wall.params?.texture || wall.texture);
+                    if (matOnSide) {
+                        this.activeMaterialKey = matOnSide;
+                        this.updateActiveBrushUI(matOnSide);
+                        if (this.ctx?.commonTools?.paintSystem) {
+                            this.ctx.commonTools.paintSystem.setActiveMaterial(matOnSide);
+                        }
+                        if (this.highlightSelectedThumb) {
+                            this.highlightSelectedThumb(matOnSide);
+                        }
+                    }
+                    this._updateDockWallPills(wall);
+                    this._renderWallMultiMaterialTabs(selectedObj.userData.entity, selectedObj);
+                }
+            });
+        });
+
+        // Face pills in Dock Sub-bar
+        const dockFaceBtns = this.materialPanel.querySelectorAll('.mat-dock-face-pill');
+        dockFaceBtns.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const side = btn.getAttribute('data-side');
+                const selectedObj = this.ctx?.interactions?.selectedObject;
+                const wall = selectedObj?.userData?.entity;
+
+                if (side === 'both') {
+                    this.materialScope = 'entireObject';
+                    if (this.ctx?.commonTools?.paintSystem) {
+                        this.ctx.commonTools.paintSystem.setMaterialScope('entireObject');
+                    }
+                } else {
+                    this.activeFace = side;
+                    this.materialScope = 'selectedFace';
+                    if (this.ctx?.commonTools?.paintSystem) {
+                        this.ctx.commonTools.paintSystem.setMaterialScope('selectedFace');
+                    }
+                    if (wall) {
+                        const matOnSide = (side === 'back') 
+                            ? (wall.params?.textureBack || wall.textureBack || wall.params?.texture || wall.texture) 
+                            : (wall.params?.textureFront || wall.textureFront || wall.params?.texture || wall.texture);
+                        if (matOnSide) {
+                            this.activeMaterialKey = matOnSide;
+                            this.updateActiveBrushUI(matOnSide);
+                            if (this.ctx?.commonTools?.paintSystem) {
+                                this.ctx.commonTools.paintSystem.setActiveMaterial(matOnSide);
+                            }
+                            if (this.highlightSelectedThumb) {
+                                this.highlightSelectedThumb(matOnSide);
+                            }
+                        }
+                    }
+                }
+                if (wall) {
+                    this._updateDockWallPills(wall);
+                    this._renderWallMultiMaterialTabs(wall, selectedObj);
+                }
+            });
+        });
+
+        // Scope pills in Dock Sub-bar
+        const dockScopeBtns = this.materialPanel.querySelectorAll('.mat-dock-scope-pill');
+        dockScopeBtns.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const scope = btn.getAttribute('data-scope');
+                this.materialScope = scope;
+                if (this.ctx?.commonTools?.paintSystem) {
+                    this.ctx.commonTools.paintSystem.setMaterialScope(scope);
+                }
+                const selectedObj = this.ctx?.interactions?.selectedObject;
+                if (selectedObj?.userData?.entity) {
+                    this._updateDockWallPills(selectedObj.userData.entity);
+                    this._renderWallMultiMaterialTabs(selectedObj.userData.entity, selectedObj);
+                }
+            });
+        });
+
+        // Eyedropper button in Top HUD
+        const eyedropperBtn = this.materialPanel.querySelector('#mat-eyedropper-btn');
+        if (eyedropperBtn) {
+            eyedropperBtn.addEventListener('click', () => {
+                const paintSys = this.ctx?.commonTools?.paintSystem;
+                if (paintSys) {
+                    const nextState = !paintSys.isEyedropper;
+                    paintSys.setEyedropper(nextState);
+                    eyedropperBtn.classList.toggle('active', nextState);
+                }
+            });
+        }
+
+        // Toggle Catalog Tray collapse/expand
+        const toggleDock = () => {
+            const dock = this.materialPanel.querySelector('#mat-sims4-bottom-dock');
+            const collapseBtn = this.materialPanel.querySelector('#mat-dock-collapse-btn');
+            const trayBtn = this.materialPanel.querySelector('#mat-toggle-tray-btn');
+            if (!dock) return;
+            dock.classList.toggle('collapsed');
+            const isCollapsed = dock.classList.contains('collapsed');
+            if (collapseBtn) collapseBtn.textContent = isCollapsed ? '▲' : '▼';
+            if (trayBtn) trayBtn.textContent = isCollapsed ? '▲ Swatches' : '▼ Swatches';
+        };
+        this.materialPanel.querySelector('#mat-dock-collapse-btn')?.addEventListener('click', toggleDock);
+        this.materialPanel.querySelector('#mat-toggle-tray-btn')?.addEventListener('click', toggleDock);
+
+        // Update Active Brush UI in Top HUD
+        this.updateActiveBrushUI = (matKeyOrConfig) => {
+            if (!this.materialPanel) return;
+            const nameEl = this.materialPanel.querySelector('#mat-hud-brush-name');
+            const thumbEl = this.materialPanel.querySelector('#mat-hud-brush-thumb');
+            const clearBtn = this.materialPanel.querySelector('#mat-clear-brush-btn');
+            if (!matKeyOrConfig) {
+                if (nameEl) nameEl.textContent = 'Select Material';
+                if (thumbEl) { thumbEl.style.backgroundImage = ''; thumbEl.style.backgroundColor = '#94a3b8'; }
+                if (clearBtn) clearBtn.style.display = 'none';
+                return;
+            }
+            if (clearBtn) clearBtn.style.display = 'inline-flex';
+            if (matKeyOrConfig === '__default__' || matKeyOrConfig === 'default') {
+                if (nameEl) nameEl.textContent = 'Default (Clear)';
+                if (thumbEl) {
+                    thumbEl.style.backgroundImage = '';
+                    thumbEl.style.backgroundColor = '#f1f5f9';
+                    thumbEl.style.border = '1.5px dashed #94a3b8';
+                }
+                return;
+            }
+            if (thumbEl) thumbEl.style.border = '1.5px solid #ffffff';
+            const conf = MaterialManager.resolveMaterialConfig(matKeyOrConfig) || {};
+            const title = conf.name || (typeof matKeyOrConfig === 'string' ? matKeyOrConfig : (conf.id || 'Material'));
+            const cleanTitle = title.replace(/^(wood|stone|brick|marble|floor|paint)_/, '').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+            if (nameEl) nameEl.textContent = cleanTitle;
+            const thumbUrl = conf.thumbnail || conf.texture || conf.map || conf.diffuseMap;
+            if (thumbEl) {
+                if (thumbUrl) {
+                    thumbEl.style.backgroundImage = `url('${thumbUrl}')`;
+                    thumbEl.style.backgroundColor = 'transparent';
+                } else if (conf.color !== undefined) {
+                    thumbEl.style.backgroundImage = '';
+                    thumbEl.style.backgroundColor = typeof conf.color === 'number' ? ('#' + conf.color.toString(16).padStart(6, '0')) : conf.color;
+                } else {
+                    thumbEl.style.backgroundImage = '';
+                    thumbEl.style.backgroundColor = '#3b82f6';
+                }
+            }
+        };
+
+        this.updateEyedropperUI = (active) => {
+            if (!this.materialPanel) return;
+            const btn = this.materialPanel.querySelector('#mat-eyedropper-btn');
+            if (btn) btn.classList.toggle('active', !!active);
+        };
 
         // Add search filtering logic
         const searchInput = this.materialPanel.querySelector('#mat-lib-search-input');
@@ -552,16 +1245,6 @@ export class GizmoManager {
                     const text = titleEl.textContent.toLowerCase();
                     card.style.display = text.includes(q) || q === '' ? 'flex' : 'none';
                 });
-            });
-        }
-
-        // Hook up subtitle navigation link
-        const faceNameLink = this.materialPanel.querySelector('#gizmo-material-face-name');
-        if (faceNameLink) {
-            faceNameLink.addEventListener('click', () => {
-                if (faceNameLink.textContent.includes('Back') || faceNameLink.textContent !== 'Select Material Type') {
-                    this.onMaterialFaceSelected(this.activeFace, this.activeSubMeshIndex, this.activeObject, this.activeMatIndex, 'categories');
-                }
             });
         }
 
@@ -835,6 +1518,7 @@ export class GizmoManager {
                     }
                 }
             };
+            this.highlightSelectedThumb = highlightSelectedThumb;
 
             this._attachMaterialThumbListeners = () => {
                 const currentThumbs = document.querySelectorAll('.mat-thumb');
@@ -843,464 +1527,23 @@ export class GizmoManager {
                         e.preventDefault();
                         e.stopPropagation();
                         
-                        let realSelectedObj = this.ctx.interactions.selectedObject;
-                        if (this.activeObject) {
-                            let current = this.activeObject;
-                            while(current) {
-                                if (current.userData && current.userData.entity) {
-                                    realSelectedObj = current;
-                                    break;
-                                }
-                                current = current.parent;
-                            }
+                        let key = thumb.getAttribute('data-mat');
+                        if (key === null) return;
+                        if (key === '' || key === 'default') key = '__default__';
+
+                        // 1. Arm active brush in Top HUD and paintSystem (NO premature scene preview or mutation on click)
+                        this.activeMaterialKey = key;
+                        if (this.ctx?.commonTools?.paintSystem) {
+                            this.ctx.commonTools.paintSystem.setActiveMaterial(key);
                         }
-                        
-                        // Fix stale activeObject if the mesh was rebuilt by sync-engine
-                        if (this.activeObject && realSelectedObj) {
-                            const targetKey = this.activeObject.name || this.activeObject.userData?.subMeshKey;
-                            if (targetKey) {
-                                let foundNewActive = null;
-                                realSelectedObj.traverse(child => {
-                                    if (child.isMesh && (child.name === targetKey || child.userData?.subMeshKey === targetKey)) {
-                                        foundNewActive = child;
-                                    }
-                                });
-                                if (foundNewActive) {
-                                    this.activeObject = foundNewActive;
-                                }
-                            }
+                        this.activeDescriptor = null;
+                        this.updateActiveBrushUI(key);
+                        highlightSelectedThumb(key);
+                        if (this.ctx?.interactions?.materialGizmo?.clearHighlight) {
+                            this.ctx.interactions.materialGizmo.clearHighlight();
                         }
-                        
-                        const selectedObj = realSelectedObj;
-                        if (selectedObj && selectedObj.userData && selectedObj.userData.entity) {
-                            const entity = selectedObj.userData.entity;
-                            const key = thumb.getAttribute('data-mat');
-                            if (key === null) return;
-
-                            const isWallEntity = entity.type === 'outer' || entity.type === 'inner' || entity.type === 'compound' || entity.type === 'wall' || entity.type === 'arc' || entity.walls || entity.parentArc || entity.startX !== undefined;
-                            const isWallDecor = entity.type === 'wallDecor';
-
-                            // 1. Wall and WallDecor Material Management (Material Scope: Selected Face vs Entire Object)
-                            if (isWallEntity || isWallDecor) {
-                                const wall = isWallDecor ? (entity.mesh3D?.userData?.parentWall || selectedObj?.parent?.userData?.entity || entity) : entity;
-                                const side = this.activeFace || this.activeObject?.userData?.side || selectedObj?.userData?.side || 'front';
-                                
-                                const isProtrusionTarget = this.activeDescriptor?.isProtrusion 
-                                    || this.activeDescriptor?.componentType === 'solid_protrusion' 
-                                    || (this.activeFace && this.activeFace.startsWith('protrusion_')) 
-                                    || (this.activeMatIndex >= 6 && this.activeMatIndex <= 11)
-                                    || selectedObj?.userData?.isProtrusion;
-
-                                const prot = (wall.attachedWidgets || []).find(w => w.type === 'solid_protrusion' || w.configId === 'solid_protrusion');
-
-                                if (isProtrusionTarget && prot) {
-                                    prot.params = prot.params || {};
-                                    const face = this.activeDescriptor?.faceName || this.activeFace || 'front';
-                                    if (this.materialScope === 'entireObject' || face === 'all' || face === 'entireProtrusion') {
-                                        prot.params.textureFront = key;
-                                        prot.params.textureTop = key;
-                                        prot.params.textureBottom = key;
-                                        prot.params.textureLeft = key;
-                                        prot.params.textureRight = key;
-                                    } else {
-                                        const pKey = face === 'top' ? 'textureTop'
-                                                   : (face === 'bottom' ? 'textureBottom'
-                                                   : (face === 'left' ? 'textureLeft'
-                                                   : (face === 'right' ? 'textureRight'
-                                                   : (face === 'back' ? 'textureBack' : 'textureFront'))));
-                                        prot.params[pKey] = key;
-                                    }
-                                    const planner = window.plannerInstance || this.ctx?.planner;
-                                    WallEngine.updateSolidProtrusion(wall, prot, { params: prot.params }, false, planner);
-                                    if (this.ctx.envBuilder && typeof this.ctx.envBuilder.buildWallGroup === 'function') {
-                                        this.ctx.envBuilder.buildWallGroup(wall);
-                                    }
-                                    if (typeof this.ctx.requestRender === 'function') {
-                                        this.ctx.requestRender();
-                                    }
-                                    if (planner && typeof planner.saveHistory === 'function') {
-                                        planner.saveHistory();
-                                    }
-                                    this._renderWallMultiMaterialTabs(wall, selectedObj);
-                                    highlightSelectedThumb(key);
-                                    return;
-                                }
-
-                                const arcWalls = (wall.parentArc && wall.parentArc.walls) 
-                                    ? wall.parentArc.walls 
-                                    : (wall.walls && Array.isArray(wall.walls) ? wall.walls : null);
-                                const arcEntity = wall.parentArc || (wall.walls ? wall : null);
-
-                                if (arcWalls) {
-                                    if (arcEntity) {
-                                        arcEntity.params = arcEntity.params || {};
-                                        if (this.materialScope === 'entireObject') {
-                                            arcEntity.params.texture = key;
-                                            arcEntity.params.textureFront = key;
-                                            arcEntity.params.textureBack = key;
-                                            arcEntity.params.textureSides = key;
-                                        } else {
-                                            const pKey = side === 'back' ? 'textureBack' : (side === 'left' ? 'textureLeft' : (side === 'right' ? 'textureRight' : 'textureFront'));
-                                            arcEntity.params[pKey] = key;
-                                        }
-                                    }
-                                    arcWalls.forEach(w => {
-                                        WallEngine.applyMaterial(w, {
-                                            target: this.materialScope === 'entireObject' ? 'all' : side,
-                                            key,
-                                            ctx: this.ctx
-                                        });
-                                    });
-                                    if (arcEntity && typeof this.ctx.updateMaterialLive === 'function') {
-                                        this.ctx.updateMaterialLive(arcEntity);
-                                    }
-                                    if (typeof this.ctx.requestRender === 'function') {
-                                        this.ctx.requestRender();
-                                    }
-                                    if (window.plannerInstance && typeof window.plannerInstance.saveHistory === 'function') {
-                                        window.plannerInstance.saveHistory();
-                                    }
-                                    this._renderWallMultiMaterialTabs(wall, selectedObj);
-                                    highlightSelectedThumb(key);
-                                    return;
-                                }
-
-                                const isRoomScope = e.shiftKey || this.materialScope === 'room';
-                                const isExteriorScope = e.altKey || this.materialScope === 'exterior';
-
-                                if (isRoomScope || isExteriorScope) {
-                                    const planner = window.plannerInstance || this.ctx?.planner;
-                                    const targetScope = isRoomScope ? 'room' : 'exterior';
-                                    const results = applyWallPaintWithScope({
-                                        wall,
-                                        side,
-                                        configId: key,
-                                        scope: targetScope,
-                                        planner,
-                                        renderer3D: this.ctx
-                                    });
-                                    if (results.length > 0) {
-                                        this.activeDecorId = results[0].decor.id;
-                                    }
-                                    if (typeof this.ctx.requestRender === 'function') {
-                                        this.ctx.requestRender();
-                                    }
-                                    if (planner && typeof planner.saveHistory === 'function') {
-                                        planner.saveHistory();
-                                    }
-                                    this._renderWallMultiMaterialTabs(wall, selectedObj);
-                                    highlightSelectedThumb(key);
-                                    return;
-                                }
-
-                                if (side === 'left' || side === 'right' || side === 'top' || side === 'bottom') {
-                                    WallEngine.applyMaterial(wall, { target: side, key, ctx: this.ctx });
-
-                                    if (side === 'left' || side === 'right') {
-                                        // Sync corner material to connected neighbor walls at this joint
-                                        const anchor = side === 'left' ? wall.startAnchor : wall.endAnchor;
-                                        const pt = side === 'left' 
-                                            ? { x: wall.startX ?? wall.p1?.x, y: wall.startY ?? wall.p1?.y } 
-                                            : { x: wall.endX ?? wall.p2?.x, y: wall.endY ?? wall.p2?.y };
-                                        
-                                        const planner = window.plannerInstance || this.ctx?.planner;
-                                        const allWalls = planner?.walls || (this.ctx?.structureGroup?.children?.map(c => c.userData?.entity).filter(Boolean)) || [];
-
-                                        allWalls.forEach(cw => {
-                                            if (!cw || cw === wall || cw.type === 'roof' || cw.type === 'furniture' || cw.type === 'room') return;
-                                            let isCwStart = false;
-                                            let isCwEnd = false;
-                                            if (anchor && (cw.startAnchor === anchor || cw.endAnchor === anchor)) {
-                                                isCwStart = cw.startAnchor === anchor;
-                                                isCwEnd = cw.endAnchor === anchor;
-                                            } else if (pt.x !== undefined && pt.y !== undefined) {
-                                                const cwP1 = { x: cw.startX ?? cw.p1?.x, y: cw.startY ?? cw.p1?.y };
-                                                const cwP2 = { x: cw.endX ?? cw.p2?.x, y: cw.endY ?? cw.p2?.y };
-                                                if (cwP1.x !== undefined && Math.hypot(cwP1.x - pt.x, cwP1.y - pt.y) < 5) isCwStart = true;
-                                                else if (cwP2.x !== undefined && Math.hypot(cwP2.x - pt.x, cwP2.y - pt.y) < 5) isCwEnd = true;
-                                            }
-                                            if (isCwStart) {
-                                                WallEngine.applyMaterial(cw, { target: 'left', key, ctx: this.ctx });
-                                            }
-                                            if (isCwEnd) {
-                                                WallEngine.applyMaterial(cw, { target: 'right', key, ctx: this.ctx });
-                                            }
-                                        });
-                                    }
-
-                                    if (typeof this.ctx.requestRender === 'function') {
-                                        this.ctx.requestRender();
-                                    }
-                                    if (window.plannerInstance && typeof window.plannerInstance.saveHistory === 'function') {
-                                        window.plannerInstance.saveHistory();
-                                    }
-                                    this._renderWallMultiMaterialTabs(wall, selectedObj);
-                                    highlightSelectedThumb(key);
-                                    return;
-                                }
-
-                                const planner = window.plannerInstance || this.ctx?.planner;
-                                if (this.materialScope === 'entireObject') {
-                                    WallEngine.applyMaterial(wall, { target: 'all', key, ctx: this.ctx }, planner);
-                                    if (typeof this.ctx.requestRender === 'function') {
-                                        this.ctx.requestRender();
-                                    }
-                                    if (planner && typeof planner.saveHistory === 'function') {
-                                        planner.saveHistory();
-                                    }
-                                    this._renderWallMultiMaterialTabs(wall, selectedObj);
-                                    highlightSelectedThumb(key);
-                                    return;
-                                } else {
-                                    // Single Face Mode: Apply canonical material via WallEngine
-                                    WallEngine.applyMaterial(wall, { target: side, key, ctx: this.ctx }, planner);
-
-                                    // If pattern decor is also supported, synchronize attached decor
-                                    if (key && this.ctx && typeof this.ctx.addWallPattern === 'function') {
-                                        const decor = this.ctx.addWallPattern(wall, key, side);
-                                        if (wall.attachedDecor) {
-                                            wall.attachedDecor = [...wall.attachedDecor];
-                                        }
-                                        if (decor) {
-                                            this.activeDecorId = decor.id;
-                                        }
-                                    }
-
-                                    if (typeof this.ctx.requestRender === 'function') {
-                                        this.ctx.requestRender();
-                                    }
-                                    if (planner && typeof planner.saveHistory === 'function') {
-                                        planner.saveHistory();
-                                    }
-                                    this._renderWallMultiMaterialTabs(wall, selectedObj);
-                                    highlightSelectedThumb(key);
-                                    return;
-                                }
-                            }
-
-                            if (entity.type === 'room' || selectedObj.userData?.isFloor || entity.type === 'floor' || entity.type === 'outdoor_zone' || selectedObj.userData?.isOutdoorZone) {
-                                entity.configId = key;
-                                entity.params = entity.params || {};
-                                entity.params.texture = key;
-                                entity.params.material = key;
-                                if (this.ctx && typeof this.ctx.updateMaterialLive === 'function') {
-                                    this.ctx.updateMaterialLive(entity);
-                                }
-                                if (typeof this.ctx.requestRender === 'function') {
-                                    this.ctx.requestRender();
-                                }
-                                if (window.plannerInstance && typeof window.plannerInstance.syncAll === 'function') {
-                                    window.plannerInstance.syncAll();
-                                }
-                                if (window.plannerInstance && typeof window.plannerInstance.saveHistory === 'function') {
-                                    window.plannerInstance.saveHistory();
-                                }
-                                highlightSelectedThumb(key);
-                                return;
-                            }
-
-                            if (entity.type === 'roof' || selectedObj.userData?.isRoof) {
-                                const isFascia = (this.activeFace === 'sides' || this.activeFace === 'fascia' || this.activeMatIndex === 1 || this.activeDescriptor?.slotName === 'fascia');
-                                const isGable = (this.activeFace === 'gable' || this.activeDescriptor?.slotName === 'gable' || selectedObj.userData?.isGable || selectedObj.userData?.materialSlot === 'gable');
-                                const slot = isFascia ? 'fascia' : (isGable ? 'gable' : 'single');
-                                const slopeKey = isFascia ? 'fascia' : (isGable ? 'gable' : null);
-                                RoofEngine.setMaterial(entity, key, slot, slopeKey, this.ctx.planner || window.plannerInstance);
-                                if (this.ctx && typeof this.ctx.updateRoofLive === 'function') {
-                                    this.ctx.updateRoofLive(entity);
-                                } else if (this.ctx?.envBuilder && typeof this.ctx.envBuilder.updateRoofLive === 'function') {
-                                    this.ctx.envBuilder.updateRoofLive(entity);
-                                }
-                                if (typeof this.ctx.requestRender === 'function') {
-                                    this.ctx.requestRender();
-                                }
-                                if (window.plannerInstance && typeof window.plannerInstance.syncAll === 'function') {
-                                    window.plannerInstance.syncAll();
-                                }
-                                highlightSelectedThumb(key);
-                                return;
-                            }
-
-                            // 2. Door / Window / Furniture Entire Object Scope Handling
-                            if (this.materialScope === 'entireObject') {
-                                if (entity.type === 'door') {
-                                    if (!entity.materials) entity.materials = {};
-                                    entity.materials.panel = key;
-                                    entity.materials.frame = key;
-                                    entity.params = entity.params || {};
-                                    entity.params.textureFront = key;
-                                    entity.params.textureBack = key;
-                                    entity.params.frameMat = key;
-                                    entity.doorMat = key;
-                                    entity.frameMat = key;
-                                    if (this.ctx.updateMaterialLive) this.ctx.updateMaterialLive(entity);
-                                    if (typeof this.ctx.requestRender === 'function') this.ctx.requestRender();
-                                    highlightSelectedThumb(key);
-                                    return;
-                                } else if (entity.type === 'window') {
-                                    if (!entity.materials) entity.materials = {};
-                                    entity.materials.frame = key;
-                                    entity.params = entity.params || {};
-                                    entity.params.frameMat = key;
-                                    entity.frameMat = key;
-                                    if (this.ctx.updateMaterialLive) this.ctx.updateMaterialLive(entity);
-                                    if (typeof this.ctx.requestRender === 'function') this.ctx.requestRender();
-                                    highlightSelectedThumb(key);
-                                    return;
-                                } else if (entity.materials || entity.params) {
-                                    if (entity.materials) {
-                                        for (const sKey of Object.keys(entity.materials)) {
-                                            entity.materials[sKey] = key;
-                                        }
-                                    }
-                                    entity.params = entity.params || {};
-                                    entity.params.material = key;
-                                    if (entity.params.blocks) {
-                                        for (const bKey of Object.keys(entity.params.blocks)) {
-                                            entity.params.blocks[bKey].material = key;
-                                        }
-                                    }
-                                    if (this.ctx.updateMaterialLive) this.ctx.updateMaterialLive(entity);
-                                    if (typeof this.ctx.requestRender === 'function') this.ctx.requestRender();
-                                    highlightSelectedThumb(key);
-                                    return;
-                                }
-                            }
-
-                            entity.params = entity.params || {};
-                            const target = this.activeFace || 'front';
-                            
-                            if (key && FABRIC_REGISTRY[key]) {
-                                const currentState = this._getCurrentFabricState(selectedObj);
-                                let effectiveKey = key;
-                                if (currentState.patternId && FABRIC_REGISTRY[key].supportsPatterns !== false) {
-                                    effectiveKey = `${key}::pattern::${currentState.patternId}`;
-                                }
-                                this._applyFabricCompositeMaterial(effectiveKey, selectedObj);
-                                highlightSelectedThumb(key);
-                                return;
-                            }
-                            
-                            let targetParams = entity.params;
-                            if (this.activeSubMeshIndex !== -1 && entity.materialMode !== 'PROCEDURAL' && entity.materialMode !== 'MONOLITHIC') {
-                                entity.params.blocks = entity.params.blocks || {};
-                                entity.params.blocks[this.activeSubMeshIndex] = entity.params.blocks[this.activeSubMeshIndex] || {};
-                                targetParams = entity.params.blocks[this.activeSubMeshIndex];
-                            }
-                            
-                            const isFrame = this.activeObject && this.activeObject.userData && this.activeObject.userData.isFrame;
-                            
-                            // Refactored: Delegate to entity.applyMaterial if available (SOLID: OCP)
-                            if (typeof entity.applyMaterial === 'function' || this.activeObject?.userData?.isProtrusion) {
-                                const isProtrusion = !!this.activeObject?.userData?.isProtrusion;
-                                const isWallEntity = (entity.type === 'outer' || entity.type === 'inner' || entity.type === 'compound' || entity.type === 'wall' || entity.type === 'railing') && !isProtrusion;
-                                const targetWallMesh = isWallEntity ? (entity.wallMesh3D || (entity.mesh3D && (entity.mesh3D.userData?.wallMesh || (entity.mesh3D.children ? entity.mesh3D.children.find(c => c.userData?.isWallMesh || (c.isMesh && !c.userData?.isHitbox && !c.userData?.isWallSide && !c.userData?.isDoor && !c.userData?.isWindow && !c.userData?.isFrame && !c.userData?.isGlass && !c.userData?.isHandle)) : null)))) : null;
-                                const meshToApply = targetWallMesh || this.activeObject;
-                                
-                                let newMat = null;
-                                let effectiveMatIndex = this.activeMatIndex;
-                                if (isWallEntity || isProtrusion) {
-                                    const FACE_MAP = { right: 0, left: 1, top: 2, bottom: 3, front: 4, back: 5 };
-                                    effectiveMatIndex = FACE_MAP[target] !== undefined ? FACE_MAP[target] : (this.activeMatIndex !== -1 ? this.activeMatIndex : (this.activeObject?.userData?.side === 'back' ? 5 : 4));
-                                }
-
-                                if (meshToApply && effectiveMatIndex !== undefined && effectiveMatIndex !== -1) {
-                                    const mats = Array.isArray(meshToApply.material) ? meshToApply.material : [meshToApply.material];
-                                    if (mats[effectiveMatIndex]) {
-                                        newMat = mats[effectiveMatIndex].clone();
-                                        let registry = WALL_DECOR_REGISTRY;
-                                        if (entity.type === 'door' || entity.type === 'window') registry = Object.assign({}, WOOD_REGISTRY, GLASS_REGISTRY);
-                                        else if (entity.type === 'roof') registry = ROOF_DECOR_REGISTRY;
-                                        
-                                        const config = (key && registry[key]) ? registry[key] : (key ? (GLASS_REGISTRY[key] || MARBLE_REGISTRY[key] || STONE_REGISTRY[key] || BRICK_REGISTRY[key] || METAL_REGISTRY[key] || WALL_DECOR_REGISTRY[key]) : null);
-                                        if (config) {
-                                            if (target === 'all' || target === 'sides') {
-                                                for (let i = 0; i < 6; i++) MaterialFactory.applyPBRMaterial(meshToApply, config, this.ctx, i);
-                                            } else if (target === 'back' && isWallEntity) {
-                                                MaterialFactory.applyPBRMaterial(meshToApply, config, this.ctx, 5);
-                                                MaterialFactory.applyPBRMaterial(meshToApply, config, this.ctx, 0);
-                                                MaterialFactory.applyPBRMaterial(meshToApply, config, this.ctx, 1);
-                                            } else {
-                                                MaterialFactory.applyPBRMaterial(meshToApply, config, this.ctx, effectiveMatIndex);
-                                            }
-                                        } else {
-                                            newMat.map = null;
-                                            let fColor = 0xffffff;
-                                            if (entity.fasciaMat === 'dark_grey') fColor = 0x333333;
-                                            else if (entity.fasciaMat === 'stone') fColor = 0xa8a29e;
-                                            else if (entity.fasciaMat === 'wood') fColor = 0x8b5a2b;
-                                            newMat.color.setHex(fColor);
-                                            if (Array.isArray(meshToApply.material)) {
-                                                if (target === 'all' || target === 'sides') {
-                                                    for (let i = 0; i < 6; i++) meshToApply.material[i] = newMat.clone();
-                                                } else if (target === 'back' && isWallEntity) {
-                                                    meshToApply.material[5] = newMat;
-                                                    meshToApply.material[0] = newMat.clone();
-                                                    meshToApply.material[1] = newMat.clone();
-                                                } else {
-                                                    meshToApply.material[effectiveMatIndex] = newMat;
-                                                }
-                                            } else {
-                                                meshToApply.material = newMat;
-                                            }
-                                        }
-
-                                        if (isProtrusion && meshToApply.userData.widget) {
-                                            const widg = meshToApply.userData.widget;
-                                            widg.params = widg.params || {};
-                                            if (target === 'all' || target === 'sides') {
-                                                widg.params.textureFront = key;
-                                                widg.params.textureBack = key;
-                                                widg.params.textureLeft = key;
-                                                widg.params.textureRight = key;
-                                                widg.params.textureTop = key;
-                                                widg.params.textureBottom = key;
-                                            } else {
-                                                if (effectiveMatIndex === 0) widg.params.textureRight = key;
-                                                else if (effectiveMatIndex === 1) widg.params.textureLeft = key;
-                                                else if (effectiveMatIndex === 2) widg.params.textureTop = key;
-                                                else if (effectiveMatIndex === 3) widg.params.textureBottom = key;
-                                                else if (effectiveMatIndex === 4) widg.params.textureFront = key;
-                                                else if (effectiveMatIndex === 5) widg.params.textureBack = key;
-                                            }
-                                        }
-                                    }
-                                }
-
-                                if (isWallEntity && entity.parentArc && entity.parentArc.walls) {
-                                    const registry = WALL_DECOR_REGISTRY;
-                                    const config = (key && registry[key]) ? registry[key] : (key ? (GLASS_REGISTRY[key] || MARBLE_REGISTRY[key] || STONE_REGISTRY[key] || BRICK_REGISTRY[key] || METAL_REGISTRY[key] || WALL_DECOR_REGISTRY[key]) : null);
-                                    entity.parentArc.walls.forEach(siblingWall => {
-                                        if (siblingWall === entity) return;
-                                        const siblingWallMesh = siblingWall.wallMesh3D || (siblingWall.mesh3D && (siblingWall.mesh3D.userData?.wallMesh || (siblingWall.mesh3D.children ? siblingWall.mesh3D.children.find(c => c.userData?.isWallMesh || (c.isMesh && !c.userData?.isHitbox && !c.userData?.isWallSide && !c.userData?.isDoor && !c.userData?.isWindow && !c.userData?.isFrame && !c.userData?.isGlass && !c.userData?.isHandle)) : null)));
-                                        if (siblingWallMesh && effectiveMatIndex !== undefined && effectiveMatIndex !== -1) {
-                                            if (config) {
-                                                MaterialFactory.applyPBRMaterial(siblingWallMesh, config, this.ctx, effectiveMatIndex);
-                                            } else if (newMat) {
-                                                if (Array.isArray(siblingWallMesh.material)) {
-                                                    siblingWallMesh.material[effectiveMatIndex] = newMat.clone();
-                                                } else {
-                                                    siblingWallMesh.material = newMat.clone();
-                                                }
-                                            }
-                                        }
-                                    });
-                                }
-                                
-                                entity.applyMaterial({ target, key, newMat, activeMatIndex: effectiveMatIndex, activeObject: meshToApply, ctx: this.ctx });
-                                if (this.ctx.updateMaterialLive) this.ctx.updateMaterialLive(entity);
-                                highlightSelectedThumb(key);
-                             } else {
-                                 // CAD/BIM Material System for all material types
-                                 const targetMeshToUse = this.activeObject || selectedObj;
-                                 const descriptor = this.activeDescriptor || BIMMaterialSystem.resolveBIMTarget(
-                                     targetMeshToUse,
-                                     this.activeMatIndex,
-                                     null,
-                                     entity
-                                 );
-                                 BIMMaterialSystem.applyBIMMaterial(descriptor, key, this.ctx);
-                                 highlightSelectedThumb(key);
-                             }
+                        if (this.ctx?.requestRender) {
+                            this.ctx.requestRender('material_brush_armed');
                         }
                     });
                 });
@@ -1370,6 +1613,196 @@ export class GizmoManager {
         }, 100);
     }
 
+    getCompatibleCategoriesForEntity(entity, descriptor = null) {
+        if (!entity) {
+            return [
+                { id: 'marble', label: 'Marble' },
+                { id: 'tile', label: 'Tiles' },
+                { id: 'brick', label: 'Bricks' },
+                { id: 'paint', label: 'Paint' },
+                { id: 'stone', label: 'Natural Stone' },
+                { id: 'wood', label: 'Wood' },
+                { id: 'floor', label: 'Floor' },
+                { id: 'roof', label: 'Roof' },
+                { id: 'wall_decor', label: 'Wall Decor' },
+                { id: 'fabric', label: 'Fabric' },
+                { id: 'metal', label: 'Metals' },
+                { id: 'glass', label: 'Glass' },
+                { id: 'plastic', label: 'Plastics' },
+                { id: 'leather', label: 'Leather' }
+            ];
+        }
+
+        const type = entity.type;
+        const isWall = type === 'outer' || type === 'inner' || type === 'compound' || type === 'wall' || type === 'arc' || type === 'half_wall' || type === 'foundation' || entity.walls || entity.parentArc || entity.startX !== undefined;
+
+        if (isWall) {
+            return [
+                { id: 'marble', label: 'Marble' },
+                { id: 'tile', label: 'Tiles' },
+                { id: 'brick', label: 'Bricks' },
+                { id: 'paint', label: 'Paint' },
+                { id: 'stone', label: 'Natural Stone' },
+                { id: 'wood', label: 'Wood' },
+                { id: 'wall_decor', label: 'Wall Decor' }
+            ];
+        }
+
+        if (type === 'roof' || entity.isRoof || descriptor?.isRoof) {
+            return [
+                { id: 'roof', label: 'Roof Shingles' },
+                { id: 'wood', label: 'Wood / Fascia' },
+                { id: 'metal', label: 'Metal' },
+                { id: 'stone', label: 'Stone' }
+            ];
+        }
+
+        if (type === 'room' || type === 'floor' || type === 'outdoor_zone' || entity.isFloor || entity.isOutdoorZone) {
+            return [
+                { id: 'floor', label: 'Floor Tiles' },
+                { id: 'marble', label: 'Marble' },
+                { id: 'wood', label: 'Hardwood' },
+                { id: 'stone', label: 'Stone' },
+                { id: 'tile', label: 'Tiles' }
+            ];
+        }
+
+        if (type === 'door') {
+            return [
+                { id: 'wood', label: 'Wood' },
+                { id: 'glass', label: 'Glass' },
+                { id: 'metal', label: 'Metals' },
+                { id: 'plastic', label: 'Plastics' }
+            ];
+        }
+
+        if (type === 'window') {
+            return [
+                { id: 'glass', label: 'Glass' },
+                { id: 'wood', label: 'Wood' },
+                { id: 'metal', label: 'Metals' },
+                { id: 'plastic', label: 'Plastics' }
+            ];
+        }
+
+        if (type === 'stair' || type === 'staircase') {
+            return [
+                { id: 'wood', label: 'Wood' },
+                { id: 'marble', label: 'Marble' },
+                { id: 'stone', label: 'Stone' },
+                { id: 'metal', label: 'Metals' },
+                { id: 'tile', label: 'Tiles' }
+            ];
+        }
+
+        if (type === 'furniture' || entity.isFurniture) {
+            return [
+                { id: 'fabric', label: 'Fabric' },
+                { id: 'leather', label: 'Leather' },
+                { id: 'wood', label: 'Wood' },
+                { id: 'metal', label: 'Metals' },
+                { id: 'plastic', label: 'Plastics' },
+                { id: 'marble', label: 'Marble' },
+                { id: 'glass', label: 'Glass' }
+            ];
+        }
+
+        return [
+            { id: 'wood', label: 'Wood' },
+            { id: 'stone', label: 'Stone' },
+            { id: 'marble', label: 'Marble' },
+            { id: 'metal', label: 'Metals' },
+            { id: 'plastic', label: 'Plastics' }
+        ];
+    }
+
+    _renderDockCategoriesBar(currentCategory, selectedObj = null, descriptor = null) {
+        if (!this.materialPanel) return;
+        const bar = this.materialPanel.querySelector('#mat-dock-categories-bar');
+        if (!bar) return;
+
+        const entity = selectedObj?.userData?.entity || (this.ctx?.interactions?.selectedObject?.userData?.entity);
+        const cats = this.getCompatibleCategoriesForEntity(entity, descriptor || this.activeDescriptor);
+
+        const normCurrent = (currentCategory === 'stones' ? 'stone' : (currentCategory === 'bricks' ? 'brick' : currentCategory));
+
+        bar.innerHTML = cats.map(cat => {
+            const isActive = cat.id === normCurrent;
+            return `<button class="mat-cat-tab-btn ${isActive ? 'active' : ''}" data-cat="${cat.id}">${cat.label}</button>`;
+        }).join('');
+
+        bar.querySelectorAll('.mat-cat-tab-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const chosenCat = btn.getAttribute('data-cat');
+                this._lastSelectedCat = chosenCat;
+                this.onMaterialFaceSelected(this.activeFace, this.activeSubMeshIndex, this.activeObject, this.activeMatIndex, chosenCat);
+            });
+        });
+
+        // Category scroll arrow navigation
+        const btnLeft = this.materialPanel.querySelector('#mat-cat-scroll-left');
+        const btnRight = this.materialPanel.querySelector('#mat-cat-scroll-right');
+        if (btnLeft && !btnLeft._hasScrollListener) {
+            btnLeft._hasScrollListener = true;
+            btnLeft.addEventListener('click', (e) => {
+                e.stopPropagation();
+                bar.scrollBy({ left: -140, behavior: 'smooth' });
+            });
+        }
+        if (btnRight && !btnRight._hasScrollListener) {
+            btnRight._hasScrollListener = true;
+            btnRight.addEventListener('click', (e) => {
+                e.stopPropagation();
+                bar.scrollBy({ left: 140, behavior: 'smooth' });
+            });
+        }
+
+        const activeBtn = bar.querySelector('.mat-cat-tab-btn.active');
+        if (activeBtn) {
+            activeBtn.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+        }
+    }
+
+    _updateDockWallPills(entity) {
+        if (!this.materialPanel) return;
+        const subbar = this.materialPanel.querySelector('#mat-dock-subbar');
+        const isWall = entity && (entity.type === 'outer' || entity.type === 'inner' || entity.type === 'compound' || entity.type === 'wall' || entity.type === 'arc' || entity.walls || entity.parentArc || entity.startX !== undefined);
+        if (subbar) {
+            subbar.style.display = isWall ? 'flex' : 'none';
+        }
+        if (!isWall) return;
+
+        const facePills = this.materialPanel.querySelectorAll('.mat-dock-face-pill');
+        const scopePills = this.materialPanel.querySelectorAll('.mat-dock-scope-pill');
+        const topFacePills = this.materialPanel.querySelectorAll('.mat-face-pill');
+        const topScopePills = this.materialPanel.querySelectorAll('.mat-scope-pill');
+
+        const activeFace = this.activeFace || 'front';
+        const isBoth = this.materialScope === 'entireObject';
+
+        facePills.forEach(p => {
+            const side = p.getAttribute('data-side');
+            if (isBoth) {
+                p.classList.toggle('active', side === 'both');
+            } else {
+                p.classList.toggle('active', side === activeFace);
+            }
+        });
+
+        topFacePills.forEach(p => {
+            p.classList.toggle('active', p.getAttribute('data-side') === activeFace);
+        });
+
+        scopePills.forEach(p => {
+            p.classList.toggle('active', p.getAttribute('data-scope') === (this.materialScope || 'selectedFace'));
+        });
+
+        topScopePills.forEach(p => {
+            p.classList.toggle('active', p.getAttribute('data-scope') === (this.materialScope || 'selectedFace'));
+        });
+    }
+
     async onMaterialFaceSelected(faceName, subMeshIndex = -1, activeObject = null, activeMatIndex = -1, forcedCategory = null) {
         this.activeFace = faceName;
         this.activeSubMeshIndex = subMeshIndex;
@@ -1402,30 +1835,64 @@ export class GizmoManager {
             }
         }
         const selectedObj = realSelectedObj;
+
+        // Activate Sims 4 UniversalMaterialPaintSystem & start session if not started
+        if (this.ctx?.commonTools?.paintSystem) {
+            if (!this.ctx.commonTools.paintSystem.isSessionActive && selectedObj?.userData?.entity) {
+                this.ctx.commonTools.paintSystem.startSession(selectedObj.userData.entity);
+            }
+            this.ctx.commonTools.paintSystem.setActive(true);
+            if (this.materialScope) {
+                this.ctx.commonTools.paintSystem.setMaterialScope(this.materialScope);
+            }
+            if (this.activeMaterialKey) {
+                this.ctx.commonTools.paintSystem.setActiveMaterial(this.activeMaterialKey);
+            }
+        }
         
-        let materialCategory = forcedCategory || 'categories';
+        const entity = selectedObj?.userData?.entity;
+        if (entity) {
+            this._updateDockWallPills(entity);
+        }
+        const compatibleCats = this.getCompatibleCategoriesForEntity(entity, this.activeDescriptor);
+
+        let materialCategory = (forcedCategory && forcedCategory !== 'categories') ? forcedCategory : null;
         
-        if (!forcedCategory) {
+        if (!materialCategory) {
             if (this.activeDescriptor && this.activeDescriptor.slotName) {
                 const slot = this.activeDescriptor.slotName;
-                materialCategory = SLOT_DEFINITIONS[slot]?.defaultCategory || 'categories';
-            } else if (selectedObj && selectedObj.userData && selectedObj.userData.entity) {
-                if (selectedObj.userData.entity.params && selectedObj.userData.entity.params.materialCategory) {
-                    materialCategory = selectedObj.userData.entity.params.materialCategory;
+                materialCategory = SLOT_DEFINITIONS[slot]?.defaultCategory || null;
+            } else if (entity) {
+                if (entity.params && entity.params.materialCategory) {
+                    materialCategory = entity.params.materialCategory;
                 } else {
-                    const type = selectedObj.userData.entity.type;
-                    if (type === 'room' || selectedObj.userData.isFloor || type === 'floor') {
+                    const type = entity.type;
+                    if (type === 'room' || selectedObj?.userData?.isFloor || type === 'floor') {
                         materialCategory = 'floor';
-                    } else if (type === 'outer' || type === 'inner' || type === 'compound' || type === 'wall' || type === 'arc' || selectedObj.userData.entity.walls || selectedObj.userData.entity.parentArc) {
-                        materialCategory = 'categories';
-                    } else if (type !== 'furniture' && !selectedObj.userData.entity.isFurniture) {
+                    } else if (type === 'roof' || entity.isRoof) {
+                        materialCategory = 'roof';
+                    } else if (type === 'door') {
+                        materialCategory = 'wood';
+                    } else if (type === 'window') {
+                        materialCategory = 'glass';
+                    } else if (type === 'outer' || type === 'inner' || type === 'compound' || type === 'wall' || type === 'arc' || entity.walls || entity.parentArc) {
+                        materialCategory = this._lastSelectedCat || 'marble';
+                    } else if (type !== 'furniture' && !entity.isFurniture) {
                         materialCategory = type;
                     }
                 }
             }
         }
-        
-        // Legacy hardcoded component overrides removed in favor of pure universal inference below.
+
+        // Validate that materialCategory is compatible with selected object
+        const isCompatible = compatibleCats.some(c => c.id === materialCategory);
+        if (!isCompatible) {
+            materialCategory = compatibleCats[0]?.id || 'marble';
+        }
+        this._lastSelectedCat = materialCategory;
+
+        // Render Quick Category Tabs in Dock Header (filtered by selected object)
+        this._renderDockCategoriesBar(materialCategory, selectedObj, this.activeDescriptor);
         
         const gridPanel = document.getElementById('gizmo-material-grid');
         if (gridPanel) {
@@ -1435,117 +1902,29 @@ export class GizmoManager {
         }
         const searchEl = document.getElementById('mat-lib-search-input');
         if (searchEl) searchEl.value = '';
-        
-        if (materialCategory === 'categories') {
-            if (this.matFaceNameDisplay) {
-                this.matFaceNameDisplay.innerText = 'Select Material Type';
-                this.matFaceNameDisplay.style.textDecoration = 'none';
-            }
-            
-            const getCount = (reg) => reg ? Object.entries(reg).filter(([k, v]) => !v.isAlias).length : 0;
-            const getSampleBg = (reg) => {
-                if (!reg) return '';
-                const keys = Object.keys(reg);
-                if (keys.length === 0) return '';
-                const val = reg[keys[0]];
-                if (val.cssSphere) return val.cssSphere;
-                const thumbUrl = val.thumbnail || val.texture || val.map || val.diffuseMap;
-                if (thumbUrl) return `background-image: url('${thumbUrl}');`;
-                if (val.color) return `background-color: #${val.color.toString(16).padStart(6, '0')};`;
-                return '';
-            };
-            
-            const clearGlass3dThumb = glassPreviewRenderer.renderGlassThumbnail('clear', GLASS_REGISTRY.clear);
-
-            const cats = [
-                { id: 'floor', title: 'Floor Materials', count: getCount(FLOOR_REGISTRY), desc: 'Hardwood planks, polished tiles, modern vinyl and architectural floor materials.', iconBg: 'rgba(234, 179, 8, 0.25)', iconColor: '#eab308', iconSvg: '<rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="9" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="15"/>', sphereGrad: 'radial-gradient(circle at 35% 25%, #fef08a, #ca8a04 50%, #854d0e 85%)', sphereColor: '#ca8a04', sampleBg: getSampleBg(FLOOR_REGISTRY) },
-                { id: 'stone', title: 'Natural Stone', count: getCount(STONE_REGISTRY), desc: 'Rustic stacked fieldstone, charcoal cleft slate, and Roman travertine limestone.', iconBg: 'rgba(168, 185, 129, 0.25)', iconColor: '#10b981', iconSvg: '<polygon points="12 2 2 7 12 22 22 7 12 2"/>', sphereGrad: 'radial-gradient(circle at 40% 30%, #cbd5e1, #64748b 55%, #334155 85%, #0f172a 100%)', sphereColor: '#64748b', sampleBg: getSampleBg(STONE_REGISTRY) },
-                { id: 'brick', title: 'Bricks & Masonry', count: getCount(BRICK_REGISTRY), desc: 'Classic red brick, orange textured, dark burgundy, and rustic masonry.', iconBg: 'rgba(239, 68, 68, 0.25)', iconColor: '#ef4444', iconSvg: '<rect x="2" y="4" width="20" height="16" rx="1"/><line x1="2" y1="12" x2="22" y2="12"/><line x1="12" y1="4" x2="12" y2="12"/><line x1="7" y1="12" x2="7" y2="20"/><line x1="17" y1="12" x2="17" y2="20"/>', sphereGrad: 'radial-gradient(circle at 35% 25%, #f87171, #b91c1c 50%, #7f1d1d 85%, #450a0a 100%)', sphereColor: '#b91c1c', sampleBg: getSampleBg(BRICK_REGISTRY) },
-                { id: 'marble', title: 'Marble & Granite', count: getCount(MARBLE_REGISTRY), desc: 'Luxurious Italian Carrara, Nero Marquina black, and polished Calacatta gold marble slabs.', iconBg: 'rgba(236, 72, 153, 0.25)', iconColor: '#ec4899', iconSvg: '<polygon points="12 2 2 7 12 22 22 7 12 2"/>', sphereGrad: 'radial-gradient(circle at 40% 30%, #f1f5f9, #94a3b8 55%, #475569 85%, #0f172a 100%)', sphereColor: '#94a3b8', sampleBg: getSampleBg(MARBLE_REGISTRY) },
-                { id: 'wood', title: 'Wood / Veneer', count: getCount(WOOD_REGISTRY), desc: 'Warm, natural timber grains and high-end polished architectural wood veneers.', iconBg: 'rgba(120, 53, 15, 0.35)', iconColor: '#f59e0b', iconSvg: '<path d="M12 2L6 12h3v8h6v-8h3L12 2z"/>', sphereGrad: 'radial-gradient(circle at 35% 25%, #d97706, #78350f 50%, #451a03 90%)', sphereColor: '#78350f', sampleBg: getSampleBg(WOOD_REGISTRY) },
-                { id: 'wall_decor', title: 'Wall Decor', count: getCount(WALL_DECOR_REGISTRY), desc: 'Exterior plaster, interior paints, and decorative wall textures.', iconBg: 'rgba(59, 130, 246, 0.25)', iconColor: '#3b82f6', iconSvg: '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/>', sphereGrad: 'radial-gradient(circle at 35% 25%, #93c5fd, #2563eb 50%, #1e40af 85%)', sphereColor: '#2563eb', sampleBg: getSampleBg(WALL_DECOR_REGISTRY) },
-                { id: 'fabric', title: 'Fabric / Decor', count: getCount(FABRIC_REGISTRY), desc: 'Soft materials and decorative fabrics for furniture, walls and decor.', iconBg: 'rgba(249, 115, 22, 0.25)', iconColor: '#f97316', iconSvg: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M7 15h10M7 9h10"/>', sphereGrad: 'radial-gradient(circle at 35% 25%, #fdba74, #ea580c 50%, #9a3412 85%, #431407 100%)', sphereColor: '#ea580c', sampleBg: getSampleBg(FABRIC_REGISTRY) },
-                { id: 'metal', title: 'Metals', count: getCount(METAL_REGISTRY), desc: 'Brushed aluminum, polished chrome, structural steel and luxury decorative anodized finishes.', iconBg: 'rgba(100, 116, 139, 0.35)', iconColor: '#94a3b8', iconSvg: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9c.26.6.72 1.05 1.33 1.28H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>', sphereGrad: 'linear-gradient(135deg, #e2e8f0 0%, #64748b 45%, #f8fafc 50%, #334155 100%)', sphereColor: '#94a3b8', sampleBg: getSampleBg(METAL_REGISTRY) },
-                { id: 'glass', title: 'Glass', count: getCount(GLASS_REGISTRY), desc: 'Clear tempered glass, architectural privacy frosting and energy-efficient tinted glazing.', iconBg: 'rgba(6, 182, 212, 0.25)', iconColor: '#06b6d4', iconSvg: '<rect x="3" y="3" width="18" height="18" rx="2"/><line x1="12" y1="3" x2="12" y2="21"/><line x1="3" y1="12" x2="21" y2="12"/>', sphereGrad: '', sphereColor: '#06b6d4', sampleBg: `background-image: url('${clearGlass3dThumb}'); background-size: cover; background-position: center;` },
-                { id: 'plastic', title: 'Plastics', count: getCount(PLASTIC_REGISTRY), desc: 'Matte black polycarbonates, glossy PVC trims, lightweight laminates and composite plastics.', iconBg: 'rgba(168, 85, 247, 0.25)', iconColor: '#a855f7', iconSvg: '<path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/>', sphereGrad: 'radial-gradient(circle at 35% 30%, #52525b, #27272a 60%, #09090b 100%)', sphereColor: '#27272a', sampleBg: getSampleBg(PLASTIC_REGISTRY) },
-                { id: 'leather', title: 'Leather', count: getCount(LEATHER_REGISTRY), desc: 'Supple aniline leathers, embossed hides, and eco-friendly artificial leather upholstery.', iconBg: 'rgba(180, 83, 9, 0.25)', iconColor: '#d97706', iconSvg: '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>', sphereGrad: 'radial-gradient(circle at 35% 25%, #b45309, #713f12 55%, #422006 90%, #1c0f04 100%)', sphereColor: '#713f12', sampleBg: getSampleBg(LEATHER_REGISTRY) }
-            ];
-            
-            let activeCatId = this._lastSelectedCat || 'stone';
-            let categoryThumbnails = '';
-            for (const cat of cats) {
-                const isSelected = cat.id === activeCatId;
-                const activeClass = isSelected ? ' active-card' : '';
-                const is3dGlassClass = cat.id === 'glass' ? ' is-3d-glass' : '';
-                const sphereStyle = cat.sampleBg ? `${cat.sampleBg}; background-color: ${cat.sphereColor};` : `background-image: ${cat.sphereGrad}; background-color: ${cat.sphereColor};`;
-                categoryThumbnails += `
-                    <div class="mat-card mat-category-thumb${activeClass}" data-cat="${cat.id}">
-                        <div class="mat-card-icon-badge" style="background: ${cat.iconBg}; color: ${cat.iconColor};">
-                            <svg style="width: 18px; height: 18px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">${cat.iconSvg}</svg>
-                        </div>
-                        <div class="mat-sphere${is3dGlassClass}" style="${sphereStyle}"></div>
-                        <div style="width: 100%;">
-                            <div class="mat-card-title">${cat.title}</div>
-                            <div class="mat-card-sub">${cat.count} Materials</div>
-                        </div>
-                    </div>
-                `;
-            }
-            
-            if (gridPanel) {
-                gridPanel.innerHTML = categoryThumbnails;
-                const catThumbs = gridPanel.querySelectorAll('.mat-category-thumb');
-                
-                const updateCategorySelection = (catId) => {
-                    this._lastSelectedCat = catId;
-                    const catObj = cats.find(c => c.id === catId) || cats[0];
-                    catThumbs.forEach(el => {
-                        el.classList.toggle('active-card', el.getAttribute('data-cat') === catId);
-                    });
-                    if (this.matNameDisplay) this.matNameDisplay.innerText = catObj ? catObj.title : 'Select Material Type';
-                };
-
-                catThumbs.forEach(t => {
-                    t.addEventListener('click', (e) => {
-                        const chosenCat = e.currentTarget.getAttribute('data-cat');
-                        this.onMaterialFaceSelected(this.activeFace, this.activeSubMeshIndex, this.activeObject, this.activeMatIndex, chosenCat);
-                    });
-                });
-
-                updateCategorySelection(activeCatId);
-            }
-            if (selectedObj?.userData?.entity) {
-                this._renderWallMultiMaterialTabs(selectedObj.userData.entity, selectedObj);
-            }
-            return; // Stop here, don't generate regular material thumbs
-        }
-
-        if (this.matFaceNameDisplay) {
-            this.matFaceNameDisplay.innerHTML = '← Back to Categories';
-            this.matFaceNameDisplay.style.textDecoration = 'underline';
-        }
 
         let decorThumbnails = `
-            <div class="mat-card mat-thumb" data-mat="" title="Revert to Default Material">
-                <div style="height: 40px; flex-shrink: 0;"></div>
-                <div class="mat-clear-circle">
-                    <svg style="width: 44px; height: 44px; color: rgba(255, 255, 255, 0.9);" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <div class="mat-card mat-thumb" data-mat="__default__" title="Revert to Default Material">
+                <div class="mat-card-selected-checkmark">✓</div>
+                <div class="mat-clear-circle" style="width: 44px; height: 44px; border-radius: 50%; background: #f1f5f9; border: 1.5px dashed #94a3b8; display: flex; align-items: center; justify-content: center; margin: 2px 0;">
+                    <svg style="width: 18px; height: 18px; color: #64748b;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                         <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
                         <path d="M3 3v5h5" />
                     </svg>
                 </div>
-                <div style="width: 100%;">
-                    <div class="mat-card-title">Clear Material</div>
-                    <div class="mat-card-sub" style="color: #94a3b8;">Revert to Default</div>
-                </div>
+                <div class="mat-card-title">Default</div>
             </div>
         `;
         let registry = null;
         let activeGroup = null;
-        const ALL_REGISTRY = Object.assign({}, WOOD_REGISTRY, METAL_REGISTRY, PLASTIC_REGISTRY, GLASS_REGISTRY, STONE_REGISTRY, BRICK_REGISTRY, MARBLE_REGISTRY, FABRIC_REGISTRY, LEATHER_REGISTRY, TILE_REGISTRY, ROOF_REGISTRY, FLOOR_REGISTRY, WALL_REGISTRY);
+        const ALL_REGISTRY = Object.assign({}, WOOD_REGISTRY, METAL_REGISTRY, PLASTIC_REGISTRY, GLASS_REGISTRY, STONE_REGISTRY, BRICK_REGISTRY, MARBLE_REGISTRY, FABRIC_REGISTRY, LEATHER_REGISTRY, TILE_REGISTRY, ROOF_REGISTRY, FLOOR_REGISTRY, WALL_REGISTRY, PAINT_REGISTRY);
 
         // 1. Resolve category based on user selection (takes absolute priority)
         switch (materialCategory) {
+            case 'paint':
+                registry = PAINT_REGISTRY;
+                activeGroup = null;
+                break;
             case 'wood':
             case 'door':
             case 'window':
@@ -1634,6 +2013,7 @@ export class GizmoManager {
                     else if (ROOF_REGISTRY[texKey]) registry = ROOF_REGISTRY;
                     else if (FLOOR_REGISTRY[texKey]) registry = FLOOR_REGISTRY;
                     else if (WALL_REGISTRY[texKey]) registry = WALL_REGISTRY;
+                    else if (PAINT_REGISTRY && PAINT_REGISTRY[texKey]) registry = PAINT_REGISTRY;
                     activeGroup = ALL_REGISTRY[texKey].group || null;
                 }
                 break;
@@ -1653,6 +2033,7 @@ export class GizmoManager {
         else if (registry === BRICK_REGISTRY) title = 'Bricks & Masonry';
         else if (registry === MARBLE_REGISTRY) title = 'Marble';
         else if (registry === TILE_REGISTRY) title = 'Tiles';
+        else if (registry === PAINT_REGISTRY) title = 'Wall Paint';
         else if (registry === FABRIC_REGISTRY) title = 'Fabric / Decor';
         else if (registry === PLASTIC_REGISTRY) title = 'Plastics';
         else if (registry === LEATHER_REGISTRY) title = 'Leather';
@@ -1686,64 +2067,17 @@ export class GizmoManager {
                 const label = val.name || val.label || key;
                 const groupAttr = val.group ? `data-group="${val.group}"` : '';
                 
-                if (materialCategory === 'glass') {
-                    decorThumbnails += `
-                        <div class="mat-card mat-thumb is-glass-card" data-mat="${key}" ${groupAttr} title="${label}">
-                            <div class="mat-card-selected-checkmark">✓</div>
-                            <div class="mat-sphere is-3d-glass" id="mat-thumb-${key}" style="background: radial-gradient(circle at 50% 50%, rgba(56, 189, 248, 0.18) 0%, rgba(56, 189, 248, 0.04) 55%, transparent 75%);"></div>
-                            <div style="width: 100%; text-align: center;">
-                                <div class="mat-card-title">${label}</div>
-                                <div class="mat-card-sub" style="color: #38bdf8; font-weight: 600; letter-spacing: 0.5px;">Glass</div>
-                            </div>
-                        </div>
-                    `;
-                } else if (materialCategory === 'marble') {
-                    decorThumbnails += `
-                        <div class="mat-card mat-thumb is-brick-card" data-mat="${key}" ${groupAttr} title="${label}">
-                            <div class="mat-card-selected-checkmark" style="background: #ef4444; color: #ffffff; top: 12px; right: 12px;">✓</div>
-                            <div class="mat-sphere" id="mat-thumb-${key}" style="${sphereStyle}"></div>
-                            <div style="width: 100%; padding: 4px 2px 2px 2px;">
-                                <div class="mat-card-title" style="font-size: 13px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #f8fafc;">${label}</div>
-                                <div class="mat-card-sub" style="color: #f87171; font-weight: 600; letter-spacing: 0.5px;">Marble & Granite</div>
-                            </div>
-                        </div>
-                    `;
-                } else if (materialCategory === 'stone' || materialCategory === 'stones' || registry === STONE_REGISTRY) {
-                    decorThumbnails += `
-                        <div class="mat-card mat-thumb is-stone-card" data-mat="${key}" ${groupAttr} title="${label}">
-                            <div class="mat-card-selected-checkmark" style="background: #10b981; color: #ffffff; top: 12px; right: 12px;">✓</div>
-                            <div class="mat-sphere" id="mat-thumb-${key}" style="${sphereStyle}"></div>
-                            <div style="width: 100%; padding: 4px 2px 2px 2px;">
-                                <div class="mat-card-title" style="font-size: 13px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #f8fafc;">${label}</div>
-                                <div class="mat-card-sub" style="color: #10b981; font-weight: 600; letter-spacing: 0.5px;">Natural Stone</div>
-                            </div>
-                        </div>
-                    `;
-                } else if (materialCategory === 'brick' || materialCategory === 'bricks' || registry === BRICK_REGISTRY) {
-                    decorThumbnails += `
-                        <div class="mat-card mat-thumb is-brick-card" data-mat="${key}" ${groupAttr} title="${label}">
-                            <div class="mat-card-selected-checkmark" style="background: #ef4444; color: #ffffff; top: 12px; right: 12px;">✓</div>
-                            <div class="mat-sphere" id="mat-thumb-${key}" style="${sphereStyle}"></div>
-                            <div style="width: 100%; padding: 4px 2px 2px 2px;">
-                                <div class="mat-card-title" style="font-size: 13px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #f8fafc;">${label}</div>
-                                <div class="mat-card-sub" style="color: #f87171; font-weight: 600; letter-spacing: 0.5px;">Brick & Masonry</div>
-                            </div>
-                        </div>
-                    `;
-                } else {
-                    decorThumbnails += `
-                        <div class="mat-card mat-thumb" data-mat="${key}" ${groupAttr} title="${label}">
-                            <div class="mat-card-icon-badge" style="background: rgba(249, 115, 22, 0.2); color: #f97316;">
-                                <svg style="width: 16px; height: 16px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
-                            </div>
-                            <div class="mat-sphere" id="mat-thumb-${key}" style="${sphereStyle}"></div>
-                            <div style="width: 100%;">
-                                <div class="mat-card-title">${label}</div>
-                                <div class="mat-card-sub">${title}</div>
-                            </div>
-                        </div>
-                    `;
-                }
+                const isGlass = materialCategory === 'glass';
+                const sphereClass = isGlass ? 'mat-sphere is-3d-glass' : 'mat-sphere';
+                const glassStyle = isGlass ? "background: radial-gradient(circle at 50% 50%, rgba(56, 189, 248, 0.25) 0%, rgba(56, 189, 248, 0.06) 55%, transparent 75%);" : sphereStyle;
+
+                decorThumbnails += `
+                    <div class="mat-card mat-thumb" data-mat="${key}" ${groupAttr} title="${label}">
+                        <div class="mat-card-selected-checkmark">✓</div>
+                        <div class="${sphereClass}" id="mat-thumb-${key}" style="${glassStyle}"></div>
+                        <div class="mat-card-title">${label}</div>
+                    </div>
+                `;
             }
         }
         
@@ -1757,54 +2091,32 @@ export class GizmoManager {
                 
                 this._patternTransformState = this._patternTransformState || { scale: 120, rotation: 45, repeat: 2.0, opacity: 100, mirror: 'vertical' };
                 if (!state.patternId) {
-                    // Standard 165px Width Fabric Card Launcher when no pattern is applied
                     patternLauncherHtml = `
-                        <div class="mat-card" id="card-pattern-customizer-launcher" style="border: 1.5px dashed rgba(168, 85, 247, 0.5); background: linear-gradient(145deg, rgba(26, 16, 38, 0.9) 0%, rgba(15, 11, 26, 0.95) 100%);">
-                            <div class="mat-card-icon-badge" style="background: rgba(168, 85, 247, 0.25); color: #c084fc;">
-                                ✨
-                            </div>
-                            <div class="mat-sphere" style="background: radial-gradient(circle at 35% 25%, #c084fc 0%, #7c3aed 55%, #4c1d95 100%); display: flex; align-items: center; justify-content: center; font-size: 32px; box-shadow: 0 4px 14px rgba(168, 85, 247, 0.35);">
+                        <div class="mat-card" id="card-pattern-customizer-launcher" style="border: 1.5px dashed #a855f7; background: #faf5ff; cursor: pointer; padding: 4px;" title="Select Pattern Motif">
+                            <div class="mat-sphere" style="width: 44px; height: 44px; background: radial-gradient(circle at 35% 25%, #f3e8ff 0%, #d8b4fe 60%, #a855f7 100%); display: flex; align-items: center; justify-content: center; font-size: 20px; box-shadow: 0 2px 6px rgba(168, 85, 247, 0.2); border-radius: 50%;">
                                 🎨
                             </div>
-                            <div style="width: 100%; text-align: center;">
-                                <div class="mat-card-title" style="color: #c084fc; font-weight: 800;">Pattern Customizer</div>
-                                <div class="mat-card-sub" style="margin-bottom: 8px;">Add Motif Overlay</div>
-                                <button id="btn-gizmo-open-pattern-popup" ${!supportsPatterns ? 'disabled' : ''} style="width: 100%; background: linear-gradient(135deg, #a855f7 0%, #7c3aed 100%); color: white; border: none; padding: 7px 0; border-radius: 8px; font-size: 11px; font-weight: 700; cursor: ${supportsPatterns ? 'pointer' : 'not-allowed'}; box-shadow: 0 2px 8px rgba(168,85,247,0.4);">
-                                    🎨 Select Pattern
-                                </button>
-                            </div>
+                            <div class="mat-card-title" style="color: #7e22ce; font-weight: 700; margin-top: 4px; font-size: 11px;">+ Pattern</div>
+                            <button id="btn-gizmo-open-pattern-popup" ${!supportsPatterns ? 'disabled' : ''} style="display: none;"></button>
                         </div>
                     `;
                 } else {
-                    // Standard 165px Width Active Pattern Card when pattern is applied
                     const rawName = state.patternId.replace(/^offline_/, '').replace(/_\d+$/, '').replace(/_/g, ' ').trim();
-                    const prettyPatternTitle = rawName ? rawName.replace(/\b\w/g, c => c.toUpperCase()) + ' Motif' : 'Damask Motif';
+                    const prettyPatternTitle = rawName ? rawName.replace(/\b\w/g, c => c.toUpperCase()) : 'Motif';
 
                     patternLauncherHtml = `
-                        <div class="mat-card active-card" id="card-pattern-customizer-applied" style="border: 1.5px solid #a855f7 !important; background: linear-gradient(145deg, rgba(26, 16, 38, 0.95) 0%, rgba(15, 11, 26, 0.98) 100%); position: relative;">
-                            <div class="mat-card-icon-badge" style="background: rgba(34, 197, 94, 0.25); color: #4ade80;" title="Pattern Applied">
-                                <svg style="width: 16px; height: 16px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                            </div>
-                            <div class="mat-sphere" id="pattern-card-thumb-preview" style="background: #0f172a center/cover no-repeat; border: 2px solid rgba(168, 85, 247, 0.6); box-shadow: 0 4px 14px rgba(168, 85, 247, 0.35);"></div>
-                            <div style="width: 100%; text-align: center;">
-                                <div id="pattern-card-title-text" class="mat-card-title" style="color: #f8fafc; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${prettyPatternTitle}</div>
-                                <div id="pattern-card-sub-text" class="mat-card-sub" style="color: #c084fc; font-weight: 600; margin-bottom: 8px;">🎨 Applied Pattern</div>
-                                <div style="display: flex; gap: 4px; width: 100%;">
-                                    <button id="btn-gizmo-open-pattern-popup" ${!supportsPatterns ? 'disabled' : ''} style="flex: 1; background: linear-gradient(135deg, #a855f7 0%, #7c3aed 100%); color: white; border: none; padding: 6px 0; border-radius: 6px; font-size: 10px; font-weight: 700; cursor: pointer; box-shadow: 0 2px 6px rgba(168, 85, 247, 0.4);">
-                                        🎨 Change
-                                    </button>
-                                    <button id="btn-gizmo-open-pattern-controls" style="background: rgba(168, 85, 247, 0.2); border: 1px solid rgba(168, 85, 247, 0.5); color: #c084fc; padding: 6px 8px; border-radius: 6px; font-size: 11px; font-weight: 700; cursor: pointer;" title="Fine-Tune Pattern Controls (Scale, Rotation, Repeat, Opacity)">
-                                        ⚙️
-                                    </button>
-                                    <button id="btn-gizmo-remove-pattern" style="background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.4); color: #fca5a5; padding: 6px 8px; border-radius: 6px; font-size: 10px; font-weight: 600; cursor: pointer;" title="Remove Pattern Overlay">
-                                        🗑️
-                                    </button>
-                                </div>
+                        <div class="mat-card active-card" id="card-pattern-customizer-applied" style="border: 1.5px solid #a855f7 !important; background: #faf5ff; position: relative; padding: 4px;">
+                            <div class="mat-card-selected-checkmark" style="display: flex; background: #a855f7;">✓</div>
+                            <div class="mat-sphere" id="pattern-card-thumb-preview" style="width: 44px; height: 44px; background: #ffffff center/cover no-repeat; border: 1.5px solid #a855f7; border-radius: 50%;"></div>
+                            <div id="pattern-card-title-text" class="mat-card-title" style="color: #7e22ce; font-weight: 700; margin-top: 2px; font-size: 10px; max-width: 62px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${prettyPatternTitle}</div>
+                            <div style="display: flex; gap: 3px; margin-top: 2px;">
+                                <button id="btn-gizmo-open-pattern-popup" ${!supportsPatterns ? 'disabled' : ''} style="background: #a855f7; color: white; border: none; padding: 2px 4px; border-radius: 4px; font-size: 9px; font-weight: 700; cursor: pointer;" title="Change Pattern">🎨</button>
+                                <button id="btn-gizmo-open-pattern-controls" style="background: #f3e8ff; border: 1px solid #d8b4fe; color: #7e22ce; padding: 2px 4px; border-radius: 4px; font-size: 9px; cursor: pointer;" title="Fine-Tune Settings">⚙️</button>
+                                <button id="btn-gizmo-remove-pattern" style="background: #fee2e2; border: 1px solid #fca5a5; color: #dc2626; padding: 2px 4px; border-radius: 4px; font-size: 9px; cursor: pointer;" title="Remove Pattern">✕</button>
                             </div>
                         </div>
                     `;
 
-                    // Asynchronously resolve pattern object and composite texture to update sphere preview thumbnail live
                     (async () => {
                         try {
                             const patObj = await patternManager.getPatternById(state.patternId);
@@ -1813,7 +2125,6 @@ export class GizmoManager {
                             
                             const cardThumb = gridElem.querySelector('#pattern-card-thumb-preview');
                             const titleElem = gridElem.querySelector('#pattern-card-title-text');
-                            const subElem = gridElem.querySelector('#pattern-card-sub-text');
                             
                             const realThumb = (compConfig && compConfig.texture) ? compConfig.texture : (patObj ? (patObj.thumbnail || patObj.textureUrl) : '');
                             if (cardThumb && realThumb) {
@@ -1821,9 +2132,6 @@ export class GizmoManager {
                             }
                             if (titleElem && patObj && patObj.title) {
                                 titleElem.innerText = patObj.title;
-                            }
-                            if (subElem && patObj && patObj.category) {
-                                subElem.innerText = `🎨 ${patObj.category} Motif`;
                             }
                         } catch (e) {
                             console.error('[GizmoManager] Error populating pattern card preview:', e);
@@ -1851,26 +2159,18 @@ export class GizmoManager {
                 
                 let swatchesHtml = '';
                 woodColors.forEach(c => {
-                    swatchesHtml += `<div class="mat-thumb wood-swatch" data-mat="color_${c.hex}" title="${c.name}" style="background-color: ${c.hex}; width: 28px; height: 28px; border-radius: 6px; cursor: pointer; border: 1px solid rgba(255,255,255,0.2); transition: transform 0.15s, border-color 0.15s; flex-shrink: 0;" onmouseover="this.style.transform='scale(1.15)'; this.style.borderColor='#fff';" onmouseout="this.style.transform='scale(1)'; this.style.borderColor='rgba(255,255,255,0.2)';"></div>`;
+                    swatchesHtml += `<div class="mat-thumb wood-swatch" data-mat="color_${c.hex}" title="${c.name}" style="background-color: ${c.hex}; width: 17px; height: 17px; border-radius: 3px; cursor: pointer; border: 1px solid rgba(0,0,0,0.12); flex-shrink: 0; box-sizing: border-box; transition: transform 0.15s, border-color 0.15s;" onmouseover="this.style.transform='scale(1.2)'; this.style.borderColor='#92400e';" onmouseout="this.style.transform='scale(1)'; this.style.borderColor='rgba(0,0,0,0.12)';"></div>`;
                 });
 
                 woodCustomizerHtml = `
-                    <div class="mat-card" id="card-wood-customizer" style="width: 220px; border: 1.5px solid rgba(245, 158, 11, 0.5); background: linear-gradient(145deg, rgba(39, 26, 16, 0.9) 0%, rgba(26, 16, 11, 0.95) 100%); padding: 12px; display: flex; flex-direction: column; gap: 10px;">
-                        <div style="display: flex; align-items: center; gap: 8px;">
-                            <div class="mat-card-icon-badge" style="background: rgba(245, 158, 11, 0.25); color: #fbbf24; margin-bottom: 0;">🎨</div>
-                            <div>
-                                <div class="mat-card-title" style="color: #fbbf24; font-weight: 800; margin-top: 0; text-align: left;">Custom Color</div>
-                                <div class="mat-card-sub" style="text-align: left;">Solid Wood Finish</div>
-                            </div>
+                    <div class="mat-card" id="card-wood-customizer" style="width: 144px; height: 86px; border: 1px solid #fde68a; background: #fffbeb; padding: 6px 8px; display: flex; flex-direction: column; justify-content: space-between; box-sizing: border-box; flex-shrink: 0;">
+                        <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
+                            <span style="font-size: 10.5px; font-weight: 700; color: #92400e;">🎨 Wood Tone</span>
+                            <input type="color" id="gizmo-wood-color-picker" value="#C8904A" title="Custom Hex Picker" style="width: 18px; height: 18px; border: 1px solid #d97706; padding: 0; background: transparent; cursor: pointer; border-radius: 3px;">
                         </div>
                         
-                        <div style="display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-start; margin-top: 4px;">
+                        <div style="display: flex; flex-wrap: wrap; gap: 4px; justify-content: flex-start; align-content: flex-start;">
                             ${swatchesHtml}
-                        </div>
-                        
-                        <div style="margin-top: auto; display: flex; align-items: center; gap: 8px; width: 100%; background: rgba(0,0,0,0.3); padding: 6px 8px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1); box-sizing: border-box;">
-                            <span style="font-size: 11px; color: #cbd5e1; font-weight: 600;">Custom Hex</span>
-                            <input type="color" id="gizmo-wood-color-picker" value="#C8904A" style="width: 100%; height: 24px; border: none; outline: none; background: transparent; cursor: pointer; border-radius: 4px;">
                         </div>
                     </div>
                 `;
@@ -1886,15 +2186,15 @@ export class GizmoManager {
                 
                 if (uniqueGroups.size > 0) {
                     const groupsArray = Array.from(uniqueGroups).sort();
-                    let tabsButtons = `<button class="gizmo-subgroup-tab ${!activeGroup ? 'active' : ''}" data-target-group="all" style="padding: 6px 12px; margin-right: 8px; border: none; border-radius: 4px; background: ${!activeGroup ? 'rgba(249,115,22,0.2)' : 'rgba(255,255,255,0.05)'}; color: ${!activeGroup ? '#f97316' : '#94a3b8'}; cursor: pointer; font-weight: 600; font-size: 12px; border: 1px solid ${!activeGroup ? 'rgba(249,115,22,0.5)' : 'transparent'};">All</button>`;
+                    let tabsButtons = `<button class="gizmo-subgroup-tab ${!activeGroup ? 'active' : ''}" data-target-group="all" style="padding: 4px 10px; margin-right: 6px; border-radius: 999px; background: ${!activeGroup ? '#eff6ff' : '#f8fafc'}; color: ${!activeGroup ? '#2563eb' : '#64748b'}; cursor: pointer; font-weight: 600; font-size: 11px; border: 1px solid ${!activeGroup ? '#bfdbfe' : '#e2e8f0'};">All</button>`;
                     
                     for (const g of groupsArray) {
                         const isActive = activeGroup === g;
-                        tabsButtons += `<button class="gizmo-subgroup-tab ${isActive ? 'active' : ''}" data-target-group="${g}" style="padding: 6px 12px; margin-right: 8px; border: none; border-radius: 4px; background: ${isActive ? 'rgba(249,115,22,0.2)' : 'rgba(255,255,255,0.05)'}; color: ${isActive ? '#f97316' : '#94a3b8'}; cursor: pointer; font-weight: 600; font-size: 12px; border: 1px solid ${isActive ? 'rgba(249,115,22,0.5)' : 'transparent'};">${g.toUpperCase()}</button>`;
+                        tabsButtons += `<button class="gizmo-subgroup-tab ${isActive ? 'active' : ''}" data-target-group="${g}" style="padding: 4px 10px; margin-right: 6px; border-radius: 999px; background: ${isActive ? '#eff6ff' : '#f8fafc'}; color: ${isActive ? '#2563eb' : '#64748b'}; cursor: pointer; font-weight: 600; font-size: 11px; border: 1px solid ${isActive ? '#bfdbfe' : '#e2e8f0'};">${g.toUpperCase()}</button>`;
                     }
                     
                     tabsHtml = `
-                        <div class="gizmo-subgroup-tabs-container" style="width: 100%; display: flex; align-items: center; padding: 12px; padding-bottom: 0px; border-bottom: 1px solid rgba(255,255,255,0.1); margin-bottom: 12px; overflow-x: auto;">
+                        <div class="gizmo-subgroup-tabs-container" style="width: 100%; display: flex; align-items: center; padding: 6px 12px; border-bottom: 1px solid #e2e8f0; margin-bottom: 8px; overflow-x: auto;">
                             ${tabsButtons}
                         </div>
                     `;
@@ -1929,14 +2229,14 @@ export class GizmoManager {
                         // Update active visual state on tabs
                         tabs.forEach(t => {
                             t.classList.remove('active');
-                            t.style.background = 'rgba(255,255,255,0.05)';
-                            t.style.color = '#94a3b8';
-                            t.style.borderColor = 'transparent';
+                            t.style.background = '#f8fafc';
+                            t.style.color = '#64748b';
+                            t.style.borderColor = '#e2e8f0';
                         });
                         e.currentTarget.classList.add('active');
-                        e.currentTarget.style.background = 'rgba(249,115,22,0.2)';
-                        e.currentTarget.style.color = '#f97316';
-                        e.currentTarget.style.borderColor = 'rgba(249,115,22,0.5)';
+                        e.currentTarget.style.background = '#eff6ff';
+                        e.currentTarget.style.color = '#2563eb';
+                        e.currentTarget.style.borderColor = '#bfdbfe';
                         
                         // Filter thumbnails
                         const allThumbs = gridElem.querySelectorAll('.mat-thumb');
@@ -1976,9 +2276,17 @@ export class GizmoManager {
                 const btnOpen = gridElem.querySelector('#btn-gizmo-open-pattern-popup');
                 const btnControls = gridElem.querySelector('#btn-gizmo-open-pattern-controls');
                 const btnRemove = gridElem.querySelector('#btn-gizmo-remove-pattern');
+                const cardLauncher = gridElem.querySelector('#card-pattern-customizer-launcher');
                 
                 if (btnOpen) {
                     btnOpen.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        this._openPatternPopupModal(selectedObj);
+                    });
+                }
+                if (cardLauncher) {
+                    cardLauncher.addEventListener('click', (e) => {
                         e.preventDefault();
                         e.stopPropagation();
                         this._openPatternPopupModal(selectedObj);
@@ -2005,6 +2313,9 @@ export class GizmoManager {
             const scrollWrap = gridElem.closest('.mat-lib-grid-wrapper') || gridElem.parentElement;
             if (scrollWrap) scrollWrap.scrollLeft = 0;
             if (this._attachMaterialThumbListeners) this._attachMaterialThumbListeners();
+            if (this.highlightSelectedThumb && this.activeMaterialKey) {
+                this.highlightSelectedThumb(this.activeMaterialKey);
+            }
             
             // Wire up item clicks to update active highlight
             const thumbs = gridElem.querySelectorAll('.mat-thumb');
@@ -2647,11 +2958,28 @@ export class GizmoManager {
     }
 
     _renderWallMultiMaterialTabs(entity, selectedObj) {
-        const tabsContainerWrapper = this.materialPanel.querySelector('#gizmo-subgroup-tabs-container');
-        if (!tabsContainerWrapper) return;
-        
         const isWall = entity && (entity.type === 'outer' || entity.type === 'inner' || entity.type === 'compound' || entity.type === 'wall' || entity.startX !== undefined);
         const isWallDecor = entity && entity.type === 'wallDecor';
+        
+        const side = this.activeFace || this.activeObject?.userData?.side || selectedObj?.userData?.side || 'front';
+        
+        // Synchronize Top HUD scope & face pills
+        const hudScopeBtns = this.materialPanel.querySelectorAll('.mat-sims4-top-hud .mat-scope-pill');
+        hudScopeBtns.forEach(btn => {
+            btn.classList.toggle('active', btn.getAttribute('data-scope') === (this.materialScope || 'selectedFace'));
+        });
+
+        const hudFaceBtns = this.materialPanel.querySelectorAll('.mat-sims4-top-hud .mat-face-pill');
+        hudFaceBtns.forEach(btn => {
+            btn.classList.toggle('active', btn.getAttribute('data-side') === side);
+        });
+
+        if (isWall || isWallDecor) {
+            this._updateDockWallPills(entity);
+        }
+
+        const tabsContainerWrapper = this.materialPanel.querySelector('#gizmo-subgroup-tabs-container');
+        if (!tabsContainerWrapper) return;
         
         if (!isWall && !isWallDecor) {
             tabsContainerWrapper.innerHTML = '';
@@ -2659,8 +2987,6 @@ export class GizmoManager {
         }
 
         const wall = isWallDecor ? (entity.mesh3D?.userData?.parentWall || selectedObj?.parent?.userData?.entity || entity) : entity;
-        const side = this.activeFace || this.activeObject?.userData?.side || selectedObj?.userData?.side || 'front';
-        
         const attachedDecors = (wall.attachedDecor || []).filter(d => d.side === side);
         
         if (isWallDecor && entity.id) {
@@ -3683,8 +4009,10 @@ export class GizmoManager {
                 const matIdx = side === 'left' ? 1 : (side === 'right' ? 0 : (side === 'top' ? 2 : (side === 'bottom' ? 3 : (side === 'back' ? 5 : 4))));
                 const targetMesh = isProtrusion ? selectedObj : (entity.wallMesh3D || (selectedObj.parent && selectedObj.parent.userData?.wallMesh) || (selectedObj.children && selectedObj.children.find(c => c.userData?.isWallMesh)) || selectedObj);
                 this.onMaterialFaceSelected(side, -1, targetMesh, matIdx, 'categories');
+            } else if (selectedObj) {
+                this.onMaterialFaceSelected('main', -1, selectedObj, 0, 'categories');
             } else if (this.materialPanel) {
-                this.materialPanel.style.display = 'none'; // HIDDEN initially for multi-face objects, waits for face click
+                this.materialPanel.style.display = 'none'; // HIDDEN if no object is selected
             }
             return;
         }

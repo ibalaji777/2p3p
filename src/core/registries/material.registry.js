@@ -1459,6 +1459,117 @@ export const BRICK_REGISTRY = {
     }
 };
 
+export const PAINT_REGISTRY = {
+    'paint_pure_white': {
+        id: 'paint_pure_white',
+        name: 'Pure White',
+        category: 'paint',
+        color: 0xffffff,
+        roughness: 0.85,
+        metalness: 0.0,
+        thumbnail: 'data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2264%22%20height%3D%2264%22%3E%3Crect%20width%3D%2264%22%20height%3D%2264%22%20fill%3D%22%23ffffff%22%2F%3E%3C%2Fsvg%3E'
+    },
+    'paint_warm_white': {
+        id: 'paint_warm_white',
+        name: 'Warm White',
+        category: 'paint',
+        color: 0xf5f3ee,
+        roughness: 0.85,
+        metalness: 0.0,
+        thumbnail: 'data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2264%22%20height%3D%2264%22%3E%3Crect%20width%3D%2264%22%20height%3D%2264%22%20fill%3D%22%23f5f3ee%22%2F%3E%3C%2Fsvg%3E'
+    },
+    'paint_antique_white': {
+        id: 'paint_antique_white',
+        name: 'Antique White',
+        category: 'paint',
+        color: 0xfaebd7,
+        roughness: 0.85,
+        metalness: 0.0,
+        thumbnail: 'data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2264%22%20height%3D%2264%22%3E%3Crect%20width%3D%2264%22%20height%3D%2264%22%20fill%3D%22%23faebd7%22%2F%3E%3C%2Fsvg%3E'
+    },
+    'paint_cool_gray': {
+        id: 'paint_cool_gray',
+        name: 'Cool Gray',
+        category: 'paint',
+        color: 0xd1d5db,
+        roughness: 0.85,
+        metalness: 0.0,
+        thumbnail: 'data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2264%22%20height%3D%2264%22%3E%3Crect%20width%3D%2264%22%20height%3D%2264%22%20fill%3D%22%23d1d5db%22%2F%3E%3C%2Fsvg%3E'
+    },
+    'paint_slate_gray': {
+        id: 'paint_slate_gray',
+        name: 'Slate Gray',
+        category: 'paint',
+        color: 0x64748b,
+        roughness: 0.85,
+        metalness: 0.0,
+        thumbnail: 'data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2264%22%20height%3D%2264%22%3E%3Crect%20width%3D%2264%22%20height%3D%2264%22%20fill%3D%22%2364748b%22%2F%3E%3C%2Fsvg%3E'
+    },
+    'paint_charcoal': {
+        id: 'paint_charcoal',
+        name: 'Charcoal Black',
+        category: 'paint',
+        color: 0x374151,
+        roughness: 0.85,
+        metalness: 0.0,
+        thumbnail: 'data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2264%22%20height%3D%2264%22%3E%3Crect%20width%3D%2264%22%20height%3D%2264%22%20fill%3D%22%23374151%22%2F%3E%3C%2Fsvg%3E'
+    },
+    'paint_beige': {
+        id: 'paint_beige',
+        name: 'Classic Beige',
+        category: 'paint',
+        color: 0xe5dcc5,
+        roughness: 0.85,
+        metalness: 0.0,
+        thumbnail: 'data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2264%22%20height%3D%2264%22%3E%3Crect%20width%3D%2264%22%20height%3D%2264%22%20fill%3D%22%23e5dcc5%22%2F%3E%3C%2Fsvg%3E'
+    },
+    'paint_warm_greige': {
+        id: 'paint_warm_greige',
+        name: 'Warm Greige',
+        category: 'paint',
+        color: 0xd6d3d1,
+        roughness: 0.85,
+        metalness: 0.0,
+        thumbnail: 'data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2264%22%20height%3D%2264%22%3E%3Crect%20width%3D%2264%22%20height%3D%2264%22%20fill%3D%22%23d6d3d1%22%2F%3E%3C%2Fsvg%3E'
+    },
+    'paint_soft_cream': {
+        id: 'paint_soft_cream',
+        name: 'Soft Cream',
+        category: 'paint',
+        color: 0xfef3c7,
+        roughness: 0.85,
+        metalness: 0.0,
+        thumbnail: 'data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2264%22%20height%3D%2264%22%3E%3Crect%20width%3D%2264%22%20height%3D%2264%22%20fill%3D%22%23fef3c7%22%2F%3E%3C%2Fsvg%3E'
+    },
+    'paint_sage_green': {
+        id: 'paint_sage_green',
+        name: 'Sage Green',
+        category: 'paint',
+        color: 0xa7b89e,
+        roughness: 0.85,
+        metalness: 0.0,
+        thumbnail: 'data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2264%22%20height%3D%2264%22%3E%3Crect%20width%3D%2264%22%20height%3D%2264%22%20fill%3D%22%23a7b89e%22%2F%3E%3C%2Fsvg%3E'
+    },
+    'paint_navy': {
+        id: 'paint_navy',
+        name: 'Classic Navy',
+        category: 'paint',
+        color: 0x1e3a8a,
+        roughness: 0.85,
+        metalness: 0.0,
+        thumbnail: 'data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2264%22%20height%3D%2264%22%3E%3Crect%20width%3D%2264%22%20height%3D%2264%22%20fill%3D%22%231e3a8a%22%2F%3E%3C%2Fsvg%3E'
+    },
+    'paint_terracotta': {
+        id: 'paint_terracotta',
+        name: 'Terracotta',
+        category: 'paint',
+        color: 0xc2410c,
+        roughness: 0.85,
+        metalness: 0.0,
+        thumbnail: 'data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2264%22%20height%3D%2264%22%3E%3Crect%20width%3D%2264%22%20height%3D%2264%22%20fill%3D%22%23c2410c%22%2F%3E%3C%2Fsvg%3E'
+    }
+};
+
 export const WALL_DECOR_REGISTRY = {
     'white_plaster_wall': {
         id: 'white_plaster_wall',

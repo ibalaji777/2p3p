@@ -330,6 +330,73 @@ describe('Universal 3D Scene Common Tools Architecture (Sims 4 Style)', () => {
             paintSystem.applyMaterialToDescriptor(paintSystem.activeMaterial, mockDescriptor2);
             expect(mockDescriptor2.entity.materials[MaterialSlots.FRAME].id).toBe('wood_golden_teak');
         });
+
+        it('should perform in-place 60 FPS live hover preview and cleanly restore on leave', () => {
+            paintSystem.setActive(true);
+            paintSystem.setActiveMaterial('brick_red_1');
+
+            const origMat0 = new THREE.MeshStandardMaterial({ name: 'orig_0' });
+            const origMatFront = new THREE.MeshStandardMaterial({ name: 'orig_front' });
+            const origMatBack = new THREE.MeshStandardMaterial({ name: 'orig_back' });
+            const mats = [origMat0, origMat0, origMat0, origMat0, origMatFront, origMatBack];
+
+            const mockMesh = {
+                isMesh: true,
+                material: mats,
+                userData: { isWallMesh: true }
+            };
+
+            const mockWall = {
+                id: 'wall_test_1',
+                type: 'outer',
+                params: { textureFront: 'plaster_white' },
+                wallMesh3D: mockMesh
+            };
+
+            const descriptor = {
+                entity: mockWall,
+                mesh: mockMesh,
+                faceName: 'front',
+                targetMatIndex: 4
+            };
+
+            // 1. Apply hover preview on front face (index 4)
+            paintSystem.applyHoverPreview(descriptor, 'selectedFace');
+            expect(mockMesh.material[4]).not.toBe(origMatFront);
+            expect(paintSystem._previewBackups.length).toBe(1);
+            expect(paintSystem._previewBackups[0].origMat).toBe(origMatFront);
+
+            // 2. Clear hover preview (mouse moves away) -> must restore original material
+            paintSystem.clearPreviewBackups();
+            expect(mockMesh.material[4]).toBe(origMatFront);
+            expect(paintSystem._previewBackups.length).toBe(0);
+        });
+
+        it('should support scope switching and Eyedropper material sampling', () => {
+            paintSystem.setActive(true);
+            paintSystem.setMaterialScope('room');
+            expect(paintSystem.materialScope).toBe('room');
+
+            // Test Eyedropper
+            paintSystem.setEyedropper(true);
+            expect(paintSystem.isEyedropper).toBe(true);
+
+            const sampleWall = {
+                id: 'wall_sample',
+                type: 'outer',
+                params: { textureFront: 'stone_slate_dark', textureBack: 'brick_tan' }
+            };
+
+            const frontDesc = { entity: sampleWall, faceName: 'front' };
+            const sampled = paintSystem.sampleMaterialFromDescriptor(frontDesc);
+            expect(sampled).toBe('stone_slate_dark');
+
+            const backDesc = { entity: sampleWall, faceName: 'back' };
+            expect(paintSystem.sampleMaterialFromDescriptor(backDesc)).toBe('brick_tan');
+
+            paintSystem.setEyedropper(false);
+            expect(paintSystem.isEyedropper).toBe(false);
+        });
     });
 
     describe('6. CommonInteractionController Unified State', () => {
@@ -346,7 +413,16 @@ describe('Universal 3D Scene Common Tools Architecture (Sims 4 Style)', () => {
             controller = new CommonInteractionController(mockCtx);
         });
 
-        it('should switch tools and update subsystem states', () => {
+        it('should require selection for material tool (disabled when unselected)', () => {
+            controller.setTool(COMMON_TOOLS.MATERIAL);
+            expect(controller.activeTool).toBe(COMMON_TOOLS.SELECT);
+            expect(controller.paintSystem.enabled).toBe(false);
+        });
+
+        it('should switch tools and update subsystem states when an object is selected', () => {
+            const dummyEntity = { id: 'wall_test', type: 'wall', params: {} };
+            controller.setSelection(dummyEntity);
+
             controller.setTool(COMMON_TOOLS.MATERIAL);
             expect(controller.activeTool).toBe(COMMON_TOOLS.MATERIAL);
             expect(controller.paintSystem.enabled).toBe(true);
@@ -360,7 +436,10 @@ describe('Universal 3D Scene Common Tools Architecture (Sims 4 Style)', () => {
             expect(controller.paintSystem.enabled).toBe(false);
         });
 
-        it('should dispatch actions from keyboard shortcuts uniformly', () => {
+        it('should dispatch actions from keyboard shortcuts uniformly when selection is valid', () => {
+            const dummyEntity = { id: 'wall_test', type: 'wall', params: {} };
+            controller.setSelection(dummyEntity);
+
             const keyboardEvent = { key: 'b' };
             const handled = controller.handleKeyDown(keyboardEvent);
             expect(handled).toBe(true);
@@ -430,6 +509,381 @@ describe('Universal 3D Scene Common Tools Architecture (Sims 4 Style)', () => {
             cameraController.zoomBy(200);
             const zoomedOutDist = camera.position.distanceTo(cameraController.controls.target);
             expect(zoomedOutDist).toBeGreaterThan(zoomedInDist);
+        });
+    });
+
+    describe('8. Cross-Device Global Material Workflow', () => {
+        let mockCtx, paintSystem, mockPlanner;
+
+        beforeEach(() => {
+            mockPlanner = {
+                saveHistory: vi.fn(),
+                syncAll: vi.fn()
+            };
+            mockCtx = {
+                camera: new THREE.PerspectiveCamera(),
+                interactables: [],
+                planner: mockPlanner,
+                requestRender: vi.fn(),
+                helpers: {
+                    getDynamicMaterial: vi.fn(() => new THREE.MeshBasicMaterial())
+                },
+                envBuilder: {
+                    buildWallGroup: vi.fn(),
+                    updateRoofLive: vi.fn()
+                },
+                updateMaterialLive: vi.fn()
+            };
+            paintSystem = new UniversalMaterialPaintSystem(mockCtx);
+        });
+
+        it('should enforce disabled state when unselected and enabled when supported object is selected', () => {
+            // Unselected: material capability is false
+            const unselectedCaps = ObjectCapabilityEvaluator.getCapabilities(null, null);
+            expect(unselectedCaps.material).toBe(false);
+
+            // Supported objects: material capability is true
+            const wallCaps = ObjectCapabilityEvaluator.getCapabilities({ id: 'w1', type: 'wall' });
+            expect(wallCaps.material).toBe(true);
+
+            const roofCaps = ObjectCapabilityEvaluator.getCapabilities({ id: 'r1', type: 'roof' });
+            expect(roofCaps.material).toBe(true);
+
+            const doorCaps = ObjectCapabilityEvaluator.getCapabilities({ id: 'd1', type: 'door' });
+            expect(doorCaps.material).toBe(true);
+
+            const windowCaps = ObjectCapabilityEvaluator.getCapabilities({ id: 'win1', type: 'window' });
+            expect(windowCaps.material).toBe(true);
+
+            const floorCaps = ObjectCapabilityEvaluator.getCapabilities({ id: 'fl1', type: 'floor' });
+            expect(floorCaps.material).toBe(true);
+
+            const furnCaps = ObjectCapabilityEvaluator.getCapabilities({ id: 'f1', type: 'furniture' });
+            expect(furnCaps.material).toBe(true);
+        });
+
+        it('should filter material categories strictly by selected object type', async () => {
+            const { GizmoManager } = await import('../GizmoManager.js');
+            const getCats = GizmoManager.prototype.getCompatibleCategoriesForEntity;
+
+            const wallCats = getCats({ type: 'wall' }).map(c => c.id);
+            expect(wallCats).toContain('stone');
+            expect(wallCats).toContain('brick');
+            expect(wallCats).toContain('marble');
+            expect(wallCats).toContain('tile');
+            expect(wallCats).toContain('paint');
+            expect(wallCats).not.toContain('fabric');
+            expect(wallCats).not.toContain('leather');
+            expect(wallCats).not.toContain('roof');
+
+            const roofCats = getCats({ type: 'roof' }).map(c => c.id);
+            expect(roofCats).toContain('roof');
+            expect(roofCats).toContain('wood');
+            expect(roofCats).not.toContain('fabric');
+            expect(roofCats).not.toContain('floor');
+
+            const floorCats = getCats({ type: 'floor' }).map(c => c.id);
+            expect(floorCats).toContain('floor');
+            expect(floorCats).toContain('marble');
+            expect(floorCats).not.toContain('roof');
+            expect(floorCats).not.toContain('fabric');
+
+            const doorCats = getCats({ type: 'door' }).map(c => c.id);
+            expect(doorCats).toContain('wood');
+            expect(doorCats).toContain('glass');
+            expect(doorCats).not.toContain('roof');
+            expect(doorCats).not.toContain('floor');
+
+            const furnCats = getCats({ type: 'furniture' }).map(c => c.id);
+            expect(furnCats).toContain('fabric');
+            expect(furnCats).toContain('leather');
+            expect(furnCats).not.toContain('roof');
+        });
+
+        it('should select pending material swatch without modifying scene data immediately', () => {
+            const dummyWall = { id: 'w_test', type: 'wall', textureFront: 'stone_slate' };
+            paintSystem.startSession(dummyWall);
+
+            // Selecting a swatch arms the brush
+            paintSystem.setActiveMaterial('brick_red');
+            expect(paintSystem.activeMaterial).toBe('brick_red');
+
+            // Scene data model must NOT be mutated on swatch selection
+            expect(dummyWall.textureFront).toBe('stone_slate');
+            expect(mockPlanner.saveHistory).not.toHaveBeenCalled();
+        });
+
+        it('should commit session on Done: saves history once and cleans up session', async () => {
+            const dummyWall = { id: 'w_commit', type: 'wall', textureFront: 'old_texture', params: {} };
+            paintSystem.startSession(dummyWall);
+
+            const descriptor = {
+                entity: dummyWall,
+                faceName: 'front',
+                targetMatIndex: 4,
+                mesh: new THREE.Mesh(new THREE.BoxGeometry(), [new THREE.MeshBasicMaterial(), new THREE.MeshBasicMaterial(), new THREE.MeshBasicMaterial(), new THREE.MeshBasicMaterial(), new THREE.MeshBasicMaterial(), new THREE.MeshBasicMaterial()])
+            };
+
+            await paintSystem.applyMaterialWithScope('new_painted_mat', descriptor, 'selectedFace');
+
+            // Intermediate painting does not save per-click history in active session
+            expect(mockPlanner.saveHistory).not.toHaveBeenCalled();
+            expect(paintSystem.isSessionActive).toBe(true);
+
+            // Done commits session in a single transaction
+            paintSystem.commitSession();
+            expect(mockPlanner.saveHistory).toHaveBeenCalledTimes(1);
+            expect(paintSystem.isSessionActive).toBe(false);
+            expect(paintSystem.enabled).toBe(false);
+        });
+
+        it('should cancel session on Discard: reverts all changes with zero history added', async () => {
+            const dummyWall = { id: 'w_discard', type: 'wall', textureFront: 'original_mat', params: { textureFront: 'original_mat' } };
+            paintSystem.startSession(dummyWall);
+
+            const descriptor = {
+                entity: dummyWall,
+                faceName: 'front',
+                targetMatIndex: 4,
+                mesh: new THREE.Mesh(new THREE.BoxGeometry(), [new THREE.MeshBasicMaterial(), new THREE.MeshBasicMaterial(), new THREE.MeshBasicMaterial(), new THREE.MeshBasicMaterial(), new THREE.MeshBasicMaterial(), new THREE.MeshBasicMaterial()])
+            };
+
+            await paintSystem.applyMaterialWithScope('temporary_mat', descriptor, 'selectedFace');
+            expect(dummyWall.textureFront).toBe('temporary_mat');
+
+            // Cancel session reverts to pristine pre-session state
+            paintSystem.cancelSession();
+            expect(dummyWall.textureFront).toBe('original_mat');
+            expect(mockPlanner.saveHistory).not.toHaveBeenCalled();
+            expect(paintSystem.isSessionActive).toBe(false);
+            expect(paintSystem.enabled).toBe(false);
+        });
+
+        it('should verify TILE_REGISTRY contains real tiles from FLOOR_REGISTRY', async () => {
+            const { TILE_REGISTRY } = await import('../GizmoManager.js');
+            expect(TILE_REGISTRY).toBeDefined();
+            // Should contain actual tile items like porcelain or calacatta gold
+            const tileKeys = Object.keys(TILE_REGISTRY);
+            expect(tileKeys.length).toBeGreaterThan(0);
+            expect(tileKeys.some(k => k.startsWith('tile_'))).toBe(true);
+            expect(TILE_REGISTRY['tile_calacatta_gold'] || TILE_REGISTRY['tile_porcelain_white']).toBeDefined();
+        });
+
+        it('should calculate world UV scale (1/ts) for wall materials to prevent 100x distortion', async () => {
+            const { MaterialFactory } = await import('../MaterialFactory.js');
+            const densityWorld = MaterialFactory.calculateTexelDensity({ width: 100, height: 100, isWorldUV: true }, { tileSize: 70 });
+            // For world UV, repeat is 1 / tileSize = 1 / 70 ≈ 0.01428 (NOT 100/70 = 1.428)
+            expect(densityWorld.repeatX).toBeCloseTo(1 / 70, 5);
+            expect(densityWorld.repeatY).toBeCloseTo(1 / 70, 5);
+        });
+
+        it('should support independent multi-face materials on walls without rogue decor boxes', async () => {
+            const dummyWall = { id: 'w_multiface', type: 'wall', textureFront: 'brick_3_red', textureBack: 'marble_calacatta_gold', params: {} };
+            paintSystem.startSession(dummyWall);
+
+            const frontDesc = {
+                entity: dummyWall,
+                faceName: 'front',
+                targetMatIndex: 4,
+                mesh: new THREE.Mesh(new THREE.BoxGeometry(), [new THREE.MeshBasicMaterial(), new THREE.MeshBasicMaterial(), new THREE.MeshBasicMaterial(), new THREE.MeshBasicMaterial(), new THREE.MeshBasicMaterial(), new THREE.MeshBasicMaterial()])
+            };
+
+            const backDesc = {
+                entity: dummyWall,
+                faceName: 'back',
+                targetMatIndex: 5,
+                mesh: new THREE.Mesh(new THREE.BoxGeometry(), [new THREE.MeshBasicMaterial(), new THREE.MeshBasicMaterial(), new THREE.MeshBasicMaterial(), new THREE.MeshBasicMaterial(), new THREE.MeshBasicMaterial(), new THREE.MeshBasicMaterial()])
+            };
+
+            // Paint inner face with brick
+            await paintSystem.applyMaterialWithScope('brick_3_red', frontDesc, 'selectedFace');
+            expect(dummyWall.textureFront).toBe('brick_3_red');
+            expect(dummyWall.params.textureFront).toBe('brick_3_red');
+
+            // Paint outer face with marble
+            await paintSystem.applyMaterialWithScope('marble_calacatta_gold', backDesc, 'selectedFace');
+            expect(dummyWall.textureBack).toBe('marble_calacatta_gold');
+            expect(dummyWall.params.textureBack).toBe('marble_calacatta_gold');
+
+            // Inner face must remain brick
+            expect(dummyWall.textureFront).toBe('brick_3_red');
+            // Must NOT attach floating decor objects
+            expect(dummyWall.attachedDecor === undefined || dummyWall.attachedDecor.length === 0).toBe(true);
+        });
+
+        it('should resolveEntityKind correctly for all domain types', async () => {
+            const { resolveEntityKind } = await import('../tools/UniversalMaterialPaintSystem.js');
+            expect(resolveEntityKind({ type: 'outer' })).toBe('wall');
+            expect(resolveEntityKind({ type: 'inner' })).toBe('wall');
+            expect(resolveEntityKind({ startX: 0, endX: 100 })).toBe('wall');
+            expect(resolveEntityKind({ type: 'roof' })).toBe('roof');
+            expect(resolveEntityKind({ isRoof: true })).toBe('roof');
+            expect(resolveEntityKind({ type: 'door' })).toBe('door');
+            expect(resolveEntityKind({ type: 'window' })).toBe('window');
+            expect(resolveEntityKind({ type: 'floor' })).toBe('floor');
+            expect(resolveEntityKind({ type: 'room' })).toBe('floor');
+            expect(resolveEntityKind({ type: 'stair' })).toBe('stair');
+            expect(resolveEntityKind({ type: 'staircase' })).toBe('stair');
+            expect(resolveEntityKind({ type: 'furniture' })).toBe('furniture');
+            expect(resolveEntityKind({ isFurniture: true })).toBe('furniture');
+        });
+
+        it('should enforce compatibility lock between material and target object', () => {
+            const dummyWall = { id: 'w1', type: 'wall', textureFront: 'mat_w1' };
+            const dummyRoof = { id: 'r1', type: 'roof', texture: 'mat_r1' };
+            const dummyDoor = { id: 'd1', type: 'door' };
+
+            paintSystem.startSession(dummyWall);
+            expect(paintSystem.lockedCategory).toBe('wall');
+
+            const wallDesc = { entity: dummyWall, faceName: 'front', targetMatIndex: 4 };
+            const roofDesc = { entity: dummyRoof, faceName: 'top', targetMatIndex: 0 };
+            const doorDesc = { entity: dummyDoor, faceName: 'front', targetMatIndex: 0 };
+
+            expect(paintSystem.isTargetCompatible(wallDesc)).toBe(true);
+            expect(paintSystem.isTargetCompatible(roofDesc)).toBe(false);
+            expect(paintSystem.isTargetCompatible(doorDesc)).toBe(false);
+
+            // Selecting a wall material keeps lockedCategory as 'wall'
+            paintSystem.setActiveMaterial('paint_pure_white');
+            expect(paintSystem.lockedCategory).toBe('wall');
+            expect(paintSystem.isTargetCompatible(wallDesc)).toBe(true);
+            expect(paintSystem.isTargetCompatible(roofDesc)).toBe(false);
+        });
+
+        it('should support continuous painting across multiple compatible walls in one transaction', async () => {
+            const wallA = { id: 'wa', type: 'wall', textureFront: 'old_a', params: {} };
+            const wallB = { id: 'wb', type: 'wall', textureFront: 'old_b', textureBack: 'old_b_back', params: {} };
+
+            paintSystem.startSession(wallA);
+            paintSystem.setActiveMaterial('brick_red');
+
+            const descA = { entity: wallA, faceName: 'front', targetMatIndex: 4, mesh: new THREE.Mesh() };
+            const descB_front = { entity: wallB, faceName: 'front', targetMatIndex: 4, mesh: new THREE.Mesh() };
+            const descB_back = { entity: wallB, faceName: 'back', targetMatIndex: 5, mesh: new THREE.Mesh() };
+
+            // Paint wallA
+            await paintSystem.applyMaterialWithScope(paintSystem.activeMaterial, descA, 'selectedFace');
+            expect(wallA.textureFront).toBe('brick_red');
+
+            // Brush remains armed for continuous painting
+            expect(paintSystem.activeMaterial).toBe('brick_red');
+
+            // Paint wallB front
+            await paintSystem.applyMaterialWithScope(paintSystem.activeMaterial, descB_front, 'selectedFace');
+            expect(wallB.textureFront).toBe('brick_red');
+
+            // Paint wallB back
+            await paintSystem.applyMaterialWithScope(paintSystem.activeMaterial, descB_back, 'selectedFace');
+            expect(wallB.textureBack).toBe('brick_red');
+
+            // All updates remain in session without intermediate history saves
+            expect(mockPlanner.saveHistory).not.toHaveBeenCalled();
+
+            // Commit transaction saves history once for both walls
+            paintSystem.commitSession();
+            expect(mockPlanner.saveHistory).toHaveBeenCalledTimes(1);
+            expect(paintSystem.isSessionActive).toBe(false);
+        });
+
+        it('should cancel and revert multiple painted objects back to pristine states with 0 history entries', async () => {
+            const wallA = { id: 'wa_rev', type: 'wall', textureFront: 'orig_a', params: { textureFront: 'orig_a' } };
+            const wallB = { id: 'wb_rev', type: 'wall', textureFront: 'orig_b', params: { textureFront: 'orig_b' } };
+
+            paintSystem.startSession(wallA);
+            paintSystem.recordEntitySnapshot(wallB);
+            paintSystem.setActiveMaterial('marble_black');
+
+            const descA = { entity: wallA, faceName: 'front', targetMatIndex: 4, mesh: new THREE.Mesh() };
+            const descB = { entity: wallB, faceName: 'front', targetMatIndex: 4, mesh: new THREE.Mesh() };
+
+            await paintSystem.applyMaterialWithScope('marble_black', descA, 'selectedFace');
+            await paintSystem.applyMaterialWithScope('marble_black', descB, 'selectedFace');
+
+            expect(wallA.textureFront).toBe('marble_black');
+            expect(wallB.textureFront).toBe('marble_black');
+
+            // Cancel session
+            paintSystem.cancelSession();
+
+            // Both reverted cleanly with 0 history entries
+            expect(wallA.textureFront).toBe('orig_a');
+            expect(wallB.textureFront).toBe('orig_b');
+            expect(mockPlanner.saveHistory).not.toHaveBeenCalled();
+            expect(paintSystem.isSessionActive).toBe(false);
+        });
+
+        it('should allow clearing active material and switching object category', () => {
+            const dummyWall = { id: 'w_switch', type: 'wall' };
+            const dummyRoof = { id: 'r_switch', type: 'roof' };
+
+            paintSystem.startSession(dummyWall);
+            expect(paintSystem.lockedCategory).toBe('wall');
+
+            paintSystem.setActiveMaterial('paint_pure_white');
+            expect(paintSystem.activeMaterial).toBe('paint_pure_white');
+            expect(paintSystem.lockedCategory).toBe('wall');
+
+            // User clears active material
+            paintSystem.setActiveMaterial(null);
+            expect(paintSystem.activeMaterial).toBeNull();
+            expect(paintSystem.lockedCategory).toBeNull();
+
+            // Switching lockedCategory to roof
+            paintSystem.lockedCategory = 'roof';
+            expect(paintSystem.isTargetCompatible({ entity: dummyRoof })).toBe(true);
+            expect(paintSystem.isTargetCompatible({ entity: dummyWall })).toBe(false);
+        });
+
+        it('should remove applied material on specific wall using Default clear brush', async () => {
+            const dummyWall = { 
+                id: 'w_remove', 
+                type: 'wall', 
+                textureFront: 'brick_3_red', 
+                textureBack: 'marble_carrara',
+                params: { textureFront: 'brick_3_red', textureBack: 'marble_carrara' } 
+            };
+            paintSystem.startSession(dummyWall);
+
+            // 1. Arm Default brush
+            paintSystem.setActiveMaterial('__default__');
+            expect(paintSystem.activeMaterial).toBe('__default__');
+            expect(paintSystem.lockedCategory).toBe('wall');
+
+            // 2. Default preview material is a clean unpainted standard material
+            const prevMat = paintSystem.getPreviewMaterial('__default__', 'wall');
+            expect(prevMat).toBeDefined();
+            expect(prevMat.color.getHex()).toBe(0xefede5);
+
+            // 3. Apply Default to front face only (Single mode)
+            const frontDesc = {
+                entity: dummyWall,
+                faceName: 'front',
+                targetMatIndex: 4,
+                mesh: new THREE.Mesh(new THREE.BoxGeometry(), [new THREE.MeshBasicMaterial(), new THREE.MeshBasicMaterial(), new THREE.MeshBasicMaterial(), new THREE.MeshBasicMaterial(), new THREE.MeshBasicMaterial(), new THREE.MeshBasicMaterial()])
+            };
+            await paintSystem.applyMaterialWithScope('__default__', frontDesc, 'selectedFace');
+
+            // Front face material is removed (reset to null)
+            expect(dummyWall.textureFront).toBeNull();
+            expect(dummyWall.params.textureFront).toBeNull();
+            // Back face remains untouched
+            expect(dummyWall.textureBack).toBe('marble_carrara');
+            expect(dummyWall.params.textureBack).toBe('marble_carrara');
+
+            // 4. Apply Default to back face with entireObject (Both mode)
+            const backDesc = {
+                entity: dummyWall,
+                faceName: 'back',
+                targetMatIndex: 5,
+                mesh: frontDesc.mesh
+            };
+            await paintSystem.applyMaterialWithScope('__default__', backDesc, 'entireObject');
+
+            // Both faces are now cleared
+            expect(dummyWall.textureFront).toBeNull();
+            expect(dummyWall.textureBack).toBeNull();
+            expect(dummyWall.texture).toBeNull();
         });
     });
 });

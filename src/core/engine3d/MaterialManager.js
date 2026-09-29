@@ -20,6 +20,7 @@ import {
     METAL_REGISTRY, 
     PLASTIC_REGISTRY, 
     LEATHER_REGISTRY, 
+    PAINT_REGISTRY,
     COMMON_MATERIALS 
 } from '../registries/material.registry.js';
 
@@ -91,6 +92,7 @@ export class MaterialManager {
                              MARBLE_REGISTRY[matKey] ||
                              STONE_REGISTRY[matKey] ||
                              BRICK_REGISTRY[matKey] ||
+                             PAINT_REGISTRY[matKey] ||
                              METAL_REGISTRY[matKey] ||
                              PLASTIC_REGISTRY[matKey] ||
                              LEATHER_REGISTRY[matKey] ||

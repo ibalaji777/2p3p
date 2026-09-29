@@ -59,6 +59,7 @@ export class DecorManager {
             const boxMesh = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), []);
             boxMesh.userData = { isPatternBox: true };
             const decorLevel = decor.levelIndex !== undefined ? decor.levelIndex : wallEntity.levelIndex;
+            const hitBox = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, visible: false }));
             hitBox.userData = { 
                 isHitbox: true, 
                 isWallDecor: true, 

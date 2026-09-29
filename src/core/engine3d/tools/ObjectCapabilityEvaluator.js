@@ -25,7 +25,7 @@ export class ObjectCapabilityEvaluator {
         if (!entity && !mesh) {
             return {
                 selectable: true,
-                material: true,
+                material: false,
                 movable: false,
                 rotatable: false,
                 tiltable: false,

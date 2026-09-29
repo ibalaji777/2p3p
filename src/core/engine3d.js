@@ -197,6 +197,9 @@ export class Preview3D {
                 let dims = { width: 100, height: 100 };
                 if (category === 'door') dims = { width: 90, height: 210 };
                 else if (category === 'window_frame') dims = { width: 100, height: 150 };
+                else if (category === 'wall' || category === 'outer' || category === 'inner' || category === 'front' || category === 'back' || category === 'wall_face') {
+                    dims = { width: 100, height: 100, isWorldUV: true };
+                }
 
                 let mat = conf.transmission ? new THREE.MeshPhysicalMaterial() : new THREE.MeshStandardMaterial();
                 if (conf.color !== undefined) {
@@ -298,8 +301,9 @@ export class Preview3D {
                     const ep = Object.assign({}, entity.parentArc ? entity.parentArc.params : null, entity.params || {});
                     const resolveTex = (...keys) => {
                         for (let k of keys) {
-                            if (ep[k] === '' || ep[k] === null) return null;
+                            if (ep[k] === '' || ep[k] === null || entity[k] === '' || entity[k] === null) return null;
                             if (ep[k] !== undefined) return ep[k];
+                            if (entity[k] !== undefined) return entity[k];
                         }
                         return null;
                     };

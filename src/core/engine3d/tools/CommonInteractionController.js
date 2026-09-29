@@ -102,6 +102,15 @@ export class CommonInteractionController {
 
         // 1. Material Tool Activation
         if (toolId === COMMON_TOOLS.MATERIAL) {
+            if (!this.selectedEntity) {
+                coreEventBus.emit('ShowToast', {
+                    message: 'Select an object first to paint materials',
+                    type: 'info'
+                });
+                this.activeTool = previousTool;
+                return;
+            }
+            this.paintSystem.startSession(this.selectedEntity);
             this.paintSystem.setActive(true);
             if (this.ctx.interactions) {
                 if (this.ctx.interactions.transformControls) this.ctx.interactions.transformControls.detach();
@@ -402,6 +411,7 @@ export class CommonInteractionController {
             INTERACTION_ACTIONS.SPIN,
             INTERACTION_ACTIONS.TILT,
             INTERACTION_ACTIONS.PROPERTIES,
+            INTERACTION_ACTIONS.MATERIAL,
             INTERACTION_ACTIONS.DELETE,
             COMMON_TOOLS.AXIS_UP,
             COMMON_TOOLS.AXIS_DOWN
@@ -451,6 +461,10 @@ export class CommonInteractionController {
                 return true;
 
             case INTERACTION_ACTIONS.MATERIAL:
+                if (!caps.material) {
+                    coreEventBus.emit('ShowToast', { message: 'This object does not support material painting', type: 'info' });
+                    return false;
+                }
                 this.setTool(COMMON_TOOLS.MATERIAL, options);
                 return true;
 
@@ -507,6 +521,10 @@ export class CommonInteractionController {
      * Cancels the current active action, reverts changes if applicable, and returns to OBJECT_SELECTED.
      */
     cancelAction() {
+        if (this.activeTool === COMMON_TOOLS.MATERIAL) {
+            this.cancelMaterialSession();
+            return;
+        }
         if (this.ctx.interactions?.stairPlacementSystem?.isRelocating) {
             this.ctx.interactions.stairPlacementSystem.cancelRelocation();
         }
@@ -515,6 +533,32 @@ export class CommonInteractionController {
         } else if (this.interactionState === INTERACTION_STATE.OBJECT_SELECTED) {
             this.clearSelection();
         }
+    }
+
+    /**
+     * Commits pending material changes, saves history, and returns to normal selection.
+     */
+    commitMaterialSession() {
+        if (this.paintSystem?.commitSession) {
+            this.paintSystem.commitSession();
+        }
+        if (this.ctx.gizmoManager) {
+            this.ctx.gizmoManager.setTransformMode('none', true);
+        }
+        this.setTool(COMMON_TOOLS.SELECT);
+    }
+
+    /**
+     * Discards pending material changes from this session, reverts all changes, and returns to normal selection.
+     */
+    cancelMaterialSession() {
+        if (this.paintSystem?.cancelSession) {
+            this.paintSystem.cancelSession();
+        }
+        if (this.ctx.gizmoManager) {
+            this.ctx.gizmoManager.setTransformMode('none', true);
+        }
+        this.setTool(COMMON_TOOLS.SELECT);
     }
 
     /**
@@ -548,7 +592,9 @@ export class CommonInteractionController {
     dispatchAction(actionName, payload = null) {
         switch (actionName) {
             case SHORTCUT_ACTIONS.SELECT:
-                if (this.interactionState === INTERACTION_STATE.ACTION_ACTIVE) {
+                if (this.activeTool === COMMON_TOOLS.MATERIAL) {
+                    this.cancelMaterialSession();
+                } else if (this.interactionState === INTERACTION_STATE.ACTION_ACTIVE) {
                     this.completeAction();
                 } else if (this.interactionState === INTERACTION_STATE.OBJECT_SELECTED) {
                     this.clearSelection();
@@ -557,6 +603,13 @@ export class CommonInteractionController {
                 }
                 break;
             case SHORTCUT_ACTIONS.MATERIAL:
+                if (!this.selectedEntity) {
+                    coreEventBus.emit('ShowToast', {
+                        message: 'Select an object first to paint materials',
+                        type: 'info'
+                    });
+                    break;
+                }
                 this.setTool(COMMON_TOOLS.MATERIAL);
                 break;
             case SHORTCUT_ACTIONS.BUILDING_RISE:

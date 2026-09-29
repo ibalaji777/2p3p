@@ -289,7 +289,7 @@ export function getExteriorWallsAndSides(plannerInstance, renderer3D) {
  * - 'exterior': All exterior facade faces of the building (Alt-Click)
  */
 export function applyWallPaintWithScope({ wall, side, configId, scope = 'single', planner, renderer3D }) {
-    if (!wall || !configId || !renderer3D) return [];
+    if (!wall || !renderer3D) return [];
 
     const appliedDecors = [];
     const actualPlanner = resolvePlanner(planner, renderer3D);
@@ -299,7 +299,7 @@ export function applyWallPaintWithScope({ wall, side, configId, scope = 'single'
         if (room) {
             const targets = getRoomWallsAndSides(room, actualPlanner, renderer3D);
             targets.forEach(t => {
-                const decor = renderer3D.addWallPattern(t.wall, configId, t.side);
+                const decor = configId && renderer3D.addWallPattern ? renderer3D.addWallPattern(t.wall, configId, t.side) : null;
                 WallEngine.applyMaterial(t.wall, {
                     target: t.side === 'back' ? 'back' : 'front',
                     key: configId,
@@ -313,7 +313,7 @@ export function applyWallPaintWithScope({ wall, side, configId, scope = 'single'
     } else if (scope === 'exterior') {
         const targets = getExteriorWallsAndSides(actualPlanner, renderer3D);
         targets.forEach(t => {
-            const decor = renderer3D.addWallPattern(t.wall, configId, t.side);
+            const decor = configId && renderer3D.addWallPattern ? renderer3D.addWallPattern(t.wall, configId, t.side) : null;
             WallEngine.applyMaterial(t.wall, {
                 target: t.side === 'back' ? 'back' : 'front',
                 key: configId,

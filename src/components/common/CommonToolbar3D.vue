@@ -16,7 +16,8 @@
       <!-- MATERIAL TOOL -->
       <button 
         class="tool-btn" 
-        :class="{ active: currentTool === 'material' }"
+        :class="{ active: currentTool === 'material', disabled: !canMaterial }"
+        :disabled="!canMaterial"
         @click="selectTool('material')"
         title="Material Painting Tool (Key: B)"
       >
@@ -534,12 +535,23 @@ const canElevate = computed(() => {
   return selectedEntity.value ? !!currentCaps.value.elevatable : false;
 });
 
+const canMaterial = computed(() => {
+  return selectedEntity.value ? !!currentCaps.value.material : false;
+});
+
 const effectiveController = computed(() => {
   return props.controller || (typeof window !== 'undefined' ? (window.renderer3D?.commonTools || window.planner?.engine3d?.commonTools) : null);
 });
 
 const selectTool = (toolId) => {
   const ctrl = effectiveController.value;
+
+  if (toolId === 'material') {
+    if (!canMaterial.value) {
+      coreEventBus.emit('ShowToast', { message: 'Select an object first to paint materials', type: 'info' });
+      return;
+    }
+  }
 
   if (toolId === 'move') {
     if (!selectedEntity.value) {
