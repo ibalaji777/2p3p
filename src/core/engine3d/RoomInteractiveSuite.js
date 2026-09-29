@@ -113,6 +113,7 @@ export class RoomInteractiveSuite extends THREE.Group {
 
         if (typeof window !== 'undefined') {
             window.addEventListener('keydown', this._onKeyDown);
+            window.addEventListener('resize', this._onCameraChange);
         }
 
         if (this.ctx.controls) {
@@ -650,33 +651,78 @@ export class RoomInteractiveSuite extends THREE.Group {
         this.domTooltip.style.cssText = `
             position: fixed;
             display: none;
-            padding: 4px 10px;
-            border-radius: 9999px;
-            background: rgba(15, 23, 42, 0.95);
-            border: 1.5px solid #38bdf8;
-            color: #ffffff;
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            padding: 5px 9px;
+            border-radius: 6px;
+            background: rgba(15, 23, 42, 0.94);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            color: #f8fafc;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
             font-size: 11px;
-            font-weight: 800;
+            font-weight: 500;
             white-space: nowrap;
-            z-index: 100005;
+            z-index: 100010;
             pointer-events: none;
-            box-shadow: 0 8px 24px rgba(0,0,0,0.5);
-            transform: translate(14px, 14px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            transition: opacity 0.12s ease;
+            opacity: 0;
         `;
         document.body.appendChild(this.domTooltip);
     }
 
-    _showTooltip(text, x, y) {
+    _showTooltip(title, clientX, clientY, subtitle = null) {
         if (!this.domTooltip) return;
-        this.domTooltip.textContent = text;
-        this.domTooltip.style.left = `${x}px`;
-        this.domTooltip.style.top = `${y}px`;
+        let html = `<span style="font-weight:700; color:#ffffff;">${title}</span>`;
+        if (subtitle) {
+            html += `<span style="display:block; font-size:10px; color:#94a3b8; font-weight:400; margin-top:2px;">${subtitle}</span>`;
+        }
+        this.domTooltip.innerHTML = html;
         this.domTooltip.style.display = 'block';
+
+        const tw = this.domTooltip.offsetWidth || 140;
+        const th = this.domTooltip.offsetHeight || 30;
+        let left = clientX;
+        let top = clientY - th - 8;
+        if (top < 10) top = clientY + 24;
+        const maxW = typeof window !== 'undefined' ? window.innerWidth : 800;
+        left = Math.max(tw / 2 + 10, Math.min(maxW - tw / 2 - 10, left));
+
+        this.domTooltip.style.left = `${left}px`;
+        this.domTooltip.style.top = `${top}px`;
+        this.domTooltip.style.transform = 'translate(-50%, 0)';
+        this.domTooltip.style.opacity = '1';
     }
 
     _hideTooltip() {
-        if (this.domTooltip) this.domTooltip.style.display = 'none';
+        if (this.domTooltip) {
+            this.domTooltip.style.opacity = '0';
+            this.domTooltip.style.display = 'none';
+        }
+    }
+
+    _attachTooltip(el, title, subtitle = null) {
+        if (!el) return;
+        let touchTimer = null;
+        el.addEventListener('mouseenter', () => {
+            const rect = el.getBoundingClientRect();
+            this._showTooltip(title, rect.left + rect.width / 2, rect.top, subtitle);
+        });
+        el.addEventListener('mouseleave', () => {
+            this._hideTooltip();
+        });
+        el.addEventListener('touchstart', () => {
+            touchTimer = setTimeout(() => {
+                const rect = el.getBoundingClientRect();
+                this._showTooltip(title, rect.left + rect.width / 2, rect.top, subtitle);
+            }, 250);
+        }, { passive: true });
+        const cancelTouch = () => {
+            if (touchTimer) clearTimeout(touchTimer);
+            setTimeout(() => this._hideTooltip(), 1500);
+        };
+        el.addEventListener('touchend', cancelTouch);
+        el.addEventListener('touchcancel', cancelTouch);
     }
 
     /**
@@ -704,31 +750,38 @@ export class RoomInteractiveSuite extends THREE.Group {
             this.domRoomHUD.addEventListener(evt, (e) => e.stopPropagation());
         });
 
-        // Card Container (Balanced Compact Dark Theme with glassmorphism)
+        // Card Container (Clean Light Frosted Glass)
         const bubble = document.createElement('div');
         bubble.style.cssText = `
             display: flex;
             flex-direction: column;
             align-items: center;
-            gap: 5px;
-            background: rgba(15, 23, 42, 0.94);
-            border: 1px solid rgba(255, 255, 255, 0.12);
-            border-radius: 12px;
-            padding: 5px 9px;
-            box-shadow: 0 10px 28px rgba(0, 0, 0, 0.6), 0 0 1px rgba(255, 255, 255, 0.15);
-            backdrop-filter: blur(16px);
-            -webkit-backdrop-filter: blur(16px);
+            gap: 3px;
+            background: rgba(255, 255, 255, 0.96);
+            border: 1px solid rgba(226, 232, 240, 0.95);
+            border-radius: 10px;
+            padding: 3px 6px;
+            box-shadow: 0 10px 25px -4px rgba(15, 23, 42, 0.12), 0 2px 6px -1px rgba(15, 23, 42, 0.04);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
             box-sizing: border-box;
+            width: fit-content;
+            max-width: min(calc(100vw - 24px), 360px);
+            pointer-events: auto;
+            user-select: none;
+            -webkit-user-select: none;
+            line-height: 1;
         `;
 
-        // Row 1: Scope Switcher + Action Icons + Done/Close
+        // Row 1: Scope Switcher + Mode Switcher + Steppers + Done/Close
         const mainRow = document.createElement('div');
         mainRow.style.cssText = `
             display: flex;
             align-items: center;
-            justify-content: space-between;
+            justify-content: center;
             width: 100%;
-            gap: 5px;
+            gap: 3px;
+            flex-shrink: 0;
         `;
 
         // Scope Switcher Container
@@ -736,7 +789,8 @@ export class RoomInteractiveSuite extends THREE.Group {
         scopeContainer.style.cssText = `
             display: flex;
             align-items: center;
-            background: rgba(255, 255, 255, 0.08);
+            background: #f1f5f9;
+            border: 1px solid #e2e8f0;
             border-radius: 9999px;
             padding: 1.5px;
             gap: 1.5px;
@@ -744,13 +798,13 @@ export class RoomInteractiveSuite extends THREE.Group {
         `;
 
         this.btnScopeRoom = document.createElement('button');
-        this.btnScopeRoom.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>`;
+        this.btnScopeRoom.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>`;
         this.btnScopeRoom.title = 'Edit Selected Room';
         this.btnScopeRoom.style.cssText = `
             border: none;
             border-radius: 9999px;
-            width: 26px;
-            height: 26px;
+            width: 22px;
+            height: 22px;
             cursor: pointer;
             transition: all 0.15s ease;
             outline: none;
@@ -765,15 +819,16 @@ export class RoomInteractiveSuite extends THREE.Group {
             e.stopPropagation();
             this.setScopeMode('room');
         };
+        this._attachTooltip(this.btnScopeRoom, 'Room Scope', 'Apply adjustments to selected room only');
 
         this.btnScopeBuilding = document.createElement('button');
-        this.btnScopeBuilding.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="2"/><line x1="9" y1="6" x2="9" y2="6.01"/><line x1="15" y1="6" x2="15" y2="6.01"/><line x1="9" y1="10" x2="9" y2="10.01"/><line x1="15" y1="10" x2="15" y2="10.01"/><line x1="9" y1="14" x2="9" y2="14.01"/><line x1="15" y1="14" x2="15" y2="14.01"/><path d="M10 22v-4h4v4"/></svg>`;
+        this.btnScopeBuilding.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="2"/><line x1="9" y1="6" x2="9" y2="6.01"/><line x1="15" y1="6" x2="15" y2="6.01"/><line x1="9" y1="10" x2="9" y2="10.01"/><line x1="15" y1="10" x2="15" y2="10.01"/><line x1="9" y1="14" x2="9" y2="14.01"/><line x1="15" y1="14" x2="15" y2="14.01"/><path d="M10 22v-4h4v4"/></svg>`;
         this.btnScopeBuilding.title = 'Edit All Building Walls';
         this.btnScopeBuilding.style.cssText = `
             border: none;
             border-radius: 9999px;
-            width: 26px;
-            height: 26px;
+            width: 22px;
+            height: 22px;
             cursor: pointer;
             transition: all 0.15s ease;
             outline: none;
@@ -788,25 +843,18 @@ export class RoomInteractiveSuite extends THREE.Group {
             e.stopPropagation();
             this.setScopeMode('building');
         };
+        this._attachTooltip(this.btnScopeBuilding, 'Building Scope', 'Apply adjustments to all building walls');
 
         scopeContainer.appendChild(this.btnScopeRoom);
         scopeContainer.appendChild(this.btnScopeBuilding);
-
-        // Room Action Buttons Container
-        this.roomActionsContainer = document.createElement('div');
-        this.roomActionsContainer.style.cssText = `
-            display: flex;
-            align-items: center;
-            gap: 3px;
-            justify-content: center;
-        `;
 
         // 3-Mode Switcher Container (Wall, Foundation, Platform)
         this.modeSwitcherContainer = document.createElement('div');
         this.modeSwitcherContainer.style.cssText = `
             display: flex;
             align-items: center;
-            background: rgba(255, 255, 255, 0.08);
+            background: #f1f5f9;
+            border: 1px solid #e2e8f0;
             border-radius: 9999px;
             padding: 1.5px;
             gap: 1.5px;
@@ -814,13 +862,13 @@ export class RoomInteractiveSuite extends THREE.Group {
         `;
 
         this.btnModeWall = document.createElement('button');
-        this.btnModeWall.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><line x1="3" y1="9.5" x2="21" y2="9.5"/><line x1="3" y1="14.5" x2="21" y2="14.5"/><line x1="9" y1="4" x2="9" y2="9.5"/><line x1="15" y1="4" x2="15" y2="9.5"/><line x1="6" y1="9.5" x2="6" y2="14.5"/><line x1="12" y1="9.5" x2="12" y2="14.5"/><line x1="18" y1="9.5" x2="18" y2="14.5"/><line x1="9" y1="14.5" x2="9" y2="20"/><line x1="15" y1="14.5" x2="15" y2="20"/></svg>`;
+        this.btnModeWall.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><line x1="3" y1="9.5" x2="21" y2="9.5"/><line x1="3" y1="14.5" x2="21" y2="14.5"/><line x1="9" y1="4" x2="9" y2="9.5"/><line x1="15" y1="4" x2="15" y2="9.5"/><line x1="6" y1="9.5" x2="6" y2="14.5"/><line x1="12" y1="9.5" x2="12" y2="14.5"/><line x1="18" y1="9.5" x2="18" y2="14.5"/><line x1="9" y1="14.5" x2="9" y2="20"/><line x1="15" y1="14.5" x2="15" y2="20"/></svg>`;
         this.btnModeWall.title = 'Adjust Wall Height';
         this.btnModeWall.style.cssText = `
             border: none;
             border-radius: 9999px;
-            width: 26px;
-            height: 26px;
+            width: 22px;
+            height: 22px;
             cursor: pointer;
             transition: all 0.15s ease;
             outline: none;
@@ -835,15 +883,16 @@ export class RoomInteractiveSuite extends THREE.Group {
             e.stopPropagation();
             this.setTargetAdjustMode('wall');
         };
+        this._attachTooltip(this.btnModeWall, 'Wall Height Mode', 'Adjust height of room walls');
 
         this.btnModeFoundation = document.createElement('button');
-        this.btnModeFoundation.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 20h20"/><path d="M4 20v-5h16v5"/><path d="M6 15V8"/><path d="M10 15V8"/><path d="M14 15V8"/><path d="M18 15V8"/><path d="M3 8h18"/><path d="M12 3L3 8h18z"/></svg>`;
+        this.btnModeFoundation.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 20h20"/><path d="M4 20v-5h16v5"/><path d="M6 15V8"/><path d="M10 15V8"/><path d="M14 15V8"/><path d="M18 15V8"/><path d="M3 8h18"/><path d="M12 3L3 8h18z"/></svg>`;
         this.btnModeFoundation.title = 'Adjust Foundation Elevation';
         this.btnModeFoundation.style.cssText = `
             border: none;
             border-radius: 9999px;
-            width: 26px;
-            height: 26px;
+            width: 22px;
+            height: 22px;
             cursor: pointer;
             transition: all 0.15s ease;
             outline: none;
@@ -858,15 +907,16 @@ export class RoomInteractiveSuite extends THREE.Group {
             e.stopPropagation();
             this.setTargetAdjustMode('foundation');
         };
+        this._attachTooltip(this.btnModeFoundation, 'Foundation Mode', 'Adjust foundation elevation');
 
         this.btnModePlatform = document.createElement('button');
-        this.btnModePlatform.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 20h20"/><path d="M5 20v-4h4v-4h5v-4h5v12"/></svg>`;
+        this.btnModePlatform.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 20h20"/><path d="M5 20v-4h4v-4h5v-4h5v12"/></svg>`;
         this.btnModePlatform.title = 'Adjust Platform Height';
         this.btnModePlatform.style.cssText = `
             border: none;
             border-radius: 9999px;
-            width: 26px;
-            height: 26px;
+            width: 22px;
+            height: 22px;
             cursor: pointer;
             transition: all 0.15s ease;
             outline: none;
@@ -881,6 +931,7 @@ export class RoomInteractiveSuite extends THREE.Group {
             e.stopPropagation();
             this.setTargetAdjustMode('platform');
         };
+        this._attachTooltip(this.btnModePlatform, 'Platform Mode', 'Adjust interior platform height');
 
         this.modeSwitcherContainer.appendChild(this.btnModeWall);
         this.modeSwitcherContainer.appendChild(this.btnModeFoundation);
@@ -888,47 +939,307 @@ export class RoomInteractiveSuite extends THREE.Group {
 
         // Single Up and Down Pair
         this.btnStepDown = document.createElement('button');
-        this.btnStepDown.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg>`;
+        this.btnStepDown.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg>`;
         this.btnStepDown.title = 'Lower Value';
         this._styleBubbleButton(this.btnStepDown, '#f59e0b');
         this.btnStepDown.onclick = (e) => {
             e.stopPropagation();
             this.stepTargetDown();
         };
+        this._attachTooltip(this.btnStepDown, 'Step Down', 'Decrease selected parameter (-10cm / -15cm)');
 
         this.btnStepUp = document.createElement('button');
-        this.btnStepUp.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>`;
+        this.btnStepUp.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>`;
         this.btnStepUp.title = 'Raise Value';
         this._styleBubbleButton(this.btnStepUp, '#10b981');
         this.btnStepUp.onclick = (e) => {
             e.stopPropagation();
             this.stepTargetUp();
         };
+        this._attachTooltip(this.btnStepUp, 'Step Up', 'Increase selected parameter (+10cm / +15cm)');
 
         const steppersContainer = document.createElement('div');
         steppersContainer.style.cssText = `
             display: flex;
             align-items: center;
-            gap: 3px;
+            gap: 2px;
+            flex-shrink: 0;
         `;
         steppersContainer.appendChild(this.btnStepDown);
         steppersContainer.appendChild(this.btnStepUp);
 
+        // Header Right: Done & Close
+        const headerRight = document.createElement('div');
+        headerRight.style.cssText = `
+            display: flex;
+            align-items: center;
+            gap: 2px;
+            flex-shrink: 0;
+        `;
+
+        const btnDone = document.createElement('button');
+        btnDone.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`;
+        btnDone.title = 'Finish & Exit (Enter / Esc)';
+        btnDone.style.cssText = `
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 22px;
+            height: 22px;
+            padding: 0;
+            border-radius: 9999px;
+            border: 1px solid #bbf7d0;
+            background: #f0fdf4;
+            color: #15803d;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+            outline: none;
+            line-height: 1;
+            white-space: nowrap;
+        `;
+        btnDone.onmouseenter = () => {
+            btnDone.style.background = '#dcfce7';
+            btnDone.style.transform = 'translateY(-1px)';
+        };
+        btnDone.onmouseleave = () => {
+            btnDone.style.background = '#f0fdf4';
+            btnDone.style.transform = 'translateY(0)';
+        };
+        btnDone.onclick = (e) => {
+            e.stopPropagation();
+            this.finishAndExit();
+        };
+        this._attachTooltip(btnDone, 'Done', 'Finish & apply changes (Enter)');
+
+        const btnClose = document.createElement('button');
+        btnClose.innerHTML = `✕`;
+        btnClose.title = 'Close (Esc)';
+        btnClose.style.cssText = `
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 20px;
+            height: 20px;
+            border-radius: 6px;
+            border: none;
+            background: transparent;
+            color: #94a3b8;
+            cursor: pointer;
+            font-size: 11px;
+            font-weight: 800;
+            transition: all 0.15s ease;
+            outline: none;
+            padding: 0;
+            line-height: 1;
+            flex-shrink: 0;
+        `;
+        btnClose.onmouseenter = () => {
+            btnClose.style.background = '#fee2e2';
+            btnClose.style.color = '#ef4444';
+        };
+        btnClose.onmouseleave = () => {
+            btnClose.style.background = 'transparent';
+            btnClose.style.color = '#94a3b8';
+        };
+        btnClose.onclick = (e) => {
+            e.stopPropagation();
+            this.finishAndExit();
+        };
+        this._attachTooltip(btnClose, 'Close', 'Close room HUD (Esc)');
+
+        headerRight.appendChild(btnDone);
+        headerRight.appendChild(btnClose);
+
+        const makeDivider = () => {
+            const d = document.createElement('div');
+            d.style.cssText = `width: 1px; height: 14px; background: #e2e8f0; margin: 0 1px; flex-shrink: 0;`;
+            return d;
+        };
+
+        mainRow.appendChild(scopeContainer);
+        mainRow.appendChild(makeDivider());
+        mainRow.appendChild(this.modeSwitcherContainer);
+        mainRow.appendChild(makeDivider());
+        mainRow.appendChild(steppersContainer);
+        mainRow.appendChild(makeDivider());
+        mainRow.appendChild(headerRight);
+
+        // Top-Right Header Line (Badge docked at top-right corner)
+        const headerRow = document.createElement('div');
+        headerRow.className = 'sims4-room-header-row';
+        headerRow.style.cssText = `
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            align-self: flex-end;
+            width: fit-content;
+            margin-bottom: 2px;
+            padding: 0 1px 1px 0;
+            box-sizing: border-box;
+            flex-shrink: 0;
+        `;
+
+        this.roomBadge = document.createElement('div');
+        this.roomBadge.className = 'sims4-room-badge';
+        this.roomBadge.style.cssText = `
+            font-size: 9.5px;
+            font-weight: 700;
+            color: #334155;
+            background: rgba(255, 255, 255, 0.94);
+            border: 1px solid rgba(226, 232, 240, 0.9);
+            border-radius: 6px;
+            padding: 2.5px 7px;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            white-space: nowrap;
+            line-height: 1.2;
+            text-align: right;
+            box-sizing: border-box;
+            width: fit-content;
+            flex-shrink: 0;
+        `;
+        this.roomBadge.textContent = 'Room: +0cm';
+        headerRow.appendChild(this.roomBadge);
+
+        // Row 3: Bottom Submenu Container (Height Pills & Room Action Icons at Bottom)
+        this.bottomSubmenuContainer = document.createElement('div');
+        this.bottomSubmenuContainer.className = 'sims4-room-bottom-submenu';
+        this.bottomSubmenuContainer.style.cssText = `
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 3px;
+            width: 100%;
+            padding-top: 2px;
+            border-top: 1px solid #f1f5f9;
+        `;
+
+        // Submenu Item 1: Wall Height Presets Pills
+        this.heightPills = document.createElement('div');
+        this.heightPills.className = 'sims4-room-height-pills';
+        this.heightPills.style.cssText = `
+            display: flex;
+            align-items: center;
+            background: #f1f5f9;
+            border: 1px solid #e2e8f0;
+            border-radius: 9999px;
+            padding: 1.5px;
+            gap: 1.5px;
+            height: 18px;
+            box-sizing: border-box;
+        `;
+
+        const heights = [
+            { label: '240', val: 240, title: 'Short Wall (240 cm)' },
+            { label: '300', val: 300, title: 'Medium Wall (300 cm)' },
+            { label: '360', val: 360, title: 'Tall Wall (360 cm)' }
+        ];
+
+        const btnMinus = document.createElement('button');
+        btnMinus.innerHTML = `▼`;
+        btnMinus.title = 'Decrease Wall Height (-10cm)';
+        btnMinus.style.cssText = `
+            border: none;
+            background: transparent;
+            color: #64748b;
+            font-size: 8px;
+            font-weight: 800;
+            padding: 0 3px;
+            height: 15px;
+            border-radius: 9999px;
+            cursor: pointer;
+            transition: all 0.12s;
+            line-height: 1;
+        `;
+        btnMinus.onmouseenter = () => { btnMinus.style.color = '#2563eb'; };
+        btnMinus.onmouseleave = () => { btnMinus.style.color = '#64748b'; };
+        btnMinus.onclick = (e) => {
+            e.stopPropagation();
+            this.stepWallHeight(-10);
+        };
+        this._attachTooltip(btnMinus, 'Decrease Wall Height', '-10 cm');
+        this.heightPills.appendChild(btnMinus);
+
+        heights.forEach(h => {
+            const pill = document.createElement('button');
+            pill.textContent = h.label;
+            pill.title = h.title;
+            pill.dataset.val = String(h.val);
+            pill.style.cssText = `
+                border: none;
+                background: transparent;
+                color: #64748b;
+                font-size: 9px;
+                font-weight: 600;
+                padding: 0 4px;
+                height: 15px;
+                border-radius: 9999px;
+                cursor: pointer;
+                transition: all 0.12s;
+                line-height: 1;
+            `;
+            pill.onclick = (e) => {
+                e.stopPropagation();
+                this.setWallHeight(h.val);
+            };
+            this._attachTooltip(pill, `${h.label} cm Height`, h.title);
+            this.heightPills.appendChild(pill);
+        });
+
+        const btnPlus = document.createElement('button');
+        btnPlus.innerHTML = `▲`;
+        btnPlus.title = 'Increase Wall Height (+10cm)';
+        btnPlus.style.cssText = `
+            border: none;
+            background: transparent;
+            color: #64748b;
+            font-size: 8px;
+            font-weight: 800;
+            padding: 0 3px;
+            height: 15px;
+            border-radius: 9999px;
+            cursor: pointer;
+            transition: all 0.12s;
+            line-height: 1;
+        `;
+        btnPlus.onmouseenter = () => { btnPlus.style.color = '#2563eb'; };
+        btnPlus.onmouseleave = () => { btnPlus.style.color = '#64748b'; };
+        btnPlus.onclick = (e) => {
+            e.stopPropagation();
+            this.stepWallHeight(10);
+        };
+        this._attachTooltip(btnPlus, 'Increase Wall Height', '+10 cm');
+        this.heightPills.appendChild(btnPlus);
+
+        // Submenu Item 2: Room Action Buttons Container (Rotate, Move, Copy, Delete)
+        this.roomActionsContainer = document.createElement('div');
+        this.roomActionsContainer.className = 'sims4-room-actions';
+        this.roomActionsContainer.style.cssText = `
+            display: flex;
+            align-items: center;
+            gap: 2.5px;
+            justify-content: center;
+        `;
+
         const btnRotateCCW = document.createElement('button');
-        btnRotateCCW.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>`;
+        btnRotateCCW.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>`;
         btnRotateCCW.title = 'Rotate Counter-Clockwise (90°)';
         this._styleBubbleButton(btnRotateCCW, '#38bdf8');
         btnRotateCCW.onclick = (e) => { e.stopPropagation(); this.rotateRoom(-90); };
+        this._attachTooltip(btnRotateCCW, 'Rotate CCW', 'Rotate room 90° counter-clockwise');
 
         const btnRotateCW = document.createElement('button');
-        btnRotateCW.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>`;
+        btnRotateCW.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>`;
         btnRotateCW.title = 'Rotate Clockwise (90°)';
         this._styleBubbleButton(btnRotateCW, '#38bdf8');
         btnRotateCW.onclick = (e) => { e.stopPropagation(); this.rotateRoom(90); };
+        this._attachTooltip(btnRotateCW, 'Rotate CW', 'Rotate room 90° clockwise');
 
         this.btnMove = document.createElement('button');
         const btnMove = this.btnMove;
-        btnMove.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="5 9 2 12 5 15"/><polyline points="9 5 12 2 15 5"/><polyline points="15 19 12 22 9 19"/><polyline points="19 9 22 12 19 15"/><line x1="2" y1="12" x2="22" y2="12"/><line x1="12" y1="2" x2="12" y2="22"/></svg>`;
+        btnMove.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="5 9 2 12 5 15"/><polyline points="9 5 12 2 15 5"/><polyline points="15 19 12 22 9 19"/><polyline points="19 9 22 12 19 15"/><line x1="2" y1="12" x2="22" y2="12"/><line x1="12" y1="2" x2="12" y2="22"/></svg>`;
         btnMove.title = 'Move / Translate Room across floor';
         this._styleBubbleButton(btnMove, '#818cf8');
         btnMove.onclick = (e) => {
@@ -952,18 +1263,21 @@ export class RoomInteractiveSuite extends THREE.Group {
                 }
             }
         };
+        this._attachTooltip(btnMove, 'Move Room', 'Drag room across floor');
 
         const btnCopy = document.createElement('button');
-        btnCopy.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>`;
+        btnCopy.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>`;
         btnCopy.title = 'Duplicate Room Enclosure';
         this._styleBubbleButton(btnCopy, '#a78bfa');
         btnCopy.onclick = (e) => { e.stopPropagation(); this.duplicateRoom(); };
+        this._attachTooltip(btnCopy, 'Duplicate Room', 'Clone room enclosure');
 
         const btnDelete = document.createElement('button');
-        btnDelete.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>`;
+        btnDelete.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>`;
         btnDelete.title = 'Delete Room & Walls';
         this._styleBubbleButton(btnDelete, '#ef4444');
         btnDelete.onclick = (e) => { e.stopPropagation(); this.deleteRoom(); };
+        this._attachTooltip(btnDelete, 'Delete Room', 'Delete room & bounding walls');
 
         this.roomActionsContainer.appendChild(btnRotateCCW);
         this.roomActionsContainer.appendChild(btnRotateCW);
@@ -975,232 +1289,27 @@ export class RoomInteractiveSuite extends THREE.Group {
         this.buildingActionsContainer = document.createElement('div');
         this.buildingActionsContainer.style.display = 'none';
 
-        // Header Right: Done & Close
-        const headerRight = document.createElement('div');
-        headerRight.style.cssText = `
-            display: flex;
-            align-items: center;
-            gap: 3px;
-            flex-shrink: 0;
-        `;
+        // Assemble Submenu Container
+        this.bottomSubmenuContainer.appendChild(this.heightPills);
+        this.bottomSubmenuContainer.appendChild(this.roomActionsContainer);
 
-        const btnDone = document.createElement('button');
-        btnDone.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`;
-        btnDone.title = 'Finish & Exit (Enter / Esc)';
-        btnDone.style.cssText = `
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            width: 26px;
-            height: 26px;
-            padding: 0;
-            border-radius: 9999px;
-            border: 1px solid #10b981;
-            background: #10b981;
-            color: #ffffff;
-            cursor: pointer;
-            transition: all 0.15s ease;
-            box-shadow: 0 1px 4px rgba(16, 185, 129, 0.4);
-            outline: none;
-            line-height: 1;
-            white-space: nowrap;
-        `;
-        btnDone.onmouseenter = () => {
-            btnDone.style.transform = 'translateY(-1px) scale(1.08)';
-            btnDone.style.boxShadow = '0 2px 8px rgba(16, 185, 129, 0.6)';
-        };
-        btnDone.onmouseleave = () => {
-            btnDone.style.transform = 'translateY(0) scale(1)';
-            btnDone.style.boxShadow = '0 1px 4px rgba(16, 185, 129, 0.4)';
-        };
-        btnDone.onclick = (e) => {
-            e.stopPropagation();
-            this.finishAndExit();
-        };
-
-        const btnClose = document.createElement('button');
-        btnClose.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
-        btnClose.title = 'Close (Esc)';
-        btnClose.style.cssText = `
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            width: 26px;
-            height: 26px;
-            border-radius: 9999px;
-            border: 1px solid rgba(255, 255, 255, 0.12);
-            background: rgba(255, 255, 255, 0.08);
-            color: #94a3b8;
-            cursor: pointer;
-            transition: all 0.15s ease;
-            outline: none;
-            padding: 0;
-            line-height: 1;
-            flex-shrink: 0;
-        `;
-        btnClose.onmouseenter = () => {
-            btnClose.style.borderColor = '#ef4444';
-            btnClose.style.background = 'rgba(239, 68, 68, 0.2)';
-            btnClose.style.color = '#fca5a5';
-            btnClose.style.transform = 'scale(1.08)';
-        };
-        btnClose.onmouseleave = () => {
-            btnClose.style.borderColor = 'rgba(255, 255, 255, 0.12)';
-            btnClose.style.background = 'rgba(255, 255, 255, 0.08)';
-            btnClose.style.color = '#94a3b8';
-            btnClose.style.transform = 'scale(1)';
-        };
-        btnClose.onclick = (e) => {
-            e.stopPropagation();
-            this.finishAndExit();
-        };
-
-        headerRight.appendChild(btnDone);
-        headerRight.appendChild(btnClose);
-
-        const makeDivider = () => {
-            const d = document.createElement('div');
-            d.style.cssText = `width: 1px; height: 16px; background: rgba(255, 255, 255, 0.12); margin: 0 2px; flex-shrink: 0;`;
-            return d;
-        };
-
-        mainRow.appendChild(scopeContainer);
-        mainRow.appendChild(makeDivider());
-        mainRow.appendChild(this.modeSwitcherContainer);
-        mainRow.appendChild(makeDivider());
-        mainRow.appendChild(steppersContainer);
-        mainRow.appendChild(makeDivider());
-        mainRow.appendChild(this.roomActionsContainer);
-        mainRow.appendChild(makeDivider());
-        mainRow.appendChild(headerRight);
-
-        // Row 2: Live Badge & Wall Height Presets
-        const metaRow = document.createElement('div');
-        metaRow.style.cssText = `
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            width: 100%;
-            justify-content: space-between;
-            padding-top: 3px;
-            border-top: 1px solid rgba(255, 255, 255, 0.08);
-        `;
-
-        this.roomBadge = document.createElement('div');
-        this.roomBadge.style.cssText = `
-            font-size: 10px;
-            font-weight: 700;
-            color: #e2e8f0;
-            white-space: nowrap;
-            line-height: 16px;
-        `;
-        this.roomBadge.textContent = 'Room: +0cm';
-
-        this.heightPills = document.createElement('div');
-        this.heightPills.style.cssText = `
-            display: flex;
-            align-items: center;
-            background: rgba(255, 255, 255, 0.08);
-            border-radius: 9999px;
-            padding: 1.5px;
-            gap: 1.5px;
-            height: 19px;
-        `;
-
-        const heights = [
-            { label: '240', val: 240, title: 'Short Wall (240 cm)' },
-            { label: '300', val: 300, title: 'Medium Wall (300 cm)' },
-            { label: '360', val: 360, title: 'Tall Wall (360 cm)' }
-        ];
-
-        const btnMinus = document.createElement('button');
-        btnMinus.innerHTML = `▼`;
-        btnMinus.title = 'Decrease Wall Height (-10cm)';
-        btnMinus.style.cssText = `
-            border: none;
-            background: transparent;
-            color: #94a3b8;
-            font-size: 8.5px;
-            font-weight: 800;
-            padding: 0 3px;
-            height: 16px;
-            border-radius: 9999px;
-            cursor: pointer;
-            transition: all 0.12s;
-        `;
-        btnMinus.onmouseenter = () => { btnMinus.style.color = '#38bdf8'; };
-        btnMinus.onmouseleave = () => { btnMinus.style.color = '#94a3b8'; };
-        btnMinus.onclick = (e) => {
-            e.stopPropagation();
-            this.stepWallHeight(-10);
-        };
-        this.heightPills.appendChild(btnMinus);
-
-        heights.forEach(h => {
-            const pill = document.createElement('button');
-            pill.textContent = h.label;
-            pill.title = h.title;
-            pill.dataset.val = String(h.val);
-            pill.style.cssText = `
-                border: none;
-                background: transparent;
-                color: #94a3b8;
-                font-size: 9.5px;
-                font-weight: 700;
-                padding: 0 4px;
-                height: 16px;
-                border-radius: 9999px;
-                cursor: pointer;
-                transition: all 0.12s;
-            `;
-            pill.onclick = (e) => {
-                e.stopPropagation();
-                this.setWallHeight(h.val);
-            };
-            this.heightPills.appendChild(pill);
-        });
-
-        const btnPlus = document.createElement('button');
-        btnPlus.innerHTML = `▲`;
-        btnPlus.title = 'Increase Wall Height (+10cm)';
-        btnPlus.style.cssText = `
-            border: none;
-            background: transparent;
-            color: #94a3b8;
-            font-size: 8.5px;
-            font-weight: 800;
-            padding: 0 3px;
-            height: 16px;
-            border-radius: 9999px;
-            cursor: pointer;
-            transition: all 0.12s;
-        `;
-        btnPlus.onmouseenter = () => { btnPlus.style.color = '#38bdf8'; };
-        btnPlus.onmouseleave = () => { btnPlus.style.color = '#94a3b8'; };
-        btnPlus.onclick = (e) => {
-            e.stopPropagation();
-            this.stepWallHeight(10);
-        };
-        this.heightPills.appendChild(btnPlus);
-
-        metaRow.appendChild(this.roomBadge);
-        metaRow.appendChild(this.heightPills);
-
+        // Assemble Card
         bubble.appendChild(mainRow);
-        bubble.appendChild(metaRow);
+        bubble.appendChild(this.bottomSubmenuContainer);
 
         // Speech bubble triangular tail pointing downward
         const tail = document.createElement('div');
         tail.style.cssText = `
             width: 0;
             height: 0;
-            border-left: 6px solid transparent;
-            border-right: 6px solid transparent;
-            border-top: 6px solid rgba(15, 23, 42, 0.94);
+            border-left: 5px solid transparent;
+            border-right: 5px solid transparent;
+            border-top: 5px solid rgba(255, 255, 255, 0.96);
             margin-top: -1px;
-            filter: drop-shadow(0 2px 2px rgba(0,0,0,0.3));
+            filter: drop-shadow(0 2px 2px rgba(0,0,0,0.06));
         `;
 
+        this.domRoomHUD.appendChild(headerRow);
         this.domRoomHUD.appendChild(bubble);
         this.domRoomHUD.appendChild(tail);
         document.body.appendChild(this.domRoomHUD);
@@ -1211,29 +1320,29 @@ export class RoomInteractiveSuite extends THREE.Group {
     _styleScopeButton(btn, isActive) {
         if (!btn) return;
         if (isActive) {
-            btn.style.background = '#0284c7';
-            btn.style.color = '#ffffff';
-            btn.style.fontWeight = '800';
-            btn.style.boxShadow = '0 1px 6px rgba(2, 132, 199, 0.5)';
+            btn.style.background = '#ffffff';
+            btn.style.color = '#2563eb';
+            btn.style.fontWeight = '700';
+            btn.style.boxShadow = '0 1px 3px rgba(0,0,0,0.1)';
         } else {
             btn.style.background = 'transparent';
-            btn.style.color = '#94a3b8';
-            btn.style.fontWeight = '700';
+            btn.style.color = '#64748b';
+            btn.style.fontWeight = '600';
             btn.style.boxShadow = 'none';
         }
     }
 
-    _styleModeButton(btn, isActive, accentColor = '#38bdf8') {
+    _styleModeButton(btn, isActive, accentColor = '#2563eb') {
         if (!btn) return;
         if (isActive) {
-            btn.style.background = accentColor;
-            btn.style.color = '#ffffff';
-            btn.style.fontWeight = '800';
-            btn.style.boxShadow = `0 1px 6px ${accentColor}80`;
+            btn.style.background = '#ffffff';
+            btn.style.color = accentColor;
+            btn.style.fontWeight = '700';
+            btn.style.boxShadow = '0 1px 3px rgba(0,0,0,0.1)';
         } else {
             btn.style.background = 'transparent';
-            btn.style.color = '#94a3b8';
-            btn.style.fontWeight = '700';
+            btn.style.color = '#64748b';
+            btn.style.fontWeight = '600';
             btn.style.boxShadow = 'none';
         }
     }
@@ -1250,7 +1359,7 @@ export class RoomInteractiveSuite extends THREE.Group {
 
         // Update Target Adjust Mode button styles
         if (this.btnModeWall && this.btnModeFoundation && this.btnModePlatform) {
-            this._styleModeButton(this.btnModeWall, this.targetAdjustMode === 'wall', '#0284c7');
+            this._styleModeButton(this.btnModeWall, this.targetAdjustMode === 'wall', '#2563eb');
             this._styleModeButton(this.btnModeFoundation, this.targetAdjustMode === 'foundation', '#059669');
             this._styleModeButton(this.btnModePlatform, this.targetAdjustMode === 'platform', '#d97706');
         }
@@ -1270,9 +1379,14 @@ export class RoomInteractiveSuite extends THREE.Group {
             }
         }
 
+        // Manage bottom submenu items visibility
+        let hasSubmenu = false;
+
         // Toggle room-specific transform operations (Rotate, Move, Copy, Delete)
         if (this.roomActionsContainer) {
-            this.roomActionsContainer.style.display = isBuilding ? 'none' : 'flex';
+            const showRoomActions = !isBuilding;
+            this.roomActionsContainer.style.display = showRoomActions ? 'flex' : 'none';
+            if (showRoomActions) hasSubmenu = true;
         }
         if (this.buildingActionsContainer) {
             this.buildingActionsContainer.style.display = 'none';
@@ -1285,21 +1399,29 @@ export class RoomInteractiveSuite extends THREE.Group {
             : this._getRoomWallHeight();
 
         if (this.heightPills) {
+            const showHeightPills = (this.targetAdjustMode === 'wall');
+            this.heightPills.style.display = showHeightPills ? 'flex' : 'none';
+            if (showHeightPills) hasSubmenu = true;
+
             Array.from(this.heightPills.children).forEach(pill => {
                 if (!pill.dataset?.val) return;
                 const val = Number(pill.dataset.val);
                 if (val === curH) {
-                    pill.style.background = '#0ea5e9';
-                    pill.style.color = '#ffffff';
-                    pill.style.fontWeight = '800';
-                    pill.style.boxShadow = '0 1px 4px rgba(14, 165, 233, 0.4)';
+                    pill.style.background = '#ffffff';
+                    pill.style.color = '#2563eb';
+                    pill.style.fontWeight = '700';
+                    pill.style.boxShadow = '0 1px 3px rgba(0,0,0,0.1)';
                 } else {
                     pill.style.background = 'transparent';
-                    pill.style.color = '#94a3b8';
-                    pill.style.fontWeight = '700';
+                    pill.style.color = '#64748b';
+                    pill.style.fontWeight = '600';
                     pill.style.boxShadow = 'none';
                 }
             });
+        }
+
+        if (this.bottomSubmenuContainer) {
+            this.bottomSubmenuContainer.style.display = hasSubmenu ? 'flex' : 'none';
         }
 
         // Update Live Room Info Badge
@@ -1307,12 +1429,12 @@ export class RoomInteractiveSuite extends THREE.Group {
             if (isBuilding) {
                 const walls = planner?.walls?.filter(w => !w.hidden && w.type !== 'railing') || [];
                 const elev = walls.length > 0 ? (Number(walls[0].elevation) || 0) : (Number(this.room?.elevation) || 0);
-                this.roomBadge.innerHTML = `Building <span style="color:#10b981;">+${elev}cm</span> • Wall <span style="color:#38bdf8;">${curH}cm</span>`;
+                this.roomBadge.innerHTML = `Building <span style="color:#10b981;">+${elev}cm</span> • Wall <span style="color:#2563eb;">${curH}cm</span>`;
             } else if (this.room) {
                 const elev = Number(this.room.elevation) || 0;
                 const pltH = Number(this.room.platformHeight) || 0;
                 const areaM2 = (this._getRoomArea(this.room.path) / 10000).toFixed(1);
-                this.roomBadge.innerHTML = `Fnd <span style="color:#10b981;">+${elev}cm</span> • Plt <span style="color:#34d399;">${pltH >= 0 ? '+' : ''}${pltH}cm</span> • Wall <span style="color:#38bdf8;">${curH}cm</span> • <span style="color:#94a3b8;">${areaM2}m²</span>`;
+                this.roomBadge.innerHTML = `Fnd <span style="color:#10b981;">+${elev}cm</span> • Plt <span style="color:#059669;">${pltH >= 0 ? '+' : ''}${pltH}cm</span> • Wall <span style="color:#2563eb;">${curH}cm</span> • <span style="color:#64748b;">${areaM2}m²</span>`;
             }
         }
     }
@@ -1322,35 +1444,32 @@ export class RoomInteractiveSuite extends THREE.Group {
             display: flex;
             align-items: center;
             justify-content: center;
-            width: 26px;
-            height: 26px;
+            width: 22px;
+            height: 22px;
             border-radius: 9999px;
-            border: 1px solid rgba(255, 255, 255, 0.12);
-            background: rgba(255, 255, 255, 0.07);
-            color: #e2e8f0;
-            font-size: 11px;
-            font-weight: 800;
+            border: 1px solid #e2e8f0;
+            background: #ffffff;
+            color: #334155;
+            font-size: 10px;
+            font-weight: 600;
             cursor: pointer;
             transition: all 0.15s ease;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+            box-shadow: 0 1px 2px rgba(0,0,0,0.04);
             outline: none;
             padding: 0;
             line-height: 1;
             white-space: nowrap;
+            flex-shrink: 0;
         `;
         btn.onmouseenter = () => {
-            btn.style.borderColor = accentColor;
-            btn.style.color = '#ffffff';
-            btn.style.background = 'rgba(255, 255, 255, 0.16)';
-            btn.style.transform = 'scale(1.08)';
-            btn.style.boxShadow = `0 2px 8px rgba(0,0,0,0.4), 0 0 6px ${accentColor}60`;
+            btn.style.borderColor = '#cbd5e1';
+            btn.style.background = '#f8fafc';
+            btn.style.transform = 'translateY(-1px)';
         };
         btn.onmouseleave = () => {
-            btn.style.borderColor = 'rgba(255, 255, 255, 0.12)';
-            btn.style.color = '#e2e8f0';
-            btn.style.background = 'rgba(255, 255, 255, 0.07)';
-            btn.style.transform = 'scale(1)';
-            btn.style.boxShadow = '0 1px 3px rgba(0,0,0,0.3)';
+            btn.style.borderColor = '#e2e8f0';
+            btn.style.background = '#ffffff';
+            btn.style.transform = 'translateY(0)';
         };
     }
 
@@ -1369,101 +1488,116 @@ export class RoomInteractiveSuite extends THREE.Group {
             transform: translateX(-50%);
             display: none;
             align-items: center;
-            gap: 8px;
-            background: rgba(15, 23, 42, 0.95);
-            border: 2px solid #38bdf8;
+            gap: 6px;
+            background: rgba(255, 255, 255, 0.96);
+            border: 1px solid rgba(226, 232, 240, 0.95);
             border-radius: 9999px;
-            padding: 6px 14px;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.7), 0 0 25px rgba(56, 189, 248, 0.35);
+            padding: 4px 10px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08), 0 2px 6px rgba(0, 0, 0, 0.04);
             backdrop-filter: blur(16px);
             -webkit-backdrop-filter: blur(16px);
-            color: #ffffff;
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            font-size: 12px;
-            font-weight: 700;
+            color: #0f172a;
+            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', 'Segoe UI', Roboto, sans-serif;
+            font-size: 11px;
+            font-weight: 600;
             z-index: 100003;
             user-select: none;
             pointer-events: auto;
+            max-width: min(94vw, 560px);
+            overflow-x: auto;
+            scrollbar-width: none;
         `;
 
         const titleTag = document.createElement('div');
         titleTag.style.cssText = `
             display: flex;
             align-items: center;
-            gap: 5px;
-            color: #38bdf8;
-            font-size: 11px;
+            gap: 4px;
+            color: #2563eb;
+            font-size: 10.5px;
             font-weight: 800;
             text-transform: uppercase;
-            letter-spacing: 0.5px;
+            letter-spacing: 0.4px;
             padding-right: 6px;
-            border-right: 1px solid rgba(255, 255, 255, 0.15);
+            border-right: 1px solid #e2e8f0;
+            white-space: nowrap;
+            flex-shrink: 0;
         `;
-        titleTag.innerHTML = `<span>🏢 Building Rise (All Walls)</span>`;
+        titleTag.innerHTML = `<span>🏢 Building Rise</span>`;
 
         const hLabel = document.createElement('span');
         hLabel.textContent = 'Height:';
-        hLabel.style.cssText = `color: #94a3b8; font-size: 11px;`;
+        hLabel.style.cssText = `color: #64748b; font-size: 10.5px; font-weight: 600; flex-shrink: 0;`;
 
         const btnShort = document.createElement('button');
         btnShort.textContent = 'Short 240';
-        this._styleHUDButton(btnShort, '#38bdf8', 'rgba(56, 189, 248, 0.15)');
+        this._styleHUDButton(btnShort, '#e2e8f0', '#ffffff');
         btnShort.onclick = () => this.setAllWallsHeight(240);
+        this._attachTooltip(btnShort, 'Short Wall (240 cm)', 'Set all building walls to 240cm');
 
         const btnMedium = document.createElement('button');
         btnMedium.textContent = 'Medium 300';
-        this._styleHUDButton(btnMedium, '#38bdf8', 'rgba(56, 189, 248, 0.15)');
+        this._styleHUDButton(btnMedium, '#e2e8f0', '#ffffff');
         btnMedium.onclick = () => this.setAllWallsHeight(300);
+        this._attachTooltip(btnMedium, 'Medium Wall (300 cm)', 'Set all building walls to 300cm');
 
         const btnTall = document.createElement('button');
         btnTall.textContent = 'Tall 360';
-        this._styleHUDButton(btnTall, '#38bdf8', 'rgba(56, 189, 248, 0.15)');
+        this._styleHUDButton(btnTall, '#e2e8f0', '#ffffff');
         btnTall.onclick = () => this.setAllWallsHeight(360);
+        this._attachTooltip(btnTall, 'Tall Wall (360 cm)', 'Set all building walls to 360cm');
 
         const btnStepUp = document.createElement('button');
         btnStepUp.innerHTML = `▲ +10`;
-        this._styleHUDButton(btnStepUp, '#10b981', 'rgba(16, 185, 129, 0.2)');
+        this._styleHUDButton(btnStepUp, '#e2e8f0', '#ffffff');
         btnStepUp.onclick = () => this.stepAllWallsHeight(10);
+        this._attachTooltip(btnStepUp, 'Raise Walls', '+10cm to all building walls');
 
         const btnStepDown = document.createElement('button');
         btnStepDown.innerHTML = `▼ -10`;
-        this._styleHUDButton(btnStepDown, '#f59e0b', 'rgba(245, 158, 11, 0.2)');
+        this._styleHUDButton(btnStepDown, '#e2e8f0', '#ffffff');
         btnStepDown.onclick = () => this.stepAllWallsHeight(-10);
+        this._attachTooltip(btnStepDown, 'Lower Walls', '-10cm to all building walls');
 
         const fLabel = document.createElement('span');
-        fLabel.textContent = 'Foundation:';
-        fLabel.style.cssText = `color: #94a3b8; font-size: 11px; margin-left: 6px; padding-left: 6px; border-left: 1px solid rgba(255, 255, 255, 0.15);`;
+        fLabel.textContent = 'Fnd:';
+        fLabel.style.cssText = `color: #64748b; font-size: 10.5px; font-weight: 600; margin-left: 4px; padding-left: 6px; border-left: 1px solid #e2e8f0; flex-shrink: 0;`;
 
         const btnFoundUp = document.createElement('button');
         btnFoundUp.innerHTML = `▲ +15`;
-        this._styleHUDButton(btnFoundUp, '#10b981', 'rgba(16, 185, 129, 0.2)');
+        this._styleHUDButton(btnFoundUp, '#e2e8f0', '#ffffff');
         btnFoundUp.title = 'Lift Building Foundation (+15cm)';
         btnFoundUp.onclick = () => this.stepAllWallsElevation(15);
+        this._attachTooltip(btnFoundUp, 'Lift Foundation', '+15cm to building foundation');
 
         const btnFoundDown = document.createElement('button');
         btnFoundDown.innerHTML = `▼ -15`;
-        this._styleHUDButton(btnFoundDown, '#f59e0b', 'rgba(245, 158, 11, 0.2)');
+        this._styleHUDButton(btnFoundDown, '#e2e8f0', '#ffffff');
         btnFoundDown.title = 'Lower Building Foundation (-15cm)';
         btnFoundDown.onclick = () => this.stepAllWallsElevation(-15);
+        this._attachTooltip(btnFoundDown, 'Lower Foundation', '-15cm to building foundation');
 
         const btnDone = document.createElement('button');
         btnDone.innerHTML = `✓ Done`;
         btnDone.title = 'Finish & Exit Rise Controls (Enter / Esc)';
-        this._styleHUDButton(btnDone, '#10b981', '#10b981');
-        btnDone.style.fontWeight = '800';
-        btnDone.style.padding = '0 14px';
-        btnDone.style.boxShadow = '0 2px 10px rgba(16, 185, 129, 0.4)';
+        this._styleHUDButton(btnDone, '#bbf7d0', '#f0fdf4');
+        btnDone.style.color = '#15803d';
+        btnDone.style.fontWeight = '700';
+        btnDone.style.padding = '0 10px';
         btnDone.onclick = () => {
             this.finishAndExit();
         };
+        this._attachTooltip(btnDone, 'Done', 'Finish & apply changes (Enter)');
 
         const btnClose = document.createElement('button');
         btnClose.textContent = '✕';
         btnClose.title = 'Close Building Rise Controls';
-        this._styleHUDButton(btnClose, '#ef4444', 'rgba(239, 68, 68, 0.25)');
+        this._styleHUDButton(btnClose, '#fecaca', '#fef2f2');
+        btnClose.style.color = '#dc2626';
         btnClose.onclick = () => {
             this.finishAndExit();
         };
+        this._attachTooltip(btnClose, 'Close', 'Close building rise controls (Esc)');
 
         this.domBuildingHUD.appendChild(titleTag);
         this.domBuildingHUD.appendChild(hLabel);
@@ -1481,31 +1615,35 @@ export class RoomInteractiveSuite extends THREE.Group {
         document.body.appendChild(this.domBuildingHUD);
     }
 
-    _styleHUDButton(btn, color, bg) {
+    _styleHUDButton(btn, borderColor, bg) {
         btn.style.cssText = `
             display: flex;
             align-items: center;
             justify-content: center;
-            height: 28px;
-            padding: 0 9px;
+            height: 24px;
+            padding: 0 8px;
             border-radius: 9999px;
-            border: 1px solid ${color};
-            background: ${bg};
-            color: #ffffff;
-            font-size: 11px;
-            font-weight: 700;
+            border: 1px solid ${borderColor || '#e2e8f0'};
+            background: ${bg || '#ffffff'};
+            color: #1e293b;
+            font-size: 10.5px;
+            font-weight: 600;
             cursor: pointer;
             transition: all 0.12s ease;
             outline: none;
             white-space: nowrap;
+            flex-shrink: 0;
+            line-height: 1;
         `;
         btn.onmouseenter = () => {
-            btn.style.transform = 'scale(1.06)';
-            btn.style.boxShadow = `0 0 10px ${color}`;
+            btn.style.borderColor = '#cbd5e1';
+            btn.style.background = '#f8fafc';
+            btn.style.transform = 'translateY(-1px)';
         };
         btn.onmouseleave = () => {
-            btn.style.transform = 'scale(1)';
-            btn.style.boxShadow = 'none';
+            btn.style.borderColor = borderColor || '#e2e8f0';
+            btn.style.background = bg || '#ffffff';
+            btn.style.transform = 'translateY(0)';
         };
     }
 
@@ -1788,7 +1926,8 @@ export class RoomInteractiveSuite extends THREE.Group {
      */
     updateHUDPosition() {
         if (!this.room || !this.ctx.camera || !this.ctx.renderer || !this.domRoomHUD) return;
-        if (!this.visible || this._isActionActive()) {
+        const is2D = (this.ctx.viewMode === '2d' || this.ctx.planner?.viewMode === '2d' || this.ctx.engine3d?.is2D === true);
+        if (is2D || !this.visible || this._isActionActive()) {
             this.domRoomHUD.style.display = 'none';
             return;
         }
@@ -1811,12 +1950,67 @@ export class RoomInteractiveSuite extends THREE.Group {
             return;
         }
 
-        const rect = this.ctx.renderer.domElement.getBoundingClientRect();
-        const screenX = Math.max(160, Math.min(rect.width - 160, ((v.x + 1) / 2) * rect.width)) + rect.left;
-        const screenY = Math.max(70, Math.min(rect.height - 30, ((-v.y + 1) / 2) * rect.height)) + rect.top;
+        const dom = this.ctx.renderer.domElement;
+        const rect = dom.getBoundingClientRect();
+        const rectLeft = (rect.left !== undefined) ? rect.left : 0;
+        const rectTop = (rect.top !== undefined) ? rect.top : 0;
+        const rectW = (rect.width !== undefined) ? rect.width : window.innerWidth;
+        const rectH = (rect.height !== undefined) ? rect.height : window.innerHeight;
+        const rectRight = (rect.right !== undefined) ? rect.right : (rectLeft + rectW);
+        const rectBottom = (rect.bottom !== undefined) ? rect.bottom : (rectTop + rectH);
 
-        this.domRoomHUD.style.left = `${screenX}px`;
-        this.domRoomHUD.style.top = `${screenY - 10}px`;
+        const isMobile = (typeof window !== 'undefined' && window.innerWidth <= 768);
+        const safeTop = rectTop + (isMobile ? 64 : 52);
+        const safeBottom = rectBottom - 16;
+        const safeLeft = rectLeft + (isMobile ? 68 : 58);
+        const safeRight = rectRight - (isMobile ? 12 : 58);
+
+        const hudW = this.domRoomHUD.offsetWidth || (isMobile ? 284 : 340);
+        const hudH = this.domRoomHUD.offsetHeight || 60;
+
+        const screenX = ((v.x + 1) / 2) * rectW + rectLeft;
+        const screenY = ((-v.y + 1) / 2) * rectH + rectTop;
+
+        const targetTopAbove = screenY - 10;
+        let posTop = targetTopAbove;
+        let transformY = '-100%';
+
+        if (targetTopAbove - hudH < safeTop) {
+            // Check headroom below room base
+            const baseWorldPos = new THREE.Vector3(cx, elev, cy);
+            const baseV = baseWorldPos.clone().project(this.ctx.camera);
+            const baseScreenY = ((-baseV.y + 1) / 2) * rectH + rectTop;
+            const targetTopBelow = Math.max(screenY + 20, baseScreenY + 16);
+
+            if (targetTopBelow >= safeTop && targetTopBelow + hudH <= safeBottom) {
+                posTop = targetTopBelow;
+                transformY = '0';
+            } else {
+                posTop = safeTop + hudH;
+                transformY = '-100%';
+            }
+        }
+
+        // Strict vertical clamping
+        if (transformY === '-100%') {
+            posTop = Math.max(safeTop + hudH, Math.min(safeBottom, posTop));
+        } else {
+            posTop = Math.max(safeTop, Math.min(safeBottom - hudH, posTop));
+        }
+
+        // Strict horizontal clamping
+        if (safeRight - safeLeft < hudW) {
+            // Narrow viewport fallback: center between safe margins
+            const clampedX = (safeLeft + safeRight) / 2;
+            this.domRoomHUD.style.left = `${clampedX}px`;
+        } else {
+            const halfW = hudW / 2;
+            const clampedX = Math.max(safeLeft + halfW, Math.min(safeRight - halfW, screenX));
+            this.domRoomHUD.style.left = `${clampedX}px`;
+        }
+
+        this.domRoomHUD.style.top = `${posTop}px`;
+        this.domRoomHUD.style.transform = `translate(-50%, ${transformY})`;
         this.domRoomHUD.style.display = 'flex';
     }
 
@@ -1829,7 +2023,8 @@ export class RoomInteractiveSuite extends THREE.Group {
             return;
         }
 
-        if (this._isActionActive()) {
+        const is2D = (this.ctx.viewMode === '2d' || this.ctx.planner?.viewMode === '2d' || this.ctx.engine3d?.is2D === true);
+        if (is2D || this._isActionActive()) {
             if (this.domRoomHUD) this.domRoomHUD.style.display = 'none';
             if (this.domBuildingHUD) this.domBuildingHUD.style.display = 'none';
             if (this.liftHandleGroup) this.liftHandleGroup.visible = false;
@@ -3510,8 +3705,9 @@ export class RoomInteractiveSuite extends THREE.Group {
             dom.removeEventListener('pointermove', this._onPointerMove);
             dom.removeEventListener('pointerup', this._onPointerUp);
         }
-        if (this._onKeyDown && typeof window !== 'undefined') {
-            window.removeEventListener('keydown', this._onKeyDown);
+        if (typeof window !== 'undefined') {
+            if (this._onKeyDown) window.removeEventListener('keydown', this._onKeyDown);
+            window.removeEventListener('resize', this._onCameraChange);
         }
         if (this.ctx.controls) {
             this.ctx.controls.removeEventListener('change', this._onCameraChange);

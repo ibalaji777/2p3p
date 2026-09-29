@@ -596,6 +596,7 @@ export class InteractionSystem {
         this.roofPluginPlacementSystem = new RoofPlugin3DPlacementSystem(ctx, this);
 
         this.initEvents();
+        this.hideAllPlacementGhosts();
     }
 
     setMode(mode) {
@@ -683,6 +684,7 @@ export class InteractionSystem {
         const dom = this.ctx.renderer.domElement;
         
         this._onPointerDown = (e) => {
+            if (this.is2DView()) return;
             this.updateMouse(e);
 
             // Direct 3D Wall / Room Drawing System
@@ -1002,6 +1004,7 @@ export class InteractionSystem {
         };
 
         this._onPointerMove = (e) => {
+            if (this.is2DView()) return;
             this.updateMouse(e);
 
             // Direct 3D Wall / Room Drawing System
@@ -1139,6 +1142,7 @@ export class InteractionSystem {
         };
 
         this._onPointerUp = (e) => {
+            if (this.is2DView()) return;
 
             // Universal Material Face Painting Tool
             if (this.commonController?.activeTool === COMMON_TOOLS.MATERIAL) {
@@ -1205,6 +1209,7 @@ export class InteractionSystem {
         let initialEntityAngle = 0;
 
         this._onTouchStart = (e) => {
+            if (this.is2DView()) return;
             if (e.touches && e.touches.length === 2 && this.selectedObject) {
                 const ent = this.selectedObject.userData?.entity;
                 if (ent && this.commonController?.getCapabilities(ent, this.selectedObject)?.rotatable) {
@@ -1228,6 +1233,7 @@ export class InteractionSystem {
         };
 
         this._onTouchMove = (e) => {
+            if (this.is2DView()) return;
             if (isTouchTwisting && e.touches && e.touches.length === 2 && this.selectedObject) {
                 const ent = this.selectedObject.userData?.entity;
                 if (!ent) return;
@@ -1252,6 +1258,7 @@ export class InteractionSystem {
         };
 
         this._onTouchEnd = (e) => {
+            if (this.is2DView()) return;
             if (isTouchTwisting) {
                 isTouchTwisting = false;
                 if (this.ctx.cameraController) {
@@ -1493,7 +1500,22 @@ export class InteractionSystem {
         if (this.ctx.onRelocateStateChange) this.ctx.onRelocateStateChange(active);
     }
 
-    cancelRelocation() {
+    is2DView() {
+        if (this.ctx?.viewMode === '2d' || this.ctx?.preview3D?.viewMode === '2d') return true;
+        const planner = this.ctx?.planner || window.planner?.value || window.planner;
+        if (planner?.viewMode === '2d') return true;
+        const container = this.ctx?.container || this.ctx?.renderer?.domElement?.parentElement;
+        if (container && (container.classList?.contains('inactive-canvas') || (!container.classList?.contains('active-canvas') && container.classList?.contains('canvas-3d')))) {
+            return true;
+        }
+        if (typeof document !== 'undefined') {
+            const inactive3D = document.querySelector('.canvas-host.canvas-3d.inactive-canvas');
+            if (inactive3D) return true;
+        }
+        return false;
+    }
+
+    hideAllPlacementGhosts() {
         this.setRelocationState(false);
         if (this.stairPlacementSystem) {
             if (this.stairPlacementSystem.isRelocating && typeof this.stairPlacementSystem.cancelRelocation === 'function') {
@@ -1508,12 +1530,54 @@ export class InteractionSystem {
         if (this.wallPluginPlacementSystem && this.wallPluginPlacementSystem.hideGhost) {
             this.wallPluginPlacementSystem.hideGhost();
         }
-        if (this.roofPlacementSystem && this.roofPlacementSystem.hideGhost) {
-            this.roofPlacementSystem.hideGhost();
+        if (this.roofPlacementSystem) {
+            if (this.roofPlacementSystem.hideGhost) this.roofPlacementSystem.hideGhost();
+            if (typeof this.roofPlacementSystem._hideModeHUD === 'function') this.roofPlacementSystem._hideModeHUD();
+            if (typeof this.roofPlacementSystem._hideDOMBadge === 'function') this.roofPlacementSystem._hideDOMBadge();
         }
-        if (this.roofPluginPlacementSystem && this.roofPluginPlacementSystem.hideGhost) {
-            this.roofPluginPlacementSystem.hideGhost();
+        if (this.roofPluginPlacementSystem) {
+            if (this.roofPluginPlacementSystem.hideGhost) this.roofPluginPlacementSystem.hideGhost();
+            if (typeof this.roofPluginPlacementSystem._hideDOMBadge === 'function') this.roofPluginPlacementSystem._hideDOMBadge();
         }
+        if (this.platform3DDrawSystem && this.platform3DDrawSystem.hideGhost) {
+            this.platform3DDrawSystem.hideGhost();
+        }
+        if (this.ribbon3DDrawSystem && this.ribbon3DDrawSystem.hideGhost) {
+            this.ribbon3DDrawSystem.hideGhost();
+        }
+        if (this.wall3DDrawSystem && this.wall3DDrawSystem.hideGhost) {
+            this.wall3DDrawSystem.hideGhost();
+        }
+        if (this.shape3DDrawSystem && this.shape3DDrawSystem.hideGhost) {
+            this.shape3DDrawSystem.hideGhost();
+        }
+        if (this.elevationSegmentGizmo && this.elevationSegmentGizmo.domBadge) {
+            this.elevationSegmentGizmo.domBadge.style.display = 'none';
+        }
+        if (this.materialGizmo && typeof this.materialGizmo.hideMenu === 'function') {
+            this.materialGizmo.hideMenu();
+        }
+        if (this.stairInteractiveSuite && typeof this.stairInteractiveSuite.detach === 'function') {
+            this.stairInteractiveSuite.detach();
+        }
+        if (typeof document !== 'undefined') {
+            const stairBadge = document.getElementById('sims4-stair-placement-badge');
+            if (stairBadge) stairBadge.style.display = 'none';
+            const furnBadge = document.getElementById('sims4-furniture-placement-badge');
+            if (furnBadge) furnBadge.style.display = 'none';
+            const wallPluginBadge = document.getElementById('wall-plugin-placement-badge') || document.querySelector('.sims4-wall-plugin-hud');
+            if (wallPluginBadge) wallPluginBadge.style.display = 'none';
+            const roofBadge = document.querySelector('.roof3d-live-dimension-badge');
+            if (roofBadge) roofBadge.style.display = 'none';
+            const roofHUD = document.querySelector('.roof3d-mode-hud');
+            if (roofHUD) roofHUD.style.display = 'none';
+            const stairHUD = document.querySelector('.sims4-staircase-3d-hud');
+            if (stairHUD) stairHUD.style.display = 'none';
+        }
+    }
+
+    cancelRelocation() {
+        this.hideAllPlacementGhosts();
     }
 
     refreshSelectionHighlight(object = null) {

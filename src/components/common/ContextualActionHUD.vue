@@ -101,7 +101,7 @@
       </div>
     </div>
 
-    <!-- MODE 2: ACTIVE MOVE & PLACEMENT ACTION HUD (Unified) -->
+    <!-- MODE 2: ACTIVE MOVE & PLACEMENT ACTION HUD (Unified & Compact) -->
     <div v-else-if="hudMode === 'action_minimal' && (activeAction === 'move' || activeAction === 'place')" class="hud-card action-mode move-mode">
       <!-- Entity Badge -->
       <div class="hud-entity-badge">
@@ -111,24 +111,8 @@
 
       <div class="hud-divider"></div>
 
-      <!-- Action Coords & Angle -->
-      <div class="action-header">
-        <div class="action-coords">
-          <label>X: <input type="number" :value="liveX" @change="onXChange" class="coord-input" step="10" /></label>
-          <label>Z: <input type="number" :value="liveZ" @change="onZChange" class="coord-input" step="10" /></label>
-          <span class="action-rot-badge">({{ liveAngle }}°)</span>
-        </div>
-
-        <!-- Precision D-Pad Nudge Steppers -->
-        <div class="action-dpad">
-          <button class="dpad-btn" @click="stepMove(-1, 0)" title="Nudge Left (←)">←</button>
-          <button class="dpad-btn" @click="stepMove(0, -1)" title="Nudge Forward (↑)">↑</button>
-          <button class="dpad-btn" @click="stepMove(0, 1)" title="Nudge Backward (↓)">↓</button>
-          <button class="dpad-btn" @click="stepMove(1, 0)" title="Nudge Right (→)">→</button>
-        </div>
-      </div>
-
-      <div class="hud-divider"></div>
+      <!-- Action Rot Badge -->
+      <span class="action-rot-badge">({{ liveAngle }}°)</span>
 
       <!-- Rotate Button (90° Step) -->
       <button 
@@ -289,15 +273,33 @@ const hasInSceneHUD = computed(() => {
 });
 
 const isVisible = computed(() => {
-  if (activeAction.value === 'place') {
-    return hudMode.value !== 'none';
-  }
-  if (!selectedEntity.value) return false;
   if (hudMode.value === 'none') return false;
-  // In contextual selection mode, do not show duplicate bottom card if entity has an in-scene 3D HUD
-  if (hudMode.value === 'contextual' && hasInSceneHUD.value) {
+
+  // Dedicated 3D placement systems (Stairs, Furniture, Wall Plugins, Roofs) manage their own clean placement badges
+  if (activeAction.value === 'place') {
+    const sys = getActiveTransformSystem();
+    if (sys && (sys.badgeDom || typeof sys.updateBadgeContent === 'function' || sys.ghostGroup)) {
+      return false;
+    }
+    if (typeof document !== 'undefined') {
+      const activePlacementBadge = document.getElementById('sims4-stair-placement-badge') ||
+                                   document.getElementById('sims4-furniture-placement-badge') ||
+                                   document.querySelector('.sims4-wall-plugin-hud');
+      if (activePlacementBadge && activePlacementBadge.style.display !== 'none') {
+        return false;
+      }
+    }
+    if (props.viewMode === '3d') {
+      return false;
+    }
+  }
+
+  // Never duplicate when an entity has an in-scene 3D HUD
+  if (hasInSceneHUD.value) {
     return false;
   }
+
+  if (!selectedEntity.value && activeAction.value !== 'place') return false;
   return true;
 });
 
@@ -572,102 +574,120 @@ onBeforeUnmount(() => {
   transform: translateX(-50%);
   z-index: 995;
   pointer-events: auto;
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', system-ui, sans-serif;
   user-select: none;
   animation: hud-slide-up 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  width: fit-content;
+  max-width: min(calc(100vw - 24px), 420px);
 }
 
 .mobile-hud {
   bottom: 64px;
-  width: calc(100% - 24px);
-  max-width: 440px;
+  width: fit-content;
+  max-width: min(calc(100vw - 24px), 360px);
 }
 
 .tablet-hud {
   bottom: 30px;
+  width: fit-content;
 }
 
 .hud-card {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 8px 14px;
-  background: rgba(15, 23, 42, 0.94);
-  border: 1px solid rgba(0, 240, 255, 0.45);
-  border-radius: 9999px;
-  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.7), 0 0 16px rgba(0, 240, 255, 0.2);
-  backdrop-filter: blur(14px);
-  color: #f1f5f9;
+  gap: 3px;
+  padding: 3px 6px;
+  background: rgba(255, 255, 255, 0.96);
+  border: 1px solid rgba(226, 232, 240, 0.95);
+  border-radius: 10px;
+  box-shadow: 0 10px 25px -4px rgba(15, 23, 42, 0.12), 0 2px 6px -1px rgba(15, 23, 42, 0.04);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  color: #0f172a;
+  width: fit-content;
+  white-space: nowrap;
+  box-sizing: border-box;
 }
 
 .mobile-hud .hud-card {
-  border-radius: 20px;
-  padding: 10px 12px;
-  justify-content: space-between;
+  border-radius: 10px;
+  padding: 3px 6px;
+  justify-content: center;
+  gap: 3px;
 }
 
 /* Badge */
 .hud-entity-badge {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding-right: 4px;
+  gap: 3px;
+  padding: 2px 5px;
+  background: #f1f5f9;
+  border-radius: 5px;
+  border: 1px solid #e2e8f0;
+  line-height: 1;
 }
 
 .entity-icon {
-  font-size: 16px;
+  font-size: 11px;
   line-height: 1;
 }
 
 .entity-title {
-  font-size: 13px;
+  font-size: 10.5px;
   font-weight: 700;
-  color: #38bdf8;
-  max-width: 120px;
+  color: #334155;
+  max-width: 80px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  line-height: 1;
 }
 
 .hud-divider {
   width: 1px;
-  height: 22px;
-  background: rgba(255, 255, 255, 0.15);
+  height: 14px;
+  background: #e2e8f0;
+  margin: 0 1px;
 }
 
 /* Actions Row */
 .hud-actions {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 3px;
 }
 
 .hud-btn {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  padding: 6px 12px;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 8px;
-  color: #f1f5f9;
-  font-size: 12px;
+  justify-content: center;
+  gap: 3px;
+  padding: 3px 7px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  color: #1e293b;
+  font-size: 11px;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.15s ease;
-  min-height: 34px;
+  transition: all 0.12s ease;
+  min-height: 24px;
+  line-height: 1;
+  white-space: nowrap;
 }
 
 .mobile-hud .hud-btn, .tablet-hud .hud-btn {
-  min-height: 42px;
-  padding: 6px 10px;
+  min-height: 24px;
+  padding: 3px 7px;
+  font-size: 11px;
 }
 
 .hud-btn:hover:not(:disabled) {
-  background: rgba(0, 240, 255, 0.15);
-  border-color: rgba(0, 240, 255, 0.45);
-  color: #00f0ff;
-  transform: translateY(-1px);
+  background: #ffffff;
+  border-color: #cbd5e1;
+  color: #1d4ed8;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
 }
 
 .hud-btn:active:not(:disabled) {
@@ -686,48 +706,54 @@ onBeforeUnmount(() => {
 }
 
 .btn-icon {
-  width: 15px;
-  height: 15px;
+  width: 13px;
+  height: 13px;
+  flex-shrink: 0;
 }
 
 .hud-close-btn {
-  width: 26px;
-  height: 26px;
+  width: 20px;
+  height: 20px;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: transparent;
-  border: none;
-  color: #94a3b8;
-  font-size: 13px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  color: #64748b;
+  font-size: 10px;
+  font-weight: 800;
   cursor: pointer;
   border-radius: 50%;
-  margin-left: 2px;
-  transition: all 0.15s ease;
+  margin-left: 1px;
+  padding: 0;
+  line-height: 1;
+  transition: all 0.12s ease;
 }
 
 .hud-close-btn:hover {
-  background: rgba(255, 255, 255, 0.1);
-  color: #f1f5f9;
+  background: #fee2e2;
+  border-color: #fca5a5;
+  color: #ef4444;
 }
 
 /* Action Mode (Move & Spin) */
 .action-mode {
-  gap: 12px;
+  gap: 4px;
 }
 
 .action-header {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 4px;
 }
 
 .action-badge {
-  font-size: 11px;
+  font-size: 10.5px;
   font-weight: 800;
-  padding: 4px 8px;
-  border-radius: 6px;
-  letter-spacing: 0.5px;
+  padding: 2.5px 6px;
+  border-radius: 5px;
+  letter-spacing: 0.3px;
+  line-height: 1;
 }
 
 .action-badge.move {
@@ -837,36 +863,41 @@ onBeforeUnmount(() => {
 .action-buttons {
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 3px;
 }
 
 .commit-btn {
-  padding: 5px 10px;
+  padding: 3px 8px;
   border-radius: 6px;
   font-size: 11px;
   font-weight: 700;
   cursor: pointer;
   border: none;
-  transition: all 0.15s ease;
+  min-height: 24px;
+  line-height: 1;
+  transition: all 0.12s ease;
 }
 
 .commit-btn.done {
-  background: #22c55e;
-  color: #0f172a;
+  background: #10b981;
+  color: #ffffff;
+  box-shadow: 0 1px 4px rgba(16, 185, 129, 0.3);
 }
 
 .commit-btn.done:hover {
-  background: #4ade80;
+  background: #059669;
 }
 
 .commit-btn.cancel {
-  background: rgba(255, 255, 255, 0.1);
-  color: #94a3b8;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  color: #64748b;
 }
 
 .commit-btn.cancel:hover {
-  background: rgba(239, 68, 68, 0.2);
-  color: #f87171;
+  background: #fee2e2;
+  border-color: #fca5a5;
+  color: #ef4444;
 }
 
 @keyframes hud-slide-up {

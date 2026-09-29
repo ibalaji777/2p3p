@@ -195,38 +195,38 @@ export class Roof3DPlacementSystem {
             display: none;
             align-items: center;
             gap: 8px;
-            padding: 5px 12px;
+            padding: 4px 10px;
             height: auto;
             box-sizing: border-box;
-            background: rgba(15, 23, 42, 0.94);
-            border: 1px solid rgba(0, 240, 255, 0.45);
+            background: rgba(255, 255, 255, 0.96);
+            border: 1px solid rgba(226, 232, 240, 0.95);
             border-radius: 9999px;
-            box-shadow: 0 14px 36px rgba(0, 0, 0, 0.7), 0 0 16px rgba(0, 240, 255, 0.2);
-            color: #ffffff;
-            font-family: 'Inter', system-ui, -apple-system, sans-serif;
-            font-size: 12px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08), 0 2px 6px rgba(0, 0, 0, 0.04);
+            color: #0f172a;
+            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', 'Segoe UI', Roboto, sans-serif;
+            font-size: 11.5px;
             font-weight: 600;
             z-index: 995;
-            backdrop-filter: blur(14px);
-            -webkit-backdrop-filter: blur(14px);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
             user-select: none;
             pointer-events: auto;
             width: max-content;
             max-width: calc(100vw - 32px);
         `;
         this.modeHUD.innerHTML = `
-            <div style="display: inline-flex; align-items: center; gap: 2px; background: rgba(30, 41, 59, 0.7); padding: 2px; border-radius: 12px; border: 1px solid rgba(255, 255, 255, 0.08);">
-                <button id="roof-btn-mode-box" style="display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; border-radius: 10px; border: none; background: ${this.drawMode === 'box' ? '#0284c7' : 'transparent'}; color: ${this.drawMode === 'box' ? '#fff' : '#94a3b8'}; cursor: pointer; font-size: 11px; font-weight: 600; transition: all 0.15s ease;">
+            <div style="display: inline-flex; align-items: center; gap: 2px; background: #f1f5f9; padding: 2px; border-radius: 9999px; border: 1px solid #e2e8f0;">
+                <button id="roof-btn-mode-box" style="display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; border-radius: 9999px; border: none; background: ${this.drawMode === 'box' ? '#2563eb' : 'transparent'}; color: ${this.drawMode === 'box' ? '#ffffff' : '#64748b'}; cursor: pointer; font-size: 11px; font-weight: 600; transition: all 0.15s ease;">
                     <span>◻</span> Box
                 </button>
-                <button id="roof-btn-mode-polygon" style="display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; border-radius: 10px; border: none; background: ${this.drawMode === 'polygon' ? '#0284c7' : 'transparent'}; color: ${this.drawMode === 'polygon' ? '#fff' : '#94a3b8'}; cursor: pointer; font-size: 11px; font-weight: 600; transition: all 0.15s ease;">
+                <button id="roof-btn-mode-polygon" style="display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; border-radius: 9999px; border: none; background: ${this.drawMode === 'polygon' ? '#2563eb' : 'transparent'}; color: ${this.drawMode === 'polygon' ? '#ffffff' : '#64748b'}; cursor: pointer; font-size: 11px; font-weight: 600; transition: all 0.15s ease;">
                     <span>✏</span> Polyline
                 </button>
             </div>
-            <div id="roof-hud-status" style="display: inline-flex; align-items: center; gap: 4px; color: #38bdf8; font-size: 11px; font-weight: 600; padding: 2px 8px; background: rgba(56, 189, 248, 0.1); border-radius: 10px; border: 1px solid rgba(56, 189, 248, 0.2); white-space: nowrap;">
+            <div id="roof-hud-status" style="display: inline-flex; align-items: center; gap: 4px; color: #2563eb; font-size: 11px; font-weight: 600; padding: 2px 8px; background: #eff6ff; border-radius: 9999px; border: 1px solid #bfdbfe; white-space: nowrap;">
                 Click 1st corner
             </div>
-            <button id="roof-btn-mode-done" style="display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; border-radius: 50%; border: 1px solid rgba(255, 255, 255, 0.15); background: rgba(239, 68, 68, 0.2); color: #fca5a5; font-size: 10px; font-weight: 700; cursor: pointer; padding: 0; transition: all 0.15s ease;" title="Done / Cancel (Esc)">
+            <button id="roof-btn-mode-done" style="display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 50%; border: 1px solid #fecaca; background: #fef2f2; color: #dc2626; font-size: 10.5px; font-weight: 700; cursor: pointer; padding: 0; transition: all 0.15s ease;" title="Done / Cancel (Esc)">
                 ✕
             </button>
         `;
@@ -282,16 +282,17 @@ export class Roof3DPlacementSystem {
         const btnBox = this.modeHUD.querySelector('#roof-btn-mode-box');
         const btnPoly = this.modeHUD.querySelector('#roof-btn-mode-polygon');
         if (btnBox) {
-            btnBox.style.background = this.drawMode === 'box' ? '#0284c7' : 'transparent';
-            btnBox.style.color = this.drawMode === 'box' ? '#ffffff' : '#94a3b8';
+            btnBox.style.background = this.drawMode === 'box' ? '#2563eb' : 'transparent';
+            btnBox.style.color = this.drawMode === 'box' ? '#ffffff' : '#64748b';
         }
         if (btnPoly) {
-            btnPoly.style.background = this.drawMode === 'polygon' ? '#0284c7' : 'transparent';
-            btnPoly.style.color = this.drawMode === 'polygon' ? '#ffffff' : '#94a3b8';
+            btnPoly.style.background = this.drawMode === 'polygon' ? '#2563eb' : 'transparent';
+            btnPoly.style.color = this.drawMode === 'polygon' ? '#ffffff' : '#64748b';
         }
     }
 
     _showModeHUD() {
+        if (!this.is3DView()) return;
         if (!this.modeHUD) this._createModeHUD();
         if (this.modeHUD) {
             this.modeHUD.style.display = 'flex';
@@ -346,10 +347,29 @@ export class Roof3DPlacementSystem {
     }
 
     getPlanner() {
-        return this.ctx.planner || window.planner?.value || window.planner || (this.ctx.appState && this.ctx.appState.planner) || window.plannerInstance;
+        return this.ctx?.planner || window.planner?.value || window.planner || (this.ctx?.appState && this.ctx.appState.planner) || window.plannerInstance;
+    }
+
+    is3DView() {
+        if (this.ctx?.viewMode === '2d' || this.ctx?.preview3D?.viewMode === '2d') return false;
+        const planner = this.getPlanner();
+        if (planner?.viewMode === '2d') return false;
+
+        const container = this.ctx?.container || this.ctx?.renderer?.domElement?.parentElement;
+        if (container && (container.classList?.contains('inactive-canvas') || (!container.classList?.contains('active-canvas') && container.classList?.contains('canvas-3d')))) {
+            return false;
+        }
+
+        if (typeof document !== 'undefined') {
+            const inactive3D = document.querySelector('.canvas-host.canvas-3d.inactive-canvas');
+            if (inactive3D) return false;
+        }
+
+        return true;
     }
 
     isPlacementTool() {
+        if (!this.is3DView()) return false;
         const planner = this.getPlanner();
         const tool = planner?.tool;
         if (!tool) return false;

@@ -106,6 +106,9 @@ export class Stair3DPlacementSystem {
         window.addEventListener('keydown', this._onKeyDown);
 
         this._lastPresetHash = '';
+
+        // Guarantee all ghosts and badges start strictly hidden
+        this.hideGhost();
     }
 
     updateSnapGuideLine(detection) {
@@ -136,10 +139,10 @@ export class Stair3DPlacementSystem {
     toggleAutoHeight() {
         this.autoHeightEnabled = !this.autoHeightEnabled;
         if (this.btnAuto) {
-            this.btnAuto.textContent = this.autoHeightEnabled ? '⚡ Auto: ON' : '⚡ Auto: OFF';
-            this.btnAuto.style.background = this.autoHeightEnabled ? 'rgba(16, 185, 129, 0.22)' : 'rgba(148, 163, 184, 0.22)';
-            this.btnAuto.style.borderColor = this.autoHeightEnabled ? 'rgba(16, 185, 129, 0.6)' : 'rgba(148, 163, 184, 0.6)';
-            this.btnAuto.style.color = this.autoHeightEnabled ? '#34d399' : '#94a3b8';
+            this.btnAuto.textContent = this.autoHeightEnabled ? '⚡ Auto' : '⚡ Off';
+            this.btnAuto.style.background = this.autoHeightEnabled ? '#ecfdf5' : '#f1f5f9';
+            this.btnAuto.style.borderColor = this.autoHeightEnabled ? '#a7f3d0' : '#e2e8f0';
+            this.btnAuto.style.color = this.autoHeightEnabled ? '#059669' : '#94a3b8';
         }
         this._lastPresetHash = '';
         const preset = this.getPlanner()?.activePresetParams || {};
@@ -159,64 +162,56 @@ export class Stair3DPlacementSystem {
             bottom: 24px;
             left: 50%;
             transform: translateX(-50%);
-            background: rgba(15, 23, 42, 0.94);
-            backdrop-filter: blur(14px);
-            -webkit-backdrop-filter: blur(14px);
-            border: 1px solid rgba(0, 240, 255, 0.45);
-            box-shadow: 0 14px 36px rgba(0, 0, 0, 0.7), 0 0 16px rgba(0, 240, 255, 0.2);
-            border-radius: 9999px;
-            padding: 6px 14px;
-            color: #f1f5f9;
-            font-family: 'Inter', system-ui, -apple-system, sans-serif;
-            font-size: 12px;
+            flex-direction: column;
+            align-items: center;
+            gap: 3px;
+            color: #0f172a;
+            font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', Roboto, sans-serif;
+            font-size: 11px;
             font-weight: 600;
             z-index: 995;
             user-select: none;
             -webkit-user-select: none;
             touch-action: manipulation;
             transition: all 0.15s ease;
+            width: fit-content;
+            max-width: min(calc(100vw - 24px), 360px);
+            box-sizing: border-box;
+            background: transparent;
         `;
 
         this.badgeDom.innerHTML = `
-            <div style="display: flex; align-items: center; gap: 8px; white-space: nowrap;">
-                <div style="display: flex; align-items: center; gap: 6px;">
-                    <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #00f0ff; box-shadow: 0 0 8px #00f0ff;"></span>
-                    <span id="stair-ui-title" style="color: #38bdf8; font-weight: 700; font-size: 12px;">Custom Staircase</span>
+            <!-- Top-Right Header Line (Transparent, width only up to text & button) -->
+            <div style="display: flex; align-items: center; gap: 3px; align-self: flex-end; width: fit-content; background: transparent; padding: 0 1px 1px 0; box-sizing: border-box; flex-shrink: 0;">
+                <div style="display: inline-flex; align-items: center; gap: 3px; font-size: 9.5px; font-weight: 700; color: #475569; background: rgba(255, 255, 255, 0.94); border: 1px solid rgba(226, 232, 240, 0.9); border-radius: 6px; padding: 2.5px 6px; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); white-space: nowrap; flex-shrink: 0; line-height: 1;">
+                    <span id="stair-ui-title" style="display: none;">Stair</span>
+                    <span id="stair-ui-specs" style="white-space: nowrap; display: inline-block;">100×196 • 12st</span>
+                    <span id="stair-ui-rot-box" style="color: #94a3b8; font-size: 9px; white-space: nowrap;">(<strong id="stair-ui-rot" style="color: #2563eb;">0°</strong>)</span>
+                    <span id="stair-ui-target" style="display: none;"></span>
                 </div>
-                
-                <div style="width: 1px; height: 20px; background: rgba(255, 255, 255, 0.15);"></div>
+                <button id="stair-ui-btn-cancel" type="button" title="Cancel Placement (Key: Esc)" style="display: flex; align-items: center; justify-content: center; width: 20px; height: 20px; border-radius: 6px; border: 1px solid rgba(226, 232, 240, 0.9); background: rgba(255, 255, 255, 0.92); color: #64748b; font-size: 11px; font-weight: 800; cursor: pointer; transition: all 0.15s ease; padding: 0; line-height: 1; flex-shrink: 0; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); outline: none;">
+                    ✕
+                </button>
+            </div>
 
-                <div id="stair-ui-specs" style="color: #cbd5e1; font-size: 11px; font-weight: 500;">
-                    1000 × 3300 mm • 12 Steps
-                </div>
-                <span style="color: #94a3b8; font-size: 11px;">(<strong id="stair-ui-rot" style="color: #38bdf8;">0°</strong>)</span>
-
-                <div id="stair-ui-target" style="display: none; align-items: center; gap: 4px; font-size: 10.5px; padding: 2px 7px; border-radius: 999px; background: rgba(16, 185, 129, 0.2); border: 1px solid rgba(16, 185, 129, 0.5); color: #34d399; font-weight: 600;">
-                    ⚡ Auto-Fit
-                </div>
-
-                <div style="width: 1px; height: 20px; background: rgba(255, 255, 255, 0.15);"></div>
-
-                <div style="display: flex; align-items: center; gap: 5px;">
-                    <button id="stair-ui-btn-auto" type="button" title="Toggle Auto Height Detection" style="display: inline-flex; align-items: center; justify-content: center; gap: 3px; background: rgba(16, 185, 129, 0.22); border: 1px solid rgba(16, 185, 129, 0.6); color: #34d399; border-radius: 8px; padding: 5px 8px; font-size: 11px; font-weight: 700; cursor: pointer; min-height: 30px;">
-                        ⚡ Auto
-                    </button>
-                    <button id="stair-ui-btn-rot" type="button" title="Rotate Staircase (Key: R)" style="display: inline-flex; align-items: center; justify-content: center; gap: 4px; background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(255, 255, 255, 0.12); color: #f1f5f9; border-radius: 8px; padding: 5px 10px; font-size: 12px; font-weight: 600; cursor: pointer; min-height: 30px;">
-                        ↻ Rotate
-                    </button>
-                    <button id="stair-ui-btn-flip" type="button" style="display: none; align-items: center; justify-content: center; gap: 4px; background: rgba(147, 51, 234, 0.22); border: 1px solid rgba(168, 85, 247, 0.6); color: #c084fc; border-radius: 8px; padding: 5px 9px; font-size: 11px; font-weight: 700; cursor: pointer; min-height: 30px;">
-                        ⇄ Flip
-                    </button>
-                    <button id="stair-ui-btn-place" type="button" title="Confirm Placement (Key: Enter / Space)" style="display: inline-flex; align-items: center; justify-content: center; gap: 4px; background: #22c55e; border: none; color: #0f172a; border-radius: 8px; padding: 5px 12px; font-size: 12px; font-weight: 700; cursor: pointer; min-height: 30px;">
-                        ✓ Place
-                    </button>
-                    <button id="stair-ui-btn-cancel" type="button" title="Cancel Placement (Key: Esc)" style="display: inline-flex; align-items: center; justify-content: center; background: rgba(255, 255, 255, 0.1); border: none; color: #94a3b8; border-radius: 50%; width: 28px; height: 28px; font-size: 12px; font-weight: 700; cursor: pointer;">
-                        ✕
-                    </button>
-                </div>
+            <!-- Centered Frosted Glass Controls Card (width: fit-content strictly up to buttons) -->
+            <div style="display: flex; align-items: center; justify-content: center; gap: 3px; background: rgba(255, 255, 255, 0.96); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border: 1px solid rgba(226, 232, 240, 0.95); border-radius: 10px; padding: 3px 6px; box-shadow: 0 10px 25px -4px rgba(15, 23, 42, 0.12), 0 2px 6px -1px rgba(15, 23, 42, 0.04); width: fit-content; align-self: center; box-sizing: border-box; white-space: nowrap; flex-shrink: 0;">
+                <button id="stair-ui-btn-auto" type="button" title="Toggle Auto Height Detection" style="display: inline-flex; flex-direction: row; align-items: center; justify-content: center; gap: 3px; white-space: nowrap; flex-shrink: 0; background: #ecfdf5; border: 1px solid #a7f3d0; color: #059669; border-radius: 6px; padding: 3px 8px; font-size: 10.5px; font-weight: 600; cursor: pointer; min-height: 24px; line-height: 1;">
+                    ⚡ Auto
+                </button>
+                <button id="stair-ui-btn-rot" type="button" title="Rotate Staircase (Key: R)" style="display: inline-flex; flex-direction: row; align-items: center; justify-content: center; gap: 3px; white-space: nowrap; flex-shrink: 0; background: #f8fafc; border: 1px solid #e2e8f0; color: #1e293b; border-radius: 6px; padding: 3px 8px; font-size: 10.5px; font-weight: 600; cursor: pointer; min-height: 24px; line-height: 1; transition: background 0.12s ease;">
+                    ↻ Rotate
+                </button>
+                <button id="stair-ui-btn-flip" type="button" style="display: none; flex-direction: row; align-items: center; justify-content: center; gap: 3px; white-space: nowrap; flex-shrink: 0; background: #faf5ff; border: 1px solid #e9d5ff; color: #9333ea; border-radius: 6px; padding: 3px 7px; font-size: 10.5px; font-weight: 600; cursor: pointer; min-height: 24px; line-height: 1;">
+                    ⇄ Flip
+                </button>
+                <button id="stair-ui-btn-place" type="button" title="Confirm Placement (Key: Enter / Space)" style="display: inline-flex; flex-direction: row; align-items: center; justify-content: center; gap: 3px; white-space: nowrap; flex-shrink: 0; background: #10b981; border: none; color: #ffffff; border-radius: 6px; padding: 3px 10px; font-size: 11px; font-weight: 700; cursor: pointer; min-height: 24px; line-height: 1; box-shadow: 0 1px 4px rgba(16, 185, 129, 0.3); transition: background 0.12s ease;">
+                    ✓ Place
+                </button>
             </div>
         `;
         document.body.appendChild(this.badgeDom);
+        this.badgeDom.style.display = 'none';
 
         // Cache stable DOM references
         this.elTitle = this.badgeDom.querySelector('#stair-ui-title');
@@ -228,6 +223,17 @@ export class Stair3DPlacementSystem {
         this.btnFlip = this.badgeDom.querySelector('#stair-ui-btn-flip');
         this.btnPlace = this.badgeDom.querySelector('#stair-ui-btn-place');
         this.btnCancel = this.badgeDom.querySelector('#stair-ui-btn-cancel');
+
+        this.btnCancel.onmouseenter = () => {
+            this.btnCancel.style.background = '#fee2e2';
+            this.btnCancel.style.color = '#ef4444';
+            this.btnCancel.style.borderColor = '#fca5a5';
+        };
+        this.btnCancel.onmouseleave = () => {
+            this.btnCancel.style.background = 'rgba(255, 255, 255, 0.92)';
+            this.btnCancel.style.color = '#64748b';
+            this.btnCancel.style.borderColor = 'rgba(226, 232, 240, 0.9)';
+        };
 
         // Wire handlers once without recreating elements
         this.btnAuto.addEventListener('pointerdown', (e) => e.stopPropagation());
@@ -271,7 +277,26 @@ export class Stair3DPlacementSystem {
         });
     }
 
+    is3DView() {
+        if (this.ctx?.viewMode === '2d' || this.ctx?.preview3D?.viewMode === '2d') return false;
+        const planner = this.getPlanner();
+        if (planner?.viewMode === '2d') return false;
+
+        const container = this.ctx?.container || this.ctx?.renderer?.domElement?.parentElement;
+        if (container && (container.classList?.contains('inactive-canvas') || (!container.classList?.contains('active-canvas') && container.classList?.contains('canvas-3d')))) {
+            return false;
+        }
+
+        if (typeof document !== 'undefined') {
+            const inactive3D = document.querySelector('.canvas-host.canvas-3d.inactive-canvas');
+            if (inactive3D) return false;
+        }
+
+        return true;
+    }
+
     isPlacementTool() {
+        if (!this.is3DView()) return false;
         if (this.isRelocating) return true;
         const planner = this.getPlanner();
         if (!planner) return false;
@@ -549,40 +574,58 @@ export class Stair3DPlacementSystem {
     }
 
     updateBadgeContent(pointerEvent = null) {
+        if (!this.is3DView() || !this.isPlacementTool() || !this.ghostGroup?.visible) {
+            this.hideGhost();
+            return;
+        }
         const planner = this.getPlanner();
         if (!planner) return;
 
+        const isMobileScreen = this.isTouchDevice();
         const preset = this.getActivePreset();
         const width = Number(preset.width) || 100;
         const targetHeight = this.lastDetection?.detectedHeight || (Number(preset.height) || this.getActiveMaxWallHeight());
         const totalSteps = this.lastDetection?.optimalSteps || preset.totalSteps || (Number(preset.flight1Steps || 8) + Number(preset.flight2Steps || 7));
         const length = Number(preset.length) || (totalSteps * Number(preset.stepDepth || 28));
-        const stairName = preset.name || 'Custom Staircase';
-        const specsText = `${Math.round(width * 10)} × ${Math.round(length * 10)} mm • Height ${Math.round(targetHeight * 10)} mm • ${totalSteps} Steps`;
+        const stairName = (preset.name && preset.name !== 'Custom Staircase') ? preset.name : 'Stair';
+        const specsText = isMobileScreen
+            ? `${Math.round(width)}×${Math.round(length)} • ${totalSteps}st`
+            : `${Math.round(width)} × ${Math.round(length)} cm • ${totalSteps} Steps`;
         const shape = preset.shape || (preset.type ? preset.type.replace('stair_v5_', '') : 'straight');
         const showFlip = (shape === 'L' || shape === 'U' || shape === 'T');
 
         if (this.elTitle) this.elTitle.textContent = stairName;
         if (this.elRot) this.elRot.textContent = `${this.activeRotation % 360}°`;
         if (this.elSpecs) this.elSpecs.textContent = specsText;
-        if (this.btnFlip) this.btnFlip.style.display = showFlip ? 'flex' : 'none';
+        if (this.btnFlip) this.btnFlip.style.display = showFlip ? 'inline-flex' : 'none';
 
-        if (this.elTarget) {
-            if (this.lastDetection?.hasTarget && this.autoHeightEnabled) {
-                this.elTarget.style.display = 'inline-flex';
-                this.elTarget.textContent = `⚡ ${Math.round(targetHeight * 10)}mm`;
+        // Auto-Height feedback directly on the Auto button (eliminates duplicate bubble in header)
+        if (this.btnAuto) {
+            if (!this.autoHeightEnabled) {
+                this.btnAuto.textContent = '⚡ Off';
+                this.btnAuto.style.background = '#f1f5f9';
+                this.btnAuto.style.borderColor = '#e2e8f0';
+                this.btnAuto.style.color = '#94a3b8';
+            } else if (this.lastDetection?.hasTarget) {
+                this.btnAuto.textContent = `⚡ ${Math.round(targetHeight)}cm`;
+                this.btnAuto.style.background = '#ecfdf5';
+                this.btnAuto.style.borderColor = '#a7f3d0';
+                this.btnAuto.style.color = '#059669';
             } else {
-                this.elTarget.style.display = 'none';
+                this.btnAuto.textContent = '⚡ Auto';
+                this.btnAuto.style.background = '#ecfdf5';
+                this.btnAuto.style.borderColor = '#a7f3d0';
+                this.btnAuto.style.color = '#059669';
             }
         }
+        if (this.elTarget) this.elTarget.textContent = '';
 
-        const isMobileScreen = this.isTouchDevice();
         this.badgeDom.style.left = '50%';
         this.badgeDom.style.top = 'auto';
         this.badgeDom.style.bottom = isMobileScreen ? '64px' : '24px';
         this.badgeDom.style.transform = 'translateX(-50%)';
 
-        this.badgeDom.style.display = 'block';
+        this.badgeDom.style.display = 'flex';
     }
 
     updateGhostTransform() {

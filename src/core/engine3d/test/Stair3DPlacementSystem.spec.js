@@ -122,6 +122,7 @@ describe('Stair3DPlacementSystem Unified Architecture & Wall Collision', () => {
         expect(placementSystem.footprintArrowMesh).toBeDefined();
         expect(placementSystem.ghostGroup).toBeDefined();
         expect(placementSystem.isRelocating).toBe(false);
+        expect(placementSystem.badgeDom.style.display).toBe('none');
     });
 
     it('should rotate in 90 degree increments and emit UniversalMoveChanged', () => {
@@ -432,5 +433,36 @@ describe('Stair3DPlacementSystem Unified Architecture & Wall Collision', () => {
         expect(placementSystem.activePos.z).toBe(-20);
         expect(placementSystem.snapGuideMesh.visible).toBe(false);
     });
+
+    it('should strictly suppress 3D placement and hide badge DOM when in 2D mode', () => {
+        // Initially in 3D mode
+        expect(placementSystem.is3DView()).toBe(true);
+        expect(placementSystem.isPlacementTool()).toBe(true);
+
+        // Simulate 2D mode on planner and context
+        mockPlanner.viewMode = '2d';
+        mockCtx.viewMode = '2d';
+
+        expect(placementSystem.is3DView()).toBe(false);
+        expect(placementSystem.isPlacementTool()).toBe(false);
+
+        // Attempting to update badge content or pointer move must hide the badge and ghost
+        placementSystem.updateBadgeContent();
+        expect(placementSystem.badgeDom.style.display).toBe('none');
+        expect(placementSystem.ghostGroup.visible).toBe(false);
+
+        // Pointer move must return false and keep badge hidden
+        const handled = placementSystem.onPointerMove({ clientX: 200, clientY: 200 });
+        expect(handled).toBe(false);
+        expect(placementSystem.badgeDom.style.display).toBe('none');
+        expect(placementSystem.ghostGroup.visible).toBe(false);
+
+        // Reset to 3D mode
+        mockPlanner.viewMode = '3d';
+        mockCtx.viewMode = '3d';
+        expect(placementSystem.is3DView()).toBe(true);
+        expect(placementSystem.isPlacementTool()).toBe(true);
+    });
 });
+
 

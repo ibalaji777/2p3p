@@ -74,18 +74,18 @@ export class WallHeightGizmo extends THREE.Group {
             transform: translate(-50%, -100%);
             padding: 5px 12px;
             border-radius: 9999px;
-            background: rgba(15, 23, 42, 0.94);
-            border: 2px solid #10b981;
-            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.7), 0 0 16px rgba(16, 185, 129, 0.4);
-            color: #ffffff;
-            font-family: 'Inter', -apple-system, sans-serif;
-            font-size: 13px;
-            font-weight: 800;
+            background: rgba(255, 255, 255, 0.96);
+            border: 1px solid #10b981;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08), 0 2px 6px rgba(0, 0, 0, 0.04);
+            color: #0f172a;
+            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', 'Segoe UI', Roboto, sans-serif;
+            font-size: 11.5px;
+            font-weight: 700;
             white-space: nowrap;
             pointer-events: none;
             z-index: 100005;
             user-select: none;
-            backdrop-filter: blur(8px);
+            backdrop-filter: blur(16px);
         `;
         document.body.appendChild(this.domBadge);
     }

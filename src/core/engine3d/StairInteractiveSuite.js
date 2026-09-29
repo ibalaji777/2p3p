@@ -55,6 +55,10 @@ export class StairInteractiveSuite extends THREE.Group {
             this.ctx.controls.addEventListener('change', this._onCameraChange);
         }
 
+        if (typeof window !== 'undefined') {
+            window.addEventListener('resize', this._onCameraChange);
+        }
+
         if (coreEventBus) {
             coreEventBus.on('EntityGeometryUpdated', this._onGeometryUpdated);
             coreEventBus.on('InteractionStateChanged', this._onInteractionStateChanged);
@@ -102,112 +106,150 @@ export class StairInteractiveSuite extends THREE.Group {
             display: none;
             flex-direction: column;
             align-items: center;
-            gap: 6px;
+            gap: 4px;
             pointer-events: auto;
             transform: translate(-50%, -100%);
             z-index: 9999;
             user-select: none;
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            filter: drop-shadow(0 12px 32px rgba(0,0,0,0.65));
+            filter: drop-shadow(0 8px 24px rgba(0,0,0,0.65));
         `;
 
         ['pointerdown', 'mousedown', 'touchstart', 'click', 'dblclick'].forEach(ev => {
             this.domHUD.addEventListener(ev, (e) => e.stopPropagation());
         });
 
-        // Main Toolbar Container
-        const container = document.createElement('div');
-        container.style.cssText = `
-            display: flex;
-            flex-direction: column;
-            gap: 7px;
-            background: rgba(15, 23, 42, 0.96);
-            border: 1.5px solid rgba(56, 189, 248, 0.7);
-            border-radius: 14px;
-            padding: 8px 12px;
-            box-shadow: 0 0 24px rgba(56, 189, 248, 0.25);
-            backdrop-filter: blur(16px);
-            min-width: 290px;
-        `;
-
-        // Row 1: Header + Spec Badge
+        // Header Line: Dimension Badge & Delete Button (Transparent Single Line Docked Top-Right)
         const headerRow = document.createElement('div');
-        headerRow.style.cssText = 'display: flex; align-items: center; justify-content: space-between; gap: 8px;';
-
-        const titleBox = document.createElement('div');
-        titleBox.style.cssText = 'display: flex; align-items: center; gap: 6px; font-weight: 800; font-size: 12px; color: #38bdf8;';
-        titleBox.innerHTML = `
-            <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#00f0ff; box-shadow:0 0 8px #00f0ff;"></span>
-            <span>Staircase</span>
+        headerRow.style.cssText = `
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 3px;
+            width: fit-content;
+            align-self: flex-end;
+            background: transparent;
+            padding: 0;
+            margin-bottom: 1px;
+            box-sizing: border-box;
         `;
 
         this.hudSpecBadge = document.createElement('div');
-        this.hudSpecBadge.style.cssText = 'font-size: 11px; font-weight: 600; color: #cbd5e1;';
-        this.hudSpecBadge.textContent = '100 × 330 cm • 15 Steps';
-
-        headerRow.appendChild(titleBox);
-        headerRow.appendChild(this.hudSpecBadge);
-        container.appendChild(headerRow);
-
-        // Row 2: Sims 4 Shape Morpher Segmented Buttons
-        const shapeRow = document.createElement('div');
-        shapeRow.style.cssText = `
+        this.hudSpecBadge.style.cssText = `
+            font-size: 9.5px;
+            font-weight: 700;
+            color: #475569;
+            background: rgba(255, 255, 255, 0.92);
+            border: 1px solid rgba(226, 232, 240, 0.9);
+            padding: 2px 6px;
+            border-radius: 6px;
+            white-space: nowrap;
+            line-height: 1;
             display: flex;
-            gap: 4px;
-            background: rgba(30, 41, 59, 0.7);
-            padding: 3px;
-            border-radius: 8px;
-            border: 1px solid rgba(255, 255, 255, 0.1);
+            align-items: center;
+            gap: 2px;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+        `;
+        this.hudSpecBadge.textContent = '100×300';
+        this._attachTooltip(this.hudSpecBadge, 'Staircase Dimensions', 'Width × Height • Step Count');
+
+        const btnDelete = document.createElement('button');
+        btnDelete.innerHTML = '✕';
+        btnDelete.title = 'Delete Staircase';
+        btnDelete.style.cssText = `
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 20px;
+            height: 20px;
+            border-radius: 6px;
+            border: 1px solid rgba(226, 232, 240, 0.9);
+            background: rgba(255, 255, 255, 0.92);
+            color: #64748b;
+            cursor: pointer;
+            font-size: 11px;
+            font-weight: 800;
+            transition: all 0.15s ease;
+            outline: none;
+            padding: 0;
+            line-height: 1;
+            flex-shrink: 0;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+        `;
+        btnDelete.onmouseenter = () => {
+            btnDelete.style.background = '#fee2e2';
+            btnDelete.style.color = '#ef4444';
+            btnDelete.style.borderColor = '#fca5a5';
+        };
+        btnDelete.onmouseleave = () => {
+            btnDelete.style.background = 'rgba(255, 255, 255, 0.92)';
+            btnDelete.style.color = '#64748b';
+            btnDelete.style.borderColor = 'rgba(226, 232, 240, 0.9)';
+        };
+        btnDelete.onclick = (e) => {
+            e.stopPropagation();
+            this._deleteStaircase();
+        };
+        this.btnDelete = btnDelete;
+        this._attachTooltip(btnDelete, 'Delete Staircase', 'Remove from scene (Del)');
+
+        headerRow.appendChild(this.hudSpecBadge);
+        headerRow.appendChild(btnDelete);
+
+        // Controls Card: Compact Frosted Glass Housing Tools & Parameters (Centered, Width up to Content)
+        const controlsCard = document.createElement('div');
+        controlsCard.style.cssText = `
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 3.5px;
+            background: rgba(255, 255, 255, 0.96);
+            border: 1px solid rgba(226, 232, 240, 0.95);
+            border-radius: 12px;
+            padding: 4px 6px;
+            box-shadow: 0 10px 25px -4px rgba(15, 23, 42, 0.12), 0 2px 6px -1px rgba(15, 23, 42, 0.04);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            width: fit-content;
+            align-self: center;
+            max-width: min(calc(100vw - 32px), 320px);
+            box-sizing: border-box;
         `;
 
-        const shapes = [
-            { id: 'straight', label: '─ Straight', icon: '─' },
-            { id: 'L', label: '⌐ L-Turn', icon: '⌐' },
-            { id: 'U', label: '⊂ U-Turn', icon: '⊂' },
-            { id: 'T', label: '┳ T-Split', icon: '┳' }
-        ];
+        // Row 1: Tools Row (Move & Spin + Shapes, Centered)
+        const toolsRow = document.createElement('div');
+        toolsRow.style.cssText = `
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 3px;
+            width: fit-content;
+            box-sizing: border-box;
+        `;
 
-        this.shapeButtons = {};
-        shapes.forEach(s => {
-            const btn = document.createElement('button');
-            btn.textContent = s.label;
-            btn.title = `Morph to ${s.label}`;
-            btn.style.cssText = `
-                flex: 1;
-                height: 26px;
-                border: 1px solid transparent;
-                background: transparent;
-                color: #94a3b8;
-                border-radius: 6px;
-                font-size: 11px;
-                font-weight: 700;
-                cursor: pointer;
-                transition: all 0.12s ease;
-                white-space: nowrap;
-            `;
-            btn.onclick = (e) => {
-                e.stopPropagation();
-                if (this.stair) {
-                    const planner = this.ctx.planner || this.stair.planner;
-                    StairEngine.setShape(planner, this.stair, s.id);
-                    this._syncRealtimeUpdate();
-                    this.update();
-                }
-            };
-            this.shapeButtons[s.id] = btn;
-            shapeRow.appendChild(btn);
-        });
-        container.appendChild(shapeRow);
+        // Section 1: Transform Manipulation Controls (✢ Move & ↻ Spin - Icon-Only Matching Shapes)
+        const transformSection = document.createElement('div');
+        transformSection.style.cssText = `
+            display: flex;
+            align-items: center;
+            gap: 1.5px;
+            background: #f1f5f9;
+            padding: 1.5px;
+            border-radius: 7px;
+            border: 1px solid #e2e8f0;
+            box-sizing: border-box;
+            flex-shrink: 0;
+        `;
 
-        // Row 3: Interactive Action Controls
-        const actionRow = document.createElement('div');
-        actionRow.style.cssText = 'display: flex; align-items: center; gap: 5px; margin-top: 2px; flex-wrap: wrap;';
-
-        // 3.0 Move Action Button
+        // 1.1 Move Action Button (Icon-Only Matching Shapes)
         this.btnMove = document.createElement('button');
-        this.btnMove.innerHTML = `✢ Move`;
+        this.btnMove.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 9l-3 3 3 3M9 5l3-3 3 3M15 19l-3 3-3-3M19 9l3 3-3 3M2 12h20M12 2v20"/></svg>`;
         this.btnMove.title = 'Move Staircase (Translate X/Z)';
-        this._styleActionButton(this.btnMove, '#00f0ff', 'rgba(0, 240, 255, 0.2)');
+        this._styleTopIconButton(this.btnMove);
         this.btnMove.onclick = (e) => {
             e.stopPropagation();
             const commonTools = this.ctx.commonTools || 
@@ -218,12 +260,13 @@ export class StairInteractiveSuite extends THREE.Group {
                 commonTools.activateAction('move');
             }
         };
+        this._attachTooltip(this.btnMove, 'Move Staircase', 'Translate across floor (Key: M / G)');
 
-        // 3.0b Spin Action Button
+        // 1.2 Spin Action Button (Icon-Only Matching Shapes)
         this.btnSpin = document.createElement('button');
-        this.btnSpin.innerHTML = `↻ Spin`;
+        this.btnSpin.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg>`;
         this.btnSpin.title = 'Rotate Staircase';
-        this._styleActionButton(this.btnSpin, '#00f0ff', 'rgba(0, 240, 255, 0.2)');
+        this._styleTopIconButton(this.btnSpin);
         this.btnSpin.onclick = (e) => {
             e.stopPropagation();
             const commonTools = this.ctx.commonTools || 
@@ -234,12 +277,96 @@ export class StairInteractiveSuite extends THREE.Group {
                 commonTools.activateAction('spin');
             }
         };
+        this._attachTooltip(this.btnSpin, 'Rotate Staircase', 'Rotate 90° or drag angle (Key: R)');
+
+        transformSection.appendChild(this.btnMove);
+        transformSection.appendChild(this.btnSpin);
+
+        // Section 2: Segmented Shape Morpher SVGs (Straight, L, U, T)
+        const shapeRow = document.createElement('div');
+        shapeRow.style.cssText = `
+            display: flex;
+            align-items: center;
+            gap: 1.5px;
+            background: #f1f5f9;
+            padding: 1.5px;
+            border-radius: 7px;
+            border: 1px solid #e2e8f0;
+            box-sizing: border-box;
+            flex-shrink: 0;
+        `;
+
+        const shapes = [
+            {
+                id: 'straight',
+                label: 'Straight',
+                svg: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M4 20h4v-4h4v-4h4v-4h4"/></svg>',
+                sub: 'Continuous single-flight staircase'
+            },
+            {
+                id: 'L',
+                label: 'L-Turn',
+                svg: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M4 20h6v-6h6V4h4"/></svg>',
+                sub: '90° quarter-turn with landing'
+            },
+            {
+                id: 'U',
+                label: 'U-Turn',
+                svg: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M4 20h4v-8a3 3 0 0 1 6 0v8h4"/></svg>',
+                sub: '180° switchback with landing'
+            },
+            {
+                id: 'T',
+                label: 'T-Split',
+                svg: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 20v-8m-7-4h14M5 8v4m14-4v4"/></svg>',
+                sub: 'Grand split dual-turn staircase'
+            }
+        ];
+
+        this.shapeButtons = {};
+        shapes.forEach(s => {
+            const btn = document.createElement('button');
+            btn.innerHTML = s.svg;
+            btn.title = s.label;
+            this._styleTopIconButton(btn);
+            btn.onclick = (e) => {
+                e.stopPropagation();
+                if (this.stair) {
+                    const planner = this.ctx.planner || this.stair.planner;
+                    StairEngine.setShape(planner, this.stair, s.id);
+                    this._syncRealtimeUpdate();
+                    this.update();
+                    this._showMicroFeedback(`Shape: ${s.label}`, e.clientX, e.clientY);
+                }
+            };
+            this.shapeButtons[s.id] = btn;
+            shapeRow.appendChild(btn);
+            this._attachTooltip(btn, s.label, s.sub);
+        });
+
+        toolsRow.appendChild(transformSection);
+        toolsRow.appendChild(shapeRow);
+        controlsCard.appendChild(toolsRow);
+
+        // Row 2: Interactive Action Controls (Centered & Reduced Whitespace, Width up to Content)
+        const actionRow = document.createElement('div');
+        actionRow.style.cssText = `
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 3px;
+            width: fit-content;
+            overflow-x: auto;
+            scrollbar-width: none;
+            box-sizing: border-box;
+            padding: 1px 0;
+        `;
 
         // 3.1 Flip Turn Button (⇄)
         this.btnFlip = document.createElement('button');
         this.btnFlip.innerHTML = `⇄ Flip`;
         this.btnFlip.title = 'Flip Stair Turn Direction (Left ⇄ Right)';
-        this._styleActionButton(this.btnFlip, '#a855f7', 'rgba(168, 85, 247, 0.2)');
+        this._styleActionButton(this.btnFlip, '#bfdbfe', '#eff6ff', '#1d4ed8');
         this.btnFlip.onclick = (e) => {
             e.stopPropagation();
             if (this.stair) {
@@ -247,42 +374,55 @@ export class StairInteractiveSuite extends THREE.Group {
                 StairEngine.flipTurnDirection(planner, this.stair);
                 this._syncRealtimeUpdate();
                 this.update();
+                const dir = this.stair.turnDirection || 'right';
+                this._showMicroFeedback(`Turn: ${dir.toUpperCase()}`, e.clientX, e.clientY);
             }
         };
+        this._attachTooltip(this.btnFlip, 'Flip Turn Direction', 'Toggle turn Left ⇄ Right');
 
-        // 3.2 Width Stepper [-] [W: 100cm] [+]
+        // 3.2 Width Stepper [-] [100 cm] [+]
         const widthGroup = document.createElement('div');
-        widthGroup.style.cssText = 'display: flex; align-items: center; background: rgba(30, 41, 59, 0.8); border: 1px solid rgba(255,255,255,0.15); border-radius: 6px; overflow: hidden;';
+        widthGroup.style.cssText = 'display: flex; align-items: center; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; overflow: hidden; height: 23px; flex-shrink: 0;';
 
         const btnWidthMinus = document.createElement('button');
         btnWidthMinus.textContent = '−';
-        btnWidthMinus.style.cssText = 'width: 22px; height: 26px; border: none; background: transparent; color: #cbd5e1; font-weight: 800; cursor: pointer;';
+        btnWidthMinus.style.cssText = 'width: 20px; height: 23px; border: none; background: transparent; color: #475569; font-weight: 700; font-size: 13px; cursor: pointer; padding: 0; line-height: 1; transition: background 0.15s ease;';
+        btnWidthMinus.onmouseenter = () => btnWidthMinus.style.background = '#f1f5f9';
+        btnWidthMinus.onmouseleave = () => btnWidthMinus.style.background = 'transparent';
         btnWidthMinus.onclick = (e) => {
             e.stopPropagation();
             if (this.stair) {
                 const planner = this.ctx.planner || this.stair.planner;
-                StairEngine.setWidth(planner, this.stair, Math.max(40, (this.stair.width || 100) - 10));
+                const newW = Math.max(40, (this.stair.width || 100) - 10);
+                StairEngine.setWidth(planner, this.stair, newW);
                 this._syncRealtimeUpdate();
                 this.update();
+                this._showMicroFeedback(`Width: ${newW} cm`, e.clientX, e.clientY);
             }
         };
+        this._attachTooltip(btnWidthMinus, 'Decrease Width', '-10 cm');
 
         this.elWidthVal = document.createElement('div');
-        this.elWidthVal.style.cssText = 'font-size: 11px; font-weight: 700; color: #f8fafc; padding: 0 4px; min-width: 48px; text-align: center;';
+        this.elWidthVal.style.cssText = 'font-size: 10.5px; font-weight: 700; color: #0f172a; padding: 0 4px; min-width: 42px; text-align: center; white-space: nowrap;';
         this.elWidthVal.textContent = '100 cm';
 
         const btnWidthPlus = document.createElement('button');
         btnWidthPlus.textContent = '+';
-        btnWidthPlus.style.cssText = 'width: 22px; height: 26px; border: none; background: transparent; color: #cbd5e1; font-weight: 800; cursor: pointer;';
+        btnWidthPlus.style.cssText = 'width: 20px; height: 23px; border: none; background: transparent; color: #475569; font-weight: 700; font-size: 13px; cursor: pointer; padding: 0; line-height: 1; transition: background 0.15s ease;';
+        btnWidthPlus.onmouseenter = () => btnWidthPlus.style.background = '#f1f5f9';
+        btnWidthPlus.onmouseleave = () => btnWidthPlus.style.background = 'transparent';
         btnWidthPlus.onclick = (e) => {
             e.stopPropagation();
             if (this.stair) {
                 const planner = this.ctx.planner || this.stair.planner;
-                StairEngine.setWidth(planner, this.stair, Math.min(300, (this.stair.width || 100) + 10));
+                const newW = Math.min(300, (this.stair.width || 100) + 10);
+                StairEngine.setWidth(planner, this.stair, newW);
                 this._syncRealtimeUpdate();
                 this.update();
+                this._showMicroFeedback(`Width: ${newW} cm`, e.clientX, e.clientY);
             }
         };
+        this._attachTooltip(btnWidthPlus, 'Increase Width', '+10 cm');
 
         widthGroup.appendChild(btnWidthMinus);
         widthGroup.appendChild(this.elWidthVal);
@@ -290,13 +430,13 @@ export class StairInteractiveSuite extends THREE.Group {
 
         // 3.3 Landing Step Stepper [▲ / ▼]
         this.landingStepGroup = document.createElement('div');
-        this.landingStepGroup.style.cssText = 'display: flex; align-items: center; gap: 3px;';
+        this.landingStepGroup.style.cssText = 'display: flex; align-items: center; gap: 2px; flex-shrink: 0;';
 
         const btnLandingUp = document.createElement('button');
         btnLandingUp.textContent = '▲';
         btnLandingUp.title = 'Raise Landing (+1 Step to Flight 1)';
-        this._styleActionButton(btnLandingUp, '#f59e0b', 'rgba(245, 158, 11, 0.2)');
-        btnLandingUp.style.padding = '0 7px';
+        this._styleActionButton(btnLandingUp, '#fed7aa', '#fff7ed', '#c2410c');
+        btnLandingUp.style.padding = '0 5px';
         btnLandingUp.onclick = (e) => {
             e.stopPropagation();
             if (this.stair) {
@@ -304,14 +444,16 @@ export class StairInteractiveSuite extends THREE.Group {
                 StairEngine.adjustLanding(planner, this.stair, 1);
                 this._syncRealtimeUpdate();
                 this.update();
+                this._showMicroFeedback('+1 Step to Flight 1', e.clientX, e.clientY);
             }
         };
+        this._attachTooltip(btnLandingUp, 'Raise Landing', '+1 step to Flight 1');
 
         const btnLandingDown = document.createElement('button');
         btnLandingDown.textContent = '▼';
         btnLandingDown.title = 'Lower Landing (-1 Step to Flight 1)';
-        this._styleActionButton(btnLandingDown, '#f59e0b', 'rgba(245, 158, 11, 0.2)');
-        btnLandingDown.style.padding = '0 7px';
+        this._styleActionButton(btnLandingDown, '#fed7aa', '#fff7ed', '#c2410c');
+        btnLandingDown.style.padding = '0 5px';
         btnLandingDown.onclick = (e) => {
             e.stopPropagation();
             if (this.stair) {
@@ -319,8 +461,10 @@ export class StairInteractiveSuite extends THREE.Group {
                 StairEngine.adjustLanding(planner, this.stair, -1);
                 this._syncRealtimeUpdate();
                 this.update();
+                this._showMicroFeedback('-1 Step to Flight 1', e.clientX, e.clientY);
             }
         };
+        this._attachTooltip(btnLandingDown, 'Lower Landing', '-1 step to Flight 1');
 
         this.landingStepGroup.appendChild(btnLandingUp);
         this.landingStepGroup.appendChild(btnLandingDown);
@@ -328,73 +472,99 @@ export class StairInteractiveSuite extends THREE.Group {
         // 3.4 Stringer Style Cycle Button
         this.btnStringer = document.createElement('button');
         this.btnStringer.title = 'Change Stringer Base Style (Solid / Mono / Double / Side / Box)';
-        this._styleActionButton(this.btnStringer, '#38bdf8', 'rgba(56, 189, 248, 0.2)');
+        this._styleActionButton(this.btnStringer, '#e2e8f0', '#ffffff', '#334155');
         this.btnStringer.textContent = 'Solid';
         this.btnStringer.onclick = (e) => {
             e.stopPropagation();
             this._cycleStringerType();
+            this._showMicroFeedback(`Stringer: ${this.btnStringer.textContent}`, e.clientX, e.clientY);
         };
+        this._attachTooltip(this.btnStringer, 'Stringer Base Style', 'Cycle Solid, Mono, Double, Side, Box');
 
         // 3.5 Auto-Height Snap Button
         this.btnAutoHeight = document.createElement('button');
         this.btnAutoHeight.textContent = '⚡ Auto';
         this.btnAutoHeight.title = 'Auto-detect floor or platform height';
-        this._styleActionButton(this.btnAutoHeight, '#10b981', 'rgba(16, 185, 129, 0.2)');
+        this._styleActionButton(this.btnAutoHeight, '#bbf7d0', '#f0fdf4', '#15803d');
         this.btnAutoHeight.onclick = (e) => {
             e.stopPropagation();
             this._autoFitHeight();
         };
+        this._attachTooltip(this.btnAutoHeight, 'Auto Snap Height', 'Match floor or platform height');
 
-        // 3.6 Delete Button (✕)
-        const btnDelete = document.createElement('button');
-        btnDelete.innerHTML = '✕';
-        btnDelete.title = 'Delete Staircase';
-        this._styleActionButton(btnDelete, '#ef4444', 'rgba(239, 68, 68, 0.25)');
-        btnDelete.style.fontWeight = '800';
-        btnDelete.style.padding = '0 9px';
-        btnDelete.onclick = (e) => {
-            e.stopPropagation();
-            this._deleteStaircase();
-        };
-
-        actionRow.appendChild(this.btnMove);
-        actionRow.appendChild(this.btnSpin);
-        actionRow.appendChild(this.btnFlip);
         actionRow.appendChild(widthGroup);
+        actionRow.appendChild(this.btnFlip);
         actionRow.appendChild(this.landingStepGroup);
         actionRow.appendChild(this.btnStringer);
         actionRow.appendChild(this.btnAutoHeight);
-        actionRow.appendChild(btnDelete);
-        container.appendChild(actionRow);
+        controlsCard.appendChild(actionRow);
 
-        this.domHUD.appendChild(container);
+        this.domHUD.appendChild(headerRow);
+        this.domHUD.appendChild(controlsCard);
         document.body.appendChild(this.domHUD);
     }
 
-    _styleActionButton(btn, color, bg) {
+    _styleTopIconButton(btn) {
         btn.style.cssText = `
             display: flex;
             align-items: center;
             justify-content: center;
-            height: 26px;
-            padding: 0 8px;
-            border-radius: 6px;
-            border: 1px solid ${color};
-            background: ${bg};
-            color: #ffffff;
+            width: 24px;
+            height: 22px;
+            padding: 0;
+            border-radius: 5px;
+            border: none;
+            background: transparent;
+            color: #64748b;
             cursor: pointer;
-            font-size: 11px;
-            font-weight: 700;
             transition: all 0.12s ease;
             outline: none;
             white-space: nowrap;
+            flex-shrink: 0;
+            line-height: 1;
         `;
         btn.onmouseenter = () => {
-            btn.style.transform = 'scale(1.05)';
-            btn.style.boxShadow = `0 0 10px ${color}`;
+            if (btn.style.background === 'transparent' || !btn.style.background || btn.style.background.includes('rgba')) {
+                btn.style.background = '#ffffff';
+                btn.style.color = '#1d4ed8';
+                btn.style.boxShadow = '0 1px 2px rgba(0, 0, 0, 0.08)';
+            }
         };
         btn.onmouseleave = () => {
-            btn.style.transform = 'scale(1)';
+            if (btn.style.color === 'rgb(29, 78, 216)' || btn.style.color === '#1d4ed8') {
+                btn.style.background = 'transparent';
+                btn.style.color = '#64748b';
+                btn.style.boxShadow = 'none';
+            }
+        };
+    }
+
+    _styleActionButton(btn, borderColor = '#e2e8f0', bg = '#ffffff', textColor = '#334155') {
+        btn.style.cssText = `
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 23px;
+            padding: 0 6px;
+            border-radius: 6px;
+            border: 1px solid ${borderColor};
+            background: ${bg};
+            color: ${textColor};
+            cursor: pointer;
+            font-size: 11px;
+            font-weight: 600;
+            transition: all 0.15s ease;
+            outline: none;
+            white-space: nowrap;
+            flex-shrink: 0;
+            line-height: 1;
+        `;
+        btn.onmouseenter = () => {
+            btn.style.transform = 'translateY(-1px)';
+            btn.style.boxShadow = '0 2px 4px rgba(0, 0, 0, 0.06)';
+        };
+        btn.onmouseleave = () => {
+            btn.style.transform = 'translateY(0)';
             btn.style.boxShadow = 'none';
         };
     }
@@ -412,32 +582,97 @@ export class StairInteractiveSuite extends THREE.Group {
             position: fixed;
             display: none;
             pointer-events: none;
-            background: rgba(15, 23, 42, 0.95);
-            border: 1.5px solid #00f0ff;
-            color: #00f0ff;
-            font-family: 'Inter', system-ui, sans-serif;
-            font-size: 12px;
-            font-weight: 700;
-            padding: 4px 10px;
-            border-radius: 20px;
-            box-shadow: 0 4px 16px rgba(0,0,0,0.6);
-            transform: translate(-50%, -140%);
-            z-index: 100000;
+            background: rgba(15, 23, 42, 0.94);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            color: #f8fafc;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            font-size: 11px;
+            font-weight: 500;
+            padding: 5px 9px;
+            border-radius: 6px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            z-index: 100010;
             white-space: nowrap;
+            transition: opacity 0.12s ease;
+            opacity: 0;
         `;
         document.body.appendChild(this.tooltip);
     }
 
-    _showTooltip(text, clientX, clientY) {
+    _showTooltip(title, clientX, clientY, subtitle = null) {
         if (!this.tooltip) return;
-        this.tooltip.textContent = text;
-        this.tooltip.style.left = `${clientX}px`;
-        this.tooltip.style.top = `${clientY}px`;
+        let html = `<span style="font-weight:700; color:#ffffff;">${title}</span>`;
+        if (subtitle) {
+            html += `<span style="display:block; font-size:10px; color:#94a3b8; font-weight:400; margin-top:2px;">${subtitle}</span>`;
+        }
+        this.tooltip.innerHTML = html;
         this.tooltip.style.display = 'block';
+
+        const tw = this.tooltip.offsetWidth || 140;
+        const th = this.tooltip.offsetHeight || 30;
+        let left = clientX;
+        let top = clientY - th - 8;
+        if (top < 10) top = clientY + 24; // flip below if off top
+        const maxW = typeof window !== 'undefined' ? window.innerWidth : 800;
+        left = Math.max(tw / 2 + 10, Math.min(maxW - tw / 2 - 10, left));
+
+        this.tooltip.style.left = `${left}px`;
+        this.tooltip.style.top = `${top}px`;
+        this.tooltip.style.transform = 'translate(-50%, 0)';
+        this.tooltip.style.opacity = '1';
     }
 
     _hideTooltip() {
-        if (this.tooltip) this.tooltip.style.display = 'none';
+        if (this.tooltip) {
+            this.tooltip.style.opacity = '0';
+            this.tooltip.style.display = 'none';
+        }
+    }
+
+    _attachTooltip(el, title, subtitle = null) {
+        if (!el) return;
+        let touchTimer = null;
+        el.addEventListener('mouseenter', () => {
+            const rect = el.getBoundingClientRect();
+            this._showTooltip(title, rect.left + rect.width / 2, rect.top, subtitle);
+        });
+        el.addEventListener('mouseleave', () => {
+            this._hideTooltip();
+        });
+        el.addEventListener('touchstart', () => {
+            touchTimer = setTimeout(() => {
+                const rect = el.getBoundingClientRect();
+                this._showTooltip(title, rect.left + rect.width / 2, rect.top, subtitle);
+            }, 250);
+        }, { passive: true });
+        const cancelTouch = () => {
+            if (touchTimer) clearTimeout(touchTimer);
+            setTimeout(() => this._hideTooltip(), 1500);
+        };
+        el.addEventListener('touchend', cancelTouch);
+        el.addEventListener('touchcancel', cancelTouch);
+    }
+
+    _showMicroFeedback(msg, clientX, clientY) {
+        if (!this.tooltip) return;
+        this.tooltip.innerHTML = `<span style="color:#10b981; font-weight:800;">✓</span> <span style="color:#ffffff; font-weight:700;">${msg}</span>`;
+        this.tooltip.style.display = 'block';
+        const tw = this.tooltip.offsetWidth || 120;
+        const th = this.tooltip.offsetHeight || 28;
+        let left = clientX || (window.innerWidth / 2);
+        let top = (clientY ? clientY - th - 8 : 100);
+        if (top < 10) top = 80;
+        const maxW = typeof window !== 'undefined' ? window.innerWidth : 800;
+        left = Math.max(tw / 2 + 10, Math.min(maxW - tw / 2 - 10, left));
+
+        this.tooltip.style.left = `${left}px`;
+        this.tooltip.style.top = `${top}px`;
+        this.tooltip.style.transform = 'translate(-50%, 0)';
+        this.tooltip.style.opacity = '1';
+
+        setTimeout(() => this._hideTooltip(), 1200);
     }
 
     /* -------------------------------------------------------------------------- */
@@ -498,6 +733,12 @@ export class StairInteractiveSuite extends THREE.Group {
     /* -------------------------------------------------------------------------- */
 
     update() {
+        if (this.ctx?.viewMode === '2d' || this.ctx?.preview3D?.viewMode === '2d' || (typeof window !== 'undefined' && (window.planner?.viewMode === '2d' || window.plannerInstance?.viewMode === '2d'))) {
+            if (this.domHUD) this.domHUD.style.display = 'none';
+            if (this.handlesGroup) this.handlesGroup.visible = false;
+            return;
+        }
+
         if (!this.stair || !this.target || !this.ctx.camera || !this.ctx.renderer) {
             if (this.domHUD) this.domHUD.style.display = 'none';
             return;
@@ -559,18 +800,22 @@ export class StairInteractiveSuite extends THREE.Group {
     _updateHUDContent(shape, width, height, totalSteps, f1Steps, f2Steps, turnDir) {
         if (!this.domHUD) return;
 
-        // Spec Badge
+        const isMobile = (typeof window !== 'undefined' && window.innerWidth <= 768);
+
+        // Spec Badge (Concise on mobile to prevent header overflow)
         if (this.hudSpecBadge) {
-            this.hudSpecBadge.textContent = `${Math.round(width)} × ${Math.round(height)} cm • ${totalSteps} Steps`;
+            this.hudSpecBadge.textContent = isMobile 
+                ? `${Math.round(width)}×${Math.round(height)} • ${totalSteps}st`
+                : `${Math.round(width)} × ${Math.round(height)} cm • ${totalSteps} Steps`;
         }
 
-        // Active Shape button styling
+        // Active Shape button styling (Light segmented control)
         if (this.shapeButtons) {
             Object.entries(this.shapeButtons).forEach(([id, btn]) => {
                 const isActive = (id === shape);
-                btn.style.background = isActive ? 'rgba(56, 189, 248, 0.25)' : 'transparent';
-                btn.style.borderColor = isActive ? '#38bdf8' : 'transparent';
-                btn.style.color = isActive ? '#38bdf8' : '#94a3b8';
+                btn.style.background = isActive ? '#ffffff' : 'transparent';
+                btn.style.color = isActive ? '#2563eb' : '#64748b';
+                btn.style.boxShadow = isActive ? '0 1px 3px rgba(0,0,0,0.1)' : 'none';
             });
         }
 
@@ -579,11 +824,15 @@ export class StairInteractiveSuite extends THREE.Group {
             this.elWidthVal.textContent = `${Math.round(width)} cm`;
         }
 
+        // Move and Spin buttons: Always visible in middle row
+        if (this.btnMove) this.btnMove.style.display = 'flex';
+        if (this.btnSpin) this.btnSpin.style.display = 'flex';
+
         // Flip button & landing steppers visibility
         const hasTurn = (shape === 'L' || shape === 'U');
         if (this.btnFlip) {
             this.btnFlip.style.display = hasTurn ? 'flex' : 'none';
-            this.btnFlip.innerHTML = `⇄ ${turnDir === 'right' ? 'Right' : 'Left'}`;
+            this.btnFlip.innerHTML = isMobile ? `⇄ ${turnDir === 'right' ? 'R' : 'L'}` : `⇄ ${turnDir === 'right' ? 'Right' : 'Left'}`;
         }
         if (this.landingStepGroup) {
             this.landingStepGroup.style.display = (shape !== 'straight') ? 'flex' : 'none';
@@ -599,12 +848,17 @@ export class StairInteractiveSuite extends THREE.Group {
     _updateHUDPosition(worldPos) {
         if (!this.domHUD || !this.ctx.camera || !this.ctx.renderer) return;
 
+        if (this.ctx?.viewMode === '2d' || this.ctx?.preview3D?.viewMode === '2d' || (typeof window !== 'undefined' && (window.planner?.viewMode === '2d' || window.plannerInstance?.viewMode === '2d'))) {
+            this.domHUD.style.display = 'none';
+            return;
+        }
+
         if (this._isActionActive()) {
             this.domHUD.style.display = 'none';
             return;
         }
 
-        // Place HUD 35cm above the landing / center point
+        // Place HUD anchor above the landing / center point
         const elevatedPos = worldPos.clone().add(new THREE.Vector3(0, 35, 0));
         const v = elevatedPos.project(this.ctx.camera);
 
@@ -615,11 +869,67 @@ export class StairInteractiveSuite extends THREE.Group {
         }
 
         const rect = this.ctx.renderer.domElement.getBoundingClientRect();
-        const screenX = ((v.x + 1) / 2) * rect.width + rect.left;
-        const screenY = ((-v.y + 1) / 2) * rect.height + rect.top;
+        const rectW = rect.width || 800;
+        const rectH = rect.height || 600;
+        const rectLeft = rect.left || 0;
+        const rectTop = rect.top || 0;
+        const rectRight = (rect.right !== undefined) ? rect.right : (rectLeft + rectW);
+        const rectBottom = (rect.bottom !== undefined) ? rect.bottom : (rectTop + rectH);
 
-        this.domHUD.style.left = `${screenX}px`;
-        this.domHUD.style.top = `${screenY - 10}px`;
+        const screenX = ((v.x + 1) / 2) * rectW + rectLeft;
+        const screenY = ((-v.y + 1) / 2) * rectH + rectTop;
+
+        const isMobileScreen = (typeof window !== 'undefined' && window.innerWidth <= 768);
+        const hudW = this.domHUD.offsetWidth || 220;
+        const hudH = this.domHUD.offsetHeight || 62;
+
+        // Viewport safe boundary insets:
+        // Top clears topbar & ViewCube: 64px on mobile, 52px on desktop
+        // Bottom clears bottom navigation capsule: 76px on mobile, 30px on desktop
+        // Left clears left vertical tools (✢, ↻, etc.): 68px on mobile, 58px on desktop
+        // Right clears right canvas border: 12px on mobile, 58px on desktop
+        const safeTop = rectTop + (isMobileScreen ? 64 : 52);
+        const safeBottom = rectBottom - (isMobileScreen ? 76 : 30);
+        const safeLeft = rectLeft + (isMobileScreen ? 68 : 58);
+        const safeRight = rectRight - (isMobileScreen ? 12 : 58);
+
+        // Vertical position: Default sits above target; if headroom is insufficient, flip below
+        const targetTopAbove = screenY - 14;
+        let posTop;
+        let transformY = '0';
+
+        if (targetTopAbove - hudH < safeTop) {
+            // Insufficient room above: flip below the staircase
+            const targetTopBelow = screenY + 36;
+            if (targetTopBelow >= safeTop && targetTopBelow + hudH <= safeBottom) {
+                posTop = targetTopBelow;
+                transformY = '0';
+            } else {
+                // If neither side fits freely, clamp firmly between safe bounds
+                posTop = Math.max(safeTop, Math.min(safeBottom - hudH, targetTopAbove - hudH));
+                transformY = '0';
+            }
+        } else {
+            // Fits cleanly above
+            posTop = Math.max(safeTop, Math.min(safeBottom - hudH, targetTopAbove));
+            transformY = '-100%';
+        }
+
+        // Final guaranteed bound clamp: ensure posTop is always strictly within [safeTop, safeBottom - hudH]
+        posTop = Math.max(safeTop, Math.min(safeBottom - hudH, posTop));
+
+        // Horizontal position: Clamp within safe boundaries, centering if space is ultra-narrow
+        let clampedX;
+        if (safeRight - safeLeft < hudW) {
+            clampedX = (safeLeft + safeRight) / 2;
+        } else {
+            const halfW = hudW / 2;
+            clampedX = Math.max(safeLeft + halfW, Math.min(safeRight - halfW, screenX));
+        }
+
+        this.domHUD.style.left = `${clampedX}px`;
+        this.domHUD.style.top = `${posTop}px`;
+        this.domHUD.style.transform = `translate(-50%, ${transformY})`;
         this.domHUD.style.display = 'flex';
     }
 
@@ -702,6 +1012,10 @@ export class StairInteractiveSuite extends THREE.Group {
     destroy() {
         if (this.ctx.controls) {
             this.ctx.controls.removeEventListener('change', this._onCameraChange);
+        }
+
+        if (typeof window !== 'undefined') {
+            window.removeEventListener('resize', this._onCameraChange);
         }
 
         if (coreEventBus) {

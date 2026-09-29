@@ -47,6 +47,9 @@ export function useAppTools({
         if (renderer3D?.value?.interactions?.commonController?.activeTool === 'wall_corners') {
             renderer3D.value.interactions.commonController.setTool('select');
         }
+        if (viewMode.value === '2d' && renderer3D?.value?.interactions?.hideAllPlacementGhosts) {
+            renderer3D.value.interactions.hideAllPlacementGhosts();
+        }
         activeTool.value = tool; 
         
         if (params !== undefined) {

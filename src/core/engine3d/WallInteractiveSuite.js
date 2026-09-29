@@ -107,6 +107,7 @@ export class WallInteractiveSuite extends THREE.Group {
         this._createDOMHUD();
         this._createConfirmBar();
         this._createLiveBadges();
+        this._createFloatingTooltip();
 
         this._onCameraChange = this._onCameraChange.bind(this);
         this._onPointerMove = this._onPointerMove.bind(this);
@@ -120,6 +121,10 @@ export class WallInteractiveSuite extends THREE.Group {
 
         if (this.ctx.controls) {
             this.ctx.controls.addEventListener('change', this._onCameraChange);
+        }
+
+        if (typeof window !== 'undefined') {
+            window.addEventListener('resize', this._onCameraChange);
         }
 
         const dom = this.ctx.renderer.domElement;
@@ -371,88 +376,156 @@ export class WallInteractiveSuite extends THREE.Group {
             position: fixed;
             display: none;
             transform: translate(-50%, -100%);
-            padding: 5px 8px;
-            border-radius: 9999px;
-            background: rgba(15, 23, 42, 0.90);
-            border: 1.5px solid rgba(56, 189, 248, 0.4);
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6), 0 0 20px rgba(56, 189, 248, 0.2);
-            color: #ffffff;
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            font-size: 12px;
-            font-weight: 700;
+            padding: 3px 6px;
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.96);
+            border: 1px solid rgba(226, 232, 240, 0.95);
+            box-shadow: 0 10px 25px -4px rgba(15, 23, 42, 0.12), 0 2px 6px -1px rgba(15, 23, 42, 0.04);
+            color: #0f172a;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            font-size: 10.5px;
+            font-weight: 600;
             white-space: nowrap;
             z-index: 100002;
-            backdrop-filter: blur(16px);
-            -webkit-backdrop-filter: blur(16px);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
             user-select: none;
+            -webkit-user-select: none;
             gap: 4px;
             align-items: center;
-            max-width: calc(100vw - 24px);
-            overflow-x: auto;
-            scrollbar-width: none;
+            width: fit-content;
+            max-width: min(calc(100vw - 24px), 520px);
             box-sizing: border-box;
             pointer-events: auto;
+            line-height: 1;
         `;
 
         this.hudButtons = [
-            { id: 'height', label: '📐 Height', title: 'Adjust wall uniform height (Wall / Room Scope)' },
-            { id: 'room_suite', label: '🏠 Room & Building', title: 'Open Room & Building Height / Foundation Controls' },
-            { id: 'push_pull', label: '↔️ Push / Pull', title: 'Adjust wall thickness & baseline (Panel #1)' },
-            { id: 'corner', label: '📍 Vertices', title: 'Move wall vertices & slope corners (Panel #2)' },
-            { id: 'extrude_recess', label: '🏛️ Bay / Niche', title: 'Extrude bay window or recessed niche (Panels #5 & #6)' },
-            { id: 'split', label: '✂️ Split', title: 'Slice wall in 3D (Panel #3)' },
-            { id: 'slope', label: '📐 Slope', title: 'Toggle flat / single / gable profile (Panel #7)' }
+            { id: 'height', label: '📐 Height', title: 'Wall Uniform Height', subtitle: 'Adjust wall uniform height (Wall / Room Scope)' },
+            { id: 'room_suite', label: '🏠 Room', title: 'Room & Building Controls', subtitle: 'Open Room & Building Height / Foundation Controls' },
+            { id: 'push_pull', label: '↔️ Push/Pull', title: 'Push / Pull Thickness', subtitle: 'Adjust wall thickness & baseline (Panel #1)' },
+            { id: 'corner', label: '📍 Vertices', title: 'Vertices & Slope', subtitle: 'Move wall vertices & slope corners (Panel #2)' },
+            { id: 'extrude_recess', label: '🏛️ Bay/Niche', title: 'Bay Window & Niche', subtitle: 'Extrude bay window or recessed niche (Panels #5 & #6)' },
+            { id: 'split', label: '✂️ Split', title: 'Slice Wall', subtitle: 'Slice wall in 3D (Panel #3)' },
+            { id: 'slope', label: '📐 Slope', title: 'Wall Top Profile', subtitle: 'Toggle flat / single / gable profile (Panel #7)' }
         ];
 
         this.buttonElements = {};
+
+        // Scrollable container for buttons so close button stays permanently fixed at the end
+        const buttonsContainer = document.createElement('div');
+        buttonsContainer.className = 'sims4-wall-hud-buttons';
+        buttonsContainer.style.cssText = `
+            display: flex;
+            align-items: center;
+            gap: 3px;
+            overflow-x: auto;
+            scrollbar-width: none;
+            -ms-overflow-style: none;
+            min-width: 0;
+            flex: 1 1 auto;
+        `;
 
         this.hudButtons.forEach(btn => {
             const el = document.createElement('button');
             el.textContent = btn.label;
             el.title = btn.title;
             el.style.cssText = `
-                padding: 5px 10px;
-                border-radius: 9999px;
-                border: 1px solid rgba(255, 255, 255, 0.12);
-                background: rgba(255, 255, 255, 0.08);
-                color: #e2e8f0;
-                font-size: 11px;
-                font-weight: 700;
+                padding: 2.5px 6px;
+                border-radius: 6px;
+                border: 1px solid #e2e8f0;
+                background: #f8fafc;
+                color: #334155;
+                font-size: 10.5px;
+                font-weight: 600;
                 cursor: pointer;
-                transition: all 0.15s ease;
+                transition: all 0.12s ease;
                 white-space: nowrap;
-                min-height: 28px;
+                min-height: 22px;
                 touch-action: manipulation;
+                line-height: 1;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                gap: 2px;
+                outline: none;
+                flex-shrink: 0;
             `;
+            el.onmouseenter = () => {
+                if (btn.id !== this.activeMode) {
+                    el.style.background = '#f1f5f9';
+                    el.style.borderColor = '#cbd5e1';
+                    el.style.color = '#0f172a';
+                }
+            };
+            el.onmouseleave = () => {
+                if (btn.id !== this.activeMode) {
+                    el.style.background = '#f8fafc';
+                    el.style.borderColor = '#e2e8f0';
+                    el.style.color = '#334155';
+                }
+            };
             el.onclick = (e) => {
                 e.stopPropagation();
                 this._handleHUDAction(btn.id);
             };
+            this._attachTooltip(el, btn.title, btn.subtitle);
             this.buttonElements[btn.id] = el;
-            this.domHUD.appendChild(el);
+            buttonsContainer.appendChild(el);
         });
 
-        // Close button on menu
+        this.domHUD.appendChild(buttonsContainer);
+
+        // Subtle divider separating scrollable buttons from fixed close button
+        const divider = document.createElement('div');
+        divider.style.cssText = `
+            width: 1px;
+            height: 16px;
+            background: #e2e8f0;
+            margin: 0 1px;
+            flex-shrink: 0;
+        `;
+        this.domHUD.appendChild(divider);
+
+        // Permanently fixed close button on menu (flex-shrink: 0, outside scroll container)
         const btnClose = document.createElement('button');
         btnClose.textContent = '✕';
-        btnClose.title = 'Deselect wall';
+        btnClose.title = 'Deselect wall (Esc)';
         btnClose.style.cssText = `
-            padding: 5px 9px;
-            border-radius: 9999px;
-            border: 1px solid rgba(239, 68, 68, 0.4);
-            background: rgba(239, 68, 68, 0.15);
-            color: #fca5a5;
-            font-size: 11px;
-            font-weight: 800;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 20px;
+            height: 20px;
+            min-height: 20px;
+            border-radius: 6px;
+            border: 1px solid #e2e8f0;
+            background: #f8fafc;
+            color: #64748b;
             cursor: pointer;
-            transition: all 0.15s ease;
-            min-height: 28px;
-            touch-action: manipulation;
+            font-size: 10px;
+            font-weight: 700;
+            transition: all 0.12s ease;
+            outline: none;
+            padding: 0;
+            line-height: 1;
+            flex-shrink: 0;
         `;
+        btnClose.onmouseenter = () => {
+            btnClose.style.background = '#fee2e2';
+            btnClose.style.borderColor = '#fecaca';
+            btnClose.style.color = '#dc2626';
+        };
+        btnClose.onmouseleave = () => {
+            btnClose.style.background = '#f8fafc';
+            btnClose.style.borderColor = '#e2e8f0';
+            btnClose.style.color = '#64748b';
+        };
         btnClose.onclick = (e) => {
             e.stopPropagation();
             this.detach();
         };
+        this._attachTooltip(btnClose, 'Deselect Wall', 'Close editor and deselect (Esc)');
         this.domHUD.appendChild(btnClose);
 
         document.body.appendChild(this.domHUD);
@@ -466,90 +539,279 @@ export class WallInteractiveSuite extends THREE.Group {
             position: fixed;
             display: none;
             transform: translate(-50%, -100%);
-            padding: 6px 14px;
-            border-radius: 9999px;
-            background: rgba(15, 23, 42, 0.92);
-            border: 1.5px solid rgba(56, 189, 248, 0.5);
-            box-shadow: 0 12px 32px rgba(0, 0, 0, 0.7), 0 0 20px rgba(56, 189, 248, 0.3);
-            color: #ffffff;
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            font-size: 12px;
-            font-weight: 700;
-            white-space: nowrap;
-            z-index: 100002;
-            backdrop-filter: blur(16px);
-            -webkit-backdrop-filter: blur(16px);
-            user-select: none;
-            gap: 8px;
+            flex-direction: column;
             align-items: center;
-            max-width: calc(100vw - 24px);
-            box-sizing: border-box;
+            gap: 3px;
+            color: #0f172a;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            font-size: 10.5px;
+            font-weight: 600;
+            z-index: 100002;
+            user-select: none;
+            -webkit-user-select: none;
             pointer-events: auto;
+            width: fit-content;
+            max-width: min(calc(100vw - 24px), 420px);
+            box-sizing: border-box;
+            background: transparent;
+            line-height: 1;
         `;
 
-        this.confirmStatusBadge = document.createElement('span');
+        // Top Header Line: Badge + Fixed Close Button
+        const headerRow = document.createElement('div');
+        headerRow.style.cssText = `
+            display: flex;
+            align-items: center;
+            gap: 3px;
+            align-self: flex-end;
+            width: fit-content;
+            background: transparent;
+            padding: 0 1px 1px 0;
+            box-sizing: border-box;
+            flex-shrink: 0;
+        `;
+
+        this.confirmStatusBadge = document.createElement('div');
+        this.confirmStatusBadge.className = 'sims4-confirm-badge';
         this.confirmStatusBadge.style.cssText = `
-            font-size: 12px;
-            font-weight: 700;
-            color: #38bdf8;
-            padding-right: 4px;
             display: inline-flex;
             align-items: center;
-            gap: 4px;
+            gap: 3px;
+            font-size: 9.5px;
+            font-weight: 700;
+            color: #334155;
+            background: rgba(255, 255, 255, 0.96);
+            border: 1px solid rgba(226, 232, 240, 0.95);
+            border-radius: 6px;
+            padding: 2.5px 6px;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            white-space: nowrap;
+            flex-shrink: 0;
+            line-height: 1;
         `;
-        this.domConfirmBar.appendChild(this.confirmStatusBadge);
+        headerRow.appendChild(this.confirmStatusBadge);
+
+        // Fixed Close Button (✕) on top-right header
+        const btnHeaderClose = document.createElement('button');
+        btnHeaderClose.textContent = '✕';
+        btnHeaderClose.title = 'Cancel editing and ignore changes (Esc)';
+        btnHeaderClose.style.cssText = `
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 20px;
+            height: 20px;
+            min-height: 20px;
+            border-radius: 6px;
+            border: 1px solid rgba(226, 232, 240, 0.95);
+            background: rgba(255, 255, 255, 0.96);
+            color: #64748b;
+            font-size: 10px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.12s ease;
+            outline: none;
+            padding: 0;
+            line-height: 1;
+            flex-shrink: 0;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+        `;
+        btnHeaderClose.onmouseenter = () => {
+            btnHeaderClose.style.background = '#fee2e2';
+            btnHeaderClose.style.borderColor = '#fecaca';
+            btnHeaderClose.style.color = '#dc2626';
+        };
+        btnHeaderClose.onmouseleave = () => {
+            btnHeaderClose.style.background = 'rgba(255, 255, 255, 0.96)';
+            btnHeaderClose.style.borderColor = 'rgba(226, 232, 240, 0.95)';
+            btnHeaderClose.style.color = '#64748b';
+        };
+        btnHeaderClose.onclick = (e) => {
+            e.stopPropagation();
+            this.cancelChanges();
+        };
+        this._attachTooltip(btnHeaderClose, 'Cancel Editing', 'Discard all modifications (Esc)');
+        headerRow.appendChild(btnHeaderClose);
+
+        this.domConfirmBar.appendChild(headerRow);
+
+        // Bottom Controls Card: Cancel & Done action buttons
+        const controlsCard = document.createElement('div');
+        controlsCard.className = 'sims4-confirm-controls';
+        controlsCard.style.cssText = `
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 3px;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(226, 232, 240, 0.95);
+            border-radius: 10px;
+            padding: 3px 6px;
+            box-shadow: 0 10px 25px -4px rgba(15, 23, 42, 0.12), 0 2px 6px -1px rgba(15, 23, 42, 0.04);
+            width: fit-content;
+            align-self: center;
+            box-sizing: border-box;
+            white-space: nowrap;
+            flex-shrink: 0;
+        `;
 
         // Cancel Button (Red outline/fill)
         const btnCancel = document.createElement('button');
         btnCancel.textContent = '✕ Cancel';
         btnCancel.title = 'Cancel editing and ignore changes (Esc)';
         btnCancel.style.cssText = `
-            padding: 5px 12px;
-            border-radius: 9999px;
-            border: 1px solid rgba(239, 68, 68, 0.6);
-            background: rgba(239, 68, 68, 0.15);
-            color: #fca5a5;
-            font-size: 11px;
-            font-weight: 800;
+            padding: 2.5px 7px;
+            border-radius: 6px;
+            border: 1px solid #fecaca;
+            background: #fef2f2;
+            color: #dc2626;
+            font-size: 10.5px;
+            font-weight: 700;
             cursor: pointer;
-            transition: all 0.15s ease;
-            min-height: 28px;
+            transition: all 0.12s ease;
+            min-height: 22px;
             touch-action: manipulation;
+            line-height: 1;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            outline: none;
         `;
-        btnCancel.onmouseenter = () => { btnCancel.style.background = '#ef4444'; btnCancel.style.color = '#ffffff'; };
-        btnCancel.onmouseleave = () => { btnCancel.style.background = 'rgba(239, 68, 68, 0.15)'; btnCancel.style.color = '#fca5a5'; };
+        btnCancel.onmouseenter = () => { btnCancel.style.background = '#fee2e2'; btnCancel.style.borderColor = '#f87171'; };
+        btnCancel.onmouseleave = () => { btnCancel.style.background = '#fef2f2'; btnCancel.style.borderColor = '#fecaca'; };
         btnCancel.onclick = (e) => {
             e.stopPropagation();
             this.cancelChanges();
         };
-        this.domConfirmBar.appendChild(btnCancel);
+        this._attachTooltip(btnCancel, 'Cancel Editing', 'Discard all modifications (Esc)');
+        controlsCard.appendChild(btnCancel);
 
         // Done Button (Emerald Green outline/fill)
         const btnDone = document.createElement('button');
         btnDone.textContent = '✓ Done';
         btnDone.title = 'Apply and keep changes (Enter)';
         btnDone.style.cssText = `
-            padding: 5px 14px;
-            border-radius: 9999px;
-            border: 1px solid rgba(16, 185, 129, 0.7);
-            background: rgba(16, 185, 129, 0.25);
-            color: #6ee7b7;
-            font-size: 11px;
-            font-weight: 800;
+            padding: 2.5px 8px;
+            border-radius: 6px;
+            border: 1px solid #bbf7d0;
+            background: #f0fdf4;
+            color: #15803d;
+            font-size: 10.5px;
+            font-weight: 700;
             cursor: pointer;
-            transition: all 0.15s ease;
-            min-height: 28px;
+            transition: all 0.12s ease;
+            min-height: 22px;
             touch-action: manipulation;
+            line-height: 1;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            outline: none;
         `;
-        btnDone.onmouseenter = () => { btnDone.style.background = '#10b981'; btnDone.style.color = '#ffffff'; };
-        btnDone.onmouseleave = () => { btnDone.style.background = 'rgba(16, 185, 129, 0.25)'; btnDone.style.color = '#6ee7b7'; };
+        btnDone.onmouseenter = () => { btnDone.style.background = '#dcfce7'; btnDone.style.borderColor = '#86efac'; };
+        btnDone.onmouseleave = () => { btnDone.style.background = '#f0fdf4'; btnDone.style.borderColor = '#bbf7d0'; };
         btnDone.onclick = (e) => {
             e.stopPropagation();
             this.commitChanges();
         };
-        this.domConfirmBar.appendChild(btnDone);
+        this._attachTooltip(btnDone, 'Apply Changes', 'Save modifications to wall (Enter)');
+        controlsCard.appendChild(btnDone);
+
+        this.domConfirmBar.appendChild(controlsCard);
 
         document.body.appendChild(this.domConfirmBar);
+    }
+
+    /* -------------------------------------------------------------------------- */
+    /*                         LIVE TOOLTIP BADGE                                 */
+    /* -------------------------------------------------------------------------- */
+
+    _createFloatingTooltip() {
+        if (typeof document === 'undefined') return;
+
+        this.tooltip = document.createElement('div');
+        this.tooltip.className = 'sims4-wall-tooltip';
+        this.tooltip.style.cssText = `
+            position: fixed;
+            display: none;
+            pointer-events: none;
+            background: rgba(15, 23, 42, 0.94);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            color: #f8fafc;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            font-size: 11px;
+            font-weight: 500;
+            padding: 5px 9px;
+            border-radius: 6px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            z-index: 100010;
+            white-space: nowrap;
+            transition: opacity 0.12s ease;
+            opacity: 0;
+        `;
+        document.body.appendChild(this.tooltip);
+    }
+
+    _showTooltip(title, clientX, clientY, subtitle = null) {
+        if (!this.tooltip) return;
+        let html = `<span style="font-weight:700; color:#ffffff;">${title}</span>`;
+        if (subtitle) {
+            html += `<span style="display:block; font-size:10px; color:#94a3b8; font-weight:400; margin-top:2px;">${subtitle}</span>`;
+        }
+        this.tooltip.innerHTML = html;
+        this.tooltip.style.display = 'block';
+
+        const tw = this.tooltip.offsetWidth || 140;
+        const th = this.tooltip.offsetHeight || 30;
+        let left = clientX;
+        let top = clientY - th - 8;
+        if (top < 10) top = clientY + 24;
+        const maxW = typeof window !== 'undefined' ? window.innerWidth : 800;
+        left = Math.max(tw / 2 + 10, Math.min(maxW - tw / 2 - 10, left));
+
+        this.tooltip.style.left = `${left}px`;
+        this.tooltip.style.top = `${top}px`;
+        this.tooltip.style.transform = 'translate(-50%, 0)';
+        this.tooltip.style.opacity = '1';
+    }
+
+    _hideTooltip() {
+        if (this.tooltip) {
+            this.tooltip.style.opacity = '0';
+            this.tooltip.style.display = 'none';
+        }
+    }
+
+    _attachTooltip(el, title, subtitle = null) {
+        if (!el) return;
+        let touchTimer = null;
+        el.addEventListener('mouseenter', () => {
+            const rect = el.getBoundingClientRect();
+            this._showTooltip(title, rect.left + rect.width / 2, rect.top, subtitle);
+        });
+        el.addEventListener('mouseleave', () => {
+            this._hideTooltip();
+        });
+        el.addEventListener('touchstart', () => {
+            touchTimer = setTimeout(() => {
+                const rect = el.getBoundingClientRect();
+                this._showTooltip(title, rect.left + rect.width / 2, rect.top, subtitle);
+            }, 250);
+        }, { passive: true });
+        const cancelTouch = () => {
+            if (touchTimer) clearTimeout(touchTimer);
+            setTimeout(() => this._hideTooltip(), 1500);
+        };
+        el.addEventListener('touchend', cancelTouch);
+        el.addEventListener('touchcancel', cancelTouch);
     }
 
     _updatePresetButtonHighlights() {}
@@ -606,15 +868,17 @@ export class WallInteractiveSuite extends THREE.Group {
         Object.keys(this.buttonElements).forEach(id => {
             const el = this.buttonElements[id];
             if (id === this.activeMode) {
-                el.style.background = '#0ea5e9';
-                el.style.borderColor = '#38bdf8';
-                el.style.color = '#ffffff';
-                el.style.boxShadow = '0 0 10px rgba(14, 165, 233, 0.5)';
+                el.style.background = '#eff6ff';
+                el.style.borderColor = '#93c5fd';
+                el.style.color = '#2563eb';
+                el.style.boxShadow = '0 1px 3px rgba(37, 99, 235, 0.15)';
+                el.style.fontWeight = '700';
             } else {
-                el.style.background = 'rgba(255, 255, 255, 0.08)';
-                el.style.borderColor = 'rgba(255, 255, 255, 0.15)';
-                el.style.color = '#cbd5e1';
+                el.style.background = '#f8fafc';
+                el.style.borderColor = '#e2e8f0';
+                el.style.color = '#334155';
                 el.style.boxShadow = 'none';
+                el.style.fontWeight = '600';
             }
         });
     }
@@ -638,6 +902,8 @@ export class WallInteractiveSuite extends THREE.Group {
         this.activeMode = mode;
         this.isSplitMode = (mode === 'split');
 
+        const is2D = (this.ctx.viewMode === '2d' || this.ctx.planner?.viewMode === '2d');
+
         if (mode === 'menu' || mode === 'neutral') {
             this.pushPullGizmo.detach();
             this.cornerGizmo.detach();
@@ -645,7 +911,7 @@ export class WallInteractiveSuite extends THREE.Group {
             this._hideSplitLaser();
             this._hideExtrudeGhost();
             if (this.domConfirmBar) this.domConfirmBar.style.display = 'none';
-            if (this.domHUD) this.domHUD.style.display = this._isActionActive() ? 'none' : 'flex';
+            if (this.domHUD) this.domHUD.style.display = (this._isActionActive() || is2D) ? 'none' : 'flex';
             this._refreshHUDButtonStates();
             if (this.ctx.requestRender) this.ctx.requestRender();
             return;
@@ -658,12 +924,12 @@ export class WallInteractiveSuite extends THREE.Group {
         }
         if (this.domConfirmBar) {
             const labels = {
-                push_pull: '↔️ Push / Pull',
-                corner: '📍 Move (Wall Normal, Vertices, Heights & Slopes)',
-                extrude_recess: '🏛️ Bay / Niche (Extrude Bay Window & Niche Recess)',
-                height: '📐 Height & Slope',
-                split: '✂️ Wall Split',
-                slope: '📐 Slope Toggle'
+                push_pull: '↔️ Push/Pull',
+                corner: '📍 Vertices',
+                extrude_recess: '🏛️ Bay/Niche',
+                height: '📐 Height',
+                split: '✂️ Split',
+                slope: '📐 Slope'
             };
             this.confirmStatusBadge.textContent = labels[mode] || 'Editing';
             const isPushPullOrBay = (mode === 'push_pull' || mode === 'extrude_recess');
@@ -673,7 +939,7 @@ export class WallInteractiveSuite extends THREE.Group {
             if (this.locationContainer) {
                 this.locationContainer.style.display = isPushPullOrBay ? 'inline-flex' : 'none';
             }
-            this.domConfirmBar.style.display = 'flex';
+            this.domConfirmBar.style.display = is2D ? 'none' : 'flex';
         }
         this._updateHUDPosition();
 
@@ -1426,6 +1692,14 @@ export class WallInteractiveSuite extends THREE.Group {
     _updateHUDPosition() {
         if ((!this.domHUD && !this.domConfirmBar) || !this.target || !this.ctx.camera || !this.ctx.renderer) return;
 
+        // View mode check: Never display 3D wall HUD in 2D view mode
+        const viewMode = this.ctx.viewMode || this.ctx.planner?.viewMode || (typeof window !== 'undefined' && window.plannerInstance?.viewMode);
+        if (viewMode === '2d') {
+            if (this.domHUD) this.domHUD.style.display = 'none';
+            if (this.domConfirmBar) this.domConfirmBar.style.display = 'none';
+            return;
+        }
+
         const wall = this.target.userData?.entity;
         if (!wall || this._isActionActive()) {
             if (this.domHUD) this.domHUD.style.display = 'none';
@@ -1436,10 +1710,49 @@ export class WallInteractiveSuite extends THREE.Group {
         const dom = this.ctx.renderer.domElement;
         if (!dom) return;
         const rect = dom.getBoundingClientRect();
+        const rectLeft = (rect.left !== undefined) ? rect.left : 0;
+        const rectTop = (rect.top !== undefined) ? rect.top : 0;
+        const rectW = (rect.width !== undefined) ? rect.width : window.innerWidth;
+        const rectH = (rect.height !== undefined) ? rect.height : window.innerHeight;
+        const rectRight = (rect.right !== undefined) ? rect.right : (rectLeft + rectW);
+        const rectBottom = (rect.bottom !== undefined) ? rect.bottom : (rectTop + rectH);
 
-        // Fixed Top-Center Toaster HUD Placement
-        const screenX = rect.left + rect.width / 2;
-        const screenY = rect.top + 24;
+        const isMobile = (typeof window !== 'undefined' && window.innerWidth <= 768);
+        const safeTop = rectTop + (isMobile ? 64 : 52);
+        const safeBottom = rectBottom - 16;
+        const safeLeft = rectLeft + (isMobile ? 68 : 58);
+        const safeRight = rectRight - (isMobile ? 12 : 58);
+
+        const activeHud = (this.domHUD && (this.activeMode === 'menu' || this.activeMode === 'neutral'))
+            ? this.domHUD
+            : (this.domConfirmBar && this.activeMode !== 'menu' && this.activeMode !== 'neutral')
+                ? this.domConfirmBar
+                : null;
+
+        if (!activeHud) return;
+
+        const hudW = activeHud.offsetWidth || 280;
+        const hudH = activeHud.offsetHeight || 36;
+
+        let screenX = rectLeft + rectW / 2;
+        if (safeRight - safeLeft < hudW) {
+            screenX = (safeLeft + safeRight) / 2;
+        } else {
+            const minX = safeLeft + hudW / 2;
+            const maxX = safeRight - hudW / 2;
+            screenX = Math.max(minX, Math.min(maxX, screenX));
+        }
+
+        // Clamp screenX to ensure HUD stays strictly within visible canvas bounds
+        const minScreenX = rectLeft + 12 + hudW / 2;
+        const maxScreenX = rectRight - 12 - hudW / 2;
+        if (maxScreenX >= minScreenX) {
+            screenX = Math.max(minScreenX, Math.min(maxScreenX, screenX));
+        } else {
+            screenX = rectLeft + rectW / 2;
+        }
+
+        let screenY = Math.max(safeTop, Math.min(safeBottom - hudH, safeTop));
 
         if (this.domHUD && (this.activeMode === 'menu' || this.activeMode === 'neutral')) {
             if (this.domHUD.parentElement !== document.body && !this.domHUD.parentElement) {
@@ -1565,6 +1878,9 @@ export class WallInteractiveSuite extends THREE.Group {
         if (this.ctx.controls) {
             this.ctx.controls.removeEventListener('change', this._onCameraChange);
         }
+        if (typeof window !== 'undefined') {
+            window.removeEventListener('resize', this._onCameraChange);
+        }
         const dom = this.ctx.renderer?.domElement;
         if (dom) {
             dom.removeEventListener('pointermove', this._onPointerMove);
@@ -1573,6 +1889,12 @@ export class WallInteractiveSuite extends THREE.Group {
         }
         if (this.domHUD && this.domHUD.parentElement) {
             this.domHUD.parentElement.removeChild(this.domHUD);
+        }
+        if (this.domConfirmBar && this.domConfirmBar.parentElement) {
+            this.domConfirmBar.parentElement.removeChild(this.domConfirmBar);
+        }
+        if (this.tooltip && this.tooltip.parentElement) {
+            this.tooltip.parentElement.removeChild(this.tooltip);
         }
         if (this.splitBadge && this.splitBadge.parentElement) {
             this.splitBadge.parentElement.removeChild(this.splitBadge);

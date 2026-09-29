@@ -131,17 +131,17 @@ export class WallCornerFilletGizmo extends THREE.Group {
             position: fixed;
             display: none;
             transform: translate(-50%, -100%);
-            padding: 6px 14px;
+            padding: 5px 12px;
             border-radius: 9999px;
-            background: rgba(15, 23, 42, 0.95);
-            backdrop-filter: blur(10px);
-            -webkit-backdrop-filter: blur(10px);
-            border: 2px solid #10b981;
-            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.65), 0 0 16px rgba(16, 185, 129, 0.4);
-            color: #ffffff;
-            font-family: 'Inter', -apple-system, sans-serif;
-            font-size: 13px;
-            font-weight: 800;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid #10b981;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08), 0 2px 6px rgba(0, 0, 0, 0.04);
+            color: #0f172a;
+            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', 'Segoe UI', Roboto, sans-serif;
+            font-size: 11.5px;
+            font-weight: 700;
             white-space: nowrap;
             pointer-events: none;
             z-index: 100006;
@@ -154,8 +154,8 @@ export class WallCornerFilletGizmo extends THREE.Group {
         if (!this.domBadge) return;
         this.domBadge.textContent = text;
         this.domBadge.style.display = 'block';
-        this.domBadge.style.borderColor = borderColor;
-        this.domBadge.style.boxShadow = `0 8px 24px rgba(0, 0, 0, 0.65), 0 0 16px ${borderColor}66`;
+        this.domBadge.style.borderColor = borderColor || '#10b981';
+        this.domBadge.style.boxShadow = '0 8px 24px rgba(0, 0, 0, 0.08), 0 2px 6px rgba(0, 0, 0, 0.04)';
         if (clientX !== undefined && clientY !== undefined) {
             this.domBadge.style.left = `${clientX}px`;
             this.domBadge.style.top = `${clientY - 22}px`;
@@ -176,22 +176,28 @@ export class WallCornerFilletGizmo extends THREE.Group {
             position: fixed;
             display: none;
             align-items: center;
-            gap: 6px;
-            padding: 6px 12px;
-            background: rgba(15, 23, 42, 0.95);
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
-            border: 1.5px solid rgba(255, 255, 255, 0.16);
-            border-radius: 9999px;
-            box-shadow: 0 12px 32px rgba(0, 0, 0, 0.75), 0 0 20px rgba(16, 185, 129, 0.25);
-            color: #f8fafc;
-            font-family: 'Inter', system-ui, -apple-system, sans-serif;
-            font-size: 12px;
+            gap: 3px;
+            padding: 3px 6px;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(226, 232, 240, 0.95);
+            border-radius: 10px;
+            box-shadow: 0 10px 25px -4px rgba(15, 23, 42, 0.12), 0 2px 6px -1px rgba(15, 23, 42, 0.04);
+            color: #0f172a;
+            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', system-ui, sans-serif;
+            font-size: 11px;
             font-weight: 600;
             z-index: 100005;
             user-select: none;
+            -webkit-user-select: none;
             transform: translate(-50%, -100%);
             pointer-events: auto;
+            width: fit-content;
+            max-width: calc(100vw - 32px);
+            white-space: nowrap;
+            box-sizing: border-box;
+            line-height: 1;
         `;
 
         ['pointerdown', 'pointerup', 'mousedown', 'mouseup', 'click', 'dblclick', 'touchstart', 'touchend', 'contextmenu'].forEach(evt => {
@@ -222,70 +228,88 @@ export class WallCornerFilletGizmo extends THREE.Group {
         let presetsHtml = validPresets.map(p => {
             const isActive = isFilleted && curRadius === p;
             const style = isActive
-                ? 'background: rgba(16, 185, 129, 0.3); border-color: #10b981; color: #34d399; box-shadow: 0 0 10px rgba(16, 185, 129, 0.4);'
-                : 'background: rgba(255, 255, 255, 0.08); border-color: rgba(255, 255, 255, 0.15); color: #cbd5e1;';
+                ? 'background: #eff6ff; border-color: #93c5fd; color: #2563eb; font-weight: 700;'
+                : 'background: #f8fafc; border-color: #e2e8f0; color: #475569;';
             return `
-                <button type="button" class="quick-pill-preset" data-radius="${p}" style="
-                    padding: 4px 10px;
-                    border-radius: 9999px;
-                    border: 1px solid;
-                    font-size: 11px;
-                    font-weight: 700;
+                <button type="button" class="quick-pill-preset" data-radius="${p}" title="Set radius ${p}cm" style="
+                    padding: 2.5px 6px;
+                    border-radius: 6px;
+                    border: 1px solid #e2e8f0;
+                    font-size: 10.5px;
+                    font-weight: 600;
                     cursor: pointer;
-                    transition: all 0.15s ease;
+                    transition: all 0.12s ease;
                     outline: none;
+                    white-space: nowrap;
+                    line-height: 1;
+                    min-height: 22px;
+                    display: inline-flex;
+                    align-items: center;
+                    justify-content: center;
                     ${style}
-                ">${p} cm</button>
+                ">${p}</button>
             `;
         }).join('');
 
         const sharpStyle = !isFilleted
-            ? 'background: rgba(0, 240, 255, 0.25); border-color: #00f0ff; color: #00f0ff; box-shadow: 0 0 10px rgba(0, 240, 255, 0.4);'
-            : 'background: rgba(255, 255, 255, 0.08); border-color: rgba(255, 255, 255, 0.15); color: #cbd5e1;';
+            ? 'background: #ecfdf5; border-color: #a7f3d0; color: #059669; font-weight: 700;'
+            : 'background: #f8fafc; border-color: #e2e8f0; color: #475569;';
 
         this.domQuickPill.innerHTML = `
-            <div style="display: flex; align-items: center; gap: 4px; font-weight: 800; color: ${isFilleted ? '#10b981' : '#00f0ff'}; margin-right: 2px;">
-                <span style="font-size: 14px;">${isFilleted ? '╭' : '◰'}</span>
-            </div>
-            <button type="button" class="quick-pill-sharp" style="
-                padding: 4px 10px;
-                border-radius: 9999px;
+            <button type="button" class="quick-pill-sharp" title="Reset to Sharp Corner" style="
+                padding: 2.5px 7px;
+                border-radius: 6px;
                 border: 1px solid;
-                font-size: 11px;
-                font-weight: 700;
+                font-size: 10.5px;
+                font-weight: 600;
                 cursor: pointer;
-                transition: all 0.15s ease;
+                transition: all 0.12s ease;
                 outline: none;
+                white-space: nowrap;
+                line-height: 1;
+                min-height: 22px;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
                 ${sharpStyle}
             ">◰ Sharp</button>
             ${presetsHtml}
-            <div style="width: 1px; height: 16px; background: rgba(255, 255, 255, 0.2); margin: 0 2px;"></div>
-            <div style="display: flex; align-items: center; gap: 4px; font-size: 11px; color: #94a3b8;">
-                <span>R:</span>
+            <div style="width: 1px; height: 14px; background: #e2e8f0; margin: 0 1px;"></div>
+            <div style="display: inline-flex; align-items: center; gap: 3px; font-size: 10.5px; color: #64748b; white-space: nowrap; line-height: 1;">
+                <span style="font-weight: 700; color: #475569;">R:</span>
                 <input type="number" class="quick-pill-input" min="20" max="${maxR}" step="5" value="${curRadius || 80}" style="
-                    width: 46px;
-                    padding: 3px 5px;
-                    border-radius: 6px;
-                    border: 1px solid rgba(255, 255, 255, 0.2);
-                    background: rgba(0, 0, 0, 0.45);
-                    color: #ffffff;
-                    font-size: 11px;
-                    font-weight: 700;
+                    width: 36px;
+                    height: 22px;
+                    padding: 0 2px;
+                    border-radius: 5px;
+                    border: 1px solid #cbd5e1;
+                    background: #ffffff;
+                    color: #0f172a;
+                    font-size: 10.5px;
+                    font-weight: 600;
                     text-align: center;
                     outline: none;
+                    box-sizing: border-box;
                 " />
-                <span>cm</span>
+                <span style="font-size: 9.5px; color: #94a3b8;">cm</span>
             </div>
             <button type="button" class="quick-pill-close" title="Close" style="
-                background: transparent;
-                border: none;
-                color: #94a3b8;
-                font-size: 13px;
-                padding: 2px 6px;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                width: 20px;
+                height: 20px;
+                border-radius: 6px;
+                border: 1px solid #e2e8f0;
+                background: #f8fafc;
+                color: #64748b;
+                font-size: 10px;
+                font-weight: 800;
                 cursor: pointer;
                 line-height: 1;
-                margin-left: 2px;
-                border-radius: 50%;
+                margin-left: 1px;
+                padding: 0;
+                transition: all 0.12s ease;
             ">✕</button>
         `;
 
@@ -324,6 +348,8 @@ export class WallCornerFilletGizmo extends THREE.Group {
 
         const closeBtn = this.domQuickPill.querySelector('.quick-pill-close');
         if (closeBtn) {
+            closeBtn.onmouseenter = () => { closeBtn.style.background = '#fee2e2'; closeBtn.style.color = '#ef4444'; closeBtn.style.borderColor = '#fca5a5'; };
+            closeBtn.onmouseleave = () => { closeBtn.style.background = '#f8fafc'; closeBtn.style.color = '#64748b'; closeBtn.style.borderColor = '#e2e8f0'; };
             closeBtn.onclick = (e) => {
                 e.stopPropagation();
                 this.detach();

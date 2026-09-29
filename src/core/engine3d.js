@@ -34,6 +34,7 @@ import { FloorSlabEngine } from './floor/FloorSlabEngine.js';
 export class Preview3D {
     constructor(containerEl) {
         this.container = containerEl;
+        this.viewMode = '2d';
         this.renderCoordinator = new RenderCoordinator(this);
 
         this.scene = new THREE.Scene();
@@ -401,6 +402,18 @@ export class Preview3D {
             if (this.renderer) this.renderer.setSize(w, h); 
             if (this.css2DRenderer) this.css2DRenderer.setSize(w, h);
             this.requestRender('window_resize');
+        }
+    }
+
+    setViewMode(mode) {
+        this.viewMode = mode;
+        if (mode === '2d') {
+            if (this.interactions && typeof this.interactions.hideAllPlacementGhosts === 'function') {
+                this.interactions.hideAllPlacementGhosts();
+            }
+            if (this.interactions && typeof this.interactions.deselect === 'function') {
+                this.interactions.deselect();
+            }
         }
     }
 

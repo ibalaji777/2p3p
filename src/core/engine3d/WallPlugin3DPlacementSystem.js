@@ -113,52 +113,55 @@ export class WallPlugin3DPlacementSystem {
             bottom: 24px;
             left: 50%;
             transform: translateX(-50%);
-            background: rgba(15, 23, 42, 0.94);
-            backdrop-filter: blur(14px);
-            -webkit-backdrop-filter: blur(14px);
-            border: 1px solid rgba(0, 240, 255, 0.45);
-            box-shadow: 0 14px 36px rgba(0, 0, 0, 0.7), 0 0 16px rgba(0, 240, 255, 0.2);
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(226, 232, 240, 0.95);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08), 0 2px 6px rgba(0, 0, 0, 0.04);
             border-radius: 9999px;
-            padding: 6px 14px;
-            color: #f1f5f9;
-            font-family: 'Inter', system-ui, -apple-system, sans-serif;
-            font-size: 12px;
+            padding: 4px 12px;
+            color: #0f172a;
+            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', 'Segoe UI', Roboto, sans-serif;
+            font-size: 11.5px;
             font-weight: 600;
             z-index: 995;
             user-select: none;
             -webkit-user-select: none;
             touch-action: manipulation;
             transition: all 0.15s ease;
+            max-width: min(calc(100vw - 24px), 520px);
+            overflow-x: auto;
+            scrollbar-width: none;
         `;
 
         this.badgeDom.innerHTML = `
             <div style="display: flex; align-items: center; gap: 8px; white-space: nowrap;">
-                <div style="display: flex; align-items: center; gap: 6px;">
-                    <span id="wall-ui-dot" style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #00f0ff; box-shadow: 0 0 8px #00f0ff;"></span>
-                    <span id="wall-ui-title" style="color: #38bdf8; font-weight: 700; font-size: 12px;">Door / Window</span>
-                    <span id="wall-ui-level-badge" style="background: rgba(56, 189, 248, 0.18); border: 1px solid rgba(56, 189, 248, 0.5); color: #38bdf8; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px; display: none;">FLOOR</span>
+                <div style="display: flex; align-items: center; gap: 5px;">
+                    <span id="wall-ui-dot" style="display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: #10b981;"></span>
+                    <span id="wall-ui-title" style="color: #0f172a; font-weight: 700; font-size: 11.5px;">Door / Window</span>
+                    <span id="wall-ui-level-badge" style="background: #eff6ff; border: 1px solid #bfdbfe; color: #2563eb; font-size: 9.5px; font-weight: 700; padding: 1px 5px; border-radius: 4px; display: none;">FLOOR</span>
                 </div>
                 
-                <div style="width: 1px; height: 20px; background: rgba(255, 255, 255, 0.15);"></div>
+                <div style="width: 1px; height: 16px; background: #e2e8f0;"></div>
 
-                <div id="wall-ui-specs" style="color: #cbd5e1; font-size: 11px; font-weight: 500;">
+                <div id="wall-ui-specs" style="color: #64748b; font-size: 11px; font-weight: 500;">
                     120 cm ← → 180 cm
                 </div>
-                <span id="wall-ui-side" style="color: #94a3b8; font-size: 11px;">Face: <strong id="wall-ui-facetxt" style="color: #38bdf8;">FRONT</strong></span>
+                <span id="wall-ui-side" style="color: #94a3b8; font-size: 11px;">Face: <strong id="wall-ui-facetxt" style="color: #2563eb;">FRONT</strong></span>
 
-                <div style="width: 1px; height: 20px; background: rgba(255, 255, 255, 0.15);"></div>
+                <div style="width: 1px; height: 16px; background: #e2e8f0;"></div>
 
-                <div style="display: flex; align-items: center; gap: 5px;">
-                    <button id="wall-ui-btn-scope" type="button" style="display: none; align-items: center; justify-content: center; gap: 3px; background: rgba(147, 51, 234, 0.22); border: 1px solid #a855f7; color: #c084fc; border-radius: 8px; padding: 5px 8px; font-size: 11px; font-weight: 700; cursor: pointer; min-height: 30px;">
+                <div style="display: flex; align-items: center; gap: 4px;">
+                    <button id="wall-ui-btn-scope" type="button" style="display: none; align-items: center; justify-content: center; gap: 3px; background: #faf5ff; border: 1px solid #e9d5ff; color: #9333ea; border-radius: 6px; padding: 4px 7px; font-size: 11px; font-weight: 600; cursor: pointer; min-height: 26px;">
                         ⎘ Single Wall
                     </button>
-                    <button id="wall-ui-btn-flip" type="button" title="Flip Face (Key: F / Tab)" style="display: inline-flex; align-items: center; justify-content: center; gap: 4px; background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(255, 255, 255, 0.12); color: #f1f5f9; border-radius: 8px; padding: 5px 10px; font-size: 12px; font-weight: 600; cursor: pointer; min-height: 30px;">
+                    <button id="wall-ui-btn-flip" type="button" title="Flip Face (Key: F / Tab)" style="display: inline-flex; align-items: center; justify-content: center; gap: 4px; background: #f8fafc; border: 1px solid #e2e8f0; color: #1e293b; border-radius: 6px; padding: 4px 8px; font-size: 11.5px; font-weight: 600; cursor: pointer; min-height: 26px; transition: background 0.12s ease;">
                         ⇄ Flip Face
                     </button>
-                    <button id="wall-ui-btn-place" type="button" title="Confirm Placement (Key: Enter / Space)" style="display: inline-flex; align-items: center; justify-content: center; gap: 4px; background: #22c55e; border: none; color: #0f172a; border-radius: 8px; padding: 5px 12px; font-size: 12px; font-weight: 700; cursor: pointer; min-height: 30px;">
+                    <button id="wall-ui-btn-place" type="button" title="Confirm Placement (Key: Enter / Space)" style="display: inline-flex; align-items: center; justify-content: center; gap: 4px; background: #10b981; border: none; color: #ffffff; border-radius: 6px; padding: 4px 10px; font-size: 11.5px; font-weight: 700; cursor: pointer; min-height: 26px; box-shadow: 0 1px 4px rgba(16, 185, 129, 0.3); transition: background 0.12s ease;">
                         ✓ Place
                     </button>
-                    <button id="wall-ui-btn-cancel" type="button" title="Cancel Placement (Key: Esc)" style="display: inline-flex; align-items: center; justify-content: center; background: rgba(255, 255, 255, 0.1); border: none; color: #94a3b8; border-radius: 50%; width: 28px; height: 28px; font-size: 12px; font-weight: 700; cursor: pointer;">
+                    <button id="wall-ui-btn-cancel" type="button" title="Cancel Placement (Key: Esc)" style="display: inline-flex; align-items: center; justify-content: center; background: #f1f5f9; border: 1px solid #e2e8f0; color: #64748b; border-radius: 50%; width: 24px; height: 24px; font-size: 11px; font-weight: 700; cursor: pointer; transition: all 0.12s ease;">
                         ✕
                     </button>
                 </div>
@@ -318,7 +321,26 @@ export class WallPlugin3DPlacementSystem {
         }
     }
 
+    is3DView() {
+        if (this.ctx?.viewMode === '2d' || this.ctx?.preview3D?.viewMode === '2d') return false;
+        const planner = this.getPlanner();
+        if (planner?.viewMode === '2d') return false;
+
+        const container = this.ctx?.container || this.ctx?.renderer?.domElement?.parentElement;
+        if (container && (container.classList?.contains('inactive-canvas') || (!container.classList?.contains('active-canvas') && container.classList?.contains('canvas-3d')))) {
+            return false;
+        }
+
+        if (typeof document !== 'undefined') {
+            const inactive3D = document.querySelector('.canvas-host.canvas-3d.inactive-canvas');
+            if (inactive3D) return false;
+        }
+
+        return true;
+    }
+
     isPlacementTool() {
+        if (!this.is3DView()) return false;
         const planner = this.getPlanner();
         if (!planner) return false;
         const tool = planner.tool;
@@ -893,14 +915,14 @@ export class WallPlugin3DPlacementSystem {
         const toolLabel = WIDGET_REGISTRY[tool]?.label || MOLDING_REGISTRY[tool]?.label || tool.toUpperCase().replace(/_/g, ' ');
         const distFromStart = Math.round(t * wallLen);
         const distFromEnd = Math.round((1 - t) * wallLen);
-        const statusColor = isValid ? '#00f0ff' : '#ef4444';
+        const statusColor = isValid ? '#10b981' : '#ef4444';
         const statusText = (isMolding || isElevationTrim) 
             ? `Full Length ${Math.round(wallLen)} cm` 
             : (isValid ? `${distFromStart} cm ← → ${distFromEnd} cm` : 'Space Occupied');
 
         if (this.elDot) {
             this.elDot.style.background = statusColor;
-            this.elDot.style.boxShadow = `0 0 10px ${statusColor}`;
+            this.elDot.style.boxShadow = `0 0 6px ${statusColor}`;
         }
         if (this.elTitle) this.elTitle.textContent = toolLabel;
         if (this.elFaceTxt) this.elFaceTxt.textContent = side.toUpperCase();
@@ -912,7 +934,7 @@ export class WallPlugin3DPlacementSystem {
         this.badgeDom.style.bottom = isMobileScreen ? '74px' : '24px';
         this.badgeDom.style.transform = 'translateX(-50%)';
 
-        this.badgeDom.style.borderColor = statusColor;
+        this.badgeDom.style.borderColor = isValid ? 'rgba(226, 232, 240, 0.95)' : '#fca5a5';
         this.badgeDom.style.display = 'block';
 
         dom.style.cursor = isValid ? 'crosshair' : 'not-allowed';

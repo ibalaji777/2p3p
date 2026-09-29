@@ -775,9 +775,33 @@ onMounted(() => {
 
     renderer3D.value = new Preview3D(canvasWorkspaceRef.value.canvas3D);
     window.renderer3D = renderer3D.value;
+    if (typeof renderer3D.value.setViewMode === 'function') {
+        renderer3D.value.setViewMode(viewMode.value);
+    } else {
+        renderer3D.value.viewMode = viewMode.value;
+    }
+    if (viewMode.value === '2d') {
+        renderer3D.value.interactions?.cancelRelocation?.();
+        renderer3D.value.interactions?.hideAllPlacementGhosts?.();
+        if (typeof document !== 'undefined') {
+            const stairBadge = document.getElementById('sims4-stair-placement-badge');
+            if (stairBadge) stairBadge.style.display = 'none';
+            const furnBadge = document.getElementById('sims4-furniture-placement-badge');
+            if (furnBadge) furnBadge.style.display = 'none';
+            const wallPluginBadge = document.getElementById('wall-plugin-placement-badge') || document.querySelector('.sims4-wall-plugin-hud');
+            if (wallPluginBadge) wallPluginBadge.style.display = 'none';
+            const stairHud = document.querySelector('.sims4-staircase-3d-hud');
+            if (stairHud) stairHud.style.display = 'none';
+            const wallHud = document.querySelector('.sims4-wall-3d-hud');
+            if (wallHud) wallHud.style.display = 'none';
+            const wallConfirm = document.querySelector('.sims4-wall-confirm-bar');
+            if (wallConfirm) wallConfirm.style.display = 'none';
+        }
+    }
     if (planner.value) {
         planner.value.renderer3D = renderer3D.value;
         planner.value.engine3d = renderer3D.value;
+        planner.value.viewMode = viewMode.value;
         renderer3D.value.planner = planner.value;
         window.plannerInstance = planner.value;
     }
@@ -1000,19 +1024,75 @@ watch(() => selectedEntity.value?.params?.isEditingMaterials, (newVal) => {
     }
 });
 
+watch(viewMode, (newMode) => {
+    if (renderer3D.value) {
+        if (typeof renderer3D.value.setViewMode === 'function') {
+            renderer3D.value.setViewMode(newMode);
+        } else {
+            renderer3D.value.viewMode = newMode;
+        }
+        if (newMode === '2d') {
+            renderer3D.value.interactions?.cancelRelocation?.();
+            renderer3D.value.interactions?.hideAllPlacementGhosts?.();
+            if (typeof document !== 'undefined') {
+                const stairBadge = document.getElementById('sims4-stair-placement-badge');
+                if (stairBadge) stairBadge.style.display = 'none';
+                const furnBadge = document.getElementById('sims4-furniture-placement-badge');
+                if (furnBadge) furnBadge.style.display = 'none';
+                const wallPluginBadge = document.getElementById('wall-plugin-placement-badge') || document.querySelector('.sims4-wall-plugin-hud');
+                if (wallPluginBadge) wallPluginBadge.style.display = 'none';
+                const stairHud = document.querySelector('.sims4-staircase-3d-hud');
+                if (stairHud) stairHud.style.display = 'none';
+                const wallHud = document.querySelector('.sims4-wall-3d-hud');
+                if (wallHud) wallHud.style.display = 'none';
+                const wallConfirm = document.querySelector('.sims4-wall-confirm-bar');
+                if (wallConfirm) wallConfirm.style.display = 'none';
+            }
+        }
+    }
+    if (planner.value) {
+        planner.value.viewMode = newMode;
+    }
+}, { immediate: true });
+
 const switchTo2D = () => {
     const prevSel = selectedEntity.value;
     const prevType = selectedType.value;
-    if (renderer3D.value?.interactions) {
-        renderer3D.value.interactions.cancelRelocation();
+    viewMode.value = '2d';
+    if (renderer3D.value) {
+        if (typeof renderer3D.value.setViewMode === 'function') {
+            renderer3D.value.setViewMode('2d');
+        } else {
+            renderer3D.value.viewMode = '2d';
+        }
+        if (renderer3D.value.interactions) {
+            renderer3D.value.interactions.cancelRelocation();
+            if (typeof renderer3D.value.interactions.hideAllPlacementGhosts === 'function') {
+                renderer3D.value.interactions.hideAllPlacementGhosts();
+            }
+        }
+        if (typeof document !== 'undefined') {
+            const stairBadge = document.getElementById('sims4-stair-placement-badge');
+            if (stairBadge) stairBadge.style.display = 'none';
+            const furnBadge = document.getElementById('sims4-furniture-placement-badge');
+            if (furnBadge) furnBadge.style.display = 'none';
+            const wallPluginBadge = document.getElementById('wall-plugin-placement-badge') || document.querySelector('.sims4-wall-plugin-hud');
+            if (wallPluginBadge) wallPluginBadge.style.display = 'none';
+            const stairHud = document.querySelector('.sims4-staircase-3d-hud');
+            if (stairHud) stairHud.style.display = 'none';
+            const wallHud = document.querySelector('.sims4-wall-3d-hud');
+            if (wallHud) wallHud.style.display = 'none';
+            const wallConfirm = document.querySelector('.sims4-wall-confirm-bar');
+            if (wallConfirm) wallConfirm.style.display = 'none';
+        }
     }
     if (planner.value) {
+        planner.value.viewMode = '2d';
         planner.value.syncAll();
         if (prevSel) {
             planner.value.selectEntity(prevSel, prevType);
         }
     }
-    viewMode.value = '2d';
 };
 
 const switchTo3D = () => {

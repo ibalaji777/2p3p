@@ -74,19 +74,19 @@ export class RoofPlugin3DPlacementSystem {
             display: none;
             pointer-events: none;
             transform: translate(-50%, -100%);
-            padding: 6px 14px;
-            border-radius: 16px;
-            background: rgba(15, 23, 42, 0.94);
-            border: 1.5px solid #38bdf8;
-            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.6), 0 0 14px rgba(56, 189, 248, 0.35);
-            color: #ffffff;
-            font-family: 'Inter', -apple-system, sans-serif;
-            font-size: 13px;
+            padding: 5px 12px;
+            border-radius: 9999px;
+            background: rgba(255, 255, 255, 0.96);
+            border: 1px solid rgba(226, 232, 240, 0.95);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08), 0 2px 6px rgba(0, 0, 0, 0.04);
+            color: #0f172a;
+            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', 'Segoe UI', Roboto, sans-serif;
+            font-size: 11.5px;
             font-weight: 700;
-            letter-spacing: 0.4px;
+            letter-spacing: 0.2px;
             white-space: nowrap;
             z-index: 99999;
-            backdrop-filter: blur(10px);
+            backdrop-filter: blur(16px);
             user-select: none;
         `;
         const container = this.ctx.renderer?.domElement?.parentElement || document.body;
@@ -95,7 +95,7 @@ export class RoofPlugin3DPlacementSystem {
 
     _updateDOMBadge(text, screenPos) {
         if (!this.domBadge) return;
-        if (!text || !screenPos) {
+        if (!this.is3DView() || !text || !screenPos) {
             this.domBadge.style.display = 'none';
             return;
         }
@@ -109,11 +109,30 @@ export class RoofPlugin3DPlacementSystem {
         if (this.domBadge) this.domBadge.style.display = 'none';
     }
 
+    is3DView() {
+        if (this.ctx?.viewMode === '2d' || this.ctx?.preview3D?.viewMode === '2d') return false;
+        const planner = this.getPlanner();
+        if (planner?.viewMode === '2d') return false;
+
+        const container = this.ctx?.container || this.ctx?.renderer?.domElement?.parentElement;
+        if (container && (container.classList?.contains('inactive-canvas') || (!container.classList?.contains('active-canvas') && container.classList?.contains('canvas-3d')))) {
+            return false;
+        }
+
+        if (typeof document !== 'undefined') {
+            const inactive3D = document.querySelector('.canvas-host.canvas-3d.inactive-canvas');
+            if (inactive3D) return false;
+        }
+
+        return true;
+    }
+
     getPlanner() {
         return this.ctx.planner || window.planner?.value || window.planner || (this.ctx.appState && this.ctx.appState.planner) || window.plannerInstance;
     }
 
     isPlacementTool() {
+        if (!this.is3DView()) return false;
         const planner = this.getPlanner();
         const tool = planner?.tool || planner?.activeTool || this.ctx?.activeTool;
         const preset = planner?.activePresetParams || this.ctx?.activePresetParams;

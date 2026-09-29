@@ -763,84 +763,187 @@ export class WallPushPullGizmo extends THREE.Group {
             position: absolute;
             display: none;
             transform: translate(-50%, -100%);
-            padding: 6px 14px;
-            border-radius: 9999px;
-            background: rgba(15, 23, 42, 0.92);
-            border: 1.5px solid rgba(56, 189, 248, 0.5);
-            box-shadow: 0 12px 32px rgba(0, 0, 0, 0.7), 0 0 20px rgba(56, 189, 248, 0.3);
-            color: #ffffff;
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            font-size: 12px;
-            font-weight: 700;
-            white-space: nowrap;
+            flex-direction: column;
+            align-items: center;
+            gap: 3px;
+            color: #0f172a;
+            font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', Roboto, sans-serif;
+            font-size: 10.5px;
+            font-weight: 600;
             z-index: 10001;
             user-select: none;
-            gap: 6px;
-            align-items: center;
-            backdrop-filter: blur(16px);
-            -webkit-backdrop-filter: blur(16px);
+            -webkit-user-select: none;
             pointer-events: auto;
-            max-width: calc(100vw - 24px);
+            width: fit-content;
+            max-width: min(calc(100vw - 24px), 380px);
             box-sizing: border-box;
-            flex-wrap: wrap;
+            background: transparent;
+            line-height: 1;
         `;
 
-        this.domBadge = document.createElement('span');
-        this.domBadge.style.cssText = `
-            color: #38bdf8;
-            font-weight: 700;
-            font-size: 12px;
-            padding-right: 4px;
+        // Top Header Line: Badge + Fixed Close Button
+        const headerRow = document.createElement('div');
+        headerRow.style.cssText = `
+            display: flex;
+            align-items: center;
+            gap: 3px;
+            align-self: flex-end;
+            width: fit-content;
+            background: transparent;
+            padding: 0 1px 1px 0;
+            box-sizing: border-box;
+            flex-shrink: 0;
         `;
-        this.domConfirmBar.appendChild(this.domBadge);
+
+        this.domBadge = document.createElement('div');
+        this.domBadge.className = 'sims4-pushpull-badge';
+        this.domBadge.style.cssText = `
+            display: inline-flex;
+            align-items: center;
+            gap: 3px;
+            font-size: 9.5px;
+            font-weight: 700;
+            color: #334155;
+            background: rgba(255, 255, 255, 0.96);
+            border: 1px solid rgba(226, 232, 240, 0.95);
+            border-radius: 6px;
+            padding: 2.5px 6px;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            white-space: nowrap;
+            flex-shrink: 0;
+            line-height: 1;
+        `;
+        headerRow.appendChild(this.domBadge);
+
+        const btnHeaderClose = document.createElement('button');
+        btnHeaderClose.textContent = '✕';
+        btnHeaderClose.title = 'Cancel extrusion (Esc)';
+        btnHeaderClose.style.cssText = `
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 20px;
+            height: 20px;
+            min-height: 20px;
+            border-radius: 6px;
+            border: 1px solid rgba(226, 232, 240, 0.95);
+            background: rgba(255, 255, 255, 0.96);
+            color: #64748b;
+            font-size: 10px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.12s ease;
+            outline: none;
+            padding: 0;
+            line-height: 1;
+            flex-shrink: 0;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+        `;
+        btnHeaderClose.onmouseenter = () => {
+            btnHeaderClose.style.background = '#fee2e2';
+            btnHeaderClose.style.borderColor = '#fecaca';
+            btnHeaderClose.style.color = '#dc2626';
+        };
+        btnHeaderClose.onmouseleave = () => {
+            btnHeaderClose.style.background = 'rgba(255, 255, 255, 0.96)';
+            btnHeaderClose.style.borderColor = 'rgba(226, 232, 240, 0.95)';
+            btnHeaderClose.style.color = '#64748b';
+        };
+        btnHeaderClose.onclick = (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            this.cancel();
+        };
+        headerRow.appendChild(btnHeaderClose);
+
+        this.domConfirmBar.appendChild(headerRow);
+
+        // Controls Card
+        const controlsCard = document.createElement('div');
+        controlsCard.style.cssText = `
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 3px;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(226, 232, 240, 0.95);
+            border-radius: 10px;
+            padding: 3px 6px;
+            box-shadow: 0 10px 25px -4px rgba(15, 23, 42, 0.12), 0 2px 6px -1px rgba(15, 23, 42, 0.04);
+            width: fit-content;
+            align-self: center;
+            box-sizing: border-box;
+            white-space: nowrap;
+            flex-shrink: 0;
+        `;
 
         const btnCancel = document.createElement('button');
         btnCancel.textContent = '✕ Cancel';
         btnCancel.title = 'Cancel extrusion and revert (Esc)';
         btnCancel.style.cssText = `
-            padding: 5px 12px;
-            border-radius: 9999px;
-            border: 1px solid rgba(239, 68, 68, 0.6);
-            background: rgba(239, 68, 68, 0.15);
-            color: #fca5a5;
-            font-size: 11px;
-            font-weight: 800;
+            padding: 2.5px 7px;
+            border-radius: 6px;
+            border: 1px solid #fecaca;
+            background: #fef2f2;
+            color: #dc2626;
+            font-size: 10.5px;
+            font-weight: 700;
             cursor: pointer;
-            transition: all 0.15s ease;
-            min-height: 28px;
+            transition: all 0.12s ease;
+            min-height: 22px;
+            touch-action: manipulation;
+            line-height: 1;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            outline: none;
         `;
-        btnCancel.onmouseenter = () => { btnCancel.style.background = '#ef4444'; btnCancel.style.color = '#ffffff'; };
-        btnCancel.onmouseleave = () => { btnCancel.style.background = 'rgba(239, 68, 68, 0.15)'; btnCancel.style.color = '#fca5a5'; };
+        btnCancel.onmouseenter = () => { btnCancel.style.background = '#fee2e2'; btnCancel.style.borderColor = '#f87171'; };
+        btnCancel.onmouseleave = () => { btnCancel.style.background = '#fef2f2'; btnCancel.style.borderColor = '#fecaca'; };
         btnCancel.onclick = (e) => {
             e.preventDefault();
             e.stopPropagation();
             this.cancel();
         };
-        this.domConfirmBar.appendChild(btnCancel);
+        controlsCard.appendChild(btnCancel);
 
         const btnDone = document.createElement('button');
         btnDone.textContent = '✓ Done';
         btnDone.title = 'Apply solid extrusion to wall (Enter)';
         btnDone.style.cssText = `
-            padding: 5px 14px;
-            border-radius: 9999px;
-            border: 1px solid rgba(16, 185, 129, 0.7);
-            background: rgba(16, 185, 129, 0.25);
-            color: #6ee7b7;
-            font-size: 11px;
-            font-weight: 800;
+            padding: 2.5px 8px;
+            border-radius: 6px;
+            border: 1px solid #bbf7d0;
+            background: #f0fdf4;
+            color: #15803d;
+            font-size: 10.5px;
+            font-weight: 700;
             cursor: pointer;
-            transition: all 0.15s ease;
-            min-height: 28px;
+            transition: all 0.12s ease;
+            min-height: 22px;
+            touch-action: manipulation;
+            line-height: 1;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            outline: none;
         `;
-        btnDone.onmouseenter = () => { btnDone.style.background = '#10b981'; btnDone.style.color = '#ffffff'; };
-        btnDone.onmouseleave = () => { btnDone.style.background = 'rgba(16, 185, 129, 0.25)'; btnDone.style.color = '#6ee7b7'; };
+        btnDone.onmouseenter = () => { btnDone.style.background = '#dcfce7'; btnDone.style.borderColor = '#86efac'; };
+        btnDone.onmouseleave = () => { btnDone.style.background = '#f0fdf4'; btnDone.style.borderColor = '#bbf7d0'; };
         btnDone.onclick = (e) => {
             e.preventDefault();
             e.stopPropagation();
             this.commit();
         };
-        this.domConfirmBar.appendChild(btnDone);
+        controlsCard.appendChild(btnDone);
+
+        this.domConfirmBar.appendChild(controlsCard);
 
         const container = this.ctx.renderer?.domElement?.parentElement || document.body;
         container.appendChild(this.domConfirmBar);
@@ -1440,16 +1543,18 @@ export class WallPushPullGizmo extends THREE.Group {
 
         let statusText = '';
         if (depthText) {
-            statusText = `${depthText} · 📏 W: ${selW} cm · H: ${selH} cm · Elev: ${selElev} cm`;
+            statusText = `${depthText} • ${selW}×${selH} cm (Elev: ${selElev})`;
         } else if (extrudeD > 0) {
-            statusText = `🧱 Solid Block: +${extrudeD} cm · 📏 W: ${selW} cm · H: ${selH} cm · Elev: ${selElev} cm`;
+            statusText = `🧱 Solid Block: +${extrudeD} cm • ${selW}×${selH} cm (Elev: ${selElev})`;
         } else if (extrudeD < 0) {
-            statusText = `🪟 Niche: ${extrudeD} cm · 📏 W: ${selW} cm · H: ${selH} cm · Elev: ${selElev} cm`;
+            statusText = `🪟 Niche: ${extrudeD} cm • ${selW}×${selH} cm (Elev: ${selElev})`;
         } else if (!isSubRegion && this.mode === 'thickness') {
-            statusText = `🧱 Thickness: ${wallT} cm (Baseline: ${this.initialThickness} cm) · 📏 Length: ${Math.round(wallLen)} cm`;
+            statusText = `🧱 Thickness: ${wallT} cm • L: ${Math.round(wallLen)} cm`;
         } else {
-            statusText = `📏 Width: ${selW} cm · Height: ${selH} cm · Elev: ${selElev} cm`;
+            statusText = `📏 ${selW}×${selH} cm (Elev: ${selElev})`;
         }
+
+        const isMobile = (typeof window !== 'undefined' && window.innerWidth <= 768);
 
         const suite = this.ctx.interactions?.wallInteractiveSuite;
         if (suite && suite.confirmStatusBadge && (suite.activeMode === 'push_pull' || suite.activeMode === 'extrude_recess')) {
@@ -1458,8 +1563,14 @@ export class WallPushPullGizmo extends THREE.Group {
                 const dom = this.ctx.renderer.domElement;
                 if (dom) {
                     const rect = dom.getBoundingClientRect();
-                    const screenX = rect.left + rect.width / 2;
-                    const screenY = rect.top + 24;
+                    const hudW = suite.domConfirmBar.offsetWidth || 240;
+                    let screenX = rect.left + rect.width / 2;
+                    const minScreenX = rect.left + 12 + hudW / 2;
+                    const maxScreenX = (rect.right || (rect.left + rect.width)) - 12 - hudW / 2;
+                    if (maxScreenX >= minScreenX) {
+                        screenX = Math.max(minScreenX, Math.min(maxScreenX, screenX));
+                    }
+                    const screenY = rect.top + (isMobile ? 64 : 52);
                     suite.domConfirmBar.style.left = `${screenX}px`;
                     suite.domConfirmBar.style.top = `${screenY}px`;
                     suite.domConfirmBar.style.transform = 'translate(-50%, 0)';
@@ -1474,8 +1585,14 @@ export class WallPushPullGizmo extends THREE.Group {
         const dom = this.ctx.renderer.domElement;
         if (!dom) return;
         const rect = dom.getBoundingClientRect();
-        const screenX = rect.left + rect.width / 2;
-        const screenY = rect.top + 24;
+        const hudW = this.domConfirmBar.offsetWidth || 240;
+        let screenX = rect.left + rect.width / 2;
+        const minScreenX = rect.left + 12 + hudW / 2;
+        const maxScreenX = (rect.right || (rect.left + rect.width)) - 12 - hudW / 2;
+        if (maxScreenX >= minScreenX) {
+            screenX = Math.max(minScreenX, Math.min(maxScreenX, screenX));
+        }
+        const screenY = rect.top + (isMobile ? 64 : 52);
 
         if (this.domBadge) this.domBadge.textContent = statusText;
         this.domConfirmBar.style.left = `${screenX}px`;

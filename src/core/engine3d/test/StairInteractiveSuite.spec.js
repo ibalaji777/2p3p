@@ -293,4 +293,40 @@ describe('StairInteractiveSuite - Sims 4 Advanced Staircase Controls', () => {
             expect(suite.handlesGroup.visible).toBe(true);
         });
     });
+
+    describe('9. Compact Mobile HUD, Clamping & Tooltips', () => {
+        it('should dock delete button in header and attach tooltips to interactive elements', () => {
+            expect(suite.btnDelete).toBeDefined();
+            expect(suite.tooltip).toBeDefined();
+
+            // Test tooltip display and hide
+            suite._showTooltip('Test Tooltip', 200, 300, 'Subtitle detail');
+            expect(suite.tooltip.style.display).toBe('block');
+            expect(suite.tooltip.innerHTML).toContain('Test Tooltip');
+            expect(suite.tooltip.innerHTML).toContain('Subtitle detail');
+
+            suite._hideTooltip();
+            expect(suite.tooltip.style.display).toBe('none');
+
+            // Micro-feedback
+            suite._showMicroFeedback('Width: 120 cm', 200, 300);
+            expect(suite.tooltip.style.display).toBe('block');
+            expect(suite.tooltip.innerHTML).toContain('Width: 120 cm');
+        });
+
+        it('should safely clamp HUD coordinates and flip below when upper headroom is tight', () => {
+            suite.attach(stairGroup);
+
+            // Test projection when staircase is at extreme top
+            const topWorldPos = new THREE.Vector3(0, 1000, 0);
+            suite._updateHUDPosition(topWorldPos);
+
+            const leftPx = parseFloat(suite.domHUD.style.left);
+            const topPx = parseFloat(suite.domHUD.style.top);
+
+            expect(leftPx).toBeGreaterThan(0);
+            expect(topPx).toBeGreaterThan(0);
+            expect(suite.domHUD.style.display).toBe('flex');
+        });
+    });
 });

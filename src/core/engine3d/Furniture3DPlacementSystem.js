@@ -86,48 +86,51 @@ export class Furniture3DPlacementSystem {
             bottom: 24px;
             left: 50%;
             transform: translateX(-50%);
-            background: rgba(15, 23, 42, 0.94);
-            backdrop-filter: blur(14px);
-            -webkit-backdrop-filter: blur(14px);
-            border: 1px solid rgba(0, 240, 255, 0.45);
-            box-shadow: 0 14px 36px rgba(0, 0, 0, 0.7), 0 0 16px rgba(0, 240, 255, 0.2);
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(226, 232, 240, 0.95);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08), 0 2px 6px rgba(0, 0, 0, 0.04);
             border-radius: 9999px;
-            padding: 6px 14px;
-            color: #f1f5f9;
-            font-family: 'Inter', system-ui, -apple-system, sans-serif;
-            font-size: 12px;
+            padding: 4px 12px;
+            color: #0f172a;
+            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', 'Segoe UI', Roboto, sans-serif;
+            font-size: 11.5px;
             font-weight: 600;
             z-index: 995;
             user-select: none;
             -webkit-user-select: none;
             touch-action: manipulation;
             transition: all 0.15s ease;
+            max-width: min(calc(100vw - 24px), 520px);
+            overflow-x: auto;
+            scrollbar-width: none;
         `;
 
         this.badgeDom.innerHTML = `
             <div style="display: flex; align-items: center; gap: 8px; white-space: nowrap;">
-                <div style="display: flex; align-items: center; gap: 6px;">
-                    <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #00f0ff; box-shadow: 0 0 8px #00f0ff;"></span>
-                    <span id="furn-ui-title" style="color: #38bdf8; font-weight: 700; font-size: 12px;">Furniture Item</span>
+                <div style="display: flex; align-items: center; gap: 5px;">
+                    <span style="display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: #10b981;"></span>
+                    <span id="furn-ui-title" style="color: #0f172a; font-weight: 700; font-size: 11.5px;">Furniture Item</span>
                 </div>
                 
-                <div style="width: 1px; height: 20px; background: rgba(255, 255, 255, 0.15);"></div>
+                <div style="width: 1px; height: 16px; background: #e2e8f0;"></div>
 
-                <div id="furn-ui-specs" style="color: #cbd5e1; font-size: 11px; font-weight: 500;">
+                <div id="furn-ui-specs" style="color: #64748b; font-size: 11px; font-weight: 500;">
                     1000 × 1000 × 800 mm
                 </div>
-                <span style="color: #94a3b8; font-size: 11px;">(<strong id="furn-ui-rot" style="color: #38bdf8;">0°</strong>)</span>
+                <span style="color: #94a3b8; font-size: 11px;">(<strong id="furn-ui-rot" style="color: #2563eb;">0°</strong>)</span>
 
-                <div style="width: 1px; height: 20px; background: rgba(255, 255, 255, 0.15);"></div>
+                <div style="width: 1px; height: 16px; background: #e2e8f0;"></div>
 
-                <div style="display: flex; align-items: center; gap: 5px;">
-                    <button id="furn-ui-btn-rot" type="button" title="Rotate (Key: R)" style="display: inline-flex; align-items: center; justify-content: center; gap: 4px; background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(255, 255, 255, 0.12); color: #f1f5f9; border-radius: 8px; padding: 5px 10px; font-size: 12px; font-weight: 600; cursor: pointer; min-height: 30px;">
+                <div style="display: flex; align-items: center; gap: 4px;">
+                    <button id="furn-ui-btn-rot" type="button" title="Rotate (Key: R)" style="display: inline-flex; align-items: center; justify-content: center; gap: 4px; background: #f8fafc; border: 1px solid #e2e8f0; color: #1e293b; border-radius: 6px; padding: 4px 8px; font-size: 11.5px; font-weight: 600; cursor: pointer; min-height: 26px; transition: background 0.12s ease;">
                         ↻ Rotate
                     </button>
-                    <button id="furn-ui-btn-place" type="button" title="Confirm Placement (Key: Enter / Space)" style="display: inline-flex; align-items: center; justify-content: center; gap: 4px; background: #22c55e; border: none; color: #0f172a; border-radius: 8px; padding: 5px 12px; font-size: 12px; font-weight: 700; cursor: pointer; min-height: 30px;">
+                    <button id="furn-ui-btn-place" type="button" title="Confirm Placement (Key: Enter / Space)" style="display: inline-flex; align-items: center; justify-content: center; gap: 4px; background: #10b981; border: none; color: #ffffff; border-radius: 6px; padding: 4px 10px; font-size: 11.5px; font-weight: 700; cursor: pointer; min-height: 26px; box-shadow: 0 1px 4px rgba(16, 185, 129, 0.3); transition: background 0.12s ease;">
                         ✓ Place
                     </button>
-                    <button id="furn-ui-btn-cancel" type="button" title="Cancel Placement (Key: Esc)" style="display: inline-flex; align-items: center; justify-content: center; background: rgba(255, 255, 255, 0.1); border: none; color: #94a3b8; border-radius: 50%; width: 28px; height: 28px; font-size: 12px; font-weight: 700; cursor: pointer;">
+                    <button id="furn-ui-btn-cancel" type="button" title="Cancel Placement (Key: Esc)" style="display: inline-flex; align-items: center; justify-content: center; background: #f1f5f9; border: 1px solid #e2e8f0; color: #64748b; border-radius: 50%; width: 24px; height: 24px; font-size: 11px; font-weight: 700; cursor: pointer; transition: all 0.12s ease;">
                         ✕
                     </button>
                 </div>
@@ -169,7 +172,26 @@ export class Furniture3DPlacementSystem {
         });
     }
 
+    is3DView() {
+        if (this.ctx?.viewMode === '2d' || this.ctx?.preview3D?.viewMode === '2d') return false;
+        const planner = this.getPlanner();
+        if (planner?.viewMode === '2d') return false;
+
+        const container = this.ctx?.container || this.ctx?.renderer?.domElement?.parentElement;
+        if (container && (container.classList?.contains('inactive-canvas') || (!container.classList?.contains('active-canvas') && container.classList?.contains('canvas-3d')))) {
+            return false;
+        }
+
+        if (typeof document !== 'undefined') {
+            const inactive3D = document.querySelector('.canvas-host.canvas-3d.inactive-canvas');
+            if (inactive3D) return false;
+        }
+
+        return true;
+    }
+
     isPlacementTool() {
+        if (!this.is3DView()) return false;
         const planner = this.getPlanner();
         if (!planner) return false;
         const tool = planner.tool;
@@ -377,6 +399,10 @@ export class Furniture3DPlacementSystem {
     }
 
     updateBadgeContent(pointerEvent = null) {
+        if (!this.is3DView()) {
+            this.hideGhost();
+            return;
+        }
         const planner = this.getPlanner();
         if (!planner) return;
 
