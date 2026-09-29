@@ -1,0 +1,84 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <!-- Crisp Modern Background -->
+  <rect width="512" height="512" rx="100" fill="#ffffff"/>
+  <rect width="508" height="508" x="2" y="2" rx="98" fill="none" stroke="#f1f5f9" stroke-width="4"/>
+
+  <!-- Zoho Color Palette Definitions -->
+  <!-- Red: #E42528 | Green: #008844 | Blue: #0073BC | Yellow: #F9B200 -->
+
+  <!-- 2D Ground Floor Plan / Blueprint Grid (Zoho Green #008844) -->
+  <g id="ground-blueprint" stroke="#008844" stroke-linecap="round" stroke-linejoin="round">
+    <!-- Outer Drafting Boundary Plane -->
+    <polygon points="120,320 256,400 392,320 256,240" fill="rgba(0, 136, 68, 0.05)" stroke-width="3.5" stroke-dasharray="8,6"/>
+    
+    <!-- Coordinate / Dimension Tick Marks -->
+    <line x1="120" y1="320" x2="105" y2="329" stroke-width="3"/>
+    <line x1="392" y1="320" x2="407" y2="329" stroke-width="3"/>
+    <line x1="256" y1="400" x2="256" y2="418" stroke-width="3"/>
+
+    <!-- Floor Plan Interior Wall Layout (2D Plan) -->
+    <polyline points="180,355 235,323 235,275" stroke-width="3"/>
+    <polyline points="235,323 310,367" stroke-width="3"/>
+    <!-- Door Swing Arc (2D Plan) -->
+    <path d="M 270,344 A 24,14 0 0,0 294,358" fill="none" stroke-width="2.5" stroke-dasharray="3,3"/>
+  </g>
+
+  <!-- 3D Isometric Architectural Cube -->
+  <g id="isometric-cube" stroke-linejoin="round">
+    <!-- Top Face (Zoho Yellow #F9B200) -->
+    <polygon points="256,90 380,162 256,234 132,162" 
+             fill="#F9B200" 
+             stroke="#E09E00" 
+             stroke-width="5"/>
+    <!-- Skylight / Roof Opening Detail -->
+    <polygon points="256,128 326,168 256,208 186,168" 
+             fill="#FFD54F" 
+             stroke="#E09E00" 
+             stroke-width="2.5"/>
+
+    <!-- Left Face (Zoho Red #E42528) -->
+    <polygon points="132,162 256,234 256,378 132,306" 
+             fill="#E42528" 
+             stroke="#C61B1E" 
+             stroke-width="5"/>
+    <!-- Architectural Aperture / Door Cutout in Red Face -->
+    <polygon points="164,242 224,277 224,360 164,325" 
+             fill="#FFFFFF" 
+             stroke="#C61B1E" 
+             stroke-width="3"/>
+
+    <!-- Right Face (Zoho Blue #0073BC) -->
+    <polygon points="256,234 380,162 380,306 256,378" 
+             fill="#0073BC" 
+             stroke="#005B96" 
+             stroke-width="5"/>
+    <!-- Architectural Window Opening in Blue Face -->
+    <polygon points="288,238 348,203 348,275 288,310" 
+             fill="#FFFFFF" 
+             stroke="#005B96" 
+             stroke-width="3"/>
+    <!-- Window Mullions (Crossbars) -->
+    <line x1="318" y1="220" x2="318" y2="292" stroke="#0073BC" stroke-width="2.5"/>
+    <line x1="288" y1="274" x2="348" y2="239" stroke="#0073BC" stroke-width="2.5"/>
+
+    <!-- Center Corner Seam -->
+    <line x1="256" y1="234" x2="256" y2="378" stroke="#FFFFFF" stroke-width="3.5" stroke-linecap="round"/>
+  </g>
+
+  <!-- Brand Typography -->
+  <text x="256" y="445" 
+        text-anchor="middle" 
+        font-family="system-ui, -apple-system, 'Inter', sans-serif" 
+        font-weight="900" 
+        font-size="44" 
+        letter-spacing="2">
+    <tspan fill="#E42528">2</tspan><tspan fill="#F9B200">P</tspan><tspan fill="#0073BC">3</tspan><tspan fill="#008844">P</tspan>
+  </text>
+  <text x="256" y="475" 
+        text-anchor="middle" 
+        font-family="system-ui, -apple-system, 'Inter', sans-serif" 
+        font-weight="700" 
+        font-size="14" 
+        fill="#64748b" 
+        letter-spacing="3">2D PLAN • 3D PERSPECTIVE</text>
+</svg>

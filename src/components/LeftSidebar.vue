@@ -624,7 +624,7 @@ const getToolDetails = (toolId, toolName) => {
         return {
             title: 'Half Wall / Parapet',
             subtitle: 'Low Wall with Top Coping Cap',
-            badge: '🛡️ Parapet & Balcony',
+            badge: 'Parapet & Balcony',
             icon: getToolTabIcon('half_wall'),
             description: 'Draw half-height partition walls and balcony/roof parapets featuring distinct top coping cap trims.',
             features: [
@@ -635,10 +635,25 @@ const getToolDetails = (toolId, toolName) => {
             btnText: 'Start Drawing Half Wall'
         };
     }
+    if (toolId === 'site_boundary') {
+        return {
+            title: 'Plot & Site Boundary',
+            subtitle: 'CAD Land Boundary',
+            badge: 'Site / Plot',
+            icon: '<rect x="3" y="3" width="18" height="18" rx="2" stroke-width="1.8"></rect><path d="M3 9h18M9 21V9" stroke-width="1.8"></path>',
+            description: 'Interactive structural object ready to place and customize.',
+            features: [
+                'CAD-accurate dimensional precision',
+                'Full 2D & 3D real-time synchronicity',
+                'Customizable materials and heights'
+            ],
+            btnText: 'Select Plot & Site Boundary'
+        };
+    }
     return {
         title: toolName || 'Architectural Component',
         subtitle: 'Structural CAD Object',
-        badge: '🔧 Tool',
+        badge: 'Tool',
         icon: '<path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"></path>',
         description: 'Interactive structural object ready to place and customize.',
         features: [
@@ -689,7 +704,9 @@ const getShortToolName = (toolId, name) => {
     if (toolId === 'outdoor_pavement') return 'Pavement';
     if (toolId === 'outdoor_patio') return 'Patio';
     if (toolId === 'outdoor_softscape') return 'Softscape';
-    if (toolId === 'outdoor_other') return 'Other space';
+    if (toolId === 'select') return 'Select & Edit';
+    if (toolId === 'site_boundary') return 'Site Boundary';
+    if (toolId === 'plot_boundary') return 'Plot Boundary';
     if (toolId === 'platform_catalog' || toolId === 'platform') return 'Platforms';
     if (toolId === 'platform_rect') return 'Platform Box';
     if (toolId === 'platform_polygon') return 'Custom Platform';
@@ -792,6 +809,12 @@ const getToolTabIcon = (toolId) => {
     }
     if (toolId === 'electronics_catalog') {
         return '<rect x="2" y="7" width="20" height="15" rx="2" ry="2"></rect><polyline points="17 2 12 7 7 2"></polyline>';
+    }
+    if (toolId === 'select') {
+        return '<path d="M3 3l7.07 16.97 2.51-7.39 7.39-2.51L3 3z"></path><path d="M13 13l6 6"></path>';
+    }
+    if (toolId === 'site_boundary' || toolId === 'plot_boundary') {
+        return '<rect x="3" y="3" width="18" height="18" rx="2" stroke-width="1.8"></rect><path d="M3 9h18M9 21V9" stroke-width="1.8"></path>';
     }
     return '<circle cx="12" cy="12" r="7"></circle><polyline points="12 9 12 12 14 14"></polyline>';
 };
@@ -1528,7 +1551,10 @@ const getToolTabIcon = (toolId) => {
         padding: 9px 12px;
     }
     .action-tool-container {
-        padding: 16px 18px 20px;
+        padding: 16px 18px 84px;
+    }
+    .panel-body {
+        padding-bottom: 84px;
     }
     .action-tool-card {
         padding: 20px 18px;
@@ -1646,7 +1672,10 @@ const getToolTabIcon = (toolId) => {
         gap: 6px;
     }
     .action-tool-container {
-        padding: 12px 14px 16px;
+        padding: 12px 14px 84px;
+    }
+    .panel-body {
+        padding-bottom: 84px;
     }
     .action-tool-card {
         padding: 16px 14px;

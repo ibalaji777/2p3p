@@ -4,13 +4,30 @@
       <!-- Modal Header -->
       <div class="wizard-header">
         <div class="site-title-wrap">
-          <div class="site-modal-icon-badge">📐</div>
+          <div class="site-modal-icon-badge">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M2 22L22 2"></path>
+              <path d="M2 22h20"></path>
+              <path d="M2 22V2"></path>
+              <path d="M7 22v-3"></path>
+              <path d="M12 22v-5"></path>
+              <path d="M17 22v-3"></path>
+              <path d="M2 17h3"></path>
+              <path d="M2 12h5"></path>
+              <path d="M2 7h3"></path>
+            </svg>
+          </div>
           <div>
             <h3>Plot & Site Boundary</h3>
             <p class="site-modal-subtitle">Set land dimensions, road access, and view buildable setback zone</p>
           </div>
         </div>
-        <button @click="close" class="wizard-close" title="Close">✕</button>
+        <button @click="close" class="wizard-close site-close-btn" title="Close">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
       </div>
 
       <!-- Modal Body: 2 Columns on Desktop, Stacks on Mobile -->
@@ -42,7 +59,8 @@
                   @click="setRoadFrontage(0)"
                   title="Click to set Front as Access Road"
                 >
-                  🛣️ Front / North
+                  <svg class="chip-road-icon" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="21" x2="4" y2="3"></line><line x1="20" y1="21" x2="20" y2="3"></line><line x1="12" y1="21" x2="12" y2="17"></line><line x1="12" y1="13" x2="12" y2="9"></line><line x1="12" y1="5" x2="12" y2="3"></line></svg>
+                  <span>Front / North</span>
                 </button>
                 <input 
                   class="vb-input-val" 
@@ -71,7 +89,8 @@
                   @click="setRoadFrontage(2)"
                   title="Click to set Rear as Access Road"
                 >
-                  🛣️ Rear / South
+                  <svg class="chip-road-icon" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="21" x2="4" y2="3"></line><line x1="20" y1="21" x2="20" y2="3"></line><line x1="12" y1="21" x2="12" y2="17"></line><line x1="12" y1="13" x2="12" y2="9"></line><line x1="12" y1="5" x2="12" y2="3"></line></svg>
+                  <span>Rear / South</span>
                 </button>
               </div>
 
@@ -84,7 +103,8 @@
                   @click="setRoadFrontage(3)"
                   title="Click to set Left as Access Road"
                 >
-                  🛣️ Left
+                  <svg class="chip-road-icon" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="21" x2="4" y2="3"></line><line x1="20" y1="21" x2="20" y2="3"></line><line x1="12" y1="21" x2="12" y2="17"></line><line x1="12" y1="13" x2="12" y2="9"></line><line x1="12" y1="5" x2="12" y2="3"></line></svg>
+                  <span>Left</span>
                 </button>
                 <input 
                   class="vb-input-val" 
@@ -113,7 +133,8 @@
                   @click="setRoadFrontage(1)"
                   title="Click to set Right as Access Road"
                 >
-                  🛣️ Right
+                  <svg class="chip-road-icon" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="21" x2="4" y2="3"></line><line x1="20" y1="21" x2="20" y2="3"></line><line x1="12" y1="21" x2="12" y2="17"></line><line x1="12" y1="13" x2="12" y2="9"></line><line x1="12" y1="5" x2="12" y2="3"></line></svg>
+                  <span>Right</span>
                 </button>
               </div>
 
@@ -241,7 +262,7 @@
                     fill="#ffffff" font-size="9" font-weight="700" 
                     text-anchor="middle" dominant-baseline="middle"
                   >
-                    🛣️ ACCESS ROAD
+                    ACCESS ROAD
                   </text>
                 </g>
 
@@ -294,7 +315,7 @@
                   dominant-baseline="middle" 
                   class="buildable-label"
                 >
-                  🟢 BUILDABLE ZONE
+                  BUILDABLE ZONE
                 </text>
               </svg>
             </div>
@@ -309,22 +330,34 @@
             <!-- Real-Time Metrics & Assessment -->
             <div class="metrics-summary-box">
               <div class="metric-row">
-                <span class="metric-title">📐 Total Plot Area</span>
+                <span class="metric-title">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path></svg>
+                  <span>Total Plot Area</span>
+                </span>
                 <span class="metric-number">{{ calculatedPlotAreaSqFt }} sq ft</span>
               </div>
               <div class="metric-row">
-                <span class="metric-title">🟢 Buildable Footprint</span>
+                <span class="metric-title">
+                  <span class="metric-status-dot green"></span>
+                  <span>Buildable Footprint</span>
+                </span>
                 <span class="metric-number text-green">{{ calculatedBuildableAreaSqFt }} sq ft</span>
               </div>
               <div class="metric-row" v-if="currentBuildingAreaSqFt > 0">
-                <span class="metric-title">🏠 Current House</span>
+                <span class="metric-title">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
+                  <span>Current House</span>
+                </span>
                 <span class="metric-number">{{ currentBuildingAreaSqFt }} sq ft</span>
               </div>
 
               <!-- Target House Adaptation Options -->
               <div class="target-adaptation-section" v-if="currentBuildingAreaSqFt > 0">
                 <div class="target-row-header">
-                  <span class="metric-title bold-title">🎯 Target House Size</span>
+                  <span class="metric-title bold-title">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="6"></circle><circle cx="12" cy="12" r="2"></circle></svg>
+                    <span>Target House Size</span>
+                  </span>
                   <div class="quick-preset-btns">
                     <button 
                       type="button" 
@@ -379,10 +412,14 @@
 
               <!-- Fit Assessment Banner -->
               <div v-if="validationError" class="fit-banner error">
-                ⚠️ {{ validationError }}
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+                <span>{{ validationError }}</span>
               </div>
               <div v-else-if="currentBuildingAreaSqFt > 0" class="fit-banner" :class="fitAssessment.class">
-                <span class="fit-icon">{{ fitAssessment.icon }}</span>
+                <span class="fit-icon">
+                  <svg v-if="fitAssessment.class === 'success'" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                  <svg v-else width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+                </span>
                 <span class="fit-text">{{ fitAssessment.message }}</span>
               </div>
             </div>
@@ -399,14 +436,16 @@
           class="action-btn outline-btn" 
           :disabled="Boolean(validationError) || calculatedPlotAreaSqFt <= 0"
         >
-          📐 Apply Boundary Only
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+          <span>Apply Boundary Only</span>
         </button>
         <button 
           @click="handleAdaptBuilding" 
           class="action-btn import primary" 
           :disabled="Boolean(validationError) || calculatedPlotAreaSqFt <= 0"
         >
-          ⚡ Adapt Building to Site
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+          <span>Adapt Building to Site</span>
         </button>
       </div>
     </div>
@@ -1024,7 +1063,32 @@ defineExpose({ open, close });
 <style scoped>
 .site-dialog-modal {
   max-width: 860px;
-  width: 95vw;
+  width: min(860px, calc(100vw - 24px));
+  max-height: calc(100vh - 32px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-sizing: border-box;
+  margin: auto;
+}
+
+.site-close-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  color: #94a3b8;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.site-close-btn:hover {
+  background: #fee2e2;
+  color: #ef4444;
 }
 
 .site-title-wrap {
@@ -1043,6 +1107,7 @@ defineExpose({ open, close });
   background: #eff6ff;
   border-radius: 10px;
   border: 1px solid #bfdbfe;
+  flex-shrink: 0;
 }
 
 .site-modal-subtitle {
@@ -1056,8 +1121,11 @@ defineExpose({ open, close });
   grid-template-columns: 1.15fr 0.95fr;
   gap: 20px;
   padding: 18px 24px;
-  max-height: 75vh;
+  flex: 1 1 auto;
+  min-height: 0;
   overflow-y: auto;
+  overflow-x: hidden;
+  box-sizing: border-box;
 }
 
 .site-controls-col {
@@ -1162,7 +1230,7 @@ defineExpose({ open, close });
 }
 
 .vb-edge-chip {
-  padding: 2px 8px;
+  padding: 3px 8px;
   font-size: 11px;
   font-weight: 700;
   border-radius: 6px;
@@ -1172,6 +1240,13 @@ defineExpose({ open, close });
   cursor: pointer;
   white-space: nowrap;
   transition: all 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.chip-road-icon {
+  flex-shrink: 0;
 }
 
 .vb-edge-chip:hover {
@@ -1537,6 +1612,22 @@ defineExpose({ open, close });
   font-size: 12px;
   font-weight: 600;
   color: #475569;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.metric-status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+.metric-status-dot.green {
+  background: #10b981;
+  box-shadow: 0 0 6px rgba(16, 185, 129, 0.4);
 }
 
 .metric-number {
@@ -1726,8 +1817,126 @@ defineExpose({ open, close });
 
 /* Responsive */
 @media (max-width: 768px) {
+  .site-dialog-modal {
+    width: calc(100vw - 16px);
+    max-height: calc(100vh - 20px);
+    border-radius: 14px;
+  }
   .site-modal-body-split {
     grid-template-columns: 1fr;
+    padding: 14px 16px;
+    gap: 16px;
+  }
+  .site-modal-footer {
+    padding: 10px 16px;
+  }
+}
+
+@media (max-width: 640px) {
+  .wizard-header {
+    padding: 10px 12px;
+  }
+  .site-title-wrap {
+    gap: 8px;
+  }
+  .site-modal-icon-badge {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+  }
+  .site-modal-icon-badge svg {
+    width: 16px;
+    height: 16px;
+  }
+  .wizard-header h3 {
+    font-size: 14px;
+  }
+  .site-modal-subtitle {
+    font-size: 11px;
+    line-height: 1.3;
+  }
+  .site-modal-body-split {
+    padding: 10px 12px;
+    gap: 12px;
+  }
+  .section-header-flex {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+    width: 100%;
+  }
+  .site-label-bold {
+    font-size: 12px;
+  }
+  .plot-presets, .setback-presets {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    width: 100%;
+  }
+  .preset-pill {
+    font-size: 10.5px;
+    padding: 3px 7px;
+    white-space: normal;
+  }
+  /* Constrain the visual boundary box so side handles don't stick out off-screen */
+  .site-vb-box {
+    margin: 18px 36px;
+    height: 190px;
+  }
+  .vb-input-val {
+    width: 50px;
+    font-size: 11px;
+    padding: 2px 4px;
+    border-width: 1.5px;
+  }
+  .vb-edge-chip {
+    font-size: 9.5px;
+    padding: 2px 5px;
+  }
+  .vb-sqft-input {
+    font-size: 18px;
+    width: 70px;
+  }
+  .vb-center-sub {
+    font-size: 10px;
+  }
+  /* Responsive Grids: 2 columns instead of 4 */
+  .site-grid-4 {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 6px;
+  }
+  .road-facing-chips {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 6px;
+  }
+  .control-group label {
+    font-size: 11px;
+  }
+  .settings-input {
+    font-size: 12px;
+    padding: 5px 8px;
+  }
+  /* Footer buttons wrap cleanly */
+  .site-modal-footer {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 10px 12px;
+    justify-content: stretch;
+  }
+  .site-modal-footer .action-btn {
+    flex: 1 1 calc(50% - 6px);
+    min-width: 0;
+    font-size: 11px;
+    padding: 8px 8px;
+    justify-content: center;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    overflow: hidden;
+  }
+  .site-modal-footer .action-btn.primary {
+    flex-basis: 100%;
   }
 }
 </style>
