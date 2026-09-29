@@ -767,7 +767,7 @@ export class WallPushPullGizmo extends THREE.Group {
             align-items: center;
             gap: 3px;
             color: #0f172a;
-            font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', Roboto, sans-serif;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             font-size: 10.5px;
             font-weight: 600;
             z-index: 10001;
@@ -779,17 +779,19 @@ export class WallPushPullGizmo extends THREE.Group {
             box-sizing: border-box;
             background: transparent;
             line-height: 1;
+            filter: drop-shadow(0 12px 28px rgba(0, 0, 0, 0.75));
         `;
 
-        // Top Header Line: Badge + Fixed Close Button
+        // Top Header Line: Badge docked at top-right corner
         const headerRow = document.createElement('div');
         headerRow.style.cssText = `
             display: flex;
             align-items: center;
-            gap: 3px;
+            justify-content: flex-end;
             align-self: flex-end;
             width: fit-content;
             background: transparent;
+            margin-bottom: 2px;
             padding: 0 1px 1px 0;
             box-sizing: border-box;
             flex-shrink: 0;
@@ -804,61 +806,18 @@ export class WallPushPullGizmo extends THREE.Group {
             font-size: 9.5px;
             font-weight: 700;
             color: #334155;
-            background: rgba(255, 255, 255, 0.96);
-            border: 1px solid rgba(226, 232, 240, 0.95);
+            background: rgba(255, 255, 255, 0.94);
+            border: 1px solid rgba(226, 232, 240, 0.9);
             border-radius: 6px;
-            padding: 2.5px 6px;
+            padding: 2.5px 7px;
             box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
-            backdrop-filter: blur(16px);
-            -webkit-backdrop-filter: blur(16px);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
             white-space: nowrap;
             flex-shrink: 0;
-            line-height: 1;
+            line-height: 1.2;
         `;
         headerRow.appendChild(this.domBadge);
-
-        const btnHeaderClose = document.createElement('button');
-        btnHeaderClose.textContent = '✕';
-        btnHeaderClose.title = 'Cancel extrusion (Esc)';
-        btnHeaderClose.style.cssText = `
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            width: 20px;
-            height: 20px;
-            min-height: 20px;
-            border-radius: 6px;
-            border: 1px solid rgba(226, 232, 240, 0.95);
-            background: rgba(255, 255, 255, 0.96);
-            color: #64748b;
-            font-size: 10px;
-            font-weight: 700;
-            cursor: pointer;
-            transition: all 0.12s ease;
-            outline: none;
-            padding: 0;
-            line-height: 1;
-            flex-shrink: 0;
-            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
-            backdrop-filter: blur(16px);
-            -webkit-backdrop-filter: blur(16px);
-        `;
-        btnHeaderClose.onmouseenter = () => {
-            btnHeaderClose.style.background = '#fee2e2';
-            btnHeaderClose.style.borderColor = '#fecaca';
-            btnHeaderClose.style.color = '#dc2626';
-        };
-        btnHeaderClose.onmouseleave = () => {
-            btnHeaderClose.style.background = 'rgba(255, 255, 255, 0.96)';
-            btnHeaderClose.style.borderColor = 'rgba(226, 232, 240, 0.95)';
-            btnHeaderClose.style.color = '#64748b';
-        };
-        btnHeaderClose.onclick = (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            this.cancel();
-        };
-        headerRow.appendChild(btnHeaderClose);
 
         this.domConfirmBar.appendChild(headerRow);
 
@@ -883,59 +842,37 @@ export class WallPushPullGizmo extends THREE.Group {
             flex-shrink: 0;
         `;
 
-        const btnCancel = document.createElement('button');
-        btnCancel.textContent = '✕ Cancel';
-        btnCancel.title = 'Cancel extrusion and revert (Esc)';
-        btnCancel.style.cssText = `
-            padding: 2.5px 7px;
-            border-radius: 6px;
-            border: 1px solid #fecaca;
-            background: #fef2f2;
-            color: #dc2626;
-            font-size: 10.5px;
-            font-weight: 700;
-            cursor: pointer;
-            transition: all 0.12s ease;
-            min-height: 22px;
-            touch-action: manipulation;
-            line-height: 1;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            outline: none;
-        `;
-        btnCancel.onmouseenter = () => { btnCancel.style.background = '#fee2e2'; btnCancel.style.borderColor = '#f87171'; };
-        btnCancel.onmouseleave = () => { btnCancel.style.background = '#fef2f2'; btnCancel.style.borderColor = '#fecaca'; };
-        btnCancel.onclick = (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            this.cancel();
-        };
-        controlsCard.appendChild(btnCancel);
-
+        // Done Button (Emerald Green pill with SVG checkmark)
         const btnDone = document.createElement('button');
-        btnDone.textContent = '✓ Done';
+        btnDone.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg><span>Done</span>`;
         btnDone.title = 'Apply solid extrusion to wall (Enter)';
         btnDone.style.cssText = `
+            display: inline-flex;
+            align-items: center;
+            gap: 3px;
             padding: 2.5px 8px;
-            border-radius: 6px;
+            border-radius: 9999px;
             border: 1px solid #bbf7d0;
             background: #f0fdf4;
             color: #15803d;
             font-size: 10.5px;
             font-weight: 700;
             cursor: pointer;
-            transition: all 0.12s ease;
-            min-height: 22px;
-            touch-action: manipulation;
-            line-height: 1;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
+            transition: all 0.15s ease;
             outline: none;
+            min-height: 22px;
+            line-height: 1;
+            white-space: nowrap;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
         `;
-        btnDone.onmouseenter = () => { btnDone.style.background = '#dcfce7'; btnDone.style.borderColor = '#86efac'; };
-        btnDone.onmouseleave = () => { btnDone.style.background = '#f0fdf4'; btnDone.style.borderColor = '#bbf7d0'; };
+        btnDone.onmouseenter = () => {
+            btnDone.style.background = '#dcfce7';
+            btnDone.style.transform = 'translateY(-1px)';
+        };
+        btnDone.onmouseleave = () => {
+            btnDone.style.background = '#f0fdf4';
+            btnDone.style.transform = 'translateY(0)';
+        };
         btnDone.onclick = (e) => {
             e.preventDefault();
             e.stopPropagation();
@@ -943,7 +880,58 @@ export class WallPushPullGizmo extends THREE.Group {
         };
         controlsCard.appendChild(btnDone);
 
+        // Cancel Button (Borderless hover-red close button)
+        const btnCancel = document.createElement('button');
+        btnCancel.innerHTML = `✕`;
+        btnCancel.title = 'Cancel extrusion and revert (Esc)';
+        btnCancel.style.cssText = `
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 20px;
+            height: 20px;
+            border-radius: 6px;
+            border: none;
+            background: transparent;
+            color: #94a3b8;
+            cursor: pointer;
+            font-size: 11px;
+            font-weight: 800;
+            transition: all 0.15s ease;
+            outline: none;
+            padding: 0;
+            line-height: 1;
+            flex-shrink: 0;
+        `;
+        btnCancel.onmouseenter = () => {
+            btnCancel.style.background = '#fee2e2';
+            btnCancel.style.color = '#ef4444';
+        };
+        btnCancel.onmouseleave = () => {
+            btnCancel.style.background = 'transparent';
+            btnCancel.style.color = '#94a3b8';
+        };
+        btnCancel.onclick = (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            this.cancel();
+        };
+        controlsCard.appendChild(btnCancel);
+
+        // Speech bubble triangular tail pointing downward
+        const tail = document.createElement('div');
+        tail.style.cssText = `
+            width: 0;
+            height: 0;
+            border-left: 5px solid transparent;
+            border-right: 5px solid transparent;
+            border-top: 5px solid rgba(255, 255, 255, 0.96);
+            margin-top: -1px;
+            filter: drop-shadow(0 2px 2px rgba(0,0,0,0.06));
+        `;
+
         this.domConfirmBar.appendChild(controlsCard);
+        this.domConfirmBar.appendChild(tail);
 
         const container = this.ctx.renderer?.domElement?.parentElement || document.body;
         container.appendChild(this.domConfirmBar);

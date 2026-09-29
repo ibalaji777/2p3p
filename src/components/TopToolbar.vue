@@ -22,7 +22,7 @@
               <path d="M3 21h6v-6"></path>
             </svg>
             <span class="mode-label">{{ viewMode === '3d' ? '3D Build' : '2D Plan' }}</span>
-            <svg class="toggle-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <svg class="toggle-icon" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
               <path d="M16 3l4 4-4 4"></path>
               <path d="M20 7H4"></path>
               <path d="M8 21l-4-4 4-4"></path>
@@ -35,13 +35,13 @@
         <div class="header-actions">
           <div class="header-divider"></div>
           <button class="action-icon-btn" @click="$emit('undo')" :disabled="!canUndo" title="Undo (Ctrl + Z)">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M3 7v6h6"></path>
               <path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"></path>
             </svg>
           </button>
           <button class="action-icon-btn" @click="$emit('redo')" :disabled="!canRedo" title="Redo (Ctrl + Y)">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M21 7v6h-6"></path>
               <path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3l3 2.7"></path>
             </svg>
@@ -107,30 +107,29 @@ const toggleMode = () => {
 }
 
 .floating-header.state-mini .header-pill {
-  padding: 4px 6px;
-  height: 42px;
-  gap: 6px;
-  border-radius: 21px;
+  padding: 3px 4px;
+  height: 30px;
+  gap: 3px;
+  border-radius: 15px;
 }
 
 .header-pill {
-  background: rgba(255, 255, 255, 0.92);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
-  border: 1px solid rgba(255, 255, 255, 0.95);
+  background: rgba(255, 255, 255, 0.94);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(226, 232, 240, 0.9);
   box-shadow: 
-    0 12px 32px -6px rgba(15, 23, 42, 0.12), 
-    0 4px 12px -2px rgba(15, 23, 42, 0.06), 
-    0 0 0 1px rgba(226, 232, 240, 0.7) inset;
-  border-radius: 24px;
-  padding: 5px 8px 5px 6px;
+    0 8px 24px -4px rgba(15, 23, 42, 0.1), 
+    0 2px 6px -1px rgba(15, 23, 42, 0.05);
+  border-radius: 15px;
+  padding: 3px 4px 3px 3px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 6px;
-  height: 46px;
+  gap: 3px;
+  height: 30px;
   box-sizing: border-box;
-  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .header-left {
@@ -141,32 +140,33 @@ const toggleMode = () => {
 .header-actions {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 2px;
   margin-left: auto;
 }
 
 /* VERTICAL SEPARATOR DIVIDER */
 .header-divider {
   width: 1px;
-  height: 20px;
+  height: 14px;
   background: rgba(226, 232, 240, 0.9);
-  margin: 0 2px;
+  margin: 0 1px;
   flex-shrink: 0;
 }
 
 /* ACTION ICON BUTTONS (Undo & Redo) */
 .action-icon-btn {
-  width: 32px;
-  height: 32px;
-  border-radius: 10px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
   border: none;
   background: transparent;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #334155;
+  color: #475569;
   cursor: pointer;
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  padding: 0;
   flex-shrink: 0;
 }
 
@@ -190,19 +190,19 @@ const toggleMode = () => {
 .mode-switcher-chip {
   background: #ffffff;
   border: 1px solid #e2e8f0;
-  border-radius: 18px;
-  padding: 4px 10px;
-  height: 34px;
+  border-radius: 12px;
+  padding: 2px 7px;
+  height: 24px;
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
   color: #334155;
   font-weight: 600;
-  font-size: 13.5px;
+  font-size: 11px;
   cursor: pointer;
   transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
   user-select: none;
-  box-shadow: 0 2px 4px rgba(15, 23, 42, 0.04), 0 0 0 1px rgba(226, 232, 240, 0.5) inset;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
   box-sizing: border-box;
   white-space: nowrap;
   flex-shrink: 0;
@@ -225,7 +225,7 @@ const toggleMode = () => {
   background: #eff6ff;
   border-color: #bfdbfe;
   color: #1d4ed8;
-  box-shadow: 0 2px 5px rgba(37, 99, 235, 0.06), 0 0 0 1px rgba(191, 219, 254, 0.5) inset;
+  box-shadow: 0 1px 4px rgba(37, 99, 235, 0.1);
 }
 
 .mode-switcher-chip.mode-3d:hover {
@@ -235,8 +235,8 @@ const toggleMode = () => {
 }
 
 .mode-icon {
-  width: 17px;
-  height: 17px;
+  width: 13px;
+  height: 13px;
   stroke: #475569;
   stroke-width: 2.2px;
   flex-shrink: 0;
@@ -259,13 +259,13 @@ const toggleMode = () => {
 }
 
 .mode-label {
-  letter-spacing: 0.15px;
+  letter-spacing: 0.1px;
   white-space: nowrap;
   flex-shrink: 0;
 }
 
 .toggle-icon {
-  margin-left: 2px;
+  margin-left: 1px;
   stroke: #64748b;
   flex-shrink: 0;
   transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), stroke 0.3s ease;
@@ -283,28 +283,21 @@ const toggleMode = () => {
     max-width: calc(100vw - 16px);
   }
   .header-pill {
-    height: 42px;
-    padding: 3px 6px;
-    gap: 4px;
-    border-radius: 21px;
+    height: 28px;
+    padding: 2px 3px;
+    gap: 2px;
+    border-radius: 14px;
   }
   .mode-switcher-chip {
-    padding: 3px 8px;
-    height: 30px;
-    font-size: 12.5px;
-    gap: 4px;
-  }
-  .tool-btn-chip {
-    width: 27px;
-    height: 27px;
+    padding: 2px 5px;
+    height: 22px;
+    font-size: 10.5px;
+    gap: 3px;
+    border-radius: 11px;
   }
   .action-icon-btn {
-    width: 27px;
-    height: 27px;
-  }
-  .collapse-circle-btn {
-    width: 27px;
-    height: 27px;
+    width: 22px;
+    height: 22px;
   }
 }
 </style>

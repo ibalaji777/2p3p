@@ -654,19 +654,20 @@ onBeforeUnmount(() => {
 
 .common-toolbar-vertical-strip {
   pointer-events: auto;
-  background: rgba(255, 255, 255, 0.92);
+  background: rgba(255, 255, 255, 0.94);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(226, 232, 240, 0.85);
+  border: 1px solid rgba(226, 232, 240, 0.9);
   box-shadow: 
-    0 12px 30px -4px rgba(15, 23, 42, 0.1),
-    0 4px 10px -2px rgba(15, 23, 42, 0.05);
-  border-radius: 22px;
-  padding: 6px 4px;
+    0 8px 24px -4px rgba(15, 23, 42, 0.1),
+    0 2px 6px -1px rgba(15, 23, 42, 0.05);
+  border-radius: 14px;
+  padding: 3px 2px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 5px;
+  gap: 2px;
+  width: 28px;
   box-sizing: border-box;
 }
 
@@ -674,8 +675,8 @@ onBeforeUnmount(() => {
   background: transparent;
   border: 1px solid transparent;
   border-radius: 50%;
-  width: 32px;
-  height: 32px;
+  width: 24px;
+  height: 24px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -700,7 +701,7 @@ onBeforeUnmount(() => {
   background: #2563eb;
   border-color: #3b82f6;
   color: #ffffff;
-  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.35);
+  box-shadow: 0 1px 4px rgba(37, 99, 235, 0.35);
 }
 
 .tool-btn.disabled {
@@ -718,17 +719,17 @@ onBeforeUnmount(() => {
 }
 
 .tool-icon {
-  width: 16px;
-  height: 16px;
+  width: 13px;
+  height: 13px;
   stroke: currentColor;
   flex-shrink: 0;
 }
 
 .toolbar-divider-h {
-  width: 18px;
+  width: 14px;
   height: 1px;
   background: rgba(226, 232, 240, 0.9);
-  margin: 3px 0;
+  margin: 1px 0;
   flex-shrink: 0;
 }
 
@@ -1112,9 +1113,10 @@ onBeforeUnmount(() => {
   }
 
   .common-toolbar-vertical-strip {
-    padding: 5px 3px;
-    gap: 4px;
-    border-radius: 20px;
+    padding: 3px 2px;
+    gap: 2px;
+    border-radius: 14px;
+    width: 28px;
     max-height: calc(100vh - 140px);
     overflow-y: auto;
     scrollbar-width: none;
@@ -1126,15 +1128,15 @@ onBeforeUnmount(() => {
   }
 
   .tool-btn {
-    width: 32px;
-    height: 32px;
+    width: 24px;
+    height: 24px;
     padding: 0;
     border-radius: 50%;
   }
 
   .tool-icon {
-    width: 15px;
-    height: 15px;
+    width: 13px;
+    height: 13px;
   }
 
   .shortcuts-grid {
@@ -1153,15 +1155,15 @@ onBeforeUnmount(() => {
   }
 
   .tool-btn {
-    width: 30px;
-    height: 30px;
+    width: 24px;
+    height: 24px;
     padding: 0;
     border-radius: 50%;
   }
 
   .tool-icon {
-    width: 14px;
-    height: 14px;
+    width: 13px;
+    height: 13px;
   }
 
   .device-tab span {

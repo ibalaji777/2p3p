@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { PlatformInteractiveSuite } from '../PlatformInteractiveSuite.js';
 import { WallInteractiveSuite } from '../WallInteractiveSuite.js';
 import { RoomInteractiveSuite } from '../RoomInteractiveSuite.js';
+import { Stair3DPlacementSystem } from '../Stair3DPlacementSystem.js';
 
 beforeAll(() => {
     if (typeof HTMLCanvasElement !== 'undefined') {
@@ -277,6 +278,64 @@ describe('Interactive Suites Compact HUD & Responsive Tooltip System', () => {
 
             suite.update();
             expect(suite.domRoomHUD.style.display).toBe('none');
+        });
+    });
+
+    describe('Sims 4 Speech HUD Standard Compliance (Wall & Stair Placement)', () => {
+        it('should ensure WallInteractiveSuite uses vector SVGs without emojis and borderless close button', () => {
+            const suite = new WallInteractiveSuite(mockCtx);
+            expect(suite.domHUD).toBeDefined();
+
+            // Verify action buttons have <svg> line art and no emojis
+            const buttons = suite.domHUD.querySelectorAll('.sims4-wall-hud-buttons button');
+            expect(buttons.length).toBeGreaterThanOrEqual(7);
+            buttons.forEach(btn => {
+                expect(btn.innerHTML).toContain('<svg');
+                expect(btn.textContent).not.toMatch(/[\u{1F300}-\u{1F9FF}]/u); // No emoji Unicode ranges
+            });
+
+            // Verify fixed close button is borderless (no border outline, transparent background)
+            const closeBtn = suite.domHUD.querySelector('button[title*="Deselect"]');
+            expect(closeBtn).toBeDefined();
+            expect(closeBtn.style.cssText).not.toContain('solid');
+            expect(closeBtn.style.cssText).toContain('background: transparent');
+
+            // Verify confirm bar has vector Done pill and single close button
+            expect(suite.domConfirmBar).toBeDefined();
+            const doneBtn = suite.domConfirmBar.querySelector('button[title*="Apply"]');
+            expect(doneBtn).toBeDefined();
+            expect(doneBtn.innerHTML).toContain('<svg');
+            expect(doneBtn.textContent).toContain('Done');
+
+            suite.dispose();
+        });
+
+        it('should ensure Stair3DPlacementSystem uses vector SVGs and borderless close button', () => {
+            const placement = new Stair3DPlacementSystem(mockCtx, {});
+            placement.createBadgeDOM();
+
+            const badgeDom = document.getElementById('sims4-stair-placement-badge');
+            expect(badgeDom).toBeDefined();
+
+            // Check cancel button is borderless
+            const cancelBtn = badgeDom.querySelector('#stair-ui-btn-cancel');
+            expect(cancelBtn).toBeDefined();
+            expect(cancelBtn.style.cssText).not.toContain('solid');
+            expect(cancelBtn.style.cssText).toContain('background: transparent');
+
+            // Check Auto, Rotate, Place buttons contain SVGs
+            const autoBtn = badgeDom.querySelector('#stair-ui-btn-auto');
+            const rotBtn = badgeDom.querySelector('#stair-ui-btn-rot');
+            const placeBtn = badgeDom.querySelector('#stair-ui-btn-place');
+
+            expect(autoBtn.innerHTML).toContain('<svg');
+            expect(rotBtn.innerHTML).toContain('<svg');
+            expect(placeBtn.innerHTML).toContain('<svg');
+            expect(placeBtn.textContent).toContain('Place');
+
+            if (badgeDom.parentElement) {
+                badgeDom.parentElement.removeChild(badgeDom);
+            }
         });
     });
 });

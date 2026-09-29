@@ -123,14 +123,16 @@ export class Furniture3DPlacementSystem {
 
                 <div style="width: 1px; height: 16px; background: #e2e8f0;"></div>
 
-                <div style="display: flex; align-items: center; gap: 4px;">
-                    <button id="furn-ui-btn-rot" type="button" title="Rotate (Key: R)" style="display: inline-flex; align-items: center; justify-content: center; gap: 4px; background: #f8fafc; border: 1px solid #e2e8f0; color: #1e293b; border-radius: 6px; padding: 4px 8px; font-size: 11.5px; font-weight: 600; cursor: pointer; min-height: 26px; transition: background 0.12s ease;">
-                        ↻ Rotate
+                <div style="display: flex; align-items: center; gap: 3px;">
+                    <button id="furn-ui-btn-rot" type="button" title="Rotate (Key: R)" style="display: inline-flex; align-items: center; justify-content: center; gap: 3px; background: #f8fafc; border: 1px solid #e2e8f0; color: #334155; border-radius: 6px; padding: 2.5px 7px; font-size: 10.5px; font-weight: 600; cursor: pointer; min-height: 22px; transition: all 0.12s ease; outline: none;">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+                        <span>Rotate</span>
                     </button>
-                    <button id="furn-ui-btn-place" type="button" title="Confirm Placement (Key: Enter / Space)" style="display: inline-flex; align-items: center; justify-content: center; gap: 4px; background: #10b981; border: none; color: #ffffff; border-radius: 6px; padding: 4px 10px; font-size: 11.5px; font-weight: 700; cursor: pointer; min-height: 26px; box-shadow: 0 1px 4px rgba(16, 185, 129, 0.3); transition: background 0.12s ease;">
-                        ✓ Place
+                    <button id="furn-ui-btn-place" type="button" title="Confirm Placement (Key: Enter / Space)" style="display: inline-flex; align-items: center; justify-content: center; gap: 3px; background: #f0fdf4; border: 1px solid #bbf7d0; color: #15803d; border-radius: 9999px; padding: 2.5px 9px; font-size: 10.5px; font-weight: 700; cursor: pointer; min-height: 22px; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04); transition: all 0.15s ease; outline: none;">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                        <span>Place</span>
                     </button>
-                    <button id="furn-ui-btn-cancel" type="button" title="Cancel Placement (Key: Esc)" style="display: inline-flex; align-items: center; justify-content: center; background: #f1f5f9; border: 1px solid #e2e8f0; color: #64748b; border-radius: 50%; width: 24px; height: 24px; font-size: 11px; font-weight: 700; cursor: pointer; transition: all 0.12s ease;">
+                    <button id="furn-ui-btn-cancel" type="button" title="Cancel Placement (Key: Esc)" style="display: flex; align-items: center; justify-content: center; width: 20px; height: 20px; border-radius: 6px; border: none; background: transparent; color: #94a3b8; font-size: 11px; font-weight: 800; cursor: pointer; transition: all 0.15s ease; padding: 0; line-height: 1; flex-shrink: 0; outline: none;">
                         ✕
                     </button>
                 </div>
@@ -145,6 +147,35 @@ export class Furniture3DPlacementSystem {
         this.btnRot = this.badgeDom.querySelector('#furn-ui-btn-rot');
         this.btnPlace = this.badgeDom.querySelector('#furn-ui-btn-place');
         this.btnCancel = this.badgeDom.querySelector('#furn-ui-btn-cancel');
+
+        this.btnCancel.onmouseenter = () => {
+            this.btnCancel.style.background = '#fee2e2';
+            this.btnCancel.style.color = '#ef4444';
+        };
+        this.btnCancel.onmouseleave = () => {
+            this.btnCancel.style.background = 'transparent';
+            this.btnCancel.style.color = '#94a3b8';
+        };
+
+        this.btnRot.onmouseenter = () => {
+            this.btnRot.style.background = '#f1f5f9';
+            this.btnRot.style.borderColor = '#cbd5e1';
+            this.btnRot.style.color = '#0f172a';
+        };
+        this.btnRot.onmouseleave = () => {
+            this.btnRot.style.background = '#f8fafc';
+            this.btnRot.style.borderColor = '#e2e8f0';
+            this.btnRot.style.color = '#334155';
+        };
+
+        this.btnPlace.onmouseenter = () => {
+            this.btnPlace.style.background = '#dcfce7';
+            this.btnPlace.style.transform = 'translateY(-1px)';
+        };
+        this.btnPlace.onmouseleave = () => {
+            this.btnPlace.style.background = '#f0fdf4';
+            this.btnPlace.style.transform = 'translateY(0)';
+        };
 
         // Wire handlers once without DOM recreation
         this.btnRot.addEventListener('pointerdown', (e) => e.stopPropagation());

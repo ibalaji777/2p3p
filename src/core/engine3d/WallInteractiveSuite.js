@@ -401,13 +401,55 @@ export class WallInteractiveSuite extends THREE.Group {
         `;
 
         this.hudButtons = [
-            { id: 'height', label: '📐 Height', title: 'Wall Uniform Height', subtitle: 'Adjust wall uniform height (Wall / Room Scope)' },
-            { id: 'room_suite', label: '🏠 Room', title: 'Room & Building Controls', subtitle: 'Open Room & Building Height / Foundation Controls' },
-            { id: 'push_pull', label: '↔️ Push/Pull', title: 'Push / Pull Thickness', subtitle: 'Adjust wall thickness & baseline (Panel #1)' },
-            { id: 'corner', label: '📍 Vertices', title: 'Vertices & Slope', subtitle: 'Move wall vertices & slope corners (Panel #2)' },
-            { id: 'extrude_recess', label: '🏛️ Bay/Niche', title: 'Bay Window & Niche', subtitle: 'Extrude bay window or recessed niche (Panels #5 & #6)' },
-            { id: 'split', label: '✂️ Split', title: 'Slice Wall', subtitle: 'Slice wall in 3D (Panel #3)' },
-            { id: 'slope', label: '📐 Slope', title: 'Wall Top Profile', subtitle: 'Toggle flat / single / gable profile (Panel #7)' }
+            {
+                id: 'height',
+                label: 'Height',
+                icon: `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M8 5l4-3 4 3M8 19l4 3 4-3"/></svg>`,
+                title: 'Wall Uniform Height',
+                subtitle: 'Adjust wall uniform height (Wall / Room Scope)'
+            },
+            {
+                id: 'room_suite',
+                label: 'Room',
+                icon: `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>`,
+                title: 'Room & Building Controls',
+                subtitle: 'Open Room & Building Height / Foundation Controls'
+            },
+            {
+                id: 'push_pull',
+                label: 'Push/Pull',
+                icon: `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17l-5-5 5-5M17 7l5 5-5 5M2 12h20"/></svg>`,
+                title: 'Push / Pull Thickness',
+                subtitle: 'Adjust wall thickness & baseline (Panel #1)'
+            },
+            {
+                id: 'corner',
+                label: 'Vertices',
+                icon: `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M3 12h6M15 12h6M12 3v6M12 15v6"/></svg>`,
+                title: 'Vertices & Slope',
+                subtitle: 'Move wall vertices & slope corners (Panel #2)'
+            },
+            {
+                id: 'extrude_recess',
+                label: 'Bay/Niche',
+                icon: `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>`,
+                title: 'Bay Window & Niche',
+                subtitle: 'Extrude bay window or recessed niche (Panels #5 & #6)'
+            },
+            {
+                id: 'split',
+                label: 'Split',
+                icon: `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><line x1="20" y1="4" x2="8.12" y2="15.88"/><line x1="14.47" y1="14.48" x2="20" y2="20"/></svg>`,
+                title: 'Slice Wall',
+                subtitle: 'Slice wall in 3D (Panel #3)'
+            },
+            {
+                id: 'slope',
+                label: 'Slope',
+                icon: `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polygon points="3 20 12 4 21 20 3 20"/></svg>`,
+                title: 'Wall Top Profile',
+                subtitle: 'Toggle flat / single / gable profile (Panel #7)'
+            }
         ];
 
         this.buttonElements = {};
@@ -428,10 +470,10 @@ export class WallInteractiveSuite extends THREE.Group {
 
         this.hudButtons.forEach(btn => {
             const el = document.createElement('button');
-            el.textContent = btn.label;
+            el.innerHTML = `${btn.icon}<span>${btn.label}</span>`;
             el.title = btn.title;
             el.style.cssText = `
-                padding: 2.5px 6px;
+                padding: 2.5px 7px;
                 border-radius: 6px;
                 border: 1px solid #e2e8f0;
                 background: #f8fafc;
@@ -447,7 +489,7 @@ export class WallInteractiveSuite extends THREE.Group {
                 display: inline-flex;
                 align-items: center;
                 justify-content: center;
-                gap: 2px;
+                gap: 3.5px;
                 outline: none;
                 flex-shrink: 0;
             `;
@@ -480,32 +522,31 @@ export class WallInteractiveSuite extends THREE.Group {
         const divider = document.createElement('div');
         divider.style.cssText = `
             width: 1px;
-            height: 16px;
+            height: 14px;
             background: #e2e8f0;
             margin: 0 1px;
             flex-shrink: 0;
         `;
         this.domHUD.appendChild(divider);
 
-        // Permanently fixed close button on menu (flex-shrink: 0, outside scroll container)
+        // Permanently fixed close button on menu (borderless Sims 4 speech HUD style)
         const btnClose = document.createElement('button');
-        btnClose.textContent = '✕';
+        btnClose.innerHTML = `✕`;
         btnClose.title = 'Deselect wall (Esc)';
         btnClose.style.cssText = `
-            display: inline-flex;
+            display: flex;
             align-items: center;
             justify-content: center;
             width: 20px;
             height: 20px;
-            min-height: 20px;
             border-radius: 6px;
-            border: 1px solid #e2e8f0;
-            background: #f8fafc;
-            color: #64748b;
+            border: none;
+            background: transparent;
+            color: #94a3b8;
             cursor: pointer;
-            font-size: 10px;
-            font-weight: 700;
-            transition: all 0.12s ease;
+            font-size: 11px;
+            font-weight: 800;
+            transition: all 0.15s ease;
             outline: none;
             padding: 0;
             line-height: 1;
@@ -513,13 +554,11 @@ export class WallInteractiveSuite extends THREE.Group {
         `;
         btnClose.onmouseenter = () => {
             btnClose.style.background = '#fee2e2';
-            btnClose.style.borderColor = '#fecaca';
-            btnClose.style.color = '#dc2626';
+            btnClose.style.color = '#ef4444';
         };
         btnClose.onmouseleave = () => {
-            btnClose.style.background = '#f8fafc';
-            btnClose.style.borderColor = '#e2e8f0';
-            btnClose.style.color = '#64748b';
+            btnClose.style.background = 'transparent';
+            btnClose.style.color = '#94a3b8';
         };
         btnClose.onclick = (e) => {
             e.stopPropagation();
@@ -543,7 +582,7 @@ export class WallInteractiveSuite extends THREE.Group {
             align-items: center;
             gap: 3px;
             color: #0f172a;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
             font-size: 10.5px;
             font-weight: 600;
             z-index: 100002;
@@ -555,17 +594,19 @@ export class WallInteractiveSuite extends THREE.Group {
             box-sizing: border-box;
             background: transparent;
             line-height: 1;
+            filter: drop-shadow(0 12px 28px rgba(0, 0, 0, 0.75));
         `;
 
-        // Top Header Line: Badge + Fixed Close Button
+        // Top Header Line: Badge docked at top-right corner
         const headerRow = document.createElement('div');
         headerRow.style.cssText = `
             display: flex;
             align-items: center;
-            gap: 3px;
+            justify-content: flex-end;
             align-self: flex-end;
             width: fit-content;
             background: transparent;
+            margin-bottom: 2px;
             padding: 0 1px 1px 0;
             box-sizing: border-box;
             flex-shrink: 0;
@@ -580,66 +621,22 @@ export class WallInteractiveSuite extends THREE.Group {
             font-size: 9.5px;
             font-weight: 700;
             color: #334155;
-            background: rgba(255, 255, 255, 0.96);
-            border: 1px solid rgba(226, 232, 240, 0.95);
+            background: rgba(255, 255, 255, 0.94);
+            border: 1px solid rgba(226, 232, 240, 0.9);
             border-radius: 6px;
-            padding: 2.5px 6px;
+            padding: 2.5px 7px;
             box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
-            backdrop-filter: blur(16px);
-            -webkit-backdrop-filter: blur(16px);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
             white-space: nowrap;
             flex-shrink: 0;
-            line-height: 1;
+            line-height: 1.2;
         `;
         headerRow.appendChild(this.confirmStatusBadge);
 
-        // Fixed Close Button (✕) on top-right header
-        const btnHeaderClose = document.createElement('button');
-        btnHeaderClose.textContent = '✕';
-        btnHeaderClose.title = 'Cancel editing and ignore changes (Esc)';
-        btnHeaderClose.style.cssText = `
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            width: 20px;
-            height: 20px;
-            min-height: 20px;
-            border-radius: 6px;
-            border: 1px solid rgba(226, 232, 240, 0.95);
-            background: rgba(255, 255, 255, 0.96);
-            color: #64748b;
-            font-size: 10px;
-            font-weight: 700;
-            cursor: pointer;
-            transition: all 0.12s ease;
-            outline: none;
-            padding: 0;
-            line-height: 1;
-            flex-shrink: 0;
-            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
-            backdrop-filter: blur(16px);
-            -webkit-backdrop-filter: blur(16px);
-        `;
-        btnHeaderClose.onmouseenter = () => {
-            btnHeaderClose.style.background = '#fee2e2';
-            btnHeaderClose.style.borderColor = '#fecaca';
-            btnHeaderClose.style.color = '#dc2626';
-        };
-        btnHeaderClose.onmouseleave = () => {
-            btnHeaderClose.style.background = 'rgba(255, 255, 255, 0.96)';
-            btnHeaderClose.style.borderColor = 'rgba(226, 232, 240, 0.95)';
-            btnHeaderClose.style.color = '#64748b';
-        };
-        btnHeaderClose.onclick = (e) => {
-            e.stopPropagation();
-            this.cancelChanges();
-        };
-        this._attachTooltip(btnHeaderClose, 'Cancel Editing', 'Discard all modifications (Esc)');
-        headerRow.appendChild(btnHeaderClose);
-
         this.domConfirmBar.appendChild(headerRow);
 
-        // Bottom Controls Card: Cancel & Done action buttons
+        // Bottom Controls Card: Presets + Actions
         const controlsCard = document.createElement('div');
         controlsCard.className = 'sims4-confirm-controls';
         controlsCard.style.cssText = `
@@ -661,69 +658,97 @@ export class WallInteractiveSuite extends THREE.Group {
             flex-shrink: 0;
         `;
 
-        // Cancel Button (Red outline/fill)
-        const btnCancel = document.createElement('button');
-        btnCancel.textContent = '✕ Cancel';
-        btnCancel.title = 'Cancel editing and ignore changes (Esc)';
-        btnCancel.style.cssText = `
-            padding: 2.5px 7px;
-            border-radius: 6px;
-            border: 1px solid #fecaca;
-            background: #fef2f2;
-            color: #dc2626;
-            font-size: 10.5px;
-            font-weight: 700;
-            cursor: pointer;
-            transition: all 0.12s ease;
-            min-height: 22px;
-            touch-action: manipulation;
-            line-height: 1;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            outline: none;
-        `;
-        btnCancel.onmouseenter = () => { btnCancel.style.background = '#fee2e2'; btnCancel.style.borderColor = '#f87171'; };
-        btnCancel.onmouseleave = () => { btnCancel.style.background = '#fef2f2'; btnCancel.style.borderColor = '#fecaca'; };
-        btnCancel.onclick = (e) => {
-            e.stopPropagation();
-            this.cancelChanges();
-        };
-        this._attachTooltip(btnCancel, 'Cancel Editing', 'Discard all modifications (Esc)');
-        controlsCard.appendChild(btnCancel);
-
-        // Done Button (Emerald Green outline/fill)
+        // Done Button (Emerald Green pill with SVG checkmark)
         const btnDone = document.createElement('button');
-        btnDone.textContent = '✓ Done';
+        btnDone.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg><span>Done</span>`;
         btnDone.title = 'Apply and keep changes (Enter)';
         btnDone.style.cssText = `
+            display: inline-flex;
+            align-items: center;
+            gap: 3px;
             padding: 2.5px 8px;
-            border-radius: 6px;
+            border-radius: 9999px;
             border: 1px solid #bbf7d0;
             background: #f0fdf4;
             color: #15803d;
             font-size: 10.5px;
             font-weight: 700;
             cursor: pointer;
-            transition: all 0.12s ease;
-            min-height: 22px;
-            touch-action: manipulation;
-            line-height: 1;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
+            transition: all 0.15s ease;
             outline: none;
+            min-height: 22px;
+            line-height: 1;
+            white-space: nowrap;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
         `;
-        btnDone.onmouseenter = () => { btnDone.style.background = '#dcfce7'; btnDone.style.borderColor = '#86efac'; };
-        btnDone.onmouseleave = () => { btnDone.style.background = '#f0fdf4'; btnDone.style.borderColor = '#bbf7d0'; };
+        btnDone.onmouseenter = () => {
+            btnDone.style.background = '#dcfce7';
+            btnDone.style.transform = 'translateY(-1px)';
+        };
+        btnDone.onmouseleave = () => {
+            btnDone.style.background = '#f0fdf4';
+            btnDone.style.transform = 'translateY(0)';
+        };
         btnDone.onclick = (e) => {
             e.stopPropagation();
             this.commitChanges();
         };
         this._attachTooltip(btnDone, 'Apply Changes', 'Save modifications to wall (Enter)');
+
+        // Cancel Button (Borderless hover-red close button)
+        const btnCancel = document.createElement('button');
+        btnCancel.innerHTML = `✕`;
+        btnCancel.title = 'Cancel editing and ignore changes (Esc)';
+        btnCancel.style.cssText = `
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 20px;
+            height: 20px;
+            border-radius: 6px;
+            border: none;
+            background: transparent;
+            color: #94a3b8;
+            cursor: pointer;
+            font-size: 11px;
+            font-weight: 800;
+            transition: all 0.15s ease;
+            outline: none;
+            padding: 0;
+            line-height: 1;
+            flex-shrink: 0;
+        `;
+        btnCancel.onmouseenter = () => {
+            btnCancel.style.background = '#fee2e2';
+            btnCancel.style.color = '#ef4444';
+        };
+        btnCancel.onmouseleave = () => {
+            btnCancel.style.background = 'transparent';
+            btnCancel.style.color = '#94a3b8';
+        };
+        btnCancel.onclick = (e) => {
+            e.stopPropagation();
+            this.cancelChanges();
+        };
+        this._attachTooltip(btnCancel, 'Cancel Editing', 'Discard all modifications (Esc)');
+
         controlsCard.appendChild(btnDone);
+        controlsCard.appendChild(btnCancel);
+
+        // Speech bubble triangular tail pointing downward
+        const tail = document.createElement('div');
+        tail.style.cssText = `
+            width: 0;
+            height: 0;
+            border-left: 5px solid transparent;
+            border-right: 5px solid transparent;
+            border-top: 5px solid rgba(255, 255, 255, 0.96);
+            margin-top: -1px;
+            filter: drop-shadow(0 2px 2px rgba(0,0,0,0.06));
+        `;
 
         this.domConfirmBar.appendChild(controlsCard);
+        this.domConfirmBar.appendChild(tail);
 
         document.body.appendChild(this.domConfirmBar);
     }
@@ -924,14 +949,24 @@ export class WallInteractiveSuite extends THREE.Group {
         }
         if (this.domConfirmBar) {
             const labels = {
-                push_pull: '↔️ Push/Pull',
-                corner: '📍 Vertices',
-                extrude_recess: '🏛️ Bay/Niche',
-                height: '📐 Height',
-                split: '✂️ Split',
-                slope: '📐 Slope'
+                push_pull: 'Push/Pull',
+                corner: 'Vertices',
+                extrude_recess: 'Bay/Niche',
+                height: 'Height',
+                split: 'Split',
+                slope: 'Slope'
             };
-            this.confirmStatusBadge.textContent = labels[mode] || 'Editing';
+            const icons = {
+                push_pull: `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17l-5-5 5-5M17 7l5 5-5 5M2 12h20"/></svg>`,
+                corner: `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M3 12h6M15 12h6M12 3v6M12 15v6"/></svg>`,
+                extrude_recess: `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>`,
+                height: `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M8 5l4-3 4 3M8 19l4 3 4-3"/></svg>`,
+                split: `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><line x1="20" y1="4" x2="8.12" y2="15.88"/><line x1="14.47" y1="14.48" x2="20" y2="20"/></svg>`,
+                slope: `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polygon points="3 20 12 4 21 20 3 20"/></svg>`
+            };
+            const iconSvg = icons[mode] || '';
+            const labelTxt = labels[mode] || 'Editing';
+            this.confirmStatusBadge.innerHTML = `${iconSvg}<span>${labelTxt}</span>`;
             const isPushPullOrBay = (mode === 'push_pull' || mode === 'extrude_recess');
             if (this.presetContainer) {
                 this.presetContainer.style.display = isPushPullOrBay ? 'inline-flex' : 'none';

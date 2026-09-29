@@ -160,9 +160,9 @@ export class PlatformInteractiveSuite extends THREE.Group {
             scrollbar-width: none;
         `;
 
-        // 0. Move Button (✢)
+        // 0. Move Button
         this.btnMove = document.createElement('button');
-        this.btnMove.innerHTML = `✢ Move`;
+        this.btnMove.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 9l-3 3 3 3M9 5l3-3 3 3M15 19l-3 3-3-3M19 9l3 3-3 3M2 12h20M12 2v20"/></svg><span>Move</span>`;
         this.btnMove.title = 'Move Platform (Translate X/Z)';
         this._styleHUDButton(this.btnMove, '#e2e8f0', '#ffffff', '#334155');
         this.btnMove.onclick = (e) => {
@@ -177,9 +177,9 @@ export class PlatformInteractiveSuite extends THREE.Group {
         };
         this._attachTooltip(this.btnMove, 'Move Platform', 'Translate in 3D scene (M / G)');
 
-        // 0b. Spin Button (↻)
+        // 0b. Spin Button
         this.btnSpin = document.createElement('button');
-        this.btnSpin.innerHTML = `↻ Spin`;
+        this.btnSpin.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg><span>Spin</span>`;
         this.btnSpin.title = 'Rotate Platform';
         this._styleHUDButton(this.btnSpin, '#e2e8f0', '#ffffff', '#334155');
         this.btnSpin.onclick = (e) => {

@@ -165,9 +165,9 @@ export class StairInteractiveSuite extends THREE.Group {
             width: 20px;
             height: 20px;
             border-radius: 6px;
-            border: 1px solid rgba(226, 232, 240, 0.9);
-            background: rgba(255, 255, 255, 0.92);
-            color: #64748b;
+            border: none;
+            background: transparent;
+            color: #94a3b8;
             cursor: pointer;
             font-size: 11px;
             font-weight: 800;
@@ -176,19 +176,14 @@ export class StairInteractiveSuite extends THREE.Group {
             padding: 0;
             line-height: 1;
             flex-shrink: 0;
-            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
         `;
         btnDelete.onmouseenter = () => {
             btnDelete.style.background = '#fee2e2';
             btnDelete.style.color = '#ef4444';
-            btnDelete.style.borderColor = '#fca5a5';
         };
         btnDelete.onmouseleave = () => {
-            btnDelete.style.background = 'rgba(255, 255, 255, 0.92)';
-            btnDelete.style.color = '#64748b';
-            btnDelete.style.borderColor = 'rgba(226, 232, 240, 0.9)';
+            btnDelete.style.background = 'transparent';
+            btnDelete.style.color = '#94a3b8';
         };
         btnDelete.onclick = (e) => {
             e.stopPropagation();
@@ -483,7 +478,7 @@ export class StairInteractiveSuite extends THREE.Group {
 
         // 3.5 Auto-Height Snap Button
         this.btnAutoHeight = document.createElement('button');
-        this.btnAutoHeight.textContent = '⚡ Auto';
+        this.btnAutoHeight.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg><span>Auto</span>`;
         this.btnAutoHeight.title = 'Auto-detect floor or platform height';
         this._styleActionButton(this.btnAutoHeight, '#bbf7d0', '#f0fdf4', '#15803d');
         this.btnAutoHeight.onclick = (e) => {

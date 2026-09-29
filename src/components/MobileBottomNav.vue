@@ -17,8 +17,8 @@
         <span>Show All</span>
       </button>
 
-      <button class="circular-action-btn">
-        <svg viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
+      <button class="circular-action-btn" title="Expand Menu">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
           <polyline points="18 15 12 9 6 15"></polyline>
         </svg>
       </button>
@@ -124,10 +124,10 @@
         </div>
       </div>
 
-      <!-- Right Circular Action Button (Points UP to afford drawer expansion) -->
+      <!-- Right Action Button: Down chevron to collapse menu -->
       <button class="circular-action-btn" @click.stop="isCollapsed = true" title="Collapse Menu">
-        <svg viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
-          <polyline points="18 15 12 9 6 15"></polyline>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="6 9 12 15 18 9"></polyline>
         </svg>
       </button>
     </div>
@@ -324,37 +324,43 @@ const handleTabClick = (tabId) => {
   pointer-events: none;
 }
 
-/* CIRCULAR WHITE ACTION BUTTON (WITH BLUE ARROW) */
+/* CIRCULAR ACTION BUTTON (HARMONIZED FROSTED GLASS WITH PILLS) */
 .circular-action-btn {
   pointer-events: auto;
   width: 40px;
   height: 40px;
   border-radius: 50%;
-  background: #ffffff;
-  border: 1px solid rgba(255, 255, 255, 0.8);
+  background: rgba(255, 255, 255, 0.75);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.55);
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
+  color: #2563eb;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
   transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
   flex-shrink: 0;
 }
 
 .circular-action-btn:hover {
-  transform: scale(1.08) translateY(-2px);
-  box-shadow: 0 8px 20px rgba(0, 86, 251, 0.3);
   background: #ffffff;
+  color: #1d4ed8;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(37, 99, 235, 0.22);
 }
 
 .circular-action-btn:active {
-  transform: scale(0.95);
+  transform: translateY(0) scale(0.95);
 }
 
 .circular-action-btn svg {
-  width: 19px;
-  height: 19px;
-  stroke: #0056fb;
+  width: 17px;
+  height: 17px;
+  stroke: currentColor;
+  stroke-width: 2.2px;
+  transition: all 0.2s ease;
 }
 
 /* TABLET & STANDARD MOBILE TUNING (FITS 100% CLEAN WITHOUT CROPPING) */
