@@ -176,6 +176,23 @@ WallEngine.deleteWall(planner, wall);
     - Shorter distance: $d = (P_{inner} - P) \cdot \vec{dir}$
   - **Seam Guarantee**: Outer faces are 100% flush, inner corner is a clean $90^\circ$ angle, and the top step of the shorter wall forms a clean horizontal ledge meeting a flat vertical wall face.
 
+### Rule 9: Hidden Walls & 0-Height Virtual Wall Architecture (Straight Square Cut & Solid Block Guarantee)
+- **Reference Standard**: See `virtual_wall_and_miter_expert` skill.
+- **Effective Height 0 Authority**:
+  - In `WallGeometryEngine.getCorners`, all walls evaluate their vertical reach via `getWallEffectiveHeight(w)`.
+  - If `w.hidden === true` or `Number(w.height) === 0`, `effectiveHeight` is strictly `0` (never falling back to falsy `config.height` or 120).
+- **Solid Block & Straight Square Cut ($90^\circ$)**:
+  - When a normal wall ($H > 0$, e.g. 280 cm) meets a 0-height wall or a hidden wall ($H = 0$), it triggers the **Taller Dominant Butt-Joint** ($\text{topDiff} = \text{wallTop} - \text{otherTop} > 2.0$).
+  - The side wall extends full to the outer corner boundary ($P_{outer}$) with a square cut ($X_L = X_R = \text{distAlongDir}$, $\Delta X = 0$).
+  - Slicing a side wall at a $45^\circ$ diagonal angle when meeting an invisible (0-height or hidden) wall is **strictly prohibited**. It must appear as a gapless solid block.
+  - The 0-height or hidden wall butts cleanly into the inner face of the normal wall at $P_{inner}$.
+- **3D Scene Graph Invisibility**:
+  - `wall.renderer3d.js` and `EnvironmentBuilder.js` must completely suppress hidden and 0-height walls (`buildWallGroup` returns null and disposes previous meshes).
+- **2D Reference Representation**:
+  - `wall.renderer2d.js` renders virtual and hidden walls with transparent fill (`fillEnabled(false)`), slate dashed stroke `[8, 6]`, reference badge `(Hidden)` / `(0cm)`, and suppresses vertical raiser and sloped foldout handles.
+- **Height Policy**:
+  - `WallHeightPolicy.js` permits $0\text{ cm}$ for virtual/reference walls without clamping, while physical walls clamp $0 < H < 20 \to 20\text{ cm}$.
+
 ---
 
 ## 4. Quick API Reference Recipes

@@ -274,6 +274,18 @@ export class WallEngine {
         WallMutationEngine.setHeight(wall, height, shouldSync, planner);
     }
 
+    static setHidden(wall, isHidden, shouldSync = true, planner = null) {
+        WallMutationEngine.setHidden(wall, isHidden, shouldSync, planner);
+    }
+
+    static setCompoundFloor(planner, hasFloor, shouldSync = true) {
+        WallMutationEngine.setCompoundFloor(planner, hasFloor, shouldSync);
+    }
+
+    static setRailingConfig(wall, configId, shouldSync = true, planner = null) {
+        WallMutationEngine.setRailingConfig(wall, configId, shouldSync, planner);
+    }
+
     /**
      * Raises or lowers a wall or set of walls based on scope.
      * @param {Object} wall - Primary target wall
@@ -309,8 +321,16 @@ export class WallEngine {
         WallMutationEngine.setTopProfile(wall, profileType, options, shouldSync, planner);
     }
 
+    static setSlopeProp(wall, prop, value, shouldSync = true, planner = null) {
+        WallMutationEngine.setSlopeProp(wall, prop, value, shouldSync, planner);
+    }
+
     static applyMaterial(wall, options = {}, planner = null) {
         WallMutationEngine.applyMaterial(wall, options, planner);
+    }
+
+    static setMaterialParams(wall, params = {}, shouldSync = true, planner = null) {
+        WallMutationEngine.setMaterialParams(wall, params, shouldSync, planner);
     }
 
     static moveWall(wall, dx, dy, shouldSync = true, planner = null) {

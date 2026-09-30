@@ -116,8 +116,12 @@ export function useAppScene({
         isSyncingEngine = true;
         try {
             if (planner.value) {
-                if (selectedEntity.value && typeof selectedEntity.value.update2D === 'function') {
-                    selectedEntity.value.update2D();
+                if (selectedEntity.value) {
+                    if (typeof selectedEntity.value.update2D === 'function') {
+                        selectedEntity.value.update2D();
+                    } else if (typeof selectedEntity.value.update === 'function') {
+                        selectedEntity.value.update();
+                    }
                 }
                 planner.value.syncAll();
                 if (selectedType.value === 'room' && selectedEntity.value) {
@@ -236,6 +240,19 @@ export function useAppScene({
                     });
                 } else if (selectedType.value === 'arc' && selectedEntity.value.walls) {
                     const arc = selectedEntity.value;
+                    const refWall = arc.walls[0];
+                    if (refWall) {
+                        if (refWall.thickness !== undefined) arc.thickness = refWall.thickness;
+                        if (refWall.height !== undefined) arc.height = refWall.height;
+                        if (refWall.elevation !== undefined) arc.elevation = refWall.elevation;
+                        if (refWall.hidden !== undefined) arc.hidden = refWall.hidden;
+                        if (refWall.topProfileType !== undefined) arc.topProfileType = refWall.topProfileType;
+                        if (refWall.startHeight !== undefined) arc.startHeight = refWall.startHeight;
+                        if (refWall.endHeight !== undefined) arc.endHeight = refWall.endHeight;
+                        if (refWall.peakHeight !== undefined) arc.peakHeight = refWall.peakHeight;
+                        if (refWall.flipSlope !== undefined) arc.flipSlope = refWall.flipSlope;
+                        if (refWall.configId !== undefined) arc.configId = refWall.configId;
+                    }
                     WallEngine.batchUpdate(planner.value, arc.walls, {
                         thickness: arc.thickness,
                         height: arc.height,

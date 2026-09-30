@@ -182,26 +182,53 @@ export class PremiumWall {
     hasEvent(eventName) { return this.config.events.includes(eventName); }
     getLength() { const p1 = this.startAnchor.position(), p2 = this.endAnchor.position(); return Math.hypot(p2.x - p1.x, p2.y - p1.y); }
     setHighlight(isActive) { 
+        const isZeroH = this.height !== undefined && Number(this.height) <= 0;
+        const isReference = Boolean(this.hidden || isZeroH);
         if (isActive) {
             // Selected state uses a subtle blue glow
-            this.poly.fill(this.fillColor); 
-            this.poly.stroke('#4f46e5'); 
-            this.poly.strokeWidth(2); 
-            this.poly.shadowColor('#4f46e5');
-            this.poly.shadowBlur(5);
-            this.poly.shadowOpacity(0.3);
-            this.poly.shadowOffset({ x: 0, y: 0 });
-            if (this.raiserGroup && !this.hidden && this.type !== 'railing' && !this.parentArc) {
+            if (isReference) {
+                this.poly.fillEnabled(true);
+                this.poly.fill('rgba(99, 102, 241, 0.15)');
+                this.poly.stroke('#4f46e5'); 
+                this.poly.strokeWidth(2); 
+                this.poly.dash([8, 6]);
+                this.poly.shadowColor('#4f46e5');
+                this.poly.shadowBlur(5);
+                this.poly.shadowOpacity(0.3);
+                this.poly.shadowOffset({ x: 0, y: 0 });
+            } else {
+                this.poly.fillEnabled(true);
+                this.poly.fill(this.fillColor); 
+                this.poly.stroke('#4f46e5'); 
+                this.poly.strokeWidth(2); 
+                this.poly.dash([]);
+                this.poly.shadowColor('#4f46e5');
+                this.poly.shadowBlur(5);
+                this.poly.shadowOpacity(0.3);
+                this.poly.shadowOffset({ x: 0, y: 0 });
+            }
+            if (this.raiserGroup && !isReference && this.type !== 'railing' && !this.parentArc) {
                 this.positionRaiserHandle();
                 this.updateRaiserBadge(this.height);
                 this.raiserGroup.visible(true);
             }
         } else {
-            this.poly.fill(this.hidden ? '#cbd5e1' : this.fillColor);
-            this.poly.stroke(this.hidden ? '#475569' : this.strokeColor);
-            this.poly.strokeWidth(1.5);
-            this.poly.shadowBlur(0);
-            this.poly.shadowOpacity(0);
+            if (isReference) {
+                this.poly.fillEnabled(false);
+                this.poly.stroke('#64748b');
+                this.poly.strokeWidth(1.5);
+                this.poly.dash([8, 6]);
+                this.poly.shadowBlur(0);
+                this.poly.shadowOpacity(0);
+            } else {
+                this.poly.fillEnabled(true);
+                this.poly.fill(this.fillColor);
+                this.poly.stroke(this.strokeColor);
+                this.poly.strokeWidth(1.5);
+                this.poly.dash([]);
+                this.poly.shadowBlur(0);
+                this.poly.shadowOpacity(0);
+            }
             if (this.raiserGroup) {
                 this.raiserGroup.visible(false);
             }
@@ -745,12 +772,24 @@ export class PremiumWall {
         this.poly.miterLimit(this.miterLimit);
         
         const isSel = this.planner.selectedEntity === this || (this.parentArc && this.planner.selectedEntity === this.parentArc);
-        if (this.hidden) {
-            this.poly.dash([6, 6]);
-            this.poly.opacity(0.7);
-            this.poly.stroke(isSel ? '#4f46e5' : '#475569');
-            this.poly.fill(isSel ? '#bfdbfe' : '#cbd5e1');
+        const isZeroH = this.height !== undefined && Number(this.height) <= 0;
+        const isReference = Boolean(this.hidden || isZeroH);
+
+        this.poly.hitStrokeWidth(16);
+        if (isReference) {
+            this.poly.dash([8, 6]);
+            this.poly.stroke(isSel ? '#4f46e5' : '#64748b');
+            this.poly.strokeWidth(isSel ? 2 : 1.5);
+            if (isSel) {
+                this.poly.fillEnabled(true);
+                this.poly.fill('rgba(99, 102, 241, 0.15)');
+                this.poly.opacity(1);
+            } else {
+                this.poly.fillEnabled(false);
+                this.poly.opacity(0.85);
+            }
         } else {
+            this.poly.fillEnabled(true);
             this.poly.dash([]);
             this.poly.opacity(1);
             this.poly.stroke(isSel ? '#4f46e5' : this.strokeColor);
@@ -763,7 +802,13 @@ export class PremiumWall {
 
         const bCoords = [];
         backVerts.forEach(v => bCoords.push(v.x, v.y));
-        const labelStr = (this.planner && typeof this.planner.formatLength === 'function') ? this.planner.formatLength(this.getLength()) : `${Math.round(this.getLength())}`;
+        const baseLenStr = (this.planner && typeof this.planner.formatLength === 'function') ? this.planner.formatLength(this.getLength()) : `${Math.round(this.getLength())}`;
+        let labelStr = baseLenStr;
+        if (this.hidden) {
+            labelStr = `${baseLenStr} (Hidden)`;
+        } else if (isZeroH) {
+            labelStr = `${baseLenStr} (0cm)`;
+        }
         this.labelText.text(labelStr);
         this.labelGroup.position({ x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 });
         this.labelGroup.offset({ x: this.labelText.width() / 2, y: 15 });
@@ -772,7 +817,7 @@ export class PremiumWall {
 
         // --- Add Interactive 2D Wall Raiser Overlay ---
         if (this.raiserGroup) {
-            if (isSel && !this.hidden && this.type !== 'railing' && !this.parentArc) {
+            if (isSel && !isReference && this.type !== 'railing' && !this.parentArc) {
                 this.positionRaiserHandle();
                 this.updateRaiserBadge(this.height);
                 this.raiserGroup.visible(true);
@@ -783,7 +828,7 @@ export class PremiumWall {
 
         // --- Add Wall Profile (Sloped/Gable) Visualization ---
         this.profileIndicators.destroyChildren();
-        if (this.topProfileType === 'gable' || this.topProfileType === 'single') {
+        if (!isReference && (this.topProfileType === 'gable' || this.topProfileType === 'single')) {
             const dx = p2.x - p1.x, dy = p2.y - p1.y, len = Math.hypot(dx, dy);
             if (len > 0) {
                 const u = { x: dx/len, y: dy/len };

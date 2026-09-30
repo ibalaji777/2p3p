@@ -147,19 +147,40 @@ export class WallGeometryEngine {
         const baseL = isStart ? { x: p1.x + n.x * ht, y: p1.y + n.y * ht } : { x: p2.x + n.x * ht, y: p2.y + n.y * ht };
         const baseR = isStart ? { x: p1.x - n.x * ht, y: p1.y - n.y * ht } : { x: p2.x - n.x * ht, y: p2.y - n.y * ht };
 
+        // Helper to determine true effective height of a wall
+        const getWallEffectiveHeight = (w) => {
+            if (!w) return 0;
+            if (w.hidden) return 0;
+            if (w.height !== undefined && w.height !== null) {
+                const h = Number(w.height);
+                if (!isNaN(h)) return Math.max(0, h);
+            }
+            if (w.config?.height !== undefined && w.config?.height !== null) {
+                const ch = Number(w.config.height);
+                if (!isNaN(ch)) return Math.max(0, ch);
+            }
+            return 120;
+        };
+
         // Collect all outgoing rays at this anchor (only from walls on the same vertical level)
         const rays = [];
         const wallElev = Number(wall.elevation) || 0;
-        const wallH = Number(wall.height) || Number(wall.config?.height) || 120;
+        const wallEffectiveH = getWallEffectiveHeight(wall);
         const wallBot = wallElev;
-        const wallTop = wallBot + wallH;
+        const wallTop = wallBot + wallEffectiveH;
 
         allWalls.forEach(w => {
-            if ((w.startAnchor === anchor || w.endAnchor === anchor) && w.type !== 'railing' && (!w.hidden || w === wall)) {
+            if ((w.startAnchor === anchor || w.endAnchor === anchor) && w.type !== 'railing') {
                 const wBot = Number(w.elevation) || 0;
-                const wTop = wBot + (Number(w.height) || Number(w.config?.height) || 120);
-                // Two walls only miter at a corner if their vertical spans overlap
-                if (Math.max(wallBot, wBot) >= Math.min(wallTop, wTop) - 2.0) return;
+                const wEffectiveH = getWallEffectiveHeight(w);
+                const wTop = wBot + wEffectiveH;
+                // Two walls only miter at a corner if their vertical spans overlap,
+                // or if at least one wall has 0 effective height (hidden / 0-height reference wall) sharing the same floor level
+                if (wallEffectiveH > 0 && wEffectiveH > 0) {
+                    if (Math.max(wallBot, wBot) >= Math.min(wallTop, wTop) - 2.0) return;
+                } else {
+                    if (Math.abs(wallBot - wBot) > 5.0) return;
+                }
 
                 const isWStart = w.startAnchor === anchor;
                 const wp1 = this.getAnchorPosition(w.startAnchor || { x: w.startX, y: w.startY });
@@ -218,7 +239,7 @@ export class WallGeometryEngine {
 
         // Height-segmented co-spanning ray evaluation:
         // Identify neighbor walls that also reach this wall's full height
-        const coSpanningRays = rays.filter(r => (r.top ?? ((Number(r.w?.elevation) || 0) + (Number(r.w?.height) || Number(r.w?.config?.height) || 120))) >= wallTop - 2.0);
+        const coSpanningRays = rays.filter(r => (r.top ?? ((Number(r.w?.elevation) || 0) + getWallEffectiveHeight(r.w))) >= wallTop - 2.0);
 
         let activeRays = rays;
         if (coSpanningRays.length >= 2) {
@@ -250,7 +271,7 @@ export class WallGeometryEngine {
         // 2 RAYS WITH UNEQUAL HEIGHTS: Smart Butt-Joint (Taller wall runs full to outer corner; shorter wall butts into inner face)
         if (rays.length === 2) {
             const otherRay = rays[1 - myIndex];
-            const otherTop = otherRay.top ?? ((Number(otherRay.w?.elevation) || 0) + (Number(otherRay.w?.height) || Number(otherRay.w?.config?.height) || 120));
+            const otherTop = otherRay.top ?? ((Number(otherRay.w?.elevation) || 0) + getWallEffectiveHeight(otherRay.w));
             const topDiff = wallTop - otherTop;
             if (Math.abs(topDiff) > 2.0) {
                 const cp = myRay.dir.x * otherRay.dir.y - myRay.dir.y * otherRay.dir.x;

@@ -40,6 +40,7 @@ export const WallSerializer = {
             height: w.height !== undefined ? w.height : (w.config?.height || 180),
             type: w.type,
             configId: w.configId,
+            hasFloor: w.hasFloor !== undefined ? Boolean(w.hasFloor) : undefined,
             hidden: w.hidden,
             description: w.description,
             topProfileType: w.topProfileType,
@@ -112,6 +113,7 @@ export const WallSerializer = {
         });
 
         if (wData.configId) wall.configId = wData.configId;
+        if (wData.hasFloor !== undefined) wall.hasFloor = Boolean(wData.hasFloor);
         if (wData.hidden !== undefined) wall.hidden = wData.hidden;
         if (wData.description !== undefined) wall.description = wData.description;
         if (wData.elevationLayers) wall.elevationLayers = wData.elevationLayers;

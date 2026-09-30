@@ -18,30 +18,34 @@
         <div class="control-group" v-if="selectedEntity.type === 'compound'">
             <label>Include Floor Slab</label>
             <div class="input-wrap" style="justify-content: flex-end;">
-                <input type="checkbox" v-model="selectedEntity.hasFloor" @change="onCompoundFloorToggle">
+                <input type="checkbox" :checked="Boolean(selectedEntity.hasFloor)" @change="onCompoundFloorToggle($event.target.checked)">
             </div>
         </div>
         
         <div class="control-group">
             <label>Hidden Wall</label>
             <div class="input-wrap" style="justify-content: flex-end;">
-                <input type="checkbox" v-model="selectedEntity.hidden" @change="$emit('sync-engine')">
+                <input 
+                    type="checkbox" 
+                    :checked="Boolean(selectedEntity.hidden)" 
+                    @change="toggleHiddenWall($event.target.checked)"
+                >
             </div>
         </div>
         
         <div class="control-group" v-if="selectedEntity.type !== 'railing'">
             <label>Length (Width)</label>
             <div class="input-wrap">
-                <input type="range" :value="currentWallLength" min="10" max="1500" step="1" @input="updateWallLength($event.target.value)">
-                <DimensionInput :model-value="currentWallLength" min="10" max="1500" step="1" @update:model-value="updateWallLength($event)" />
+                <input type="range" :value="currentWallLength" min="10" max="1500" step="1" @input="updateWallLength($event.target.value, false)" @change="updateWallLength($event.target.value, true)">
+                <DimensionInput :model-value="currentWallLength" min="10" max="1500" step="1" @update:model-value="updateWallLength($event, true)" />
             </div>
         </div>
         
         <div class="control-group">
             <label>Thickness</label>
             <div class="input-wrap">
-                <input type="range" :value="selectedEntity.thickness" min="1" max="100" step="1" @input="updateThickness($event.target.value)">
-                <DimensionInput :model-value="selectedEntity.thickness" min="1" max="100" step="1" @update:model-value="updateThickness($event)" />
+                <input type="range" :value="selectedEntity.thickness" min="1" max="100" step="1" @input="updateThickness($event.target.value, false)" @change="updateThickness($event.target.value, true)">
+                <DimensionInput :model-value="selectedEntity.thickness" min="1" max="100" step="1" @update:model-value="updateThickness($event, true)" />
             </div>
         </div>
 
@@ -84,8 +88,8 @@
         <div v-if="!selectedEntity.topProfileType || selectedEntity.topProfileType === 'normal' || selectedEntity.type === 'railing'" class="control-group">
             <label>Height</label>
             <div class="input-wrap">
-                <input type="range" :value="selectedEntity.height" min="0" max="500" step="1" @input="updateHeight($event.target.value)">
-                <DimensionInput :model-value="selectedEntity.height" min="0" max="500" step="1" @update:model-value="updateHeight($event)" />
+                <input type="range" :value="selectedEntity.height" min="0" max="500" step="1" @input="updateHeight($event.target.value, false)" @change="updateHeight($event.target.value, true)">
+                <DimensionInput :model-value="selectedEntity.height" min="0" max="500" step="1" @update:model-value="updateHeight($event, true)" />
             </div>
         </div>
 
@@ -119,22 +123,22 @@
             <div class="control-group">
                 <label>Start Height</label>
                 <div class="input-wrap">
-                    <input type="range" :value="selectedEntity.startHeight" min="0" max="500" step="1" @input="updateSlopeProp('startHeight', $event.target.value)">
-                    <DimensionInput :model-value="selectedEntity.startHeight" min="0" max="500" step="1" @update:model-value="updateSlopeProp('startHeight', $event)" />
+                    <input type="range" :value="selectedEntity.startHeight" min="0" max="500" step="1" @input="updateSlopeProp('startHeight', $event.target.value, false)" @change="updateSlopeProp('startHeight', $event.target.value, true)">
+                    <DimensionInput :model-value="selectedEntity.startHeight" min="0" max="500" step="1" @update:model-value="updateSlopeProp('startHeight', $event, true)" />
                 </div>
             </div>
             <div class="control-group" v-if="selectedEntity.topProfileType === 'gable'">
                 <label>Peak Height</label>
                 <div class="input-wrap">
-                    <input type="range" :value="selectedEntity.peakHeight" min="0" max="500" step="1" @input="updateSlopeProp('peakHeight', $event.target.value)">
-                    <DimensionInput :model-value="selectedEntity.peakHeight" min="0" max="500" step="1" @update:model-value="updateSlopeProp('peakHeight', $event)" />
+                    <input type="range" :value="selectedEntity.peakHeight" min="0" max="500" step="1" @input="updateSlopeProp('peakHeight', $event.target.value, false)" @change="updateSlopeProp('peakHeight', $event.target.value, true)">
+                    <DimensionInput :model-value="selectedEntity.peakHeight" min="0" max="500" step="1" @update:model-value="updateSlopeProp('peakHeight', $event, true)" />
                 </div>
             </div>
             <div class="control-group">
                 <label>End Height</label>
                 <div class="input-wrap">
-                    <input type="range" :value="selectedEntity.endHeight" min="0" max="500" step="1" @input="updateSlopeProp('endHeight', $event.target.value)">
-                    <DimensionInput :model-value="selectedEntity.endHeight" min="0" max="500" step="1" @update:model-value="updateSlopeProp('endHeight', $event)" />
+                    <input type="range" :value="selectedEntity.endHeight" min="0" max="500" step="1" @input="updateSlopeProp('endHeight', $event.target.value, false)" @change="updateSlopeProp('endHeight', $event.target.value, true)">
+                    <DimensionInput :model-value="selectedEntity.endHeight" min="0" max="500" step="1" @update:model-value="updateSlopeProp('endHeight', $event, true)" />
                 </div>
             </div>
         </template>
@@ -143,8 +147,8 @@
         <div class="control-group" v-if="selectedEntity.type !== 'railing'">
             <label>Elevation</label>
             <div class="input-wrap">
-                <input type="range" :value="selectedEntity.elevation || 0" min="0" max="500" step="1" @input="updateElevation($event.target.value)">
-                <DimensionInput :model-value="selectedEntity.elevation || 0" min="0" max="500" step="1" @update:model-value="updateElevation($event)" />
+                <input type="range" :value="selectedEntity.elevation || 0" min="0" max="500" step="1" @input="updateElevation($event.target.value, false)" @change="updateElevation($event.target.value, true)">
+                <DimensionInput :model-value="selectedEntity.elevation || 0" min="0" max="500" step="1" @update:model-value="updateElevation($event, true)" />
             </div>
         </div>
 
@@ -175,7 +179,7 @@
             <div class="decor-gallery">
                 <h4 class="props-subtitle">Railing Material</h4>
                 <div class="decor-grid">
-                    <div v-for="(config, key) in railingRegistry" :key="key" class="decor-item" @click="selectedEntity.configId = key; $emit('ui-trigger'); $emit('sync-engine')" :class="{ active: (selectedEntity.configId || 'glass_frameless') === key && uiTrigger !== -1 }">
+                    <div v-for="(config, key) in railingRegistry" :key="key" class="decor-item" @click="selectRailingConfig(key)" :class="{ active: (selectedEntity.configId || 'glass_frameless') === key && uiTrigger !== -1 }">
                         <img :src="railingThumbnails[key]" @error="handleImageError" />
                         <span>{{ config.name }}</span>
                     </div>
@@ -1139,8 +1143,12 @@ import { usePlannerStore } from '../../stores/usePlannerStore.js';
 import DimensionInput from '../../components/common/DimensionInput.vue';
 import MaterialSizeInput from '../../components/common/MaterialSizeInput.vue';
 import { WallEngine } from '../../core/wall/WallEngine.js';
+import { WallGeometryEngine } from '../../core/wall/WallGeometryEngine.js';
 import { WallHeightPolicy } from '../../core/wall/WallHeightPolicy.js';
 import { MaterialManager } from '../../core/engine3d/MaterialManager.js';
+import { SnapshotCommand } from '../../core/commands/SnapshotCommand.js';
+
+let activeDragCommand = null;
 
 const props = defineProps({
     selectedEntity: { type: Object, required: true },
@@ -1165,6 +1173,7 @@ const emit = defineEmits([
 ]);
 
 const plannerStore = usePlannerStore();
+const getPlanner = () => plannerStore.planner?.value || plannerStore.planner || props.planner || (typeof window !== 'undefined' ? (window.plannerInstance || window.planner?.value) : null);
 const { paintScope, selectedWallSide: storeWallSide } = storeToRefs(plannerStore);
 const railingThumbnails = ref({});
 
@@ -1259,27 +1268,34 @@ watch(() => props.activeDecorId, (newId) => {
     }
 }, { immediate: true });
 
+const internalUiVersion = ref(0);
+const triggerReactivity = () => {
+    internalUiVersion.value++;
+    emit('ui-trigger');
+};
+
 const currentWallLength = computed(() => {
+    const _trig = (props.uiTrigger || 0) + internalUiVersion.value;
     const wall = props.selectedEntity;
     if (!wall) return 100;
     if (typeof wall.getLength === 'function') return Math.round(wall.getLength());
     if (wall.length3D !== undefined) return Math.round(wall.length3D);
-    const p1 = wall.startAnchor || wall.p1 || { x: wall.startX || 0, y: wall.startY || 0 };
-    const p2 = wall.endAnchor || wall.p2 || { x: wall.endX || 0, y: wall.endY || 0 };
-    return Math.round(Math.hypot(p2.x - p1.x, p2.y - p1.y)) || 100;
+    return Math.round(WallGeometryEngine.getLength(wall)) || 100;
 });
 
 const currentWallHeight = computed(() => {
+    const _trig = (props.uiTrigger || 0) + internalUiVersion.value;
     const wall = props.selectedEntity;
     if (!wall) return 280;
     return wall.height !== undefined ? Number(wall.height) : (wall.config?.height || 280);
 });
 
 const wallSpatialCoords = computed(() => {
+    const _trig = (props.uiTrigger || 0) + internalUiVersion.value;
     const wall = props.selectedEntity;
     if (!wall) return { start: { x: 0, y: 0 }, end: { x: 0, y: 0 }, center: { x: 0, y: 0 }, elevation: 0 };
-    const p1 = wall.startAnchor || wall.p1 || { x: wall.startX || 0, y: wall.startY || 0 };
-    const p2 = wall.endAnchor || wall.p2 || { x: wall.endX || 0, y: wall.endY || 0 };
+    const p1 = WallGeometryEngine.getAnchorPosition(wall.startAnchor || { x: wall.startX || 0, y: wall.startY || 0 });
+    const p2 = WallGeometryEngine.getAnchorPosition(wall.endAnchor || { x: wall.endX || 0, y: wall.endY || 0 });
     return {
         start: { x: Math.round(p1.x || 0), y: Math.round(p1.y || 0) },
         end: { x: Math.round(p2.x || 0), y: Math.round(p2.y || 0) },
@@ -1709,12 +1725,20 @@ const alignDecor = (decor, target) => {
         const newY = Number((100 - h / 2).toFixed(3));
         onDecorPropChange(decor, 'localY', newY);
     } else if (target === 'full') {
-        decor.width = 100;
-        decor.height = 100;
-        decor.localX = 50;
-        decor.localY = 50;
-        if (wall) {
-            WallEngine.updateDecor(wall, decor, { width: 100, height: 100, localX: 50, localY: 50 }, false, props.planner);
+        const planner = plannerStore.planner?.value || plannerStore.planner || window.plannerInstance;
+        const doUpdate = () => {
+            decor.width = 100;
+            decor.height = 100;
+            decor.localX = 50;
+            decor.localY = 50;
+            if (wall) {
+                WallEngine.updateDecor(wall, decor, { width: 100, height: 100, localX: 50, localY: 50 }, false, props.planner || planner);
+            }
+        };
+        if (planner && typeof planner.executeWithSnapshot === 'function') {
+            planner.executeWithSnapshot(doUpdate);
+        } else {
+            doUpdate();
         }
         decorMutationVersion.value++;
         const renderer = plannerStore.renderer3D || window.renderer3D || window.plannerInstance?.renderer3D;
@@ -1757,14 +1781,25 @@ const flipDecorFace = (decor) => {
     if (!decor) return;
     const wall = props.selectedEntity;
     const newSide = decor.side === 'front' ? 'back' : 'front';
-    decor.side = newSide;
-    activeFace.value = newSide;
-    if (materialFilterFace.value !== 'all') {
-        materialFilterFace.value = newSide;
+    const planner = plannerStore.planner?.value || plannerStore.planner || window.plannerInstance;
+
+    const doUpdate = () => {
+        decor.side = newSide;
+        activeFace.value = newSide;
+        if (materialFilterFace.value !== 'all') {
+            materialFilterFace.value = newSide;
+        }
+        if (wall) {
+            WallEngine.updateDecor(wall, decor, { side: newSide }, false, props.planner || planner);
+        }
+    };
+
+    if (planner && typeof planner.executeWithSnapshot === 'function') {
+        planner.executeWithSnapshot(doUpdate);
+    } else {
+        doUpdate();
     }
-    if (wall) {
-        WallEngine.updateDecor(wall, decor, { side: newSide }, false, props.planner);
-    }
+
     decorMutationVersion.value++;
     const renderer = plannerStore.renderer3D || window.renderer3D || window.plannerInstance?.renderer3D;
     if (renderer && typeof renderer.updateWallDecorLive === 'function') {
@@ -1804,15 +1839,24 @@ const onDecorRotationInput = (decor, deg) => {
     if (!decor) return;
     const numDeg = Number(deg);
     const rad = (numDeg * Math.PI) / 180;
-    decor.rotation = rad;
-    decor.rotationDeg = numDeg;
-
+    const planner = getPlanner();
     const wall = props.selectedEntity;
-    if (wall) {
-        if (Array.isArray(wall.attachedDecor)) {
-            wall.attachedDecor = [...wall.attachedDecor];
+
+    const doUpdate = () => {
+        decor.rotation = rad;
+        decor.rotationDeg = numDeg;
+        if (wall) {
+            if (Array.isArray(wall.attachedDecor)) {
+                wall.attachedDecor = [...wall.attachedDecor];
+            }
+            WallEngine.updateDecor(wall, decor, { rotation: rad, rotationDeg: numDeg }, false, props.planner || planner);
         }
-        WallEngine.updateDecor(wall, decor, { rotation: rad, rotationDeg: numDeg }, false, props.planner);
+    };
+
+    if (planner && typeof planner.executeWithSnapshot === 'function') {
+        planner.executeWithSnapshot(doUpdate);
+    } else {
+        doUpdate();
     }
 
     decorMutationVersion.value++;
@@ -1837,41 +1881,52 @@ const onBaseDepthChange = (baseItem, val) => {
     if (isNaN(numVal) || numVal <= 0) return;
     const rotDeg = baseItem.rotationDeg !== undefined ? baseItem.rotationDeg : (currentBaseRotationDeg.value || 0);
 
-    let decor = wall.attachedDecor.find(d => d.id === activeEditMatId.value || (d.side === baseItem.side && d.configId === baseItem.key));
-    if (decor) {
-        decor.depth = numVal;
-        WallEngine.updateDecor(wall, decor, { depth: numVal }, false, props.planner);
+    const planner = getPlanner();
+    let decor = null;
+
+    const doUpdate = () => {
+        decor = wall.attachedDecor.find(d => d.id === activeEditMatId.value || (d.side === baseItem.side && d.configId === baseItem.key));
+        if (decor) {
+            decor.depth = numVal;
+            WallEngine.updateDecor(wall, decor, { depth: numVal }, false, props.planner || planner);
+        } else {
+            decor = {
+                id: 'decor_' + Date.now(),
+                type: 'wallDecor',
+                configId: baseItem.key,
+                side: baseItem.side,
+                depth: numVal,
+                tileSize: baseItem.tileSize || currentBaseTileSize.value || 70,
+                rotation: (rotDeg * Math.PI) / 180,
+                rotationDeg: rotDeg,
+                width: 100,
+                height: 100,
+                localX: 50,
+                localY: 50,
+                faces: { left: false, right: false }
+            };
+            WallEngine.attachDecor(wall, decor, false, props.planner || planner);
+            activeEditMatId.value = decor.id;
+        }
+    };
+
+    if (planner && typeof planner.executeWithSnapshot === 'function') {
+        planner.executeWithSnapshot(doUpdate);
     } else {
-        decor = {
-            id: 'decor_' + Date.now(),
-            type: 'wallDecor',
-            configId: baseItem.key,
-            side: baseItem.side,
-            depth: numVal,
-            tileSize: baseItem.tileSize || currentBaseTileSize.value || 70,
-            rotation: (rotDeg * Math.PI) / 180,
-            rotationDeg: rotDeg,
-            width: 100,
-            height: 100,
-            localX: 50,
-            localY: 50,
-            faces: { left: false, right: false }
-        };
-        WallEngine.attachDecor(wall, decor, false, props.planner);
-        activeEditMatId.value = decor.id;
+        doUpdate();
     }
 
     decorMutationVersion.value++;
 
     const renderer = plannerStore.renderer3D || window.renderer3D || window.plannerInstance?.renderer3D;
-    if (renderer && typeof renderer.updateWallDecorLive === 'function') {
+    if (renderer && typeof renderer.updateWallDecorLive === 'function' && decor) {
         renderer.updateWallDecorLive(decor);
     }
     if (renderer && typeof renderer.requestRender === 'function') {
         renderer.requestRender();
     }
 
-    emit('decor-update', decor);
+    if (decor) emit('decor-update', decor);
     emit('ui-trigger');
 };
 
@@ -1883,41 +1938,52 @@ const onBaseDimensionChange = (baseItem, prop, val) => {
     const numVal = Number(val);
     const rotDeg = baseItem.rotationDeg !== undefined ? baseItem.rotationDeg : (currentBaseRotationDeg.value || 0);
 
-    let decor = wall.attachedDecor.find(d => d.id === activeEditMatId.value || (d.side === baseItem.side && d.configId === baseItem.key));
-    if (decor) {
-        decor[prop] = numVal;
-        WallEngine.updateDecor(wall, decor, { [prop]: numVal }, false, props.planner);
+    const planner = getPlanner();
+    let decor = null;
+
+    const doUpdate = () => {
+        decor = wall.attachedDecor.find(d => d.id === activeEditMatId.value || (d.side === baseItem.side && d.configId === baseItem.key));
+        if (decor) {
+            decor[prop] = numVal;
+            WallEngine.updateDecor(wall, decor, { [prop]: numVal }, false, props.planner || planner);
+        } else {
+            decor = {
+                id: 'decor_' + Date.now(),
+                type: 'wallDecor',
+                configId: baseItem.key,
+                side: baseItem.side,
+                depth: 0.2,
+                tileSize: baseItem.tileSize || currentBaseTileSize.value || 70,
+                rotation: (rotDeg * Math.PI) / 180,
+                rotationDeg: rotDeg,
+                width: prop === 'width' ? numVal : 100,
+                height: prop === 'height' ? numVal : 100,
+                localX: prop === 'localX' ? numVal : 50,
+                localY: prop === 'localY' ? numVal : 50,
+                faces: { left: false, right: false }
+            };
+            WallEngine.attachDecor(wall, decor, false, props.planner || planner);
+            activeEditMatId.value = decor.id;
+        }
+    };
+
+    if (planner && typeof planner.executeWithSnapshot === 'function') {
+        planner.executeWithSnapshot(doUpdate);
     } else {
-        decor = {
-            id: 'decor_' + Date.now(),
-            type: 'wallDecor',
-            configId: baseItem.key,
-            side: baseItem.side,
-            depth: 0.2,
-            tileSize: baseItem.tileSize || currentBaseTileSize.value || 70,
-            rotation: (rotDeg * Math.PI) / 180,
-            rotationDeg: rotDeg,
-            width: prop === 'width' ? numVal : 100,
-            height: prop === 'height' ? numVal : 100,
-            localX: prop === 'localX' ? numVal : 50,
-            localY: prop === 'localY' ? numVal : 50,
-            faces: { left: false, right: false }
-        };
-        WallEngine.attachDecor(wall, decor, false, props.planner);
-        activeEditMatId.value = decor.id;
+        doUpdate();
     }
 
     decorMutationVersion.value++;
 
     const renderer = plannerStore.renderer3D || window.renderer3D || window.plannerInstance?.renderer3D;
-    if (renderer && typeof renderer.updateWallDecorLive === 'function') {
+    if (renderer && typeof renderer.updateWallDecorLive === 'function' && decor) {
         renderer.updateWallDecorLive(decor);
     }
     if (renderer && typeof renderer.requestRender === 'function') {
         renderer.requestRender();
     }
 
-    emit('decor-update', decor);
+    if (decor) emit('decor-update', decor);
     emit('ui-trigger');
 };
 
@@ -1963,65 +2029,48 @@ const toggleEditMaterial = (item) => {
 const onBaseTileSizeInput = (side, val) => {
     const num = Number(val);
     if (isNaN(num) || num <= 0 || !props.selectedEntity) return;
-    if (!props.selectedEntity.params) props.selectedEntity.params = {};
+    const planner = getPlanner();
+
+    const params = {};
     if (side === 'front') {
-        props.selectedEntity.params.tileSizeFront = num;
+        params.tileSizeFront = num;
     } else {
-        props.selectedEntity.params.tileSizeBack = num;
+        params.tileSizeBack = num;
     }
-    props.selectedEntity.params.tileSize = num;
+    params.tileSize = num;
 
-    const arc = props.selectedEntity.parentArc || (props.selectedEntity.walls ? props.selectedEntity : null);
-    if (arc && arc.walls) {
-        arc.params = arc.params || {};
-        if (side === 'front') arc.params.tileSizeFront = num;
-        else arc.params.tileSizeBack = num;
-        arc.params.tileSize = num;
-        arc.walls.forEach(w => {
-            w.params = w.params || {};
-            if (side === 'front') w.params.tileSizeFront = num;
-            else w.params.tileSizeBack = num;
-            w.params.tileSize = num;
-        });
-    }
+    const doUpdate = () => {
+        WallEngine.setMaterialParams(props.selectedEntity, params, false, planner);
+    };
 
-    const renderer = plannerStore.renderer3D;
-    if (renderer && typeof renderer.updateMaterialLive === 'function') {
-        renderer.updateMaterialLive(arc || props.selectedEntity);
-    }
-    if (renderer && typeof renderer.requestRender === 'function') {
-        renderer.requestRender('material_updated', 2);
+    if (planner && typeof planner.executeWithSnapshot === 'function') {
+        planner.executeWithSnapshot(doUpdate);
+    } else {
+        doUpdate();
     }
     emit('sync-engine');
 };
 
 const onBaseRotationInput = (side, deg) => {
     const rad = (Number(deg) * Math.PI) / 180;
-    if (!props.selectedEntity.params) props.selectedEntity.params = {};
+    if (isNaN(rad) || !props.selectedEntity) return;
+    const planner = getPlanner();
+
+    const params = {};
     if (side === 'front') {
-        props.selectedEntity.params.rotationFront = rad;
+        params.rotationFront = rad;
     } else {
-        props.selectedEntity.params.rotationBack = rad;
+        params.rotationBack = rad;
     }
 
-    const arc = props.selectedEntity.parentArc || (props.selectedEntity.walls ? props.selectedEntity : null);
-    if (arc && arc.walls) {
-        arc.params = arc.params || {};
-        if (side === 'front') arc.params.rotationFront = rad;
-        else arc.params.rotationBack = rad;
-        arc.walls.forEach(w => {
-            w.params = w.params || {};
-            if (side === 'front') w.params.rotationFront = rad;
-            else w.params.rotationBack = rad;
-        });
-    }
+    const doUpdate = () => {
+        WallEngine.setMaterialParams(props.selectedEntity, params, false, planner);
+    };
 
-    const renderer = plannerStore.renderer3D;
-    if (renderer && typeof renderer.updateMaterialLive === 'function') {
-        renderer.updateMaterialLive(arc || props.selectedEntity);
-    }
-    if (renderer && typeof renderer.requestRender === 'function') {
-        renderer.requestRender('material_updated', 2);
+    if (planner && typeof planner.executeWithSnapshot === 'function') {
+        planner.executeWithSnapshot(doUpdate);
+    } else {
+        doUpdate();
     }
     emit('sync-engine');
 };
@@ -2030,14 +2079,23 @@ const onDecorPropChange = (decor, prop, val) => {
     if (!decor) return;
     const num = Number(val);
     if (isNaN(num)) return;
-    decor[prop] = num;
-
+    const planner = getPlanner();
     const wall = props.selectedEntity;
-    if (wall) {
-        if (Array.isArray(wall.attachedDecor)) {
-            wall.attachedDecor = [...wall.attachedDecor];
+
+    const doUpdate = () => {
+        decor[prop] = num;
+        if (wall) {
+            if (Array.isArray(wall.attachedDecor)) {
+                wall.attachedDecor = [...wall.attachedDecor];
+            }
+            WallEngine.updateDecor(wall, decor, { [prop]: num }, false, props.planner || planner);
         }
-        WallEngine.updateDecor(wall, decor, { [prop]: num }, false, props.planner);
+    };
+
+    if (planner && typeof planner.executeWithSnapshot === 'function') {
+        planner.executeWithSnapshot(doUpdate);
+    } else {
+        doUpdate();
     }
 
     decorMutationVersion.value++;
@@ -2055,15 +2113,24 @@ const onDecorPropChange = (decor, prop, val) => {
 
 const onDecorEdgeChange = (decor, edge, checked) => {
     if (!decor) return;
-    if (!decor.faces) decor.faces = { left: false, right: false };
-    decor.faces[edge] = !!checked;
-
+    const planner = getPlanner();
     const wall = props.selectedEntity;
-    if (wall) {
-        if (Array.isArray(wall.attachedDecor)) {
-            wall.attachedDecor = [...wall.attachedDecor];
+
+    const doUpdate = () => {
+        if (!decor.faces) decor.faces = { left: false, right: false };
+        decor.faces[edge] = !!checked;
+        if (wall) {
+            if (Array.isArray(wall.attachedDecor)) {
+                wall.attachedDecor = [...wall.attachedDecor];
+            }
+            WallEngine.updateDecor(wall, decor, { faces: { ...decor.faces } }, false, props.planner || planner);
         }
-        WallEngine.updateDecor(wall, decor, { faces: { ...decor.faces } }, false, props.planner);
+    };
+
+    if (planner && typeof planner.executeWithSnapshot === 'function') {
+        planner.executeWithSnapshot(doUpdate);
+    } else {
+        doUpdate();
     }
 
     decorMutationVersion.value++;
@@ -2082,7 +2149,7 @@ const onDecorEdgeChange = (decor, edge, checked) => {
 const deleteBaseMaterial = (side) => {
     const entity = props.selectedEntity;
     if (!entity) return;
-    const planner = plannerStore.planner?.value || plannerStore.planner || window.plannerInstance;
+    const planner = getPlanner();
     const renderer = plannerStore.renderer3D;
 
     const doDelete = () => {
@@ -2165,97 +2232,202 @@ const deleteItem = (item) => {
 
 let previousScope = 'single';
 
-const updateWallLength = (newLengthVal) => {
+const updateWallLength = (newLengthVal, isCommit = true) => {
     const wall = props.selectedEntity;
     const newL = Number(newLengthVal);
     if (!wall || isNaN(newL) || newL < 10) return;
-    const planner = plannerStore.planner?.value || plannerStore.planner || window.plannerInstance;
-    const p1 = wall.startAnchor ? { x: wall.startAnchor.x, y: wall.startAnchor.y } : (wall.p1 ? { x: wall.p1.x, y: wall.p1.y } : { x: wall.startX || 0, y: wall.startY || 0 });
-    const p2 = wall.endAnchor ? { x: wall.endAnchor.x, y: wall.endAnchor.y } : (wall.p2 ? { x: wall.p2.x, y: wall.p2.y } : { x: wall.endX || 0, y: wall.endY || 0 });
+    const planner = getPlanner();
+    const p1 = WallGeometryEngine.getAnchorPosition(wall.startAnchor || { x: wall.startX || 0, y: wall.startY || 0 });
+    const p2 = WallGeometryEngine.getAnchorPosition(wall.endAnchor || { x: wall.endX || 0, y: wall.endY || 0 });
     const currentL = Math.hypot(p2.x - p1.x, p2.y - p1.y);
     if (currentL < 0.001) return;
     const dir = { x: (p2.x - p1.x) / currentL, y: (p2.y - p1.y) / currentL };
     const newP2 = { x: p1.x + dir.x * newL, y: p1.y + dir.y * newL };
     
-    if (planner && typeof planner.executeWithSnapshot === 'function') {
-        planner.executeWithSnapshot(() => {
-            WallEngine.setEndpoints(wall, p1, newP2, true, planner);
-        });
+    if (!isCommit) {
+        if (!activeDragCommand && planner && typeof planner.exportState === 'function') {
+            activeDragCommand = new SnapshotCommand(planner);
+        }
+        WallEngine.setEndpoints(wall, p1, newP2, false, planner);
     } else {
-        WallEngine.setEndpoints(wall, p1, newP2, true, planner);
+        if (activeDragCommand) {
+            WallEngine.setEndpoints(wall, p1, newP2, false, planner);
+            if (activeDragCommand.finalize() && planner.commandManager) {
+                planner.commandManager.execute(activeDragCommand);
+            }
+            activeDragCommand = null;
+        } else if (planner && typeof planner.executeWithSnapshot === 'function') {
+            planner.executeWithSnapshot(() => {
+                WallEngine.setEndpoints(wall, p1, newP2, false, planner);
+            });
+        } else {
+            WallEngine.setEndpoints(wall, p1, newP2, false, planner);
+        }
     }
     emit('sync-engine');
+    triggerReactivity();
 };
 
-const updateElevation = (val) => {
-    const planner = plannerStore.planner?.value || plannerStore.planner || window.plannerInstance;
-    const num = Number(val);
+const updateElevation = (val, isCommit = true) => {
+    const planner = getPlanner();
+    const effectiveVal = (val !== undefined && val !== null && val !== '') ? val : props.selectedEntity?.elevation;
+    const num = Number(effectiveVal);
     if (isNaN(num) || !props.selectedEntity) return;
-    if (planner && typeof planner.executeWithSnapshot === 'function') {
-        planner.executeWithSnapshot(() => {
-            WallEngine.setElevation(props.selectedEntity, num, false, planner);
-        });
-    } else {
+
+    if (!isCommit) {
+        if (!activeDragCommand && planner && typeof planner.exportState === 'function') {
+            activeDragCommand = new SnapshotCommand(planner);
+        }
         WallEngine.setElevation(props.selectedEntity, num, false, planner);
+    } else {
+        if (activeDragCommand) {
+            WallEngine.setElevation(props.selectedEntity, num, false, planner);
+            if (activeDragCommand.finalize() && planner.commandManager) {
+                planner.commandManager.execute(activeDragCommand);
+            }
+            activeDragCommand = null;
+        } else if (planner && typeof planner.executeWithSnapshot === 'function') {
+            planner.executeWithSnapshot(() => {
+                WallEngine.setElevation(props.selectedEntity, num, false, planner);
+            });
+        } else {
+            WallEngine.setElevation(props.selectedEntity, num, false, planner);
+        }
     }
     emit('sync-engine');
+    triggerReactivity();
 };
 
-const updateThickness = (val) => {
-    const planner = plannerStore.planner?.value || plannerStore.planner || window.plannerInstance;
-    const num = Number(val);
-    if (isNaN(num) || num <= 0 || !props.selectedEntity) return;
+const toggleHiddenWall = (val) => {
+    const planner = getPlanner();
+    if (!props.selectedEntity) return;
+    const isHidden = Boolean(val);
     if (planner && typeof planner.executeWithSnapshot === 'function') {
         planner.executeWithSnapshot(() => {
-            WallEngine.setThickness(props.selectedEntity, num, false, planner);
+            WallEngine.setHidden(props.selectedEntity, isHidden, false, planner);
         });
     } else {
-        WallEngine.setThickness(props.selectedEntity, num, false, planner);
+        WallEngine.setHidden(props.selectedEntity, isHidden, false, planner);
     }
     emit('sync-engine');
+    triggerReactivity();
 };
 
-const updateHeight = (val) => {
-    const planner = plannerStore.planner?.value || plannerStore.planner || window.plannerInstance;
-    const num = Number(val);
+const updateThickness = (val, isCommit = true) => {
+    const planner = getPlanner();
+    const effectiveVal = (val !== undefined && val !== null && val !== '') ? val : props.selectedEntity?.thickness;
+    const num = Number(effectiveVal);
+    if (isNaN(num) || num <= 0 || !props.selectedEntity) return;
+
+    if (!isCommit) {
+        if (!activeDragCommand && planner && typeof planner.exportState === 'function') {
+            activeDragCommand = new SnapshotCommand(planner);
+        }
+        WallEngine.setThickness(props.selectedEntity, num, false, planner);
+    } else {
+        if (activeDragCommand) {
+            WallEngine.setThickness(props.selectedEntity, num, false, planner);
+            if (activeDragCommand.finalize() && planner.commandManager) {
+                planner.commandManager.execute(activeDragCommand);
+            }
+            activeDragCommand = null;
+        } else if (planner && typeof planner.executeWithSnapshot === 'function') {
+            planner.executeWithSnapshot(() => {
+                WallEngine.setThickness(props.selectedEntity, num, false, planner);
+            });
+        } else {
+            WallEngine.setThickness(props.selectedEntity, num, false, planner);
+        }
+    }
+    emit('sync-engine');
+    triggerReactivity();
+};
+
+const updateHeight = (val, isCommit = true) => {
+    const planner = getPlanner();
+    const effectiveVal = (val !== undefined && val !== null && val !== '') ? val : props.selectedEntity?.height;
+    const num = Number(effectiveVal);
     if (isNaN(num) || !props.selectedEntity) return;
     const validH = WallHeightPolicy.processInputHeight(num);
-    if (planner && typeof planner.executeWithSnapshot === 'function') {
-        planner.executeWithSnapshot(() => {
-            WallEngine.setHeight(props.selectedEntity, validH, false, planner);
-        });
-    } else {
+
+    if (!isCommit) {
+        if (!activeDragCommand && planner && typeof planner.exportState === 'function') {
+            activeDragCommand = new SnapshotCommand(planner);
+        }
         WallEngine.setHeight(props.selectedEntity, validH, false, planner);
+    } else {
+        if (activeDragCommand) {
+            WallEngine.setHeight(props.selectedEntity, validH, false, planner);
+            if (activeDragCommand.finalize() && planner.commandManager) {
+                planner.commandManager.execute(activeDragCommand);
+            }
+            activeDragCommand = null;
+        } else if (planner && typeof planner.executeWithSnapshot === 'function') {
+            planner.executeWithSnapshot(() => {
+                WallEngine.setHeight(props.selectedEntity, validH, false, planner);
+            });
+        } else {
+            WallEngine.setHeight(props.selectedEntity, validH, false, planner);
+        }
     }
     emit('sync-engine');
+    triggerReactivity();
 };
 
 const setTopProfile = (profileType) => {
-    const planner = plannerStore.planner?.value || plannerStore.planner || window.plannerInstance;
+    const planner = getPlanner();
     if (!props.selectedEntity) return;
+    const wall = props.selectedEntity;
+    const baseH = wall.height !== undefined ? Number(wall.height) : (wall.config?.height || WallHeightPolicy.DEFAULT_HEIGHT);
+    const options = {};
+    if (profileType === 'single') {
+        options.startHeight = wall.startHeight !== undefined ? wall.startHeight : baseH;
+        options.endHeight = wall.endHeight !== undefined ? wall.endHeight : Math.min(WallHeightPolicy.MAX_HEIGHT, baseH + 60);
+    } else if (profileType === 'gable') {
+        options.startHeight = wall.startHeight !== undefined ? wall.startHeight : baseH;
+        options.endHeight = wall.endHeight !== undefined ? wall.endHeight : baseH;
+        options.peakHeight = wall.peakHeight !== undefined ? wall.peakHeight : Math.min(WallHeightPolicy.MAX_HEIGHT, baseH + 60);
+    }
     if (planner && typeof planner.executeWithSnapshot === 'function') {
         planner.executeWithSnapshot(() => {
-            WallEngine.setTopProfile(props.selectedEntity, profileType, {}, false, planner);
+            WallEngine.setTopProfile(props.selectedEntity, profileType, options, false, planner);
         });
     } else {
-        WallEngine.setTopProfile(props.selectedEntity, profileType, {}, false, planner);
+        WallEngine.setTopProfile(props.selectedEntity, profileType, options, false, planner);
     }
     emit('sync-engine');
+    triggerReactivity();
 };
 
-const updateSlopeProp = (prop, val) => {
-    const planner = plannerStore.planner?.value || plannerStore.planner || window.plannerInstance;
-    const num = Number(val);
+const updateSlopeProp = (prop, val, isCommit = true) => {
+    const planner = getPlanner();
+    const effectiveVal = (val !== undefined && val !== null && val !== '') ? val : props.selectedEntity?.[prop];
+    const num = Number(effectiveVal);
     if (isNaN(num) || !props.selectedEntity) return;
-    const validH = WallHeightPolicy.processInputHeight(num);
-    if (planner && typeof planner.executeWithSnapshot === 'function') {
-        planner.executeWithSnapshot(() => {
-            WallEngine.batchUpdate(planner, [props.selectedEntity], { [prop]: validH }, false);
-        });
+    const wall = props.selectedEntity;
+
+    if (!isCommit) {
+        if (!activeDragCommand && planner && typeof planner.exportState === 'function') {
+            activeDragCommand = new SnapshotCommand(planner);
+        }
+        WallEngine.setSlopeProp(wall, prop, num, false, planner);
     } else {
-        WallEngine.batchUpdate(planner, [props.selectedEntity], { [prop]: validH }, false);
+        if (activeDragCommand) {
+            WallEngine.setSlopeProp(wall, prop, num, false, planner);
+            if (activeDragCommand.finalize() && planner.commandManager) {
+                planner.commandManager.execute(activeDragCommand);
+            }
+            activeDragCommand = null;
+        } else if (planner && typeof planner.executeWithSnapshot === 'function') {
+            planner.executeWithSnapshot(() => {
+                WallEngine.setSlopeProp(wall, prop, num, false, planner);
+            });
+        } else {
+            WallEngine.setSlopeProp(wall, prop, num, false, planner);
+        }
     }
     emit('sync-engine');
+    triggerReactivity();
 };
 
 const handleKeyDown = (e) => {
@@ -2282,21 +2454,39 @@ onMounted(() => {
 });
 
 onUnmounted(() => {
+    activeDragCommand = null;
     window.removeEventListener('keydown', handleKeyDown);
     window.removeEventListener('keyup', handleKeyUp);
 });
 
-const onCompoundFloorToggle = () => {
-    const val = !!props.selectedEntity.hasFloor;
-    const planner = plannerStore.planner;
-    if (planner && planner.walls) {
-        planner.walls.forEach(w => {
-            if (w.type === 'compound') {
-                w.hasFloor = val;
-            }
+const onCompoundFloorToggle = (checked) => {
+    const val = typeof checked === 'boolean' ? checked : (checked?.target ? checked.target.checked : !props.selectedEntity?.hasFloor);
+    const planner = getPlanner();
+    if (planner && typeof planner.executeWithSnapshot === 'function') {
+        planner.executeWithSnapshot(() => {
+            WallEngine.setCompoundFloor(planner, val, false);
         });
+    } else {
+        WallEngine.setCompoundFloor(planner, val, false);
     }
     emit('sync-engine');
+    triggerReactivity();
+};
+
+const selectRailingConfig = (key) => {
+    const wall = props.selectedEntity;
+    if (!wall) return;
+    const planner = getPlanner();
+    if (planner && typeof planner.executeWithSnapshot === 'function') {
+        planner.executeWithSnapshot(() => {
+            WallEngine.setRailingConfig(wall, key, false, planner);
+        });
+    } else {
+        WallEngine.setRailingConfig(wall, key, false, planner);
+    }
+    emit('ui-trigger');
+    emit('sync-engine');
+    triggerReactivity();
 };
 
 const generateThumbnails = async () => {
@@ -2321,6 +2511,7 @@ const handleImageError = (e) => {
 };
 
 watch(() => props.selectedEntity, (newVal) => {
+    activeDragCommand = null;
     if (newVal && newVal.type === 'railing') {
         generateThumbnails();
     }

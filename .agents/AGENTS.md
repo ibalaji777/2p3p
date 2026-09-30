@@ -339,3 +339,31 @@ Every new feature, tool, entity, shape, elevation element, staircase, furniture 
 11. **Full Serialization & History Integrity**:
     - All spatial dependency metadata (`id`, `hostId`, `parentWallId`, `hostPlatformId`, `hostType`, `relationshipType`, `localTransform`, `elevation`) MUST be preserved across `exportState()` and restored by `importState()` / `rebuildFromPlanner()`.
     - Undo and Redo must revert both host and dependent positions without breaking graph edges.
+
+# Universal Virtual Wall, Hidden Wall & Solid Block Corner Architecture Rule
+
+**CRITICAL MANDATE - ZERO 45-DEGREE EXPOSED SLICES & ZERO INVISIBLE 3D MESHES**
+
+All 0-height virtual walls (`wall.height === 0`), hidden walls (`wall.hidden === true`), corner miters, and 2D/3D representations MUST strictly adhere to the unified architecture defined in the `virtual_wall_and_miter_expert` and `wall_expert` skills:
+
+## Required Behavior:
+1. **Effective Height 0 Authority**:
+   - In `WallGeometryEngine.getCorners`, all walls MUST evaluate vertical reach via `getWallEffectiveHeight(w)`.
+   - Any wall with `hidden === true` or `height === 0` strictly evaluates to `effectiveHeight = 0`.
+   - Never use falsy fallbacks like `Number(w.height) || 120` or `Number(w.height) || Number(w.config?.height)`.
+2. **Solid Block & Straight Square Cut ($90^\circ$) Guarantee**:
+   - When a full-height wall ($H > 0$, e.g. 280 cm) meets a 0-height wall or a hidden wall ($H = 0$), it MUST trigger the **Taller Dominant Butt-Joint** ($\text{topDiff} = \text{wallTop} - \text{otherTop} > 2.0$).
+   - The side wall extends full to the outer corner boundary ($P_{outer}$) with a square cut ($X_L = X_R = \text{distAlongDir}$, $\Delta X = 0$).
+   - Slicing a connected wall at a $45^\circ$ diagonal angle when meeting an invisible (0-height or hidden) wall is **strictly prohibited**. It must appear as a gapless, flush solid block.
+   - The 0-height or hidden wall butts squarely into the inner face of the taller wall ($P_{inner}$).
+3. **Neighbor Ray Collection & Level Compatibility**:
+   - Hidden walls MUST NOT be filtered out of neighbor rays via `!w.hidden`. They must be collected to accurately determine $P_{outer}$.
+   - Floor level compatibility for 0-effective-height walls evaluates base elevation via `Math.abs(wallBot - wBot) <= 5.0`.
+4. **Equal-Height 45-Degree Miter for 2D Reference Consistency**:
+   - When two 0-height reference walls meet, $\text{topDiff} = 0 - 0 = 0$, preserving the standard $45^\circ$ miter for seamless 2D reference lines.
+5. **Complete 3D Scene Graph Invisibility**:
+   - `wall.renderer3d.js` and `EnvironmentBuilder.js` MUST completely suppress hidden and 0-height walls (`buildWallGroup` returns null, disposes previous meshes, clears 3D selections).
+6. **2D Reference Representation & Handle Suppression**:
+   - `wall.renderer2d.js` renders virtual and hidden walls with transparent fill (`fillEnabled(false)`), slate dashed stroke `[8, 6]`, reference badge `(Hidden)` / `(0cm)`, and suppresses vertical raiser and sloped foldout handles.
+7. **Height Policy Contract**:
+   - `WallHeightPolicy.js` permits $0\text{ cm}$ for virtual/reference walls without clamping, while physical walls clamp $0 < H < 20 \to 20\text{ cm}$.

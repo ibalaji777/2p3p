@@ -142,4 +142,135 @@ describe('Height-Segmented Wall Corner Mitering & Gapless Junctions', () => {
         expect(shortStart.corners[1].x).toBeCloseTo(10, 1);
         expect(shortStart.corners[1].y).toBeCloseTo(10, 1);
     });
+
+    it('4. Normal Wall (280cm) meeting Wall 0 (height: 0cm): Normal wall receives straight square cut (solid block look)', () => {
+        const anchorA = { x: 0, y: 0 };
+        const anchorB = { x: 400, y: 0 };
+        const anchorC = { x: 0, y: 300 };
+
+        const normalWall = {
+            id: 'normalWall',
+            startAnchor: anchorA,
+            endAnchor: anchorB,
+            thickness: 20,
+            height: 280,
+            elevation: 0,
+            config: { height: 280 }
+        };
+
+        const zeroWall = {
+            id: 'zeroWall',
+            startAnchor: anchorA,
+            endAnchor: anchorC,
+            thickness: 20,
+            height: 0,
+            elevation: 0,
+            config: { height: 280 } // Falsy 0 check regression protection
+        };
+
+        const allWalls = [normalWall, zeroWall];
+
+        const normalStart = WallGeometryEngine.getCorners(normalWall, anchorA, true, allWalls);
+        const zeroStart = WallGeometryEngine.getCorners(zeroWall, anchorA, true, allWalls);
+
+        // Normal Wall extends full to outer boundary (x = -10) with a straight square cut (solid block, NO 45-degree angle)
+        expect(normalStart.corners[0].x).toBeCloseTo(-10, 1);
+        expect(normalStart.corners[0].y).toBeCloseTo(10, 1);
+        expect(normalStart.corners[1].x).toBeCloseTo(-10, 1);
+        expect(normalStart.corners[1].y).toBeCloseTo(-10, 1);
+        // Slant difference must be strictly 0 (straight square cap, perpendicular to wall)
+        expect(Math.abs(normalStart.corners[0].x - normalStart.corners[1].x)).toBeCloseTo(0, 1);
+
+        // Zero Wall butts squarely into the inner face of Normal Wall (y = 10)
+        expect(zeroStart.corners[0].x).toBeCloseTo(-10, 1);
+        expect(zeroStart.corners[0].y).toBeCloseTo(10, 1);
+        expect(zeroStart.corners[1].x).toBeCloseTo(10, 1);
+        expect(zeroStart.corners[1].y).toBeCloseTo(10, 1);
+    });
+
+    it('5. Normal Wall (280cm) meeting Hidden Wall (hidden: true, height: 280cm): Normal wall receives straight square cut (solid block look)', () => {
+        const anchorA = { x: 0, y: 0 };
+        const anchorB = { x: 400, y: 0 };
+        const anchorC = { x: 0, y: 300 };
+
+        const normalWall = {
+            id: 'normalWall',
+            startAnchor: anchorA,
+            endAnchor: anchorB,
+            thickness: 20,
+            height: 280,
+            elevation: 0,
+            config: { height: 280 }
+        };
+
+        const hiddenWall = {
+            id: 'hiddenWall',
+            startAnchor: anchorA,
+            endAnchor: anchorC,
+            thickness: 20,
+            height: 280, // Even with enabled height, hidden walls evaluate to effective height 0
+            elevation: 0,
+            hidden: true,
+            config: { height: 280 }
+        };
+
+        const allWalls = [normalWall, hiddenWall];
+
+        const normalStart = WallGeometryEngine.getCorners(normalWall, anchorA, true, allWalls);
+        const hiddenStart = WallGeometryEngine.getCorners(hiddenWall, anchorA, true, allWalls);
+
+        // Normal Wall extends full to outer boundary (x = -10) with a straight square cut (solid block, NO 45-degree angle)
+        expect(normalStart.corners[0].x).toBeCloseTo(-10, 1);
+        expect(normalStart.corners[0].y).toBeCloseTo(10, 1);
+        expect(normalStart.corners[1].x).toBeCloseTo(-10, 1);
+        expect(normalStart.corners[1].y).toBeCloseTo(-10, 1);
+        expect(Math.abs(normalStart.corners[0].x - normalStart.corners[1].x)).toBeCloseTo(0, 1);
+
+        // Hidden Wall butts squarely into the inner face of Normal Wall (y = 10)
+        expect(hiddenStart.corners[0].x).toBeCloseTo(-10, 1);
+        expect(hiddenStart.corners[0].y).toBeCloseTo(10, 1);
+        expect(hiddenStart.corners[1].x).toBeCloseTo(10, 1);
+        expect(hiddenStart.corners[1].y).toBeCloseTo(10, 1);
+    });
+
+    it('6. Two 0-height reference walls meeting: Both walls preserve equal-height 45-degree miter for 2D reference representation', () => {
+        const anchorA = { x: 0, y: 0 };
+        const anchorB = { x: 400, y: 0 };
+        const anchorC = { x: 0, y: 300 };
+
+        const zeroWall1 = {
+            id: 'zeroWall1',
+            startAnchor: anchorA,
+            endAnchor: anchorB,
+            thickness: 20,
+            height: 0,
+            elevation: 0
+        };
+
+        const zeroWall2 = {
+            id: 'zeroWall2',
+            startAnchor: anchorA,
+            endAnchor: anchorC,
+            thickness: 20,
+            height: 0,
+            elevation: 0
+        };
+
+        const allWalls = [zeroWall1, zeroWall2];
+
+        const w1Start = WallGeometryEngine.getCorners(zeroWall1, anchorA, true, allWalls);
+        const w2Start = WallGeometryEngine.getCorners(zeroWall2, anchorA, true, allWalls);
+
+        // Both walls have height 0 -> topDiff = 0 -> standard 45-degree miter preserved for 2D reference line meeting
+        expect(w1Start.corners[0].x).toBeCloseTo(10, 1);
+        expect(w1Start.corners[0].y).toBeCloseTo(10, 1);
+        expect(w1Start.corners[1].x).toBeCloseTo(-10, 1);
+        expect(w1Start.corners[1].y).toBeCloseTo(-10, 1);
+
+        expect(w2Start.corners[0].x).toBeCloseTo(-10, 1);
+        expect(w2Start.corners[0].y).toBeCloseTo(-10, 1);
+        expect(w2Start.corners[1].x).toBeCloseTo(10, 1);
+        expect(w2Start.corners[1].y).toBeCloseTo(10, 1);
+    });
 });
+

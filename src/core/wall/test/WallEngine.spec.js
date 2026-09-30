@@ -950,6 +950,75 @@ describe('WallEngine - Single Source of Truth Architecture', () => {
                 expect(wall.endAnchor.y).toBe(0);
             });
         });
+
+        describe('setHidden - Authoritative Hidden State', () => {
+            it('toggles hidden state on wall and updates connected wall geometry cache', () => {
+                const a1 = mockPlanner.getOrCreateAnchor(0, 0);
+                const a2 = mockPlanner.getOrCreateAnchor(200, 0);
+                const a3 = mockPlanner.getOrCreateAnchor(200, 200);
+
+                const wallA = WallEngine.createWall(mockPlanner, {
+                    startAnchor: a1,
+                    endAnchor: a2,
+                    thickness: 20
+                });
+                const wallB = WallEngine.createWall(mockPlanner, {
+                    startAnchor: a2,
+                    endAnchor: a3,
+                    thickness: 20
+                });
+
+                wallA.update = vi.fn();
+                wallB.update = vi.fn();
+                wallA.wallShapeData = { cached: true };
+                wallB.wallShapeData = { cached: true };
+
+                // Hide Wall A
+                WallEngine.setHidden(wallA, true, false, mockPlanner);
+
+                expect(wallA.hidden).toBe(true);
+                expect(wallA.config.hidden).toBe(true);
+                expect(wallA.wallShapeData).toBeNull();
+                expect(wallA.update).toHaveBeenCalled();
+
+                // Connected Wall B should also have its shape cache invalidated to recompute corner miter
+                expect(wallB.wallShapeData).toBeNull();
+                expect(wallB.update).toHaveBeenCalled();
+
+                // Unhide Wall A
+                WallEngine.setHidden(wallA, false, false, mockPlanner);
+                expect(wallA.hidden).toBe(false);
+                expect(wallA.config.hidden).toBe(false);
+            });
+
+            it('propagates hidden state to arc sibling walls when attached to parentArc', () => {
+                const seg1 = WallEngine.createWall(mockPlanner, {
+                    startAnchor: mockPlanner.getOrCreateAnchor(0, 0),
+                    endAnchor: mockPlanner.getOrCreateAnchor(50, 0)
+                });
+                const seg2 = WallEngine.createWall(mockPlanner, {
+                    startAnchor: mockPlanner.getOrCreateAnchor(50, 0),
+                    endAnchor: mockPlanner.getOrCreateAnchor(100, 0)
+                });
+
+                const parentArc = {
+                    hidden: false,
+                    config: { hidden: false },
+                    walls: [seg1, seg2]
+                };
+                seg1.parentArc = parentArc;
+                seg2.parentArc = parentArc;
+                seg1.update = vi.fn();
+                seg2.update = vi.fn();
+
+                WallEngine.setHidden(seg1, true, false, mockPlanner);
+
+                expect(seg1.hidden).toBe(true);
+                expect(seg2.hidden).toBe(true);
+                expect(parentArc.hidden).toBe(true);
+                expect(parentArc.config.hidden).toBe(true);
+            });
+        });
     });
 });
 

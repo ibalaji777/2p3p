@@ -340,8 +340,8 @@ export class EnvironmentBuilder {
             });
         }
 
-        const standardWalls = (walls || []).filter(w => w.type !== 'railing' && !w.hidden);
-        const railingWalls = (walls || []).filter(w => w.type === 'railing' && !w.hidden);
+        const standardWalls = (walls || []).filter(w => w.type !== 'railing' && !w.hidden && (w.height === undefined || Number(w.height) > 0));
+        const railingWalls = (walls || []).filter(w => w.type === 'railing' && !w.hidden && (w.height === undefined || Number(w.height) > 0));
 
         standardWalls.forEach(w => {
             try {
@@ -845,6 +845,7 @@ export class EnvironmentBuilder {
     }
 
     buildWallGroup(w) {
+        if (!w || w.hidden || (w.height !== undefined && Number(w.height) <= 0)) return null;
         const res = this.wall3DBuilder.buildWallGroup(w, this.ctx, {
             activeLevelConfig: this.activeLevelConfig,
             activeLevelHeight: this.activeLevelHeight
@@ -1194,6 +1195,7 @@ export class EnvironmentBuilder {
 
                 if (data.walls) {
                     data.walls.forEach((w, wallIndex) => {
+                        if (w.hidden || (w.height !== undefined && Number(w.height) <= 0)) return;
                         const dx = w.endX - w.startX;
                         const dz = w.endY - w.startY;
                         const length = Math.hypot(dx, dz);

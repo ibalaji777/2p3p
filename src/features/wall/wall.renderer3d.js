@@ -66,6 +66,17 @@ export class Wall3DBuilder {
             ThreeLifecycleManager.disposeEntity(w, ctx);
         }
 
+        const isHiddenOrZero = Boolean(
+            w.hidden || 
+            (w.height !== undefined && Number(w.height) <= 0 && options.wallHeight === undefined) || 
+            (options.wallHeight !== undefined && Number(options.wallHeight) <= 0)
+        );
+
+        if (isHiddenOrZero) {
+            w.mesh3D = null;
+            return { wallGroup: null, wallMesh: null, extraInteractables: [] };
+        }
+
         const matMain = getPlasterMaterial();
         const p1 = WallGeometryEngine.getAnchorPosition(w.startAnchor || { x: w.startX, y: w.startY });
         const startX = options.startX !== undefined ? options.startX : p1.x;
@@ -884,6 +895,15 @@ export class Wall3DBuilder {
      * Legacy & Static Level Wall Group Builder
      */
     buildStaticWallGroup(length, thickness, wallData, startX, startY, angle, wallHeight = WALL_HEIGHT, ctx = null) {
+        const isHiddenOrZero = Boolean(
+            wallData.hidden || 
+            wallHeight <= 0 || 
+            (wallData.height !== undefined && Number(wallData.height) <= 0)
+        );
+        if (isHiddenOrZero) {
+            return { wallGroup: new THREE.Group(), wallMesh: null, extraInteractables: [] };
+        }
+
         const extraMeshes = [];
         const extraInteractables = [];
         const wallShape = this._createShape(length, wallData.attachedWidgets, wallHeight, thickness, extraMeshes, extraInteractables, wallData);
@@ -1037,7 +1057,8 @@ export class Wall3DBuilder {
         wallMesh.receiveShadow = true;
 
         const wallGroup = new THREE.Group();
-        wallGroup.position.set(startX, 0, startY);
+        const elevY = Number(wallData.elevation) || 0;
+        wallGroup.position.set(startX, elevY, startY);
         wallGroup.rotation.y = -angle;
         wallGroup.add(wallMesh, ...extraMeshes);
 

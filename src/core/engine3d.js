@@ -752,6 +752,35 @@ export class Preview3D {
             w.mesh3D.traverse(c => {
                 if (c.geometry) c.geometry.dispose();
             });
+            w.mesh3D = null;
+        }
+
+        const isHiddenOrZero = Boolean(w.hidden || (w.height !== undefined && Number(w.height) <= 0));
+        if (isHiddenOrZero) {
+            w.mesh3D = null;
+            if (this.interactions && this.interactions.selectedObject && this.interactions.selectedObject.userData) {
+                const sel = this.interactions.selectedObject.userData.entity;
+                if (sel === w || sel?.wall === w) {
+                    if (typeof this.interactions.clearSelection === 'function') {
+                        this.interactions.clearSelection();
+                    } else {
+                        this.interactions.selectedObject = null;
+                    }
+                }
+            }
+            if (this.interactions?.wallInteractiveSuite) {
+                const suite = this.interactions.wallInteractiveSuite;
+                if (suite.target?.userData?.entity === w || suite.target === w.mesh3D || suite.target?.parent === w.mesh3D) {
+                    if (typeof suite.detach === 'function') {
+                        suite.detach();
+                    } else {
+                        suite.target = null;
+                        suite.visible = false;
+                    }
+                }
+            }
+            this.requestRender('wall_geometry_update', 2);
+            return;
         }
         
         this.envBuilder.buildWallGroup(w);

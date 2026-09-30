@@ -36,6 +36,7 @@ export const WallHeightPolicy = {
      */
     clamp(value, min = WallHeightPolicy.MIN_HEIGHT, max = WallHeightPolicy.MAX_HEIGHT) {
         const num = this.normalize(value, min);
+        if (num === 0) return 0;
         return Math.max(min, Math.min(max, num));
     },
 
@@ -73,6 +74,7 @@ export const WallHeightPolicy = {
      */
     processInputHeight(value, min = WallHeightPolicy.MIN_HEIGHT, max = WallHeightPolicy.MAX_HEIGHT) {
         const num = this.normalize(value, min);
+        if (num === 0) return 0;
         return Math.round(this.clamp(num, min, max));
     },
 
@@ -84,7 +86,7 @@ export const WallHeightPolicy = {
     validate(value) {
         if (value === null || value === undefined) return false;
         const num = Number(value);
-        return Number.isFinite(num) && !Number.isNaN(num) && num >= this.MIN_HEIGHT && num <= this.MAX_HEIGHT;
+        return Number.isFinite(num) && !Number.isNaN(num) && (num === 0 || (num >= this.MIN_HEIGHT && num <= this.MAX_HEIGHT));
     },
 
     /**

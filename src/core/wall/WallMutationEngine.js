@@ -300,6 +300,206 @@ export class WallMutationEngine {
     }
 
     /**
+     * Authoritative setter for individual wall slope / gable profile properties.
+     * @param {Object} wall 
+     * @param {string} prop - 'startHeight' | 'endHeight' | 'peakHeight' | 'peakPos' | 'flipSlope'
+     * @param {number|boolean} value 
+     * @param {boolean} shouldSync 
+     * @param {Object} planner 
+     */
+    static setSlopeProp(wall, prop, value, shouldSync = true, planner = null) {
+        if (!wall) return;
+        const p = planner || wall.planner || (typeof window !== 'undefined' ? (window.planner?.value || window.plannerInstance) : null);
+        let finalVal = value;
+        if (prop === 'flipSlope') {
+            finalVal = Boolean(value);
+        } else if (prop === 'peakPos') {
+            const num = Number(value);
+            if (isNaN(num)) return;
+            finalVal = Math.max(0.01, Math.min(0.99, num));
+        } else {
+            const num = Number(value);
+            if (isNaN(num)) return;
+            finalVal = WallHeightPolicy.processInputHeight(num);
+        }
+
+        wall[prop] = finalVal;
+        wall.wallShapeData = null;
+
+        if (wall.walls && Array.isArray(wall.walls) && !wall._propagatingSlopeProp) {
+            wall.walls.forEach(seg => {
+                seg._propagatingSlopeProp = true;
+                this.setSlopeProp(seg, prop, finalVal, false, p);
+                seg._propagatingSlopeProp = false;
+            });
+        }
+
+        if (wall.parentArc && !wall._propagatingSlopeProp) {
+            wall.parentArc[prop] = finalVal;
+            wall.parentArc.wallShapeData = null;
+            if (wall.parentArc.walls) {
+                wall.parentArc.walls.forEach(sw => {
+                    if (sw !== wall) {
+                        sw._propagatingSlopeProp = true;
+                        this.setSlopeProp(sw, prop, finalVal, false, p);
+                        sw._propagatingSlopeProp = false;
+                    }
+                });
+            }
+        }
+
+        if (!wall.isAutoGable && !wall.parentRoofId && p && p.roofs && p.roofs.length > 0) {
+            RoofMutationEngine.syncRoofsWithWalls([wall], p);
+        }
+
+        if (shouldSync && p && typeof p.syncAll === 'function') {
+            p.syncAll();
+            if (p.update3D) p.update3D();
+        }
+    }
+
+    /**
+     * Authoritative hidden state setter.
+     * @param {Object} wall 
+     * @param {boolean} isHidden 
+     * @param {boolean} shouldSync 
+     * @param {Object} planner 
+     */
+    static setHidden(wall, isHidden, shouldSync = true, planner = null) {
+        if (!wall) return;
+        const p = planner || wall.planner || (typeof window !== 'undefined' ? (window.planner?.value || window.plannerInstance) : null);
+        const hiddenVal = Boolean(isHidden);
+        wall.hidden = hiddenVal;
+        if (wall.config) wall.config.hidden = hiddenVal;
+        wall.wallShapeData = null;
+
+        // Propagate to compound / arc segments
+        if (wall.walls && Array.isArray(wall.walls) && !wall._propagatingHidden) {
+            wall.walls.forEach(seg => {
+                seg._propagatingHidden = true;
+                this.setHidden(seg, hiddenVal, false, p);
+                seg._propagatingHidden = false;
+            });
+        }
+
+        // Propagate to parent arc siblings
+        if (wall.parentArc && wall.parentArc.walls && !wall._propagatingHidden) {
+            wall.parentArc.hidden = hiddenVal;
+            if (wall.parentArc.config) wall.parentArc.config.hidden = hiddenVal;
+            wall.parentArc.walls.forEach(sibling => {
+                if (sibling !== wall) {
+                    sibling._propagatingHidden = true;
+                    sibling.hidden = hiddenVal;
+                    if (sibling.config) sibling.config.hidden = hiddenVal;
+                    sibling.wallShapeData = null;
+                    if (typeof sibling.update === 'function') sibling.update();
+                    sibling._propagatingHidden = false;
+                }
+            });
+        }
+
+        const affectedWalls = new Set();
+        affectedWalls.add(wall);
+        if (p && p.walls) {
+            p.walls.forEach(w => {
+                if ((wall.startAnchor && (w.startAnchor === wall.startAnchor || w.endAnchor === wall.startAnchor)) ||
+                    (wall.endAnchor && (w.startAnchor === wall.endAnchor || w.endAnchor === wall.endAnchor))) {
+                    affectedWalls.add(w);
+                }
+            });
+        }
+
+        affectedWalls.forEach(w => {
+            w.wallShapeData = null;
+            if (typeof w.update === 'function') {
+                w.update();
+            } else if (typeof w.recalculateGeometry === 'function') {
+                w.recalculateGeometry();
+            }
+        });
+
+        if (p) {
+            if (typeof p.findRooms === 'function') {
+                p.findRooms();
+            } else if (typeof p.recalculateRooms === 'function') {
+                p.recalculateRooms();
+            }
+            if (p.mainLayer) p.mainLayer.batchDraw();
+            if (p.uiLayer) p.uiLayer.batchDraw();
+            if (p.roomLayer) p.roomLayer.batchDraw();
+            if (p.stage) p.stage.batchDraw();
+            if (shouldSync && typeof p.syncAll === 'function') {
+                p.syncAll();
+            }
+            if (shouldSync && typeof p.update3D === 'function') {
+                p.update3D();
+            }
+        }
+    }
+
+    /**
+     * Authoritative setter for compound wall floor slab inclusion.
+     * @param {Object} planner 
+     * @param {boolean} hasFloor 
+     * @param {boolean} shouldSync 
+     */
+    static setCompoundFloor(planner, hasFloor, shouldSync = true) {
+        const p = planner || (typeof window !== 'undefined' ? (window.planner?.value || window.plannerInstance) : null);
+        const val = Boolean(hasFloor);
+        if (p && Array.isArray(p.walls)) {
+            p.walls.forEach(w => {
+                if (w.type === 'compound') {
+                    w.hasFloor = val;
+                }
+            });
+        }
+        if (shouldSync && p) {
+            if (typeof p.syncAll === 'function') p.syncAll();
+            if (typeof p.update3D === 'function') p.update3D();
+        }
+    }
+
+    /**
+     * Authoritative setter for railing style/configuration.
+     * @param {Object} wall 
+     * @param {string} configId 
+     * @param {boolean} shouldSync 
+     * @param {Object} planner 
+     */
+    static setRailingConfig(wall, configId, shouldSync = true, planner = null) {
+        if (!wall) return;
+        wall.configId = configId;
+        if (wall.config) wall.config.configId = configId;
+        wall.wallShapeData = null;
+        const p = planner || wall.planner || (typeof window !== 'undefined' ? (window.planner?.value || window.plannerInstance) : null);
+
+        if (wall.walls && Array.isArray(wall.walls) && !wall._propagatingRailingConfig) {
+            wall.walls.forEach(seg => {
+                seg._propagatingRailingConfig = true;
+                this.setRailingConfig(seg, configId, false, p);
+                seg._propagatingRailingConfig = false;
+            });
+        }
+
+        if (wall.parentArc && wall.parentArc.walls && !wall._propagatingRailingConfig) {
+            wall.parentArc.configId = configId;
+            if (wall.parentArc.config) wall.parentArc.config.configId = configId;
+            wall.parentArc.walls.forEach(sibling => {
+                if (sibling !== wall) {
+                    sibling._propagatingRailingConfig = true;
+                    this.setRailingConfig(sibling, configId, false, p);
+                    sibling._propagatingRailingConfig = false;
+                }
+            });
+        }
+
+        if (shouldSync && p) {
+            if (typeof p.syncAll === 'function') p.syncAll();
+            if (typeof p.update3D === 'function') p.update3D();
+        }
+    }
+
+    /**
      * Authoritative material assignment.
      * @param {Object} wall 
      * @param {Object} options - { target, key, newMat, activeMatIndex, activeObject, ctx }
@@ -408,6 +608,44 @@ export class WallMutationEngine {
             if (arcEntity && arcEntity !== wall) {
                 ctx.updateMaterialLive(arcEntity);
             }
+        }
+    }
+
+    /**
+     * Authoritative setter for wall material parameters (tileSize, rotation, etc.).
+     * @param {Object} wall 
+     * @param {Object} params - e.g. { tileSizeFront, tileSizeBack, tileSize, rotationFront, rotationBack, etc. }
+     * @param {boolean} shouldSync 
+     * @param {Object} planner 
+     */
+    static setMaterialParams(wall, params = {}, shouldSync = true, planner = null) {
+        if (!wall) return;
+        wall.params = wall.params || {};
+        Object.assign(wall.params, params);
+
+        const arc = wall.parentArc || (wall.walls ? wall : null);
+        if (arc && arc.walls) {
+            arc.params = arc.params || {};
+            Object.assign(arc.params, params);
+            arc.walls.forEach(w => {
+                w.params = w.params || {};
+                Object.assign(w.params, params);
+            });
+        }
+
+        const p = planner || wall.planner || (typeof window !== 'undefined' ? (window.planner?.value || window.plannerInstance) : null);
+        const renderer = p?.renderer3D || (typeof window !== 'undefined' ? (window.renderer3D || window.plannerInstance?.renderer3D) : null);
+
+        if (renderer && typeof renderer.updateMaterialLive === 'function') {
+            renderer.updateMaterialLive(arc || wall);
+        }
+        if (renderer && typeof renderer.requestRender === 'function') {
+            renderer.requestRender('material_params_updated', 2);
+        }
+
+        if (shouldSync && p && typeof p.syncAll === 'function') {
+            p.syncAll();
+            if (p.update3D) p.update3D();
         }
     }
 

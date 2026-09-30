@@ -52,16 +52,38 @@ export class UniversalRealtimeUpdate {
                 }
 
                 // 1. Rebuild the object itself (if it's not a wall)
-                if (entity.startX === undefined || entity.endX === undefined) {
+                const isWall = Boolean(
+                    entity.isWall || 
+                    entity.type === 'outer' || 
+                    entity.type === 'inner' || 
+                    entity.type === 'compound' || 
+                    entity.type === 'foundation' || 
+                    entity.type === 'half_wall' || 
+                    entity.type === 'wall' || 
+                    entity.startAnchor || 
+                    (entity.startX !== undefined && entity.endX !== undefined)
+                );
+
+                if (!isWall) {
                     success = this.rebuildMeshInPlace(entity) || success;
                 }
                 
                 // 2. If it is a wall itself, update its geometry
-                if (entity.startAnchor || (entity.startX !== undefined && entity.endX !== undefined)) {
-                    if (entity.update) entity.update();
-                    if (this.ctx.updateWallGeometryLive) {
-                        this.ctx.updateWallGeometryLive(entity);
+                if (isWall) {
+                    if (entity.parentArc && entity.parentArc.walls) {
+                        entity.parentArc.walls.forEach(sw => {
+                            if (sw.update) sw.update();
+                            if (this.ctx.updateWallGeometryLive) {
+                                this.ctx.updateWallGeometryLive(sw);
+                            }
+                        });
                         success = true;
+                    } else {
+                        if (entity.update) entity.update();
+                        if (this.ctx.updateWallGeometryLive) {
+                            this.ctx.updateWallGeometryLive(entity);
+                            success = true;
+                        }
                     }
                 }
                 
