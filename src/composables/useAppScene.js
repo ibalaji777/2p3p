@@ -188,6 +188,16 @@ export function useAppScene({
                     }
                 } else if (updateType === 'material') {
                     if (renderer3D.value.updateMaterialLive) renderer3D.value.updateMaterialLive(selectedEntity.value);
+                    return;
+                }
+                if (updateType === 'decor') {
+                    return;
+                }
+                if (selectedEntity.value && (selectedEntity.value.type === 'wallDecor' || selectedEntity.value.isWallDecor)) {
+                    if (renderer3D.value && typeof renderer3D.value.updateWallDecorLive === 'function') {
+                        renderer3D.value.updateWallDecorLive(selectedEntity.value);
+                    }
+                    return;
                 }
                 renderer3D.value.updateEntity(selectedEntity.value, updateType);
                 if (selectedEntity.value.parentArc) {

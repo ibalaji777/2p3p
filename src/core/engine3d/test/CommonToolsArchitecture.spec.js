@@ -9,6 +9,8 @@ import { CommonInteractionController } from '../tools/CommonInteractionControlle
 import { CameraController } from '../../camera/CameraController.js';
 import { ComponentRegistry } from '../ComponentRegistry.js';
 import { MaterialSlots } from '../../constants/materialSlots.js';
+import { MaterialFactory } from '../MaterialFactory.js';
+import { WallEngine } from '../../wall/WallEngine.js';
 
 describe('Universal 3D Scene Common Tools Architecture (Sims 4 Style)', () => {
     describe('1. CommonToolRegistry', () => {
@@ -886,4 +888,49 @@ describe('Universal 3D Scene Common Tools Architecture (Sims 4 Style)', () => {
             expect(dummyWall.texture).toBeNull();
         });
     });
+
+    describe('8. Wall Properties Applied Material & Parametric Editing', () => {
+        it('calculates texel density respecting custom dimensions.tileSize', () => {
+            const densityDefault = MaterialFactory.calculateTexelDensity({ isWorldUV: true }, { defaultTileSize: 70 });
+            expect(densityDefault.repeatX).toBeCloseTo(1 / 70);
+
+            const densityCustom = MaterialFactory.calculateTexelDensity({ isWorldUV: true, tileSize: 140 }, { defaultTileSize: 70 });
+            expect(densityCustom.repeatX).toBeCloseTo(1 / 140);
+            expect(densityCustom.repeatY).toBeCloseTo(1 / 140);
+        });
+
+        it('resolves material orientation respecting custom dimensions.rotation', () => {
+            const rotAuto = MaterialFactory.resolveOrientation({ id: 'wood_oak' }, { width: 100, height: 100 });
+            expect(rotAuto).toBe(0);
+
+            const rotCustom = MaterialFactory.resolveOrientation({ id: 'wood_oak' }, { rotation: Math.PI / 2 });
+            expect(rotCustom).toBe(Math.PI / 2);
+        });
+
+        it('clears specific wall face material back to null and default plaster', () => {
+            const wall = {
+                id: 'w_test_prop',
+                type: 'outer',
+                params: {
+                    textureFront: 'brick_red_1',
+                    textureBack: 'stone_slate',
+                    tileSizeFront: 80,
+                    rotationFront: Math.PI / 2
+                }
+            };
+
+            // Remove front face material
+            WallEngine.applyMaterial(wall, { target: 'front', key: null }, null);
+            expect(wall.params.textureFront).toBeNull();
+            expect(wall.textureFront).toBeNull();
+            // Back face remains untouched
+            expect(wall.params.textureBack).toBe('stone_slate');
+
+            // Remove back face material
+            WallEngine.applyMaterial(wall, { target: 'back', key: null }, null);
+            expect(wall.params.textureBack).toBeNull();
+            expect(wall.textureBack).toBeNull();
+        });
+    });
 });
+

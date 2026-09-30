@@ -42,6 +42,15 @@ export class UniversalRealtimeUpdate {
                 if (!entity) return false;
                 let success = false;
                 
+                // Wall Decor Live In-Place update
+                if (entity.type === 'wallDecor' || entity.isWallDecor) {
+                    if (this.ctx && typeof this.ctx.updateWallDecorLive === 'function') {
+                        this.ctx.updateWallDecorLive(entity);
+                        success = true;
+                    }
+                    return success;
+                }
+
                 // 1. Rebuild the object itself (if it's not a wall)
                 if (entity.startX === undefined || entity.endX === undefined) {
                     success = this.rebuildMeshInPlace(entity) || success;

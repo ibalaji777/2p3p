@@ -278,15 +278,28 @@ export class Preview3D {
                 const d = dimensions?.depth || entity?.depth || entity?.params?.depth || 30;
 
                 const isWall = entity && (entity.type === 'outer' || entity.type === 'inner' || entity.type === 'compound' || entity.type === 'wall' || entity.type === 'foundation' || entity.type === 'half_wall' || entity.startX !== undefined);
+                const ep = Object.assign({}, entity?.parentArc ? entity.parentArc.params : null, entity?.params || {});
                 const applyTex = (mat, texKey, faceW, faceH, faceName) => {
                     if (!texKey) return;
                     const config = MaterialManager.resolveMaterialConfig(texKey);
                     if (config) {
+                        const faceTileSize = (faceName === 'front') ? (ep.tileSizeFront || ep.tileSize) :
+                                             (faceName === 'back') ? (ep.tileSizeBack || ep.tileSize) :
+                                             ep.tileSize;
+                        const faceRotation = (faceName === 'front') ? (ep.rotationFront !== undefined ? ep.rotationFront : ep.rotation) :
+                                             (faceName === 'back') ? (ep.rotationBack !== undefined ? ep.rotationBack : ep.rotation) :
+                                             ep.rotation;
                         MaterialFactory.buildPBRMaterial({
                             material: mat,
                             config: config,
                             ctx: this,
-                            dimensions: { width: faceW, height: faceH, isWorldUV: isWall },
+                            dimensions: { 
+                                width: faceW, 
+                                height: faceH, 
+                                isWorldUV: isWall,
+                                tileSize: faceTileSize ? Number(faceTileSize) : undefined,
+                                rotation: faceRotation !== undefined ? Number(faceRotation) : undefined
+                            },
                             faceName: faceName
                         }).then(() => {
                             if (this.requestRender) this.requestRender('material_loaded', 2);
@@ -510,7 +523,12 @@ export class Preview3D {
     deselectObject() { this.interactions.deselect(); }
     
     addWallPattern(w, id, s) { return this.decorManager.add(w, id, s); }
-    updateWallDecorLive(e) { this.decorManager.updateLive(e); }
+    updateWallDecorLive(e) { 
+        this.decorManager.updateLive(e); 
+        if (typeof this.requestRender === 'function') {
+            this.requestRender();
+        }
+    }
     
     updateFurnitureLive(e) { this.furnitureManager.updateLive(e); }
     

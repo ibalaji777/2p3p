@@ -397,6 +397,10 @@ export class WallEngine {
         WallMutationEngine.removeDecor(wall, decorOrId, shouldSync, planner);
     }
 
+    static updateDecor(wall, decorOrId, updates = {}, shouldSync = true, planner = null) {
+        return WallMutationEngine.updateDecor(wall, decorOrId, updates, shouldSync, planner);
+    }
+
     static addSolidProtrusion(wall, options = {}, shouldSync = true, planner = null) {
         return WallMutationEngine.addSolidProtrusion(wall, options, shouldSync, planner);
     }

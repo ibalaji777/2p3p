@@ -362,6 +362,7 @@
                 :floor-registry="floorRegistry"
                 :roof-decor-registry="roofDecorRegistry"
                 :planner="planner"
+                :renderer-3-d="renderer3D"
                 @open-site-dialog="$emit('open-site-dialog')"
                 @sync-engine="$emit('sync-engine')"
                 @sync-door-angle="$emit('sync-door-angle')"
@@ -448,7 +449,8 @@ const props = defineProps({
   layerItems: Array,
   activeTool: String,
   activePresetParams: Object,
-  planner: Object
+  planner: Object,
+  renderer3D: Object
 });
 
 const emit = defineEmits([

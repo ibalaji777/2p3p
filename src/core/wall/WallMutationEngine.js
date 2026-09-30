@@ -312,17 +312,28 @@ export class WallMutationEngine {
 
         wall.params = wall.params || {};
 
-        if (target === 'top') wall.params.textureTop = key;
-        else if (target === 'bottom') wall.params.textureBottom = key;
-        else if (target === 'left') wall.params.textureLeft = key;
-        else if (target === 'right') wall.params.textureRight = key;
-        else if (target === 'front') wall.params.textureFront = key;
-        else if (target === 'back') wall.params.textureBack = key;
-        else if (target === 'all' || target === 'sides') {
+        if (target === 'front') {
+            wall.params.textureFront = key;
+            wall.textureFront = key;
+        } else if (target === 'back') {
+            wall.params.textureBack = key;
+            wall.textureBack = key;
+        } else if (target === 'top') {
+            wall.params.textureTop = key;
+        } else if (target === 'bottom') {
+            wall.params.textureBottom = key;
+        } else if (target === 'left') {
+            wall.params.textureLeft = key;
+        } else if (target === 'right') {
+            wall.params.textureRight = key;
+        } else if (target === 'all' || target === 'sides') {
             wall.params.texture = key;
             wall.params.textureSides = key;
             wall.params.textureFront = key;
             wall.params.textureBack = key;
+            wall.texture = key;
+            wall.textureFront = key;
+            wall.textureBack = key;
             wall.params.textureLeft = key;
             wall.params.textureRight = key;
             wall.params.textureTop = key;
@@ -1186,6 +1197,28 @@ export class WallMutationEngine {
         if (shouldSync && p && typeof p.syncAll === 'function') {
             p.syncAll();
         }
+    }
+
+    /**
+     * Updates an attached decor element's properties canonically.
+     */
+    static updateDecor(wall, decorOrId, updates = {}, shouldSync = true, planner = null) {
+        if (!wall || !wall.attachedDecor) return null;
+        const p = planner || wall.planner;
+        const decor = typeof decorOrId === 'string' 
+            ? wall.attachedDecor.find(d => d.id === decorOrId) 
+            : decorOrId;
+        if (!decor) return null;
+
+        Object.assign(decor, updates);
+        decor.wall = wall;
+        // Refresh array reference for Vue shallowRef reactivity
+        wall.attachedDecor = [...wall.attachedDecor];
+
+        if (shouldSync && p && typeof p.syncAll === 'function') {
+            p.syncAll();
+        }
+        return decor;
     }
 
     /**

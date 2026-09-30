@@ -55,7 +55,7 @@ export class MaterialFactory {
     }
 
     static calculateTexelDensity(dimensions, config = {}) {
-        let ts = config.realWorldSize || config.tileSize || config.defaultTileSize || 70;
+        let ts = dimensions?.tileSize || config.realWorldSize || config.tileSize || config.defaultTileSize || 70;
 
         if (dimensions && dimensions.isWorldUV) {
             return {
@@ -86,6 +86,10 @@ export class MaterialFactory {
     }
 
     static resolveOrientation(config, dimensions, faceName) {
+        if (dimensions?.rotation !== undefined) {
+            return dimensions.rotation;
+        }
+
         const matId = config.id || (typeof config === 'string' ? config : '');
         const isSiding = typeof matId === 'string' && matId.includes('siding');
 

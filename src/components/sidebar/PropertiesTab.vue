@@ -85,6 +85,7 @@
                 :railing-registry="railingRegistry"
                 :ui-trigger="uiTrigger"
                 :view-mode="viewMode"
+                :planner="planner"
                 @sync-engine="$emit('sync-engine')"
                 @ui-trigger="$emit('ui-trigger')"
                 @toggle-edit-decor="$emit('toggle-edit-decor', $event)"
@@ -94,18 +95,381 @@
                 @delete-entity="$emit('delete-entity')"
             />
 
-            <div v-else-if="selectedType === 'wallDecor'">
-                <h4 class="props-subtitle">Wall Pattern Layer</h4>
-                <div class="faceRow" v-if="selectedEntity.faces">
-                    <label><input type="checkbox" v-model="selectedEntity.faces.left" @change="$emit('decor-update', selectedEntity)">L-Edge</label>
-                    <label><input type="checkbox" v-model="selectedEntity.faces.right" @change="$emit('decor-update', selectedEntity)">R-Edge</label>
+            <div v-else-if="selectedType === 'wallDecor'" class="decor-panel-root">
+                <div class="decor-single-card">
+                    <div class="decor-single-header">
+                        <div class="decor-header-info">
+                            <span class="decor-kicker">Material Properties</span>
+                            <h4 class="decor-title">{{ wallDecorRegistry[selectedEntity.configId]?.name || 'Wall Pattern Layer' }}</h4>
+                        </div>
+                    </div>
+
+                    <!-- Edge Returns / Bevels -->
+                    <div class="decor-figma-row decor-edge-row" v-if="selectedEntity.faces">
+                        <span class="decor-figma-label">Bevel Wrap</span>
+                        <div class="decor-edge-chips">
+                            <label class="decor-edge-label">
+                                <input type="checkbox" v-model="selectedEntity.faces.left" @change="$emit('decor-update', selectedEntity)">
+                                <span>Left</span>
+                            </label>
+                            <label class="decor-edge-label">
+                                <input type="checkbox" v-model="selectedEntity.faces.right" @change="$emit('decor-update', selectedEntity)">
+                                <span>Right</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Card 1: Tiling & Orientation -->
+                    <div class="decor-cad-card">
+                        <div class="decor-cad-card-header">
+                            <span class="decor-cad-card-title">Tiling & Orientation</span>
+                        </div>
+
+                        <!-- 1. Tile Size -->
+                        <div class="decor-dual-control decor-cad-row">
+                            <span class="decor-cad-label">Tile Size</span>
+                            <div class="decor-cad-controls">
+                                <div class="decor-cad-chips">
+                                    <button 
+                                        v-for="size in [50, 70, 100, 150]" 
+                                        :key="size" 
+                                        type="button" 
+                                        class="decor-chip tile-chip decor-cad-chip" 
+                                        :class="{ active: (selectedEntity.tileSize || 70) === size }"
+                                        @click="onDecorTileSizeInput(selectedEntity, size)"
+                                    >
+                                        {{ size }}
+                                    </button>
+                                </div>
+                                <div class="decor-cad-input-box decor-cad-tilesize-box">
+                                    <button 
+                                        type="button" 
+                                        class="decor-cad-stepper" 
+                                        @mousedown="startContinuousStep(() => stepDecorTileSize(selectedEntity, -5))"
+                                        @mouseup="stopContinuousStep"
+                                        @mouseleave="stopContinuousStep"
+                                        @touchstart.prevent="startContinuousStep(() => stepDecorTileSize(selectedEntity, -5))"
+                                        @touchend="stopContinuousStep"
+                                        @click="onStepperClick(() => stepDecorTileSize(selectedEntity, -5))"
+                                    >−</button>
+                                    <DimensionInput 
+                                        :model-value="selectedEntity.tileSize || 70" 
+                                        min="10" 
+                                        max="500" 
+                                        step="5" 
+                                        class="decor-cad-dim"
+                                        @update:model-value="val => onDecorTileSizeInput(selectedEntity, val)" 
+                                    />
+                                    <button 
+                                        type="button" 
+                                        class="decor-cad-stepper" 
+                                        @mousedown="startContinuousStep(() => stepDecorTileSize(selectedEntity, 5))"
+                                        @mouseup="stopContinuousStep"
+                                        @mouseleave="stopContinuousStep"
+                                        @touchstart.prevent="startContinuousStep(() => stepDecorTileSize(selectedEntity, 5))"
+                                        @touchend="stopContinuousStep"
+                                        @click="onStepperClick(() => stepDecorTileSize(selectedEntity, 5))"
+                                    >+</button>
+                                </div>
+                                <span class="decor-cad-cell-unit">cm</span>
+                            </div>
+                            <span class="decor-val-badge sr-only">{{ selectedEntity.tileSize || 70 }} cm</span>
+                        </div>
+
+                        <!-- 2. Rotation -->
+                        <div class="decor-dual-control decor-cad-row">
+                            <span class="decor-cad-label">Rotation</span>
+                            <div class="decor-cad-controls">
+                                <div class="decor-cad-chips">
+                                    <button 
+                                        v-for="deg in [0, 45, 90, 180, 270]" 
+                                        :key="deg" 
+                                        type="button" 
+                                        class="decor-chip rot-chip decor-cad-chip" 
+                                        :class="{ active: getDecorRotationDeg(selectedEntity) === deg }"
+                                        @click="onDecorRotationInput(selectedEntity, deg)"
+                                    >
+                                        {{ deg }}°
+                                    </button>
+                                </div>
+                                <div class="decor-cad-input-box rot">
+                                    <input 
+                                        type="number" 
+                                        :value="getDecorRotationDeg(selectedEntity)" 
+                                        min="0" 
+                                        max="360" 
+                                        step="1" 
+                                        class="decor-cad-num"
+                                        title="Rotation (°)"
+                                        @input="onDecorRotationInput(selectedEntity, $event.target.value)"
+                                    >
+                                    <span class="decor-cad-unit-inline">°</span>
+                                </div>
+                            </div>
+                            <span class="decor-val-badge sr-only">{{ getDecorRotationDeg(selectedEntity) }}°</span>
+                        </div>
+
+                        <!-- 3. Thickness (Depth) -->
+                        <div class="decor-dual-control decor-cad-row">
+                            <span class="decor-cad-label">Thickness</span>
+                            <div class="decor-cad-controls">
+                                <div class="decor-cad-input-box decor-cad-thickness-box">
+                                    <button 
+                                        type="button" 
+                                        class="decor-cad-stepper" 
+                                        @mousedown="startContinuousStep(() => stepDecorThickness(selectedEntity, -0.1))"
+                                        @mouseup="stopContinuousStep"
+                                        @mouseleave="stopContinuousStep"
+                                        @touchstart.prevent="startContinuousStep(() => stepDecorThickness(selectedEntity, -0.1))"
+                                        @touchend="stopContinuousStep"
+                                        @click="onStepperClick(() => stepDecorThickness(selectedEntity, -0.1))"
+                                    >−</button>
+                                    <DimensionInput 
+                                        :model-value="selectedEntity.depth !== undefined ? selectedEntity.depth : 0.2" 
+                                        min="0.1" 
+                                        max="40" 
+                                        step="0.1" 
+                                        class="decor-cad-dim"
+                                        @update:model-value="val => { selectedEntity.depth = Number(val); triggerDecorUpdate(selectedEntity); }" 
+                                    />
+                                    <button 
+                                        type="button" 
+                                        class="decor-cad-stepper" 
+                                        @mousedown="startContinuousStep(() => stepDecorThickness(selectedEntity, 0.1))"
+                                        @mouseup="stopContinuousStep"
+                                        @mouseleave="stopContinuousStep"
+                                        @touchstart.prevent="startContinuousStep(() => stepDecorThickness(selectedEntity, 0.1))"
+                                        @touchend="stopContinuousStep"
+                                        @click="onStepperClick(() => stepDecorThickness(selectedEntity, 0.1))"
+                                    >+</button>
+                                </div>
+                                <span class="decor-cad-cell-unit">cm</span>
+                            </div>
+                            <span class="decor-val-badge sr-only">{{ selectedEntity.depth || 0.2 }} cm</span>
+                        </div>
+                    </div>
+
+                    <!-- Card 2: Placement & Bounds -->
+                    <div class="decor-cad-card">
+                        <div class="decor-cad-card-header">
+                            <span class="decor-cad-card-title">Placement & Bounds</span>
+                        </div>
+
+                        <div class="decor-cad-grid-2col">
+                            <!-- W (Width) -->
+                            <div class="decor-dual-control decor-cad-grid-cell" title="Width: {{ selectedEntity.width !== undefined ? selectedEntity.width : 100 }}% ({{ getDecorWidthCm(selectedEntity) }} cm)">
+                                <div class="decor-cad-cell-top">
+                                    <span class="decor-cad-cell-label">W</span>
+                                    <div class="decor-cad-cell-cm-wrap">
+                                        <DimensionInput 
+                                            :model-value="getDecorWidthCm(selectedEntity)" 
+                                            min="1" 
+                                            :max="getDecorWallLength(selectedEntity)" 
+                                            step="1" 
+                                            class="decor-cad-dim-sub"
+                                            @update:model-value="val => onDecorWidthCmInput(selectedEntity, val)" 
+                                        />
+                                        <span class="decor-cad-sub-unit">cm</span>
+                                    </div>
+                                </div>
+                                <div class="decor-cad-cell-bot">
+                                    <button 
+                                        type="button" 
+                                        class="decor-cad-stepper" 
+                                        @mousedown="startContinuousStep(() => stepDecorProp(selectedEntity, 'width', -1))"
+                                        @mouseup="stopContinuousStep"
+                                        @mouseleave="stopContinuousStep"
+                                        @touchstart.prevent="startContinuousStep(() => stepDecorProp(selectedEntity, 'width', -1))"
+                                        @touchend="stopContinuousStep"
+                                        @click="onStepperClick(() => stepDecorProp(selectedEntity, 'width', $event.shiftKey ? -10 : -1))"
+                                    >−</button>
+                                    <div class="decor-cad-pct-wrap">
+                                        <input 
+                                            type="number" 
+                                            :value="selectedEntity.width !== undefined ? selectedEntity.width : 100" 
+                                            min="1" 
+                                            max="100" 
+                                            step="1" 
+                                            class="decor-cad-pct-input"
+                                            @input="onDecorPctInput(selectedEntity, 'width', $event.target.value)" 
+                                        />
+                                        <span class="decor-cad-pct-unit">%</span>
+                                    </div>
+                                    <button 
+                                        type="button" 
+                                        class="decor-cad-stepper" 
+                                        @mousedown="startContinuousStep(() => stepDecorProp(selectedEntity, 'width', 1))"
+                                        @mouseup="stopContinuousStep"
+                                        @mouseleave="stopContinuousStep"
+                                        @touchstart.prevent="startContinuousStep(() => stepDecorProp(selectedEntity, 'width', 1))"
+                                        @touchend="stopContinuousStep"
+                                        @click="onStepperClick(() => stepDecorProp(selectedEntity, 'width', $event.shiftKey ? 10 : 1))"
+                                    >+</button>
+                                </div>
+                                <span class="decor-val-badge sr-only">{{ selectedEntity.width !== undefined ? selectedEntity.width : 100 }}% ({{ getDecorWidthCm(selectedEntity) }} cm)</span>
+                            </div>
+
+                            <!-- H (Height) -->
+                            <div class="decor-dual-control decor-cad-grid-cell" title="Height: {{ selectedEntity.height !== undefined ? selectedEntity.height : 100 }}% ({{ getDecorHeightCm(selectedEntity) }} cm)">
+                                <div class="decor-cad-cell-top">
+                                    <span class="decor-cad-cell-label">H</span>
+                                    <div class="decor-cad-cell-cm-wrap">
+                                        <DimensionInput 
+                                            :model-value="getDecorHeightCm(selectedEntity)" 
+                                            min="1" 
+                                            :max="getDecorWallHeight(selectedEntity)" 
+                                            step="1" 
+                                            class="decor-cad-dim-sub"
+                                            @update:model-value="val => onDecorHeightCmInput(selectedEntity, val)" 
+                                        />
+                                        <span class="decor-cad-sub-unit">cm</span>
+                                    </div>
+                                </div>
+                                <div class="decor-cad-cell-bot">
+                                    <button 
+                                        type="button" 
+                                        class="decor-cad-stepper" 
+                                        @mousedown="startContinuousStep(() => stepDecorProp(selectedEntity, 'height', -1))"
+                                        @mouseup="stopContinuousStep"
+                                        @mouseleave="stopContinuousStep"
+                                        @touchstart.prevent="startContinuousStep(() => stepDecorProp(selectedEntity, 'height', -1))"
+                                        @touchend="stopContinuousStep"
+                                        @click="onStepperClick(() => stepDecorProp(selectedEntity, 'height', $event.shiftKey ? -10 : -1))"
+                                    >−</button>
+                                    <div class="decor-cad-pct-wrap">
+                                        <input 
+                                            type="number" 
+                                            :value="selectedEntity.height !== undefined ? selectedEntity.height : 100" 
+                                            min="1" 
+                                            max="100" 
+                                            step="1" 
+                                            class="decor-cad-pct-input"
+                                            @input="onDecorPctInput(selectedEntity, 'height', $event.target.value)" 
+                                        />
+                                        <span class="decor-cad-pct-unit">%</span>
+                                    </div>
+                                    <button 
+                                        type="button" 
+                                        class="decor-cad-stepper" 
+                                        @mousedown="startContinuousStep(() => stepDecorProp(selectedEntity, 'height', 1))"
+                                        @mouseup="stopContinuousStep"
+                                        @mouseleave="stopContinuousStep"
+                                        @touchstart.prevent="startContinuousStep(() => stepDecorProp(selectedEntity, 'height', 1))"
+                                        @touchend="stopContinuousStep"
+                                        @click="onStepperClick(() => stepDecorProp(selectedEntity, 'height', $event.shiftKey ? 10 : 1))"
+                                    >+</button>
+                                </div>
+                                <span class="decor-val-badge sr-only">{{ selectedEntity.height !== undefined ? selectedEntity.height : 100 }}% ({{ getDecorHeightCm(selectedEntity) }} cm)</span>
+                            </div>
+
+                            <!-- X (Offset X) -->
+                            <div class="decor-dual-control decor-cad-grid-cell" title="Offset X: {{ selectedEntity.localX !== undefined ? selectedEntity.localX : 50 }}% ({{ getDecorLocalXCm(selectedEntity) }} cm)">
+                                <div class="decor-cad-cell-top">
+                                    <span class="decor-cad-cell-label">X</span>
+                                    <div class="decor-cad-cell-cm-wrap">
+                                        <DimensionInput 
+                                            :model-value="getDecorLocalXCm(selectedEntity)" 
+                                            min="0" 
+                                            :max="getDecorWallLength(selectedEntity)" 
+                                            step="1" 
+                                            class="decor-cad-dim-sub"
+                                            @update:model-value="val => onDecorLocalXCmInput(selectedEntity, val)" 
+                                        />
+                                        <span class="decor-cad-sub-unit">cm</span>
+                                    </div>
+                                </div>
+                                <div class="decor-cad-cell-bot">
+                                    <button 
+                                        type="button" 
+                                        class="decor-cad-stepper" 
+                                        @mousedown="startContinuousStep(() => stepDecorProp(selectedEntity, 'localX', -1))"
+                                        @mouseup="stopContinuousStep"
+                                        @mouseleave="stopContinuousStep"
+                                        @touchstart.prevent="startContinuousStep(() => stepDecorProp(selectedEntity, 'localX', -1))"
+                                        @touchend="stopContinuousStep"
+                                        @click="onStepperClick(() => stepDecorProp(selectedEntity, 'localX', $event.shiftKey ? -10 : -1))"
+                                    >−</button>
+                                    <div class="decor-cad-pct-wrap">
+                                        <input 
+                                            type="number" 
+                                            :value="selectedEntity.localX !== undefined ? selectedEntity.localX : 50" 
+                                            min="0" 
+                                            max="100" 
+                                            step="1" 
+                                            class="decor-cad-pct-input"
+                                            @input="onDecorPctInput(selectedEntity, 'localX', $event.target.value)" 
+                                        />
+                                        <span class="decor-cad-pct-unit">%</span>
+                                    </div>
+                                    <button 
+                                        type="button" 
+                                        class="decor-cad-stepper" 
+                                        @mousedown="startContinuousStep(() => stepDecorProp(selectedEntity, 'localX', 1))"
+                                        @mouseup="stopContinuousStep"
+                                        @mouseleave="stopContinuousStep"
+                                        @touchstart.prevent="startContinuousStep(() => stepDecorProp(selectedEntity, 'localX', 1))"
+                                        @touchend="stopContinuousStep"
+                                        @click="onStepperClick(() => stepDecorProp(selectedEntity, 'localX', $event.shiftKey ? 10 : 1))"
+                                    >+</button>
+                                </div>
+                                <span class="decor-val-badge sr-only">{{ selectedEntity.localX !== undefined ? selectedEntity.localX : 50 }}% ({{ getDecorLocalXCm(selectedEntity) }} cm)</span>
+                            </div>
+
+                            <!-- Y (Offset Y) -->
+                            <div class="decor-dual-control decor-cad-grid-cell" title="Offset Y: {{ selectedEntity.localY !== undefined ? selectedEntity.localY : 50 }}% ({{ getDecorLocalYCm(selectedEntity) }} cm)">
+                                <div class="decor-cad-cell-top">
+                                    <span class="decor-cad-cell-label">Y</span>
+                                    <div class="decor-cad-cell-cm-wrap">
+                                        <DimensionInput 
+                                            :model-value="getDecorLocalYCm(selectedEntity)" 
+                                            min="0" 
+                                            :max="getDecorWallHeight(selectedEntity)" 
+                                            step="1" 
+                                            class="decor-cad-dim-sub"
+                                            @update:model-value="val => onDecorLocalYCmInput(selectedEntity, val)" 
+                                        />
+                                        <span class="decor-cad-sub-unit">cm</span>
+                                    </div>
+                                </div>
+                                <div class="decor-cad-cell-bot">
+                                    <button 
+                                        type="button" 
+                                        class="decor-cad-stepper" 
+                                        @mousedown="startContinuousStep(() => stepDecorProp(selectedEntity, 'localY', -1))"
+                                        @mouseup="stopContinuousStep"
+                                        @mouseleave="stopContinuousStep"
+                                        @touchstart.prevent="startContinuousStep(() => stepDecorProp(selectedEntity, 'localY', -1))"
+                                        @touchend="stopContinuousStep"
+                                        @click="onStepperClick(() => stepDecorProp(selectedEntity, 'localY', $event.shiftKey ? -10 : -1))"
+                                    >−</button>
+                                    <div class="decor-cad-pct-wrap">
+                                        <input 
+                                            type="number" 
+                                            :value="selectedEntity.localY !== undefined ? selectedEntity.localY : 50" 
+                                            min="0" 
+                                            max="100" 
+                                            step="1" 
+                                            class="decor-cad-pct-input"
+                                            @input="onDecorPctInput(selectedEntity, 'localY', $event.target.value)" 
+                                        />
+                                        <span class="decor-cad-pct-unit">%</span>
+                                    </div>
+                                    <button 
+                                        type="button" 
+                                        class="decor-cad-stepper" 
+                                        @mousedown="startContinuousStep(() => stepDecorProp(selectedEntity, 'localY', 1))"
+                                        @mouseup="stopContinuousStep"
+                                        @mouseleave="stopContinuousStep"
+                                        @touchstart.prevent="startContinuousStep(() => stepDecorProp(selectedEntity, 'localY', 1))"
+                                        @touchend="stopContinuousStep"
+                                        @click="onStepperClick(() => stepDecorProp(selectedEntity, 'localY', $event.shiftKey ? 10 : 1))"
+                                    >+</button>
+                                </div>
+                                <span class="decor-val-badge sr-only">{{ selectedEntity.localY !== undefined ? selectedEntity.localY : 50 }}% ({{ getDecorLocalYCm(selectedEntity) }} cm)</span>
+                            </div>
+                        </div>
+                    </div>
                 </div>
-                <MaterialSizeInput v-model="selectedEntity.tileSize" :fallbackValue="DEFAULT_UNIVERSAL_TILE_SIZE" :defaultMax="500" @change="$emit('decor-update', selectedEntity)" />
-                <div class="control-group"><label>Thickness</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.depth" min="0.1" max="40" step="0.1" @input="$emit('decor-update', selectedEntity)"><DimensionInput v-model="selectedEntity.depth" min="0.1" max="40" step="0.1" @change="$emit('decor-update', selectedEntity)" /></div></div>
-                <div class="control-group"><label>Width (%)</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.width" min="1" max="100" step="1" @input="$emit('decor-update', selectedEntity)"><input type="number" v-model.number="selectedEntity.width" min="1" max="100" step="1" @input="$emit('decor-update', selectedEntity)"></div></div>
-                <div class="control-group"><label>Height (%)</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.height" min="1" max="100" step="1" @input="$emit('decor-update', selectedEntity)"><input type="number" v-model.number="selectedEntity.height" min="1" max="100" step="1" @input="$emit('decor-update', selectedEntity)"></div></div>
-                <div class="control-group"><label>X Offset (%)</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.localX" min="-10" max="110" step="1" @input="$emit('decor-update', selectedEntity)"><input type="number" v-model.number="selectedEntity.localX" min="-10" max="110" step="1" @input="$emit('decor-update', selectedEntity)"></div></div>
-                <div class="control-group"><label>Y Offset (%)</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.localY" min="-10" max="110" step="1" @input="$emit('decor-update', selectedEntity)"><input type="number" v-model.number="selectedEntity.localY" min="-10" max="110" step="1" @input="$emit('decor-update', selectedEntity)"></div></div>
                 
                 <div class="decor-gallery">
                     <h4 class="props-subtitle">Change Material</h4>
@@ -260,6 +624,7 @@
 </template>
 
 <script setup>
+import { ref, onBeforeUnmount } from 'vue';
 import WallPanel from '../../features/wall/wall.properties.vue';
 import RoomPanel from '../panels/RoomPanel.vue';
 import OutdoorZonePanel from '../panels/OutdoorZonePanel.vue';
@@ -272,6 +637,7 @@ import FurniturePanel from '../../features/furniture/furniture.properties.vue';
 import RoofPanel from '../../features/roof/roof.properties.vue';
 import RoofAddonPanel from '../../features/roof/RoofAddonProperties.vue';
 import { RoofEngine } from '../../core/roof/index.js';
+import { WallEngine } from '../../core/wall/WallEngine.js';
 import DimensionInput from '../common/DimensionInput.vue';
 import MaterialSizeInput from '../common/MaterialSizeInput.vue';
 import { DEFAULT_UNIVERSAL_TILE_SIZE } from '../../core/registries/material.registry.js';
@@ -299,7 +665,8 @@ const props = defineProps({
     uiTrigger: Number,
     floorRegistry: Object,
     roofDecorRegistry: Object,
-    planner: Object
+    planner: Object,
+    renderer3D: Object
 });
 
 const emit = defineEmits([
@@ -342,6 +709,215 @@ const isShapeMaterialActive = (key) => {
     if (target === 'all') return props.selectedEntity.params.texture === key;
     return props.selectedEntity.params.faces?.[target] === key;
 };
+
+const decorVersion = ref(0);
+
+// Continuous Stepping Support (CAD Press-and-Hold)
+let stepTimer = null;
+let stepInterval = null;
+let mouseDownHandled = false;
+
+const startContinuousStep = (stepFn) => {
+    stopContinuousStep();
+    mouseDownHandled = true;
+    stepFn(); // Instant 0ms response on press
+    stepTimer = setTimeout(() => {
+        stepInterval = setInterval(() => {
+            stepFn(); // Smooth continuous stepping every 60ms
+        }, 60);
+    }, 280);
+
+    const onMouseUp = () => {
+        stopContinuousStep();
+        window.removeEventListener('mouseup', onMouseUp);
+        window.removeEventListener('touchend', onMouseUp);
+        setTimeout(() => { mouseDownHandled = false; }, 50);
+    };
+    window.addEventListener('mouseup', onMouseUp);
+    window.addEventListener('touchend', onMouseUp);
+};
+
+const stopContinuousStep = () => {
+    if (stepTimer) clearTimeout(stepTimer);
+    if (stepInterval) clearInterval(stepInterval);
+    stepTimer = null;
+    stepInterval = null;
+};
+
+const onStepperClick = (stepFn) => {
+    if (mouseDownHandled) {
+        return; // Already stepped on mousedown
+    }
+    stepFn(); // Handle discrete clicks or synthetic test events
+};
+
+onBeforeUnmount(() => {
+    stopContinuousStep();
+});
+
+const triggerDecorUpdate = (decor) => {
+    if (!decor) return;
+    decorVersion.value++;
+    const parentWall = getDecorParentWall(decor);
+    if (parentWall) {
+        if (Array.isArray(parentWall.attachedDecor)) {
+            parentWall.attachedDecor = [...parentWall.attachedDecor];
+        }
+        WallEngine.updateDecor(parentWall, decor, {}, false, props.planner);
+    }
+    const r = props.renderer3D || window.renderer3D || props.planner?.renderer3D || props.planner?.engine3d || window.plannerInstance?.renderer3D || window.engine3d;
+    if (r && typeof r.updateWallDecorLive === 'function') {
+        r.updateWallDecorLive(decor);
+        if (typeof r.requestRender === 'function') r.requestRender();
+    }
+    emit('decor-update', decor);
+    emit('ui-trigger');
+};
+
+const getDecorParentWall = (decor) => {
+    if (!decor) return null;
+    if (decor.parentWall) return decor.parentWall;
+    if (decor.wall) return decor.wall;
+    if (decor.mesh3D?.userData?.parentWall) return decor.mesh3D.userData.parentWall;
+    const walls = props.planner?.walls || props.planner?.value?.walls || window.plannerInstance?.walls;
+    if (Array.isArray(walls)) {
+        return walls.find(w => (w.attachedDecor || []).some(d => d.id === decor.id || d === decor)) || null;
+    }
+    return null;
+};
+
+const getDecorWallLength = (decor) => {
+    const wall = getDecorParentWall(decor);
+    if (!wall) return 100;
+    if (typeof wall.getLength === 'function') return Math.round(wall.getLength());
+    if (wall.length3D !== undefined) return Math.round(wall.length3D);
+    const p1 = wall.startAnchor || wall.p1 || { x: wall.startX || 0, y: wall.startY || 0 };
+    const p2 = wall.endAnchor || wall.p2 || { x: wall.endX || 0, y: wall.endY || 0 };
+    return Math.round(Math.hypot(p2.x - p1.x, p2.y - p1.y)) || 100;
+};
+
+const getDecorWallHeight = (decor) => {
+    const wall = getDecorParentWall(decor);
+    if (!wall) return 280;
+    return wall.height !== undefined ? Number(wall.height) : (wall.config?.height || 280);
+};
+
+const getDecorWidthCm = (decor) => {
+    if (!decor) return 100;
+    const pct = decor.width !== undefined ? decor.width : 100;
+    const len = getDecorWallLength(decor);
+    return Math.round(len * (pct / 100));
+};
+
+const onDecorWidthCmInput = (decor, cmVal) => {
+    if (!decor) return;
+    const len = getDecorWallLength(decor);
+    const pct = Number(Math.min(100, Math.max(0.1, (Number(cmVal) / len) * 100)).toFixed(3));
+    decor.width = pct;
+    triggerDecorUpdate(decor);
+};
+
+const getDecorHeightCm = (decor) => {
+    if (!decor) return 280;
+    const pct = decor.height !== undefined ? decor.height : 100;
+    const h = getDecorWallHeight(decor);
+    return Math.round(h * (pct / 100));
+};
+
+const onDecorHeightCmInput = (decor, cmVal) => {
+    if (!decor) return;
+    const h = getDecorWallHeight(decor);
+    const pct = Number(Math.min(100, Math.max(0.1, (Number(cmVal) / h) * 100)).toFixed(3));
+    decor.height = pct;
+    triggerDecorUpdate(decor);
+};
+
+const getDecorLocalXCm = (decor) => {
+    if (!decor) return 50;
+    const pct = decor.localX !== undefined ? decor.localX : 50;
+    const len = getDecorWallLength(decor);
+    return Math.round(len * (pct / 100));
+};
+
+const onDecorLocalXCmInput = (decor, cmVal) => {
+    if (!decor) return;
+    const len = getDecorWallLength(decor);
+    const pct = Number(Math.min(100, Math.max(0, (Number(cmVal) / len) * 100)).toFixed(3));
+    decor.localX = pct;
+    triggerDecorUpdate(decor);
+};
+
+const getDecorLocalYCm = (decor) => {
+    if (!decor) return 50;
+    const pct = decor.localY !== undefined ? decor.localY : 50;
+    const h = getDecorWallHeight(decor);
+    return Math.round(h * (pct / 100));
+};
+
+const onDecorLocalYCmInput = (decor, cmVal) => {
+    if (!decor) return;
+    const h = getDecorWallHeight(decor);
+    const pct = Number(Math.min(100, Math.max(0, (Number(cmVal) / h) * 100)).toFixed(3));
+    decor.localY = pct;
+    triggerDecorUpdate(decor);
+};
+
+const onDecorPctInput = (decor, prop, val) => {
+    if (!decor) return;
+    const minVal = prop.startsWith('local') ? 0 : 1;
+    const num = Number(val);
+    decor[prop] = Math.min(100, Math.max(minVal, isNaN(num) ? minVal : num));
+    triggerDecorUpdate(decor);
+};
+
+const stepDecorProp = (decor, prop, delta) => {
+    if (!decor) return;
+    const cur = Number(decor[prop] !== undefined ? decor[prop] : (prop.startsWith('local') ? 50 : 100));
+    const minVal = prop.startsWith('local') ? 0 : 1;
+    const maxVal = 100;
+    const nextVal = Math.min(maxVal, Math.max(minVal, Math.round(cur) + delta));
+    decor[prop] = nextVal;
+    triggerDecorUpdate(decor);
+};
+
+const stepDecorThickness = (decor, delta) => {
+    if (!decor) return;
+    const cur = Number(decor.depth !== undefined ? decor.depth : 0.2);
+    const nextVal = Math.min(40, Math.max(0.1, Number((cur + delta).toFixed(1))));
+    decor.depth = nextVal;
+    triggerDecorUpdate(decor);
+};
+
+const stepDecorTileSize = (decor, delta) => {
+    if (!decor) return;
+    const cur = Number(decor.tileSize !== undefined ? decor.tileSize : 70);
+    const nextVal = Math.min(500, Math.max(10, cur + delta));
+    decor.tileSize = nextVal;
+    triggerDecorUpdate(decor);
+};
+
+const getDecorRotationDeg = (decor) => {
+    if (!decor) return 0;
+    const rad = decor.rotation || (decor.rotationDeg !== undefined ? (Number(decor.rotationDeg) * Math.PI) / 180 : 0);
+    return Math.round((Number(rad) * 180) / Math.PI) % 360;
+};
+
+const onDecorRotationInput = (decor, deg) => {
+    if (!decor) return;
+    const numDeg = Number(deg) || 0;
+    const rad = (numDeg * Math.PI) / 180;
+    decor.rotation = rad;
+    decor.rotationDeg = numDeg;
+    triggerDecorUpdate(decor);
+};
+
+const onDecorTileSizeInput = (decor, val) => {
+    if (!decor) return;
+    const num = Number(val);
+    if (isNaN(num) || num <= 0) return;
+    decor.tileSize = num;
+    triggerDecorUpdate(decor);
+};
 </script>
 
 <style scoped>
@@ -365,5 +941,659 @@ const isShapeMaterialActive = (key) => {
     background: #ffffff;
     box-sizing: border-box;
     -webkit-overflow-scrolling: touch;
+}
+
+.decor-panel-root {
+    padding: 10px 12px;
+    box-sizing: border-box;
+}
+
+.decor-single-card {
+    background: #ffffff;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    padding: 8px 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+    box-sizing: border-box;
+    width: 100%;
+    margin-bottom: 12px;
+}
+
+.decor-single-header {
+    border-bottom: 1px solid #f1f5f9;
+    padding-bottom: 6px;
+    margin-bottom: 2px;
+}
+
+.decor-header-info {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+}
+
+.decor-kicker {
+    font-size: 8px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #2563eb;
+}
+
+.decor-title {
+    font-size: 11.5px;
+    font-weight: 700;
+    color: #0f172a;
+    margin: 0;
+}
+
+.decor-panel :deep(input::-webkit-outer-spin-button),
+.decor-panel :deep(input::-webkit-inner-spin-button) {
+    -webkit-appearance: none !important;
+    margin: 0 !important;
+}
+.decor-panel :deep(input[type=number]) {
+    -moz-appearance: textfield !important;
+}
+
+.decor-figma-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 4px;
+    min-height: 28px;
+    box-sizing: border-box;
+    width: 100%;
+}
+
+.decor-figma-label {
+    font-size: 10px;
+    font-weight: 600;
+    color: #475569;
+    flex-shrink: 0;
+    min-width: 48px;
+    display: flex;
+    align-items: baseline;
+    gap: 3px;
+}
+
+.decor-figma-label label {
+    margin: 0;
+    font-size: 10px;
+    font-weight: 600;
+    color: #475569;
+}
+
+.decor-val-badge {
+    font-size: 9px;
+    font-weight: 600;
+    color: #2563eb;
+    background: #eff6ff;
+    padding: 1px 4px;
+    border-radius: 4px;
+    border: 1px solid #dbeafe;
+}
+
+.decor-chips-row {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    flex-shrink: 0;
+}
+
+.decor-chip {
+    padding: 2px 4px;
+    font-size: 9.5px;
+    font-weight: 600;
+    color: #64748b;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    line-height: 1.2;
+    text-align: center;
+}
+
+.decor-chip:hover {
+    color: #0f172a;
+    border-color: #cbd5e1;
+    background: #f1f5f9;
+}
+
+.decor-chip.active {
+    background: #2563eb;
+    border-color: #2563eb;
+    color: #ffffff;
+    font-weight: 700;
+}
+
+.decor-figma-grow {
+    flex: 1;
+}
+
+.decor-dual-inputs {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex: 1;
+    justify-content: flex-end;
+}
+
+.decor-pct-input-wrap,
+.decor-dim-input-wrap {
+    position: relative;
+    display: flex;
+    align-items: center;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 5px;
+    box-sizing: border-box;
+    transition: border-color 0.15s;
+}
+
+.decor-pct-input-wrap:focus-within,
+.decor-dim-input-wrap:focus-within {
+    border-color: #2563eb;
+    background: #ffffff;
+}
+
+.decor-pct-input-wrap {
+    width: 52px;
+    flex-shrink: 0;
+}
+
+.decor-pct-input-wrap.rot {
+    width: 44px;
+}
+
+.decor-dim-input-wrap {
+    width: 56px;
+    flex-shrink: 0;
+}
+
+.decor-pct-input-wrap input[type="number"],
+.decor-dim-input-wrap :deep(input),
+.decor-dual-inputs :deep(input) {
+    width: 100%;
+    height: 24px;
+    padding: 2px 14px 2px 4px;
+    font-size: 10.5px;
+    font-weight: 600;
+    color: #0f172a;
+    background: transparent;
+    border: none;
+    outline: none;
+    text-align: right;
+    box-sizing: border-box;
+}
+
+.decor-pct-suffix {
+    position: absolute;
+    right: 4px;
+    font-size: 9px;
+    font-weight: 600;
+    color: #94a3b8;
+    pointer-events: none;
+}
+
+.decor-dim-input {
+    width: 56px !important;
+}
+
+.decor-divider {
+    height: 1px;
+    background: #f1f5f9;
+    margin: 4px 0;
+}
+
+/* Figma-Style 2x2 Grid for Pattern Layer */
+.decor-grid-2col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.decor-figma-grid-cell {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    padding: 2px 4px;
+    min-height: 26px;
+    box-sizing: border-box;
+    position: relative;
+    transition: all 0.15s ease;
+}
+
+.decor-figma-grid-cell:focus-within {
+    border-color: #2563eb;
+    background: #ffffff;
+    box-shadow: 0 0 0 1px #2563eb;
+}
+
+.decor-cell-prefix {
+    font-size: 9.5px;
+    font-weight: 700;
+    color: #64748b;
+    background: #e2e8f0;
+    padding: 2px 4px;
+    border-radius: 3px;
+    line-height: 1;
+    flex-shrink: 0;
+    user-select: none;
+}
+
+.decor-cell-input-box {
+    display: flex;
+    align-items: center;
+    flex: 1;
+    min-width: 0;
+    position: relative;
+}
+
+.decor-cell-dim,
+.decor-cell-input-box :deep(input) {
+    width: 100% !important;
+    height: 22px !important;
+    padding: 1px 16px 1px 2px !important;
+    font-size: 11px !important;
+    font-weight: 600 !important;
+    color: #0f172a !important;
+    background: transparent !important;
+    border: none !important;
+    outline: none !important;
+    text-align: right !important;
+    box-sizing: border-box !important;
+}
+
+.decor-cell-unit {
+    position: absolute;
+    right: 2px;
+    font-size: 9px;
+    font-weight: 600;
+    color: #94a3b8;
+    pointer-events: none;
+}
+
+.decor-edge-chips {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.decor-edge-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 10px;
+    font-weight: 500;
+    color: #475569;
+    cursor: pointer;
+    margin: 0;
+}
+
+/* Option C: CAD Compact Micro-Cards */
+.decor-cad-card {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 5px;
+    padding: 6px 7px;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    box-sizing: border-box;
+    width: 100%;
+    margin-top: 4px;
+}
+
+.decor-cad-card-header {
+    display: flex;
+    align-items: center;
+    padding-bottom: 2px;
+    border-bottom: 1px solid #edf2f7;
+}
+
+.decor-cad-card-title {
+    font-size: 8.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    color: #94a3b8;
+}
+
+/* CAD Single-line Rows */
+.decor-cad-row {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    min-height: 22px;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.decor-cad-label {
+    font-size: 10px;
+    font-weight: 600;
+    color: #475569;
+    flex-shrink: 0;
+    min-width: 52px;
+}
+
+.decor-cad-controls {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    justify-content: flex-end;
+    flex: 1;
+    min-width: 0;
+}
+
+.decor-cad-chips {
+    display: flex;
+    align-items: center;
+    gap: 1px;
+}
+
+.decor-cad-chip {
+    padding: 2px 4px !important;
+    font-size: 9px !important;
+    font-weight: 600 !important;
+    color: #64748b !important;
+    background: #ffffff !important;
+    border: 1px solid #cbd5e1 !important;
+    border-radius: 3px !important;
+    cursor: pointer;
+    line-height: 1.2 !important;
+    transition: all 0.12s ease;
+    min-width: 20px;
+    text-align: center;
+}
+
+.decor-cad-chip:hover {
+    border-color: #94a3b8 !important;
+    color: #0f172a !important;
+    background: #f1f5f9 !important;
+}
+
+.decor-cad-chip.active {
+    background: #2563eb !important;
+    border-color: #2563eb !important;
+    color: #ffffff !important;
+    font-weight: 700 !important;
+}
+
+.decor-cad-input-box {
+    position: relative;
+    display: flex;
+    align-items: center;
+    background: #ffffff;
+    border: 1px solid #cbd5e1;
+    border-radius: 4px;
+    height: 22px;
+    width: 44px;
+    flex-shrink: 0;
+    box-sizing: border-box;
+    transition: border-color 0.15s;
+    overflow: hidden;
+}
+
+.decor-cad-input-box.rot {
+    width: 38px;
+    display: flex;
+    align-items: center;
+}
+
+.decor-cad-input-box.decor-cad-thickness-box {
+    width: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.decor-cad-input-box.decor-cad-tilesize-box {
+    width: 66px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.decor-cad-input-box:focus-within {
+    border-color: #2563eb;
+    box-shadow: 0 0 0 1px rgba(37,99,235,0.15);
+}
+
+.decor-cad-dim,
+.decor-cad-num,
+.decor-cad-input-box :deep(input) {
+    width: 100% !important;
+    height: 20px !important;
+    padding: 0 2px !important;
+    font-size: 10px !important;
+    font-weight: 600 !important;
+    color: #0f172a !important;
+    background: transparent !important;
+    border: none !important;
+    outline: none !important;
+    text-align: right !important;
+    box-sizing: border-box !important;
+    -moz-appearance: textfield !important;
+}
+
+.decor-cad-input-box :deep(input::-webkit-outer-spin-button),
+.decor-cad-input-box :deep(input::-webkit-inner-spin-button),
+.decor-cad-cell-input :deep(input::-webkit-outer-spin-button),
+.decor-cad-cell-input :deep(input::-webkit-inner-spin-button),
+.decor-cad-num::-webkit-outer-spin-button,
+.decor-cad-num::-webkit-inner-spin-button {
+    -webkit-appearance: none !important;
+    margin: 0 !important;
+}
+
+.decor-cad-num,
+.decor-cad-input-box :deep(input[type=number]),
+.decor-cad-cell-input :deep(input[type=number]) {
+    -moz-appearance: textfield !important;
+}
+
+.decor-cad-unit-inline {
+    font-size: 9px;
+    font-weight: 600;
+    color: #94a3b8;
+    padding-right: 3px;
+    flex-shrink: 0;
+    line-height: 1;
+}
+
+.decor-cad-cell-unit {
+    font-size: 9px !important;
+    font-weight: 600 !important;
+    color: #94a3b8 !important;
+    margin-left: 2px !important;
+    line-height: 1 !important;
+    flex-shrink: 0 !important;
+    user-select: none !important;
+}
+
+/* CAD 2x2 Grid (Placement & Bounds) */
+.decor-cad-grid-2col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4px;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.decor-cad-grid-cell {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: 2px;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 5px;
+    padding: 3px 5px;
+    box-sizing: border-box;
+    transition: border-color 0.15s, box-shadow 0.15s;
+    min-height: 44px;
+}
+
+.decor-cad-grid-cell:focus-within {
+    border-color: #2563eb;
+    box-shadow: 0 0 0 1px rgba(37,99,235,0.15);
+}
+
+.decor-cad-cell-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+}
+
+.decor-cad-cell-label {
+    font-size: 9.5px;
+    font-weight: 700;
+    color: #475569;
+}
+
+.decor-cad-cell-cm-wrap {
+    display: flex;
+    align-items: center;
+    gap: 1px;
+}
+
+.decor-cad-dim-sub,
+.decor-cad-cell-cm-wrap :deep(input) {
+    width: 38px !important;
+    height: 14px !important;
+    padding: 0 1px !important;
+    font-size: 9px !important;
+    font-weight: 500 !important;
+    color: #64748b !important;
+    background: transparent !important;
+    border: none !important;
+    outline: none !important;
+    text-align: right !important;
+    box-sizing: border-box !important;
+    -moz-appearance: textfield !important;
+}
+
+.decor-cad-dim-sub:focus,
+.decor-cad-cell-cm-wrap :deep(input:focus) {
+    color: #0f172a !important;
+    font-weight: 700 !important;
+}
+
+.decor-cad-dim-sub::-webkit-outer-spin-button,
+.decor-cad-dim-sub::-webkit-inner-spin-button,
+.decor-cad-cell-cm-wrap :deep(input::-webkit-outer-spin-button),
+.decor-cad-cell-cm-wrap :deep(input::-webkit-inner-spin-button) {
+    -webkit-appearance: none !important;
+    margin: 0 !important;
+}
+
+.decor-cad-sub-unit {
+    font-size: 8px;
+    font-weight: 500;
+    color: #94a3b8;
+}
+
+.decor-cad-cell-bot {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 2px;
+    width: 100%;
+    background: #f8fafc;
+    border-radius: 4px;
+    padding: 1px 2px;
+    border: 1px solid #f1f5f9;
+    box-sizing: border-box;
+}
+
+.decor-cad-pct-wrap {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 1;
+    min-width: 0;
+}
+
+.decor-cad-pct-input {
+    width: 26px !important;
+    height: 18px !important;
+    padding: 0 !important;
+    font-size: 11px !important;
+    font-weight: 700 !important;
+    color: #0f172a !important;
+    background: transparent !important;
+    border: none !important;
+    outline: none !important;
+    text-align: right !important;
+    box-sizing: border-box !important;
+    -moz-appearance: textfield !important;
+}
+
+.decor-cad-pct-input::-webkit-outer-spin-button,
+.decor-cad-pct-input::-webkit-inner-spin-button {
+    -webkit-appearance: none !important;
+    margin: 0 !important;
+}
+
+.decor-cad-pct-unit {
+    font-size: 9px;
+    font-weight: 600;
+    color: #2563eb;
+    margin-left: 1px;
+}
+
+.decor-cad-stepper {
+    width: 16px;
+    height: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 3px;
+    color: #64748b;
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+    padding: 0;
+    flex-shrink: 0;
+    line-height: 1;
+    transition: all 0.12s ease;
+    user-select: none;
+}
+
+.decor-cad-stepper:hover {
+    color: #2563eb;
+    border-color: #2563eb;
+    background: #eff6ff;
+}
+
+.decor-cad-stepper:active {
+    color: #ffffff;
+    background: #2563eb;
+    border-color: #2563eb;
+}
+
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
 }
 </style>

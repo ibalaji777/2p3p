@@ -140,6 +140,7 @@
         :active-tool="activeTool"
         :active-preset-params="activePresetParams"
         :planner="planner"
+        :renderer-3-d="renderer3D"
         @open-site-dialog="siteDialogRef?.open()"
         @toggle-all-floors="toggleAllFloors"
         @level-visibility-change="onLevelVisibilityChange"
@@ -775,6 +776,7 @@ onMounted(() => {
 
     renderer3D.value = new Preview3D(canvasWorkspaceRef.value.canvas3D);
     window.renderer3D = renderer3D.value;
+    plannerStore.renderer3D = renderer3D.value;
     if (typeof renderer3D.value.setViewMode === 'function') {
         renderer3D.value.setViewMode(viewMode.value);
     } else {
@@ -1364,7 +1366,13 @@ const clearWorkspace = () => {
     }
 };
 
-const onDecorUpdate = (decor) => { throttledSyncEngine(); };
+const onDecorUpdate = (decor) => { 
+    if (renderer3D.value && typeof renderer3D.value.updateWallDecorLive === 'function') {
+        renderer3D.value.updateWallDecorLive(decor);
+    }
+    if (selectedEntity.value?.isStatic) updateStaticLevelData(selectedEntity.value);
+    debouncedSaveHistory();
+};
 
 const {
     updateEnvironment,
