@@ -1545,7 +1545,7 @@ export class WallPushPullGizmo extends THREE.Group {
         const isMobile = (typeof window !== 'undefined' && window.innerWidth <= 768);
 
         const suite = this.ctx.interactions?.wallInteractiveSuite;
-        if (suite && suite.confirmStatusBadge && (suite.activeMode === 'push_pull' || suite.activeMode === 'extrude_recess')) {
+        if (suite && suite.confirmStatusBadge && suite.activeMode === 'push_pull') {
             suite.confirmStatusBadge.textContent = statusText;
             if (suite.domConfirmBar && this.ctx.renderer) {
                 const dom = this.ctx.renderer.domElement;

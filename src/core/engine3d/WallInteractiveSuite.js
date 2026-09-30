@@ -131,6 +131,20 @@ export class WallInteractiveSuite extends THREE.Group {
         dom.addEventListener('pointermove', this._onPointerMove, { passive: false });
         dom.addEventListener('pointerdown', this._onPointerDown, { passive: false });
         dom.addEventListener('pointerup', this._onPointerUp, { passive: false });
+
+        this._onKeyDown = (e) => {
+            if (!this.target || this.activeMode === 'menu' || this.activeMode === 'neutral') return;
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                this.commitChanges();
+            } else if (e.key === 'Escape') {
+                e.preventDefault();
+                this.cancelChanges();
+            }
+        };
+        if (typeof window !== 'undefined') {
+            window.addEventListener('keydown', this._onKeyDown);
+        }
     }
 
     _isActionActive() {
@@ -1011,13 +1025,12 @@ export class WallInteractiveSuite extends THREE.Group {
             this._hideSplitLaser();
             this._hideExtrudeGhost();
         } else if (mode === 'extrude_recess') {
-            this.pushPullGizmo.attach(this.target);
-            this.pushPullGizmo.setPreset('middle_bay');
-            this._updatePresetButtonHighlights();
+            this.pushPullGizmo.detach();
             this.cornerGizmo.detach();
             this.heightGizmo.detach();
             this._hideSplitLaser();
-            this._hideExtrudeGhost();
+            this.extrudeCurrentDepth = 0; // Neutral 0cm start on entry
+            this._showExtrudeGhost();
         } else if (mode === 'height') {
             this.pushPullGizmo.detach();
             this.cornerGizmo.detach();
@@ -1220,6 +1233,7 @@ export class WallInteractiveSuite extends THREE.Group {
                 this.bayPreviewGroup.remove(c);
             }
         }
+        if (this.target) this.target.visible = true;
         if (this.extrudeBadge) this.extrudeBadge.style.display = 'none';
     }
 
@@ -1816,6 +1830,7 @@ export class WallInteractiveSuite extends THREE.Group {
     }
 
     detach() {
+        if (this.target) this.target.visible = true;
         this.target = null;
         this.pushPullGizmo.detach();
         this.cornerGizmo.detach();
@@ -1881,9 +1896,68 @@ export class WallInteractiveSuite extends THREE.Group {
         const planner = this.ctx.planner || window.planner?.value || window.plannerInstance;
         if (!wall || !planner) return null;
 
+        if (this.target) this.target.visible = true;
+
         const cmd = new SnapshotCommand(planner);
+        const wallThickness = wall.thickness !== undefined ? wall.thickness : (wall.config?.thickness || 20);
+
+        // If inward recess is within wall thickness, create/attach an architectural niche widget
+        if (depth < 0 && Math.abs(depth) <= wallThickness - 2) {
+            const p1 = (wall.startAnchor && typeof wall.startAnchor.position === 'function') ? wall.startAnchor.position() : (wall.startAnchor || { x: wall.startX || 0, y: wall.startY || 0 });
+            const p2 = (wall.endAnchor && typeof wall.endAnchor.position === 'function') ? wall.endAnchor.position() : (wall.endAnchor || { x: wall.endX || 0, y: wall.endY || 0 });
+            const wallLen = Math.hypot(p2.x - p1.x, p2.y - p1.y);
+            const selW = Math.max(10, Math.round(wallLen * (tEnd - tStart)));
+            const selH = wall.height !== undefined ? wall.height : (wall.config?.height || 120);
+            const facing = this.activeFacing || 1;
+            const protT = (tStart + tEnd) / 2;
+            const maxNicheDepth = Math.max(1, wallThickness - 3);
+            const nicheDepth = Math.min(Math.round(Math.abs(depth)), maxNicheDepth);
+
+            let widgetObj = null;
+            if (planner && planner.wallLayer && typeof advance_openings === 'function') {
+                try {
+                    widgetObj = new advance_openings(planner, wall, protT, 'niche_recess');
+                    widgetObj.width = selW;
+                    widgetObj.height = selH;
+                    widgetObj.elevation = 0;
+                    widgetObj.depth = nicheDepth;
+                    widgetObj.facing = facing;
+                    widgetObj.update();
+                } catch(e) {
+                    widgetObj = null;
+                }
+            }
+            if (!widgetObj) {
+                widgetObj = {
+                    id: 'niche_' + Date.now() + '_' + Math.floor(Math.random() * 1000),
+                    type: 'niche_recess',
+                    configId: 'niche_recess',
+                    t: protT,
+                    width: selW,
+                    height: selH,
+                    elevation: 0,
+                    depth: nicheDepth,
+                    thick: wallThickness,
+                    facing: facing,
+                    wall: wall
+                };
+            }
+            WallEngine.attachWidget(wall, widgetObj, true, planner);
+
+            if (typeof cmd.finalize === 'function') cmd.finalize();
+            if (planner.commandManager) planner.commandManager.execute(cmd);
+
+            if (typeof this.ctx.updateWallGeometryLive === 'function') {
+                this.ctx.updateWallGeometryLive(wall);
+            }
+            coreEventBus.emit(EVENTS.WALL_CHANGE, { entity: wall });
+            this.detach();
+            return widgetObj;
+        }
+
         const newWalls = WallReformer.extrudeWallSegment(planner, wall, tStart, tEnd, depth);
         if (newWalls && planner.commandManager) {
+            if (typeof cmd.finalize === 'function') cmd.finalize();
             planner.commandManager.execute(cmd);
             if (this.ctx.buildScene) {
                 this.ctx.preventAutoFocus = true;
@@ -1915,6 +1989,9 @@ export class WallInteractiveSuite extends THREE.Group {
         }
         if (typeof window !== 'undefined') {
             window.removeEventListener('resize', this._onCameraChange);
+            if (this._onKeyDown) {
+                window.removeEventListener('keydown', this._onKeyDown);
+            }
         }
         const dom = this.ctx.renderer?.domElement;
         if (dom) {
