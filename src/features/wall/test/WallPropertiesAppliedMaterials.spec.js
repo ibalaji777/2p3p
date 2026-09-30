@@ -407,5 +407,205 @@ describe('Wall Properties: Applied Materials List & Parametric Inspector', () =>
 
         delete window.renderer3D;
     });
+
+    it('should support 1-click CAD alignments (Left, Center, Right, Floor, Mid, Top, Full) in wall inspector', async () => {
+        let updateLiveCalled = false;
+        window.renderer3D = {
+            updateWallDecorLive: () => { updateLiveCalled = true; },
+            requestRender: () => {}
+        };
+
+        const mockWall = {
+            id: 'wall-align-test',
+            type: 'wall',
+            thickness: 15,
+            height: 250,
+            startX: 0,
+            startY: 0,
+            endX: 400,
+            endY: 0,
+            params: {},
+            attachedDecor: [
+                {
+                    id: 'decor-align',
+                    configId: 'wood_panel',
+                    side: 'front',
+                    depth: 2.0,
+                    tileSize: 70,
+                    width: 40,
+                    height: 60,
+                    localX: 20,
+                    localY: 30
+                }
+            ]
+        };
+
+        const wrapper = mount(WallPanel, {
+            props: {
+                selectedEntity: mockWall,
+                selectedWallSide: 'front',
+                wallDecorRegistry: { wood_panel: { name: 'Wood Panel', thumbnail: 'wood.jpg' } },
+                railingRegistry: {},
+                uiTrigger: 0,
+                viewMode: '3d'
+            }
+        });
+
+        // Open edit inspector
+        await wrapper.find('.pro-mat-list-card .pro-btn-action.edit').trigger('click');
+        const inspector = wrapper.find('.pro-inspector-box');
+        expect(inspector.exists()).toBe(true);
+
+        const alignButtons = inspector.findAll('.pro-cad-align-btn');
+        expect(alignButtons.length).toBe(7); // Left, Center, Right, Floor, Mid, Top, Full
+
+        const decor = mockWall.attachedDecor[0];
+
+        // 1. Align Left: localX = width / 2 = 20
+        await alignButtons[0].trigger('click');
+        expect(decor.localX).toBe(20);
+
+        // 2. Align Center: localX = 50
+        await alignButtons[1].trigger('click');
+        expect(decor.localX).toBe(50);
+
+        // 3. Align Right: localX = 100 - 40 / 2 = 80
+        await alignButtons[2].trigger('click');
+        expect(decor.localX).toBe(80);
+
+        // 4. Align Floor: localY = height / 2 = 30
+        await alignButtons[3].trigger('click');
+        expect(decor.localY).toBe(30);
+
+        // 5. Align Mid: localY = 50
+        await alignButtons[4].trigger('click');
+        expect(decor.localY).toBe(50);
+
+        // 6. Align Top: localY = 100 - 60 / 2 = 70
+        await alignButtons[5].trigger('click');
+        expect(decor.localY).toBe(70);
+
+        // 7. Full Wall: width=100, height=100, localX=50, localY=50
+        await alignButtons[6].trigger('click');
+        expect(decor.width).toBe(100);
+        expect(decor.height).toBe(100);
+        expect(decor.localX).toBe(50);
+        expect(decor.localY).toBe(50);
+
+        delete window.renderer3D;
+    });
+
+    it('should support Flip H and Flip Face in wall inspector', async () => {
+        let updateLiveCalled = false;
+        window.renderer3D = {
+            updateWallDecorLive: () => { updateLiveCalled = true; },
+            requestRender: () => {}
+        };
+
+        const mockWall = {
+            id: 'wall-flip-test',
+            type: 'wall',
+            thickness: 15,
+            height: 250,
+            startX: 0,
+            startY: 0,
+            endX: 400,
+            endY: 0,
+            params: {},
+            attachedDecor: [
+                {
+                    id: 'decor-flip',
+                    configId: 'wood_panel',
+                    side: 'front',
+                    depth: 2.0,
+                    width: 30,
+                    height: 50,
+                    localX: 20,
+                    localY: 40
+                }
+            ]
+        };
+
+        const wrapper = mount(WallPanel, {
+            props: {
+                selectedEntity: mockWall,
+                selectedWallSide: 'front',
+                wallDecorRegistry: { wood_panel: { name: 'Wood Panel', thumbnail: 'wood.jpg' } },
+                railingRegistry: {},
+                uiTrigger: 0,
+                viewMode: '3d'
+            }
+        });
+
+        // Open edit inspector
+        await wrapper.find('.pro-mat-list-card .pro-btn-action.edit').trigger('click');
+        const inspector = wrapper.find('.pro-inspector-box');
+
+        const actionButtons = inspector.findAll('.pro-cad-action-btn');
+        expect(actionButtons.length).toBe(2); // Flip H, Flip Face
+
+        const decor = mockWall.attachedDecor[0];
+
+        // 1. Flip H: localX mirrors from 20 to 80
+        await actionButtons[0].trigger('click');
+        expect(decor.localX).toBe(80);
+
+        // 2. Flip Face: side toggles from 'front' to 'back'
+        await actionButtons[1].trigger('click');
+        expect(decor.side).toBe('back');
+
+        delete window.renderer3D;
+    });
+
+    it('should support switching X and Y reference modes (Left/Right, Floor/Ceiling) in wall inspector', async () => {
+        const mockWall = {
+            id: 'wall-ref-test',
+            type: 'wall',
+            thickness: 15,
+            height: 200,
+            startX: 0,
+            startY: 0,
+            endX: 400, // length = 400cm
+            endY: 0,
+            params: {},
+            attachedDecor: [
+                {
+                    id: 'decor-ref',
+                    configId: 'wood_panel',
+                    side: 'front',
+                    width: 50, // 200cm
+                    height: 50, // 100cm
+                    localX: 25, // flush with left: 25 - 25 = 0%
+                    localY: 25  // flush with floor: 25 - 25 = 0%
+                }
+            ]
+        };
+
+        const wrapper = mount(WallPanel, {
+            props: {
+                selectedEntity: mockWall,
+                selectedWallSide: 'front',
+                wallDecorRegistry: { wood_panel: { name: 'Wood Panel', thumbnail: 'wood.jpg' } },
+                railingRegistry: {},
+                uiTrigger: 0,
+                viewMode: '3d'
+            }
+        });
+
+        // Open edit inspector
+        await wrapper.find('.pro-mat-list-card .pro-btn-action.edit').trigger('click');
+        const inspector = wrapper.find('.pro-inspector-box');
+
+        const refToggles = inspector.findAll('.pro-cad-ref-toggle');
+        expect(refToggles.length).toBe(2);
+
+        // Toggle X to Right
+        await refToggles[0].trigger('click');
+        expect(refToggles[0].text()).toContain('Right');
+
+        // Toggle Y to Top (Ceiling)
+        await refToggles[1].trigger('click');
+        expect(refToggles[1].text()).toContain('Top');
+    });
 });
 

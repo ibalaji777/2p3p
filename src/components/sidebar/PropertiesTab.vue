@@ -253,6 +253,50 @@
                     <div class="decor-cad-card">
                         <div class="decor-cad-card-header">
                             <span class="decor-cad-card-title">Placement & Bounds</span>
+                            <div class="decor-cad-actions-inline">
+                                <button type="button" class="decor-cad-action-btn" title="Flip Horizontal (Mirror across wall center)" @click="flipDecorH(selectedEntity)">
+                                    ⇄ Flip H
+                                </button>
+                                <button type="button" class="decor-cad-action-btn" title="Flip Face (Move between Inner and Outer face)" @click="flipDecorFace(selectedEntity)">
+                                    ⇄ {{ selectedEntity.side === 'front' ? 'To Outer' : 'To Inner' }}
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- 1-Click Alignment Toolbar -->
+                        <div class="decor-cad-align-bar">
+                            <div class="decor-cad-align-row">
+                                <span class="decor-cad-align-label">H Align</span>
+                                <div class="decor-cad-align-group">
+                                    <button type="button" class="decor-cad-align-btn" :class="{ active: isDecorAligned(selectedEntity, 'left') }" title="Align Left (Flush against left corner)" @click="alignDecor(selectedEntity, 'left')">
+                                        ⫷ Left
+                                    </button>
+                                    <button type="button" class="decor-cad-align-btn" :class="{ active: isDecorAligned(selectedEntity, 'center') }" title="Center Horizontally" @click="alignDecor(selectedEntity, 'center')">
+                                        ⬌ Center
+                                    </button>
+                                    <button type="button" class="decor-cad-align-btn" :class="{ active: isDecorAligned(selectedEntity, 'right') }" title="Align Right (Flush against right corner)" @click="alignDecor(selectedEntity, 'right')">
+                                        Right ⫸
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="decor-cad-align-row">
+                                <span class="decor-cad-align-label">V Align</span>
+                                <div class="decor-cad-align-group">
+                                    <button type="button" class="decor-cad-align-btn" :class="{ active: isDecorAligned(selectedEntity, 'floor') }" title="Align to Floor (Bottom touches floor)" @click="alignDecor(selectedEntity, 'floor')">
+                                        ▲ Floor
+                                    </button>
+                                    <button type="button" class="decor-cad-align-btn" :class="{ active: isDecorAligned(selectedEntity, 'middle') }" title="Center Vertically" @click="alignDecor(selectedEntity, 'middle')">
+                                        ⬍ Mid
+                                    </button>
+                                    <button type="button" class="decor-cad-align-btn" :class="{ active: isDecorAligned(selectedEntity, 'top') }" title="Align to Ceiling/Top" @click="alignDecor(selectedEntity, 'top')">
+                                        Top ▼
+                                    </button>
+                                    <button type="button" class="decor-cad-align-btn fill-btn" :class="{ active: isDecorAligned(selectedEntity, 'full') }" title="Full Wall Coverage (100% × 100%)" @click="alignDecor(selectedEntity, 'full')">
+                                        ⛶ Full
+                                    </button>
+                                </div>
+                            </div>
                         </div>
 
                         <div class="decor-cad-grid-2col">
@@ -362,18 +406,23 @@
                                 <span class="decor-val-badge sr-only">{{ selectedEntity.height !== undefined ? selectedEntity.height : 100 }}% ({{ getDecorHeightCm(selectedEntity) }} cm)</span>
                             </div>
 
-                            <!-- X (Offset X) -->
+                            <!-- X (Offset X with Reference Toggle) -->
                             <div class="decor-dual-control decor-cad-grid-cell" title="Offset X: {{ selectedEntity.localX !== undefined ? selectedEntity.localX : 50 }}% ({{ getDecorLocalXCm(selectedEntity) }} cm)">
                                 <div class="decor-cad-cell-top">
-                                    <span class="decor-cad-cell-label">X</span>
+                                    <div class="decor-cad-cell-label-wrap">
+                                        <span class="decor-cad-cell-label">X</span>
+                                        <button type="button" class="decor-cad-ref-toggle" :title="xRefMode === 'left' ? 'Measuring from Left Corner (Click to switch to Right)' : 'Measuring from Right Corner (Click to switch to Left)'" @click="toggleXRefMode">
+                                            {{ xRefMode === 'left' ? '◀ Left' : 'Right ▶' }}
+                                        </button>
+                                    </div>
                                     <div class="decor-cad-cell-cm-wrap">
                                         <DimensionInput 
-                                            :model-value="getDecorLocalXCm(selectedEntity)" 
+                                            :model-value="getDecorRefXCm(selectedEntity)" 
                                             min="0" 
                                             :max="getDecorWallLength(selectedEntity)" 
                                             step="1" 
                                             class="decor-cad-dim-sub"
-                                            @update:model-value="val => onDecorLocalXCmInput(selectedEntity, val)" 
+                                            @update:model-value="val => onDecorRefXCmInput(selectedEntity, val)" 
                                         />
                                         <span class="decor-cad-sub-unit">cm</span>
                                     </div>
@@ -382,51 +431,56 @@
                                     <button 
                                         type="button" 
                                         class="decor-cad-stepper" 
-                                        @mousedown="startContinuousStep(() => stepDecorProp(selectedEntity, 'localX', -1))"
+                                        @mousedown="startContinuousStep(() => stepDecorRefProp(selectedEntity, 'x', -1))"
                                         @mouseup="stopContinuousStep"
                                         @mouseleave="stopContinuousStep"
-                                        @touchstart.prevent="startContinuousStep(() => stepDecorProp(selectedEntity, 'localX', -1))"
+                                        @touchstart.prevent="startContinuousStep(() => stepDecorRefProp(selectedEntity, 'x', -1))"
                                         @touchend="stopContinuousStep"
-                                        @click="onStepperClick(() => stepDecorProp(selectedEntity, 'localX', $event.shiftKey ? -10 : -1))"
+                                        @click="onStepperClick(() => stepDecorRefProp(selectedEntity, 'x', $event.shiftKey ? -10 : -1))"
                                     >−</button>
                                     <div class="decor-cad-pct-wrap">
                                         <input 
                                             type="number" 
-                                            :value="selectedEntity.localX !== undefined ? selectedEntity.localX : 50" 
+                                            :value="getDecorRefXPercent(selectedEntity)" 
                                             min="0" 
                                             max="100" 
                                             step="1" 
                                             class="decor-cad-pct-input"
-                                            @input="onDecorPctInput(selectedEntity, 'localX', $event.target.value)" 
+                                            @input="onDecorRefXPctInput(selectedEntity, $event.target.value)" 
                                         />
                                         <span class="decor-cad-pct-unit">%</span>
                                     </div>
                                     <button 
                                         type="button" 
                                         class="decor-cad-stepper" 
-                                        @mousedown="startContinuousStep(() => stepDecorProp(selectedEntity, 'localX', 1))"
+                                        @mousedown="startContinuousStep(() => stepDecorRefProp(selectedEntity, 'x', 1))"
                                         @mouseup="stopContinuousStep"
                                         @mouseleave="stopContinuousStep"
-                                        @touchstart.prevent="startContinuousStep(() => stepDecorProp(selectedEntity, 'localX', 1))"
+                                        @touchstart.prevent="startContinuousStep(() => stepDecorRefProp(selectedEntity, 'x', 1))"
                                         @touchend="stopContinuousStep"
-                                        @click="onStepperClick(() => stepDecorProp(selectedEntity, 'localX', $event.shiftKey ? 10 : 1))"
+                                        @click="onStepperClick(() => stepDecorRefProp(selectedEntity, 'x', $event.shiftKey ? 10 : 1))"
                                     >+</button>
                                 </div>
                                 <span class="decor-val-badge sr-only">{{ selectedEntity.localX !== undefined ? selectedEntity.localX : 50 }}% ({{ getDecorLocalXCm(selectedEntity) }} cm)</span>
                             </div>
 
-                            <!-- Y (Offset Y) -->
+                            <!-- Y (Offset Y with Reference Toggle) -->
                             <div class="decor-dual-control decor-cad-grid-cell" title="Offset Y: {{ selectedEntity.localY !== undefined ? selectedEntity.localY : 50 }}% ({{ getDecorLocalYCm(selectedEntity) }} cm)">
                                 <div class="decor-cad-cell-top">
-                                    <span class="decor-cad-cell-label">Y</span>
+                                    <div class="decor-cad-cell-label-wrap">
+                                        <span class="decor-cad-cell-label">Y</span>
+                                        <button type="button" class="decor-cad-ref-toggle" :title="yRefMode === 'floor' ? 'Measuring from Floor (Click to switch to Ceiling)' : 'Measuring from Ceiling (Click to switch to Floor)'" @click="toggleYRefMode">
+                                            {{ yRefMode === 'floor' ? '▲ Floor' : 'Top ▼' }}
+                                        </button>
+                                    </div>
                                     <div class="decor-cad-cell-cm-wrap">
                                         <DimensionInput 
-                                            :model-value="getDecorLocalYCm(selectedEntity)" 
+                                            :model-value="getDecorRefYCm(selectedEntity)" 
                                             min="0" 
                                             :max="getDecorWallHeight(selectedEntity)" 
                                             step="1" 
                                             class="decor-cad-dim-sub"
-                                            @update:model-value="val => onDecorLocalYCmInput(selectedEntity, val)" 
+                                            @update:model-value="val => onDecorRefYCmInput(selectedEntity, val)" 
                                         />
                                         <span class="decor-cad-sub-unit">cm</span>
                                     </div>
@@ -435,34 +489,34 @@
                                     <button 
                                         type="button" 
                                         class="decor-cad-stepper" 
-                                        @mousedown="startContinuousStep(() => stepDecorProp(selectedEntity, 'localY', -1))"
+                                        @mousedown="startContinuousStep(() => stepDecorRefProp(selectedEntity, 'y', -1))"
                                         @mouseup="stopContinuousStep"
                                         @mouseleave="stopContinuousStep"
-                                        @touchstart.prevent="startContinuousStep(() => stepDecorProp(selectedEntity, 'localY', -1))"
+                                        @touchstart.prevent="startContinuousStep(() => stepDecorRefProp(selectedEntity, 'y', -1))"
                                         @touchend="stopContinuousStep"
-                                        @click="onStepperClick(() => stepDecorProp(selectedEntity, 'localY', $event.shiftKey ? -10 : -1))"
+                                        @click="onStepperClick(() => stepDecorRefProp(selectedEntity, 'y', $event.shiftKey ? -10 : -1))"
                                     >−</button>
                                     <div class="decor-cad-pct-wrap">
                                         <input 
                                             type="number" 
-                                            :value="selectedEntity.localY !== undefined ? selectedEntity.localY : 50" 
+                                            :value="getDecorRefYPercent(selectedEntity)" 
                                             min="0" 
                                             max="100" 
                                             step="1" 
                                             class="decor-cad-pct-input"
-                                            @input="onDecorPctInput(selectedEntity, 'localY', $event.target.value)" 
+                                            @input="onDecorRefYPctInput(selectedEntity, $event.target.value)" 
                                         />
                                         <span class="decor-cad-pct-unit">%</span>
                                     </div>
                                     <button 
                                         type="button" 
                                         class="decor-cad-stepper" 
-                                        @mousedown="startContinuousStep(() => stepDecorProp(selectedEntity, 'localY', 1))"
+                                        @mousedown="startContinuousStep(() => stepDecorRefProp(selectedEntity, 'y', 1))"
                                         @mouseup="stopContinuousStep"
                                         @mouseleave="stopContinuousStep"
-                                        @touchstart.prevent="startContinuousStep(() => stepDecorProp(selectedEntity, 'localY', 1))"
+                                        @touchstart.prevent="startContinuousStep(() => stepDecorRefProp(selectedEntity, 'y', 1))"
                                         @touchend="stopContinuousStep"
-                                        @click="onStepperClick(() => stepDecorProp(selectedEntity, 'localY', $event.shiftKey ? 10 : 1))"
+                                        @click="onStepperClick(() => stepDecorRefProp(selectedEntity, 'y', $event.shiftKey ? 10 : 1))"
                                     >+</button>
                                 </div>
                                 <span class="decor-val-badge sr-only">{{ selectedEntity.localY !== undefined ? selectedEntity.localY : 50 }}% ({{ getDecorLocalYCm(selectedEntity) }} cm)</span>
@@ -877,6 +931,202 @@ const stepDecorProp = (decor, prop, delta) => {
     const maxVal = 100;
     const nextVal = Math.min(maxVal, Math.max(minVal, Math.round(cur) + delta));
     decor[prop] = nextVal;
+    triggerDecorUpdate(decor);
+};
+
+// CAD Reference Modes ('left' | 'right', 'floor' | 'ceiling')
+const xRefMode = ref('left');
+const yRefMode = ref('floor');
+
+const toggleXRefMode = () => {
+    xRefMode.value = xRefMode.value === 'left' ? 'right' : 'left';
+};
+
+const toggleYRefMode = () => {
+    yRefMode.value = yRefMode.value === 'floor' ? 'ceiling' : 'floor';
+};
+
+const getDecorRefXPercent = (decor) => {
+    if (!decor) return 0;
+    const _t = decorVersion.value;
+    const w = decor.width !== undefined ? decor.width : 100;
+    const localX = decor.localX !== undefined ? decor.localX : 50;
+    if (xRefMode.value === 'right') {
+        return Math.max(0, Math.round(100 - (localX + w / 2)));
+    }
+    return Math.max(0, Math.round(localX - w / 2));
+};
+
+const getDecorRefXCm = (decor) => {
+    if (!decor) return 0;
+    const _t = decorVersion.value;
+    const w = decor.width !== undefined ? decor.width : 100;
+    const localX = decor.localX !== undefined ? decor.localX : 50;
+    const wallLen = getDecorWallLength(decor);
+    let pct = 0;
+    if (xRefMode.value === 'right') {
+        pct = Math.max(0, 100 - (localX + w / 2));
+    } else {
+        pct = Math.max(0, localX - w / 2);
+    }
+    return Math.round(wallLen * (pct / 100));
+};
+
+const onDecorRefXCmInput = (decor, cmVal) => {
+    if (!decor) return;
+    const wallLen = getDecorWallLength(decor);
+    const w = decor.width !== undefined ? decor.width : 100;
+    const refPct = Math.max(0, (Number(cmVal) / wallLen) * 100);
+    let newLocalX = 50;
+    if (xRefMode.value === 'right') {
+        newLocalX = 100 - refPct - w / 2;
+    } else {
+        newLocalX = refPct + w / 2;
+    }
+    decor.localX = Number(Math.min(100, Math.max(0, newLocalX)).toFixed(3));
+    triggerDecorUpdate(decor);
+};
+
+const onDecorRefXPctInput = (decor, val) => {
+    if (!decor) return;
+    const w = decor.width !== undefined ? decor.width : 100;
+    const refPct = Math.max(0, Number(val) || 0);
+    let newLocalX = 50;
+    if (xRefMode.value === 'right') {
+        newLocalX = 100 - refPct - w / 2;
+    } else {
+        newLocalX = refPct + w / 2;
+    }
+    decor.localX = Number(Math.min(100, Math.max(0, newLocalX)).toFixed(3));
+    triggerDecorUpdate(decor);
+};
+
+const getDecorRefYPercent = (decor) => {
+    if (!decor) return 0;
+    const _t = decorVersion.value;
+    const h = decor.height !== undefined ? decor.height : 100;
+    const localY = decor.localY !== undefined ? decor.localY : 50;
+    if (yRefMode.value === 'ceiling') {
+        return Math.max(0, Math.round(100 - (localY + h / 2)));
+    }
+    return Math.max(0, Math.round(localY - h / 2));
+};
+
+const getDecorRefYCm = (decor) => {
+    if (!decor) return 0;
+    const _t = decorVersion.value;
+    const h = decor.height !== undefined ? decor.height : 100;
+    const localY = decor.localY !== undefined ? decor.localY : 50;
+    const wallH = getDecorWallHeight(decor);
+    let pct = 0;
+    if (yRefMode.value === 'ceiling') {
+        pct = Math.max(0, 100 - (localY + h / 2));
+    } else {
+        pct = Math.max(0, localY - h / 2);
+    }
+    return Math.round(wallH * (pct / 100));
+};
+
+const onDecorRefYCmInput = (decor, cmVal) => {
+    if (!decor) return;
+    const wallH = getDecorWallHeight(decor);
+    const h = decor.height !== undefined ? decor.height : 100;
+    const refPct = Math.max(0, (Number(cmVal) / wallH) * 100);
+    let newLocalY = 50;
+    if (yRefMode.value === 'ceiling') {
+        newLocalY = 100 - refPct - h / 2;
+    } else {
+        newLocalY = refPct + h / 2;
+    }
+    decor.localY = Number(Math.min(100, Math.max(0, newLocalY)).toFixed(3));
+    triggerDecorUpdate(decor);
+};
+
+const onDecorRefYPctInput = (decor, val) => {
+    if (!decor) return;
+    const h = decor.height !== undefined ? decor.height : 100;
+    const refPct = Math.max(0, Number(val) || 0);
+    let newLocalY = 50;
+    if (yRefMode.value === 'ceiling') {
+        newLocalY = 100 - refPct - h / 2;
+    } else {
+        newLocalY = refPct + h / 2;
+    }
+    decor.localY = Number(Math.min(100, Math.max(0, newLocalY)).toFixed(3));
+    triggerDecorUpdate(decor);
+};
+
+const stepDecorRefProp = (decor, axis, delta) => {
+    if (!decor) return;
+    if (axis === 'x') {
+        const curRefPct = getDecorRefXPercent(decor);
+        const nextRefPct = Math.max(0, curRefPct + delta);
+        onDecorRefXPctInput(decor, nextRefPct);
+    } else if (axis === 'y') {
+        const curRefPct = getDecorRefYPercent(decor);
+        const nextRefPct = Math.max(0, curRefPct + delta);
+        onDecorRefYPctInput(decor, nextRefPct);
+    }
+};
+
+const alignDecor = (decor, target) => {
+    if (!decor) return;
+    const w = decor.width !== undefined ? decor.width : 100;
+    const h = decor.height !== undefined ? decor.height : 100;
+
+    if (target === 'left') {
+        decor.localX = Number((w / 2).toFixed(3));
+    } else if (target === 'center') {
+        decor.localX = 50;
+    } else if (target === 'right') {
+        decor.localX = Number((100 - w / 2).toFixed(3));
+    } else if (target === 'floor') {
+        decor.localY = Number((h / 2).toFixed(3));
+    } else if (target === 'middle') {
+        decor.localY = 50;
+    } else if (target === 'top') {
+        decor.localY = Number((100 - h / 2).toFixed(3));
+    } else if (target === 'full') {
+        decor.width = 100;
+        decor.height = 100;
+        decor.localX = 50;
+        decor.localY = 50;
+    }
+    triggerDecorUpdate(decor);
+};
+
+const isDecorAligned = (decor, target) => {
+    if (!decor) return false;
+    const w = decor.width !== undefined ? decor.width : 100;
+    const h = decor.height !== undefined ? decor.height : 100;
+    const lx = decor.localX !== undefined ? decor.localX : 50;
+    const ly = decor.localY !== undefined ? decor.localY : 50;
+
+    if (target === 'left') return Math.abs(lx - w / 2) < 0.5;
+    if (target === 'center') return Math.abs(lx - 50) < 0.5;
+    if (target === 'right') return Math.abs(lx - (100 - w / 2)) < 0.5;
+    if (target === 'floor') return Math.abs(ly - h / 2) < 0.5;
+    if (target === 'middle') return Math.abs(ly - 50) < 0.5;
+    if (target === 'top') return Math.abs(ly - (100 - h / 2)) < 0.5;
+    if (target === 'full') return w === 100 && h === 100 && Math.abs(lx - 50) < 0.5 && Math.abs(ly - 50) < 0.5;
+    return false;
+};
+
+const flipDecorH = (decor) => {
+    if (!decor) return;
+    const curX = decor.localX !== undefined ? decor.localX : 50;
+    decor.localX = Number((100 - curX).toFixed(3));
+    triggerDecorUpdate(decor);
+};
+
+const flipDecorFace = (decor) => {
+    if (!decor) return;
+    const newSide = decor.side === 'front' ? 'back' : 'front';
+    decor.side = newSide;
+    const wall = getDecorParentWall(decor);
+    if (wall) {
+        WallEngine.updateDecor(wall, decor, { side: newSide }, false, props.planner);
+    }
     triggerDecorUpdate(decor);
 };
 
@@ -1582,6 +1832,140 @@ const onDecorTileSizeInput = (decor, val) => {
 .decor-cad-stepper:active {
     color: #ffffff;
     background: #2563eb;
+    border-color: #2563eb;
+}
+
+/* CAD Header Action Buttons (Flip H, Flip Face) */
+.decor-cad-actions-inline {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    margin-left: auto;
+}
+
+.decor-cad-action-btn {
+    padding: 1px 5px;
+    font-size: 8.5px;
+    font-weight: 600;
+    color: #475569;
+    background: #ffffff;
+    border: 1px solid #cbd5e1;
+    border-radius: 3px;
+    cursor: pointer;
+    line-height: 1.3;
+    transition: all 0.12s ease;
+    white-space: nowrap;
+}
+
+.decor-cad-action-btn:hover {
+    border-color: #2563eb;
+    color: #2563eb;
+    background: #eff6ff;
+}
+
+/* CAD 1-Click Alignment Toolbar */
+.decor-cad-align-bar {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    padding: 4px;
+    background: #f1f5f9;
+    border-radius: 4px;
+    margin-bottom: 4px;
+    box-sizing: border-box;
+}
+
+.decor-cad-align-row {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.decor-cad-align-label {
+    font-size: 8px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    color: #64748b;
+    min-width: 38px;
+    flex-shrink: 0;
+}
+
+.decor-cad-align-group {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    flex: 1;
+}
+
+.decor-cad-align-btn {
+    flex: 1;
+    padding: 2px 3px;
+    font-size: 8.5px;
+    font-weight: 600;
+    color: #475569;
+    background: #ffffff;
+    border: 1px solid #cbd5e1;
+    border-radius: 3px;
+    cursor: pointer;
+    text-align: center;
+    white-space: nowrap;
+    line-height: 1.3;
+    transition: all 0.12s ease;
+}
+
+.decor-cad-align-btn:hover {
+    border-color: #2563eb;
+    color: #2563eb;
+    background: #eff6ff;
+}
+
+.decor-cad-align-btn.active {
+    background: #2563eb;
+    border-color: #2563eb;
+    color: #ffffff;
+    font-weight: 700;
+}
+
+.decor-cad-align-btn.fill-btn {
+    background: #f8fafc;
+    border-color: #94a3b8;
+    color: #1e293b;
+    font-weight: 700;
+}
+
+.decor-cad-align-btn.fill-btn:hover {
+    background: #2563eb;
+    border-color: #2563eb;
+    color: #ffffff;
+}
+
+/* CAD Reference Mode Toggle in Cell Label */
+.decor-cad-cell-label-wrap {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+}
+
+.decor-cad-ref-toggle {
+    padding: 0 3px;
+    font-size: 7.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    color: #2563eb;
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    border-radius: 3px;
+    cursor: pointer;
+    line-height: 1.4;
+    transition: all 0.12s ease;
+    white-space: nowrap;
+}
+
+.decor-cad-ref-toggle:hover {
+    background: #2563eb;
+    color: #ffffff;
     border-color: #2563eb;
 }
 

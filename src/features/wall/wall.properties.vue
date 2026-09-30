@@ -839,6 +839,50 @@
                         <div class="pro-cad-card">
                             <div class="pro-cad-card-header">
                                 <span class="pro-cad-card-title">Placement & Bounds</span>
+                                <div class="pro-cad-actions-inline">
+                                    <button type="button" class="pro-cad-action-btn" title="Flip Horizontal (Mirror across wall center)" @click="flipDecorH(activeEditItem.decor)">
+                                        ⇄ Flip H
+                                    </button>
+                                    <button type="button" class="pro-cad-action-btn" title="Flip Face (Move between Inner and Outer face)" @click="flipDecorFace(activeEditItem.decor)">
+                                        ⇄ {{ activeEditItem.decor.side === 'front' ? 'To Outer' : 'To Inner' }}
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- 1-Click Alignment Toolbar -->
+                            <div class="pro-cad-align-bar">
+                                <div class="pro-cad-align-row">
+                                    <span class="pro-cad-align-label">H Align</span>
+                                    <div class="pro-cad-align-group">
+                                        <button type="button" class="pro-cad-align-btn" :class="{ active: isDecorAligned(activeEditItem.decor, 'left') }" title="Align Left (Flush against left corner)" @click="alignDecor(activeEditItem.decor, 'left')">
+                                            ⫷ Left
+                                        </button>
+                                        <button type="button" class="pro-cad-align-btn" :class="{ active: isDecorAligned(activeEditItem.decor, 'center') }" title="Center Horizontally" @click="alignDecor(activeEditItem.decor, 'center')">
+                                            ⬌ Center
+                                        </button>
+                                        <button type="button" class="pro-cad-align-btn" :class="{ active: isDecorAligned(activeEditItem.decor, 'right') }" title="Align Right (Flush against right corner)" @click="alignDecor(activeEditItem.decor, 'right')">
+                                            Right ⫸
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div class="pro-cad-align-row">
+                                    <span class="pro-cad-align-label">V Align</span>
+                                    <div class="pro-cad-align-group">
+                                        <button type="button" class="pro-cad-align-btn" :class="{ active: isDecorAligned(activeEditItem.decor, 'floor') }" title="Align to Floor (Bottom touches floor)" @click="alignDecor(activeEditItem.decor, 'floor')">
+                                            ▲ Floor
+                                        </button>
+                                        <button type="button" class="pro-cad-align-btn" :class="{ active: isDecorAligned(activeEditItem.decor, 'middle') }" title="Center Vertically" @click="alignDecor(activeEditItem.decor, 'middle')">
+                                            ⬍ Mid
+                                        </button>
+                                        <button type="button" class="pro-cad-align-btn" :class="{ active: isDecorAligned(activeEditItem.decor, 'top') }" title="Align to Ceiling/Top" @click="alignDecor(activeEditItem.decor, 'top')">
+                                            Top ▼
+                                        </button>
+                                        <button type="button" class="pro-cad-align-btn fill-btn" :class="{ active: isDecorAligned(activeEditItem.decor, 'full') }" title="Full Wall Coverage (100% × 100%)" @click="alignDecor(activeEditItem.decor, 'full')">
+                                            ⛶ Full
+                                        </button>
+                                    </div>
+                                </div>
                             </div>
 
                             <div class="pro-cad-grid-2col">
@@ -948,18 +992,23 @@
                                     <span class="sr-only">Height {{ decorHeightPercent }}% ({{ decorHeightCm }} cm)</span>
                                 </div>
 
-                                <!-- X (Offset X) -->
+                                <!-- X (Offset X with Reference Toggle) -->
                                 <div class="pro-dual-input-row pro-cad-grid-cell" title="Offset X: {{ decorLocalXPercent }}% ({{ decorLocalXCm }} cm)">
                                     <div class="pro-cad-cell-top">
-                                        <span class="pro-cad-cell-label">X</span>
+                                        <div class="pro-cad-cell-label-wrap">
+                                            <span class="pro-cad-cell-label">X</span>
+                                            <button type="button" class="pro-cad-ref-toggle" :title="xRefMode === 'left' ? 'Measuring from Left Corner (Click to switch to Right)' : 'Measuring from Right Corner (Click to switch to Left)'" @click="toggleXRefMode">
+                                                {{ xRefMode === 'left' ? '◀ Left' : 'Right ▶' }}
+                                            </button>
+                                        </div>
                                         <div class="pro-cad-cell-cm-wrap">
                                             <DimensionInput 
-                                                :model-value="decorLocalXCm" 
+                                                :model-value="decorRefXCm" 
                                                 min="0" 
                                                 :max="currentWallLength" 
                                                 step="1" 
                                                 class="pro-cad-dim-sub"
-                                                @update:model-value="onDecorLocalXCmChange" 
+                                                @update:model-value="onDecorRefXCmChange" 
                                             />
                                             <span class="pro-cad-sub-unit">cm</span>
                                         </div>
@@ -968,51 +1017,56 @@
                                         <button 
                                             type="button" 
                                             class="pro-cad-stepper" 
-                                            @mousedown="startContinuousStep(() => stepDecorProp(activeEditItem.decor, 'localX', -1))"
+                                            @mousedown="startContinuousStep(() => stepDecorRefProp(activeEditItem.decor, 'x', -1))"
                                             @mouseup="stopContinuousStep"
                                             @mouseleave="stopContinuousStep"
-                                            @touchstart.prevent="startContinuousStep(() => stepDecorProp(activeEditItem.decor, 'localX', -1))"
+                                            @touchstart.prevent="startContinuousStep(() => stepDecorRefProp(activeEditItem.decor, 'x', -1))"
                                             @touchend="stopContinuousStep"
-                                            @click="onStepperClick(() => stepDecorProp(activeEditItem.decor, 'localX', $event.shiftKey ? -10 : -1))"
+                                            @click="onStepperClick(() => stepDecorRefProp(activeEditItem.decor, 'x', $event.shiftKey ? -10 : -1))"
                                         >−</button>
                                         <div class="pro-cad-pct-wrap">
                                             <input 
                                                 type="number" 
-                                                :value="decorLocalXPercent" 
+                                                :value="decorRefXPercent" 
                                                 min="0" 
                                                 max="100" 
                                                 step="1" 
                                                 class="pro-cad-pct-input"
-                                                @input="onDecorLocalXPctChange($event.target.value)" 
+                                                @input="onDecorRefXPctChange($event.target.value)" 
                                             />
                                             <span class="pro-cad-pct-unit">%</span>
                                         </div>
                                         <button 
                                             type="button" 
                                             class="pro-cad-stepper" 
-                                            @mousedown="startContinuousStep(() => stepDecorProp(activeEditItem.decor, 'localX', 1))"
+                                            @mousedown="startContinuousStep(() => stepDecorRefProp(activeEditItem.decor, 'x', 1))"
                                             @mouseup="stopContinuousStep"
                                             @mouseleave="stopContinuousStep"
-                                            @touchstart.prevent="startContinuousStep(() => stepDecorProp(activeEditItem.decor, 'localX', 1))"
+                                            @touchstart.prevent="startContinuousStep(() => stepDecorRefProp(activeEditItem.decor, 'x', 1))"
                                             @touchend="stopContinuousStep"
-                                            @click="onStepperClick(() => stepDecorProp(activeEditItem.decor, 'localX', $event.shiftKey ? 10 : 1))"
+                                            @click="onStepperClick(() => stepDecorRefProp(activeEditItem.decor, 'x', $event.shiftKey ? 10 : 1))"
                                         >+</button>
                                     </div>
                                     <span class="sr-only">Offset X {{ decorLocalXPercent }}% ({{ decorLocalXCm }} cm)</span>
                                 </div>
 
-                                <!-- Y (Offset Y) -->
+                                <!-- Y (Offset Y with Reference Toggle) -->
                                 <div class="pro-dual-input-row pro-cad-grid-cell" title="Offset Y: {{ decorLocalYPercent }}% ({{ decorLocalYCm }} cm)">
                                     <div class="pro-cad-cell-top">
-                                        <span class="pro-cad-cell-label">Y</span>
+                                        <div class="pro-cad-cell-label-wrap">
+                                            <span class="pro-cad-cell-label">Y</span>
+                                            <button type="button" class="pro-cad-ref-toggle" :title="yRefMode === 'floor' ? 'Measuring from Floor (Click to switch to Ceiling)' : 'Measuring from Ceiling (Click to switch to Floor)'" @click="toggleYRefMode">
+                                                {{ yRefMode === 'floor' ? '▲ Floor' : 'Top ▼' }}
+                                            </button>
+                                        </div>
                                         <div class="pro-cad-cell-cm-wrap">
                                             <DimensionInput 
-                                                :model-value="decorLocalYCm" 
+                                                :model-value="decorRefYCm" 
                                                 min="0" 
                                                 :max="currentWallHeight" 
                                                 step="1" 
                                                 class="pro-cad-dim-sub"
-                                                @update:model-value="onDecorLocalYCmChange" 
+                                                @update:model-value="onDecorRefYCmChange" 
                                             />
                                             <span class="pro-cad-sub-unit">cm</span>
                                         </div>
@@ -1021,34 +1075,34 @@
                                         <button 
                                             type="button" 
                                             class="pro-cad-stepper" 
-                                            @mousedown="startContinuousStep(() => stepDecorProp(activeEditItem.decor, 'localY', -1))"
+                                            @mousedown="startContinuousStep(() => stepDecorRefProp(activeEditItem.decor, 'y', -1))"
                                             @mouseup="stopContinuousStep"
                                             @mouseleave="stopContinuousStep"
-                                            @touchstart.prevent="startContinuousStep(() => stepDecorProp(activeEditItem.decor, 'localY', -1))"
+                                            @touchstart.prevent="startContinuousStep(() => stepDecorRefProp(activeEditItem.decor, 'y', -1))"
                                             @touchend="stopContinuousStep"
-                                            @click="onStepperClick(() => stepDecorProp(activeEditItem.decor, 'localY', $event.shiftKey ? -10 : -1))"
+                                            @click="onStepperClick(() => stepDecorRefProp(activeEditItem.decor, 'y', $event.shiftKey ? -10 : -1))"
                                         >−</button>
                                         <div class="pro-cad-pct-wrap">
                                             <input 
                                                 type="number" 
-                                                :value="decorLocalYPercent" 
+                                                :value="decorRefYPercent" 
                                                 min="0" 
                                                 max="100" 
                                                 step="1" 
                                                 class="pro-cad-pct-input"
-                                                @input="onDecorLocalYPctChange($event.target.value)" 
+                                                @input="onDecorRefYPctChange($event.target.value)" 
                                             />
                                             <span class="pro-cad-pct-unit">%</span>
                                         </div>
                                         <button 
                                             type="button" 
                                             class="pro-cad-stepper" 
-                                            @mousedown="startContinuousStep(() => stepDecorProp(activeEditItem.decor, 'localY', 1))"
+                                            @mousedown="startContinuousStep(() => stepDecorRefProp(activeEditItem.decor, 'y', 1))"
                                             @mouseup="stopContinuousStep"
                                             @mouseleave="stopContinuousStep"
-                                            @touchstart.prevent="startContinuousStep(() => stepDecorProp(activeEditItem.decor, 'localY', 1))"
+                                            @touchstart.prevent="startContinuousStep(() => stepDecorRefProp(activeEditItem.decor, 'y', 1))"
                                             @touchend="stopContinuousStep"
-                                            @click="onStepperClick(() => stepDecorProp(activeEditItem.decor, 'localY', $event.shiftKey ? 10 : 1))"
+                                            @click="onStepperClick(() => stepDecorRefProp(activeEditItem.decor, 'y', $event.shiftKey ? 10 : 1))"
                                         >+</button>
                                     </div>
                                     <span class="sr-only">Offset Y {{ decorLocalYPercent }}% ({{ decorLocalYCm }} cm)</span>
@@ -1483,6 +1537,244 @@ const onDecorLocalYPctChange = (val) => {
     if (!activeEditItem.value?.decor) return;
     const num = Math.min(100, Math.max(0, Number(val) || 0));
     onDecorPropChange(activeEditItem.value.decor, 'localY', num);
+};
+
+// CAD Reference Modes ('left' | 'right', 'floor' | 'ceiling')
+const xRefMode = ref('left');
+const yRefMode = ref('floor');
+
+const toggleXRefMode = () => {
+    xRefMode.value = xRefMode.value === 'left' ? 'right' : 'left';
+};
+
+const toggleYRefMode = () => {
+    yRefMode.value = yRefMode.value === 'floor' ? 'ceiling' : 'floor';
+};
+
+const decorRefXPercent = computed(() => {
+    const _t = decorMutationVersion.value;
+    if (!activeEditItem.value?.decor) return 0;
+    const decor = activeEditItem.value.decor;
+    const w = decor.width !== undefined ? decor.width : 100;
+    const localX = decor.localX !== undefined ? decor.localX : 50;
+    if (xRefMode.value === 'right') {
+        const raw = 100 - (localX + w / 2);
+        return Math.max(0, Math.round(raw));
+    }
+    const raw = localX - w / 2;
+    return Math.max(0, Math.round(raw));
+});
+
+const decorRefXCm = computed(() => {
+    const _t = decorMutationVersion.value;
+    if (!activeEditItem.value?.decor) return 0;
+    const decor = activeEditItem.value.decor;
+    const w = decor.width !== undefined ? decor.width : 100;
+    const localX = decor.localX !== undefined ? decor.localX : 50;
+    const wallLen = currentWallLength.value || 100;
+    let pct = 0;
+    if (xRefMode.value === 'right') {
+        pct = Math.max(0, 100 - (localX + w / 2));
+    } else {
+        pct = Math.max(0, localX - w / 2);
+    }
+    return Math.round(wallLen * (pct / 100));
+});
+
+const onDecorRefXCmChange = (cmVal) => {
+    if (!activeEditItem.value?.decor) return;
+    const decor = activeEditItem.value.decor;
+    const wallLen = currentWallLength.value || 100;
+    const w = decor.width !== undefined ? decor.width : 100;
+    const refPct = Math.max(0, (Number(cmVal) / wallLen) * 100);
+    let newLocalX = 50;
+    if (xRefMode.value === 'right') {
+        newLocalX = 100 - refPct - w / 2;
+    } else {
+        newLocalX = refPct + w / 2;
+    }
+    newLocalX = Number(Math.min(100, Math.max(0, newLocalX)).toFixed(3));
+    onDecorPropChange(decor, 'localX', newLocalX);
+};
+
+const onDecorRefXPctChange = (val) => {
+    if (!activeEditItem.value?.decor) return;
+    const decor = activeEditItem.value.decor;
+    const w = decor.width !== undefined ? decor.width : 100;
+    const refPct = Math.max(0, Number(val) || 0);
+    let newLocalX = 50;
+    if (xRefMode.value === 'right') {
+        newLocalX = 100 - refPct - w / 2;
+    } else {
+        newLocalX = refPct + w / 2;
+    }
+    newLocalX = Number(Math.min(100, Math.max(0, newLocalX)).toFixed(3));
+    onDecorPropChange(decor, 'localX', newLocalX);
+};
+
+const decorRefYPercent = computed(() => {
+    const _t = decorMutationVersion.value;
+    if (!activeEditItem.value?.decor) return 0;
+    const decor = activeEditItem.value.decor;
+    const h = decor.height !== undefined ? decor.height : 100;
+    const localY = decor.localY !== undefined ? decor.localY : 50;
+    if (yRefMode.value === 'ceiling') {
+        const raw = 100 - (localY + h / 2);
+        return Math.max(0, Math.round(raw));
+    }
+    const raw = localY - h / 2;
+    return Math.max(0, Math.round(raw));
+});
+
+const decorRefYCm = computed(() => {
+    const _t = decorMutationVersion.value;
+    if (!activeEditItem.value?.decor) return 0;
+    const decor = activeEditItem.value.decor;
+    const h = decor.height !== undefined ? decor.height : 100;
+    const localY = decor.localY !== undefined ? decor.localY : 50;
+    const wallH = currentWallHeight.value || 280;
+    let pct = 0;
+    if (yRefMode.value === 'ceiling') {
+        pct = Math.max(0, 100 - (localY + h / 2));
+    } else {
+        pct = Math.max(0, localY - h / 2);
+    }
+    return Math.round(wallH * (pct / 100));
+});
+
+const onDecorRefYCmChange = (cmVal) => {
+    if (!activeEditItem.value?.decor) return;
+    const decor = activeEditItem.value.decor;
+    const wallH = currentWallHeight.value || 280;
+    const h = decor.height !== undefined ? decor.height : 100;
+    const refPct = Math.max(0, (Number(cmVal) / wallH) * 100);
+    let newLocalY = 50;
+    if (yRefMode.value === 'ceiling') {
+        newLocalY = 100 - refPct - h / 2;
+    } else {
+        newLocalY = refPct + h / 2;
+    }
+    newLocalY = Number(Math.min(100, Math.max(0, newLocalY)).toFixed(3));
+    onDecorPropChange(decor, 'localY', newLocalY);
+};
+
+const onDecorRefYPctChange = (val) => {
+    if (!activeEditItem.value?.decor) return;
+    const decor = activeEditItem.value.decor;
+    const h = decor.height !== undefined ? decor.height : 100;
+    const refPct = Math.max(0, Number(val) || 0);
+    let newLocalY = 50;
+    if (yRefMode.value === 'ceiling') {
+        newLocalY = 100 - refPct - h / 2;
+    } else {
+        newLocalY = refPct + h / 2;
+    }
+    newLocalY = Number(Math.min(100, Math.max(0, newLocalY)).toFixed(3));
+    onDecorPropChange(decor, 'localY', newLocalY);
+};
+
+const stepDecorRefProp = (decor, axis, delta) => {
+    if (!decor) return;
+    if (axis === 'x') {
+        const curRefPct = decorRefXPercent.value;
+        const nextRefPct = Math.max(0, curRefPct + delta);
+        onDecorRefXPctChange(nextRefPct);
+    } else if (axis === 'y') {
+        const curRefPct = decorRefYPercent.value;
+        const nextRefPct = Math.max(0, curRefPct + delta);
+        onDecorRefYPctChange(nextRefPct);
+    }
+};
+
+const alignDecor = (decor, target) => {
+    if (!decor) return;
+    const w = decor.width !== undefined ? decor.width : 100;
+    const h = decor.height !== undefined ? decor.height : 100;
+    const wall = props.selectedEntity;
+
+    if (target === 'left') {
+        const newX = Number((w / 2).toFixed(3));
+        onDecorPropChange(decor, 'localX', newX);
+    } else if (target === 'center') {
+        onDecorPropChange(decor, 'localX', 50);
+    } else if (target === 'right') {
+        const newX = Number((100 - w / 2).toFixed(3));
+        onDecorPropChange(decor, 'localX', newX);
+    } else if (target === 'floor') {
+        const newY = Number((h / 2).toFixed(3));
+        onDecorPropChange(decor, 'localY', newY);
+    } else if (target === 'middle') {
+        onDecorPropChange(decor, 'localY', 50);
+    } else if (target === 'top') {
+        const newY = Number((100 - h / 2).toFixed(3));
+        onDecorPropChange(decor, 'localY', newY);
+    } else if (target === 'full') {
+        decor.width = 100;
+        decor.height = 100;
+        decor.localX = 50;
+        decor.localY = 50;
+        if (wall) {
+            WallEngine.updateDecor(wall, decor, { width: 100, height: 100, localX: 50, localY: 50 }, false, props.planner);
+        }
+        decorMutationVersion.value++;
+        const renderer = plannerStore.renderer3D || window.renderer3D || window.plannerInstance?.renderer3D;
+        if (renderer && typeof renderer.updateWallDecorLive === 'function') {
+            renderer.updateWallDecorLive(decor);
+        }
+        if (renderer && typeof renderer.requestRender === 'function') {
+            renderer.requestRender();
+        }
+        emit('decor-update', decor);
+        emit('ui-trigger');
+    }
+};
+
+const isDecorAligned = (decor, target) => {
+    if (!decor) return false;
+    const w = decor.width !== undefined ? decor.width : 100;
+    const h = decor.height !== undefined ? decor.height : 100;
+    const lx = decor.localX !== undefined ? decor.localX : 50;
+    const ly = decor.localY !== undefined ? decor.localY : 50;
+
+    if (target === 'left') return Math.abs(lx - w / 2) < 0.5;
+    if (target === 'center') return Math.abs(lx - 50) < 0.5;
+    if (target === 'right') return Math.abs(lx - (100 - w / 2)) < 0.5;
+    if (target === 'floor') return Math.abs(ly - h / 2) < 0.5;
+    if (target === 'middle') return Math.abs(ly - 50) < 0.5;
+    if (target === 'top') return Math.abs(ly - (100 - h / 2)) < 0.5;
+    if (target === 'full') return w === 100 && h === 100 && Math.abs(lx - 50) < 0.5 && Math.abs(ly - 50) < 0.5;
+    return false;
+};
+
+const flipDecorH = (decor) => {
+    if (!decor) return;
+    const curX = decor.localX !== undefined ? decor.localX : 50;
+    const newX = Number((100 - curX).toFixed(3));
+    onDecorPropChange(decor, 'localX', newX);
+};
+
+const flipDecorFace = (decor) => {
+    if (!decor) return;
+    const wall = props.selectedEntity;
+    const newSide = decor.side === 'front' ? 'back' : 'front';
+    decor.side = newSide;
+    activeFace.value = newSide;
+    if (materialFilterFace.value !== 'all') {
+        materialFilterFace.value = newSide;
+    }
+    if (wall) {
+        WallEngine.updateDecor(wall, decor, { side: newSide }, false, props.planner);
+    }
+    decorMutationVersion.value++;
+    const renderer = plannerStore.renderer3D || window.renderer3D || window.plannerInstance?.renderer3D;
+    if (renderer && typeof renderer.updateWallDecorLive === 'function') {
+        renderer.updateWallDecorLive(decor);
+    }
+    if (renderer && typeof renderer.requestRender === 'function') {
+        renderer.requestRender();
+    }
+    emit('decor-update', decor);
+    emit('ui-trigger');
 };
 
 const stepDecorProp = (decor, prop, delta) => {
@@ -3199,6 +3491,140 @@ watch(() => plannerStore.renderer3D, (newRenderer) => {
 .pro-cad-stepper:active {
     color: #ffffff;
     background: #2563eb;
+    border-color: #2563eb;
+}
+
+/* CAD Header Action Buttons (Flip H, Flip Face) */
+.pro-cad-actions-inline {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    margin-left: auto;
+}
+
+.pro-cad-action-btn {
+    padding: 1px 5px;
+    font-size: 8.5px;
+    font-weight: 600;
+    color: #475569;
+    background: #ffffff;
+    border: 1px solid #cbd5e1;
+    border-radius: 3px;
+    cursor: pointer;
+    line-height: 1.3;
+    transition: all 0.12s ease;
+    white-space: nowrap;
+}
+
+.pro-cad-action-btn:hover {
+    border-color: #2563eb;
+    color: #2563eb;
+    background: #eff6ff;
+}
+
+/* CAD 1-Click Alignment Toolbar */
+.pro-cad-align-bar {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    padding: 4px;
+    background: #f1f5f9;
+    border-radius: 4px;
+    margin-bottom: 4px;
+    box-sizing: border-box;
+}
+
+.pro-cad-align-row {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.pro-cad-align-label {
+    font-size: 8px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    color: #64748b;
+    min-width: 38px;
+    flex-shrink: 0;
+}
+
+.pro-cad-align-group {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    flex: 1;
+}
+
+.pro-cad-align-btn {
+    flex: 1;
+    padding: 2px 3px;
+    font-size: 8.5px;
+    font-weight: 600;
+    color: #475569;
+    background: #ffffff;
+    border: 1px solid #cbd5e1;
+    border-radius: 3px;
+    cursor: pointer;
+    text-align: center;
+    white-space: nowrap;
+    line-height: 1.3;
+    transition: all 0.12s ease;
+}
+
+.pro-cad-align-btn:hover {
+    border-color: #2563eb;
+    color: #2563eb;
+    background: #eff6ff;
+}
+
+.pro-cad-align-btn.active {
+    background: #2563eb;
+    border-color: #2563eb;
+    color: #ffffff;
+    font-weight: 700;
+}
+
+.pro-cad-align-btn.fill-btn {
+    background: #f8fafc;
+    border-color: #94a3b8;
+    color: #1e293b;
+    font-weight: 700;
+}
+
+.pro-cad-align-btn.fill-btn:hover {
+    background: #2563eb;
+    border-color: #2563eb;
+    color: #ffffff;
+}
+
+/* CAD Reference Mode Toggle in Cell Label */
+.pro-cad-cell-label-wrap {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+}
+
+.pro-cad-ref-toggle {
+    padding: 0 3px;
+    font-size: 7.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    color: #2563eb;
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    border-radius: 3px;
+    cursor: pointer;
+    line-height: 1.4;
+    transition: all 0.12s ease;
+    white-space: nowrap;
+}
+
+.pro-cad-ref-toggle:hover {
+    background: #2563eb;
+    color: #ffffff;
     border-color: #2563eb;
 }
 

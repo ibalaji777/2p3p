@@ -272,32 +272,9 @@ export class GizmoManager {
                     opacity: 1; pointer-events: none !important;
                 }
 
-                /* 1. Top Space-Saving Controls Ribbon (Light Theme) */
+                /* 1. Top Space-Saving Controls Ribbon Disabled */
                 .mat-sims4-top-hud {
-                    position: fixed;
-                    top: 10px;
-                    left: 50%;
-                    transform: translateX(-50%);
-                    display: inline-flex;
-                    align-items: center;
-                    gap: 6px;
-                    background: rgba(255, 255, 255, 0.96);
-                    backdrop-filter: blur(20px);
-                    -webkit-backdrop-filter: blur(20px);
-                    border: 1px solid rgba(226, 232, 240, 0.95);
-                    box-shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.12), 0 2px 6px -1px rgba(15, 23, 42, 0.04);
-                    border-radius: 999px;
-                    padding: 4px 10px;
-                    z-index: 10001;
-                    pointer-events: auto !important;
-                    user-select: none;
-                    max-width: 96vw;
-                    box-sizing: border-box;
-                    overflow-x: auto;
-                    scrollbar-width: none;
-                }
-                .mat-sims4-top-hud::-webkit-scrollbar {
-                    display: none;
+                    display: none !important;
                 }
 
                 .mat-hud-chip {
@@ -485,31 +462,69 @@ export class GizmoManager {
                     border-color: #fca5a5;
                 }
 
-                .mat-dock-actions-mobile {
-                    display: none;
+                .mat-dock-actions {
+                    display: inline-flex;
                     align-items: center;
-                    gap: 4px;
+                    gap: 5px;
                     flex-shrink: 0;
                 }
+                .mat-dock-btn-pick {
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 3px;
+                    background: #f1f5f9;
+                    color: #475569;
+                    border: 1px solid #cbd5e1;
+                    padding: 2.5px 8px;
+                    border-radius: 6px;
+                    font-size: 10.5px;
+                    font-weight: 600;
+                    cursor: pointer;
+                    transition: all 0.15s ease;
+                }
+                .mat-dock-btn-pick:hover {
+                    background: #e2e8f0;
+                    color: #0f172a;
+                }
+                .mat-dock-btn-pick.active {
+                    background: #3b82f6;
+                    color: #ffffff;
+                    border-color: #2563eb;
+                }
                 .mat-dock-btn-done {
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 3px;
                     background: #10b981;
                     color: white;
                     border: none;
-                    padding: 2px 8px;
+                    padding: 2.5px 10px;
                     border-radius: 6px;
                     font-size: 10.5px;
                     font-weight: 700;
                     cursor: pointer;
+                    transition: all 0.15s ease;
+                    box-shadow: 0 1px 3px rgba(16, 185, 129, 0.3);
+                }
+                .mat-dock-btn-done:hover {
+                    background: #059669;
                 }
                 .mat-dock-btn-cancel {
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 2px;
                     background: #fee2e2;
                     color: #ef4444;
                     border: 1px solid #fca5a5;
-                    padding: 2px 6px;
+                    padding: 2.5px 7px;
                     border-radius: 6px;
                     font-size: 10.5px;
                     font-weight: 700;
                     cursor: pointer;
+                    transition: all 0.15s ease;
+                }
+                .mat-dock-btn-cancel:hover {
+                    background: #fecaca;
                 }
 
                 .mat-hud-close-btn {
@@ -537,13 +552,7 @@ export class GizmoManager {
                 /* Mobile Optimization (< 640px) */
                 @media (max-width: 640px) {
                     .mat-sims4-top-hud {
-                        top: 6px !important;
-                        left: 8px !important;
-                        right: 8px !important;
-                        width: auto !important;
-                        transform: none !important;
-                        padding: 4px 8px !important;
-                        gap: 4px !important;
+                        display: none !important;
                     }
                     .mat-sims4-bottom-dock {
                         bottom: 0 !important;
@@ -555,13 +564,7 @@ export class GizmoManager {
                         border-radius: 14px 14px 0 0 !important;
                         max-height: 168px !important;
                     }
-                    .mat-dock-actions-mobile {
-                        display: flex !important;
-                    }
-                    .mat-hud-scope-group {
-                        display: flex !important;
-                    }
-                    .mat-hud-face-group {
+                    .mat-dock-actions {
                         display: flex !important;
                     }
                 }
@@ -569,11 +572,7 @@ export class GizmoManager {
                 /* Tablet Optimization (641px - 1024px) */
                 @media (min-width: 641px) and (max-width: 1024px) {
                     .mat-sims4-top-hud {
-                        top: 10px !important;
-                        left: 16px !important;
-                        right: 16px !important;
-                        width: auto !important;
-                        transform: none !important;
+                        display: none !important;
                     }
                     .mat-sims4-bottom-dock {
                         bottom: 10px !important;
@@ -847,71 +846,6 @@ export class GizmoManager {
         this.materialPanel.style.display = 'none';
         
         this.materialPanel.innerHTML = `
-            <!-- Sims 4 Style Top Space-Saving Controls Ribbon -->
-            <div class="mat-sims4-top-hud">
-                <!-- Active Brush Pill -->
-                <div class="mat-hud-chip" id="mat-hud-active-brush" title="Active Material Brush">
-                    <div class="mat-hud-thumb" id="mat-hud-brush-thumb"></div>
-                    <div class="mat-hud-info">
-                        <span class="mat-hud-label">ACTIVE BRUSH</span>
-                        <span class="mat-hud-name" id="mat-hud-brush-name">Select Material</span>
-                    </div>
-                    <button class="mat-hud-clear-btn" id="mat-clear-brush-btn" title="Clear active material to switch object type" style="background: none; border: none; cursor: pointer; color: #94a3b8; font-size: 13px; padding: 2px 6px; display: none; line-height: 1;">✕</button>
-                    <button class="mat-hud-toggle-tray-btn" id="mat-toggle-tray-btn" title="Toggle Material Catalog Tray">▼ Swatches</button>
-                </div>
-
-                <div class="mat-hud-divider"></div>
-
-                <!-- Paint Application Mode Buttons -->
-                <div class="mat-hud-scope-group">
-                    <button class="mat-scope-pill active" data-scope="selectedFace" title="Paint clicked face only">
-                        🧱 Single
-                    </button>
-                    <button class="mat-scope-pill" data-scope="room" title="Paint all room walls (Shortcut: Hold Shift)">
-                        🔄 Room (Shift)
-                    </button>
-                    <button class="mat-scope-pill" data-scope="exterior" title="Paint entire exterior facade (Shortcut: Hold Alt)">
-                        🌐 Exterior (Alt)
-                    </button>
-                    <button class="mat-scope-pill" data-scope="entireObject" title="Paint both front & back faces">
-                        📦 Both
-                    </button>
-                </div>
-
-                <div class="mat-hud-divider"></div>
-
-                <!-- Face Selector (Inner / Outer) -->
-                <div class="mat-hud-face-group" id="mat-hud-face-group">
-                    <button class="mat-face-pill active" data-side="front">Inner Face</button>
-                    <button class="mat-face-pill" data-side="back">Outer Face</button>
-                </div>
-
-                <div class="mat-hud-divider"></div>
-
-                <!-- Eyedropper Tool -->
-                <button class="mat-hud-btn" id="mat-eyedropper-btn" title="Eyedropper: Sample material from any wall in scene">
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="m14 2 4 4-8.5 8.5H5.5v-4L14 2z"/><line x1="16" y1="4" x2="20" y2="8"/><line x1="2" y1="22" x2="6" y2="18"/></svg>
-                    <span>Pick</span>
-                </button>
-
-                <div class="mat-hud-divider"></div>
-
-                <!-- Session Commit / Cancel Actions -->
-                <div class="mat-hud-session-actions">
-                    <button class="mat-hud-done-btn" id="mat-hud-done-btn" title="Commit all material changes (Enter)">
-                        ✓ Done
-                    </button>
-                    <button class="mat-hud-cancel-btn" id="mat-hud-cancel-btn" title="Discard all changes (Esc)">
-                        ✕ Cancel
-                    </button>
-                </div>
-
-                <!-- Close / Exit Button -->
-                <button class="mat-hud-close-btn" id="close-material-lib" title="Cancel and Discard Changes (Esc)">
-                    &times;
-                </button>
-            </div>
-
             <!-- Fallback hidden subtitle element for legacy references -->
             <span id="gizmo-material-face-name" style="display: none;">Select Material Type</span>
 
@@ -927,9 +861,13 @@ export class GizmoManager {
                         <svg style="width: 12px; height: 12px; color: #94a3b8; margin-right: 4px; flex-shrink: 0;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
                         <input id="mat-lib-search-input" type="text" placeholder="Search..." style="background: transparent; border: none; color: #0f172a; outline: none; width: 100%; font-size: 10.5px; font-family: inherit;">
                     </div>
-                    <div class="mat-dock-actions-mobile">
-                        <button class="mat-dock-btn-done" id="mat-dock-btn-done" title="Commit all material changes">✓ Done</button>
-                        <button class="mat-dock-btn-cancel" id="mat-dock-btn-cancel" title="Discard changes">✕ Cancel</button>
+                    <div class="mat-dock-actions" id="mat-dock-actions">
+                        <button class="mat-dock-btn-pick" id="mat-eyedropper-btn" title="Eyedropper: Sample material from scene">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="m14 2 4 4-8.5 8.5H5.5v-4L14 2z"/><line x1="16" y1="4" x2="20" y2="8"/><line x1="2" y1="22" x2="6" y2="18"/></svg>
+                            <span>Pick</span>
+                        </button>
+                        <button class="mat-dock-btn-done" id="mat-dock-btn-done" title="Commit all material changes (Enter)">✓ Done</button>
+                        <button class="mat-dock-btn-cancel" id="mat-dock-btn-cancel" title="Discard changes (Esc)">✕</button>
                     </div>
                     <button class="mat-dock-collapse-btn" id="mat-dock-collapse-btn" title="Collapse / Expand Material Catalog">
                         ▼

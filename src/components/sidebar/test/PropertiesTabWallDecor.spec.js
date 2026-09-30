@@ -139,21 +139,98 @@ describe('PropertiesTab: Wall Pattern Layer Dual Unit Controls', () => {
         expect(wrapper.emitted('decor-update')).toBeTruthy();
     });
 
-    it('should update Offset X and Offset Y when physical dimension inputs change', async () => {
+    it('should update Offset X and Offset Y when physical dimension inputs change using CAD reference modes', async () => {
         const decor = { ...mockDecor, parentWall: mockWall };
         const wrapper = createWrapper(decor);
 
-        // Wall length is 500cm. Setting Offset X to 250cm -> 50%
+        // Wall length is 500cm, width is 50% (250cm). Setting left offset to 250cm -> localX is 50% + 25% = 75%
         const xControl = wrapper.findAll('.decor-dual-control')[5];
         const xDimInput = xControl.findComponent({ name: 'DimensionInput' });
         await xDimInput.vm.$emit('update:modelValue', 250);
-        expect(decor.localX).toBe(50);
+        expect(decor.localX).toBe(75);
 
-        // Wall height is 280cm. Setting Offset Y to 70cm -> 25%
+        // Wall height is 280cm, height is 80% (224cm). Setting bottom offset to 70cm (25%) -> localY is 25% + 40% = 65%
         const yControl = wrapper.findAll('.decor-dual-control')[6];
         const yDimInput = yControl.findComponent({ name: 'DimensionInput' });
         await yDimInput.vm.$emit('update:modelValue', 70);
-        expect(decor.localY).toBe(25);
+        expect(decor.localY).toBe(65);
+    });
+
+    it('should align decor using 1-click CAD alignment buttons (Left, Center, Right, Floor, Mid, Top, Full)', async () => {
+        const decor = { ...mockDecor, parentWall: mockWall, width: 40, height: 60 };
+        const wrapper = createWrapper(decor);
+
+        const alignButtons = wrapper.findAll('.decor-cad-align-btn');
+        expect(alignButtons.length).toBe(7); // Left, Center, Right, Floor, Mid, Top, Full
+
+        // 1. Align Left -> localX = 40 / 2 = 20
+        await alignButtons[0].trigger('click');
+        expect(decor.localX).toBe(20);
+
+        // 2. Align Center -> localX = 50
+        await alignButtons[1].trigger('click');
+        expect(decor.localX).toBe(50);
+
+        // 3. Align Right -> localX = 100 - 40 / 2 = 80
+        await alignButtons[2].trigger('click');
+        expect(decor.localX).toBe(80);
+
+        // 4. Align Floor -> localY = 60 / 2 = 30
+        await alignButtons[3].trigger('click');
+        expect(decor.localY).toBe(30);
+
+        // 5. Align Mid -> localY = 50
+        await alignButtons[4].trigger('click');
+        expect(decor.localY).toBe(50);
+
+        // 6. Align Top -> localY = 100 - 60 / 2 = 70
+        await alignButtons[5].trigger('click');
+        expect(decor.localY).toBe(70);
+
+        // 7. Full Wall -> width=100, height=100, localX=50, localY=50
+        await alignButtons[6].trigger('click');
+        expect(decor.width).toBe(100);
+        expect(decor.height).toBe(100);
+        expect(decor.localX).toBe(50);
+        expect(decor.localY).toBe(50);
+    });
+
+    it('should flip decor horizontally and toggle between Inner and Outer face', async () => {
+        const decor = { ...mockDecor, parentWall: mockWall, localX: 20, side: 'front' };
+        const wrapper = createWrapper(decor);
+
+        const actionButtons = wrapper.findAll('.decor-cad-action-btn');
+        expect(actionButtons.length).toBe(2); // Flip H, Flip Face
+
+        // 1. Flip H: localX mirrors from 20 to 80
+        await actionButtons[0].trigger('click');
+        expect(decor.localX).toBe(80);
+
+        // 2. Flip Face: side toggles from 'front' to 'back'
+        await actionButtons[1].trigger('click');
+        expect(decor.side).toBe('back');
+    });
+
+    it('should toggle reference origin modes between Left/Right and calculate coordinates correctly', async () => {
+        const decor = { ...mockDecor, parentWall: mockWall, width: 40, localX: 70 };
+        const wrapper = createWrapper(decor);
+
+        const refToggles = wrapper.findAll('.decor-cad-ref-toggle');
+        expect(refToggles.length).toBe(2); // X ref toggle, Y ref toggle
+
+        // Default X ref mode is Left. Distance from left corner = 70 - 20 = 50%
+        expect(refToggles[0].text()).toContain('Left');
+
+        // Toggle to Right mode
+        await refToggles[0].trigger('click');
+        expect(refToggles[0].text()).toContain('Right');
+
+        // In Right mode: distance from right corner = 100 - (70 + 20) = 10%
+        // Now set right offset to 20cm (4% of 500cm). localX should become 100 - 4 - 20 = 76%
+        const xControl = wrapper.findAll('.decor-dual-control')[5];
+        const xDimInput = xControl.findComponent({ name: 'DimensionInput' });
+        await xDimInput.vm.$emit('update:modelValue', 20);
+        expect(decor.localX).toBe(76);
     });
 
     it('should handle unattached decor gracefully using fallback dimensions', () => {
