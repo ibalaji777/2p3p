@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import * as THREE from 'three';
 import { COMMON_TOOLS, COMMON_TOOL_DEFINITIONS, getToolDefinition } from '../tools/CommonToolRegistry.js';
 import { ObjectCapabilityEvaluator } from '../tools/ObjectCapabilityEvaluator.js';
-import { CommonShortcutRegistry, SHORTCUT_ACTIONS } from '../tools/CommonShortcutRegistry.js';
+import { CommonShortcutRegistry, globalShortcutRegistry, SHORTCUT_ACTIONS } from '../tools/CommonShortcutRegistry.js';
 import { CommonTransformEngine } from '../tools/CommonTransformEngine.js';
 import { UniversalMaterialPaintSystem } from '../tools/UniversalMaterialPaintSystem.js';
 import { CommonInteractionController } from '../tools/CommonInteractionController.js';
@@ -14,7 +14,7 @@ import { WallEngine } from '../../wall/WallEngine.js';
 
 describe('Universal 3D Scene Common Tools Architecture (sms 4 Style)', () => {
     describe('1. CommonToolRegistry', () => {
-        it('should define all 8 common tools', () => {
+        it('should define all common tools including wall suite tools', () => {
             expect(COMMON_TOOLS.SELECT).toBe('select');
             expect(COMMON_TOOLS.MATERIAL).toBe('material');
             expect(COMMON_TOOLS.MOVE).toBe('move');
@@ -23,10 +23,16 @@ describe('Universal 3D Scene Common Tools Architecture (sms 4 Style)', () => {
             expect(COMMON_TOOLS.AXIS_UP).toBe('axis_up');
             expect(COMMON_TOOLS.AXIS_DOWN).toBe('axis_down');
             expect(COMMON_TOOLS.BUILDING_RISE).toBe('building_rise');
+            expect(COMMON_TOOLS.WALL_CORNERS).toBe('wall_corners');
+            expect(COMMON_TOOLS.ROOM).toBe('room_suite');
+            expect(COMMON_TOOLS.EXTENDER).toBe('push_pull');
+            expect(COMMON_TOOLS.VERTICES).toBe('corner');
+            expect(COMMON_TOOLS.BAY_NICHE).toBe('extrude_recess');
+            expect(COMMON_TOOLS.SPLIT).toBe('split');
         });
 
         it('should have complete tool metadata definitions', () => {
-            expect(COMMON_TOOL_DEFINITIONS.length).toBe(9);
+            expect(COMMON_TOOL_DEFINITIONS.length).toBe(14);
             const selectDef = getToolDefinition(COMMON_TOOLS.SELECT);
             expect(selectDef).toBeDefined();
             expect(selectDef.hotkey).toBe('V');
@@ -37,6 +43,30 @@ describe('Universal 3D Scene Common Tools Architecture (sms 4 Style)', () => {
 
             const matDef = getToolDefinition(COMMON_TOOLS.MATERIAL);
             expect(matDef.hotkey).toBe('B');
+
+            const extenderDef = getToolDefinition(COMMON_TOOLS.EXTENDER);
+            expect(extenderDef).toBeDefined();
+            expect(extenderDef.hotkey).toBe('E');
+            expect(extenderDef.requiresSelection).toBe(false);
+
+            const verticesDef = getToolDefinition(COMMON_TOOLS.VERTICES);
+            expect(verticesDef).toBeDefined();
+            expect(verticesDef.hotkey).toBe('K');
+            expect(verticesDef.requiresSelection).toBe(false);
+
+            const bayDef = getToolDefinition(COMMON_TOOLS.BAY_NICHE);
+            expect(bayDef).toBeDefined();
+            expect(bayDef.hotkey).toBe('N');
+            expect(bayDef.requiresSelection).toBe(false);
+
+            const splitDef = getToolDefinition(COMMON_TOOLS.SPLIT);
+            expect(splitDef).toBeDefined();
+            expect(splitDef.hotkey).toBe('X');
+            expect(splitDef.requiresSelection).toBe(false);
+
+            const roomDef = getToolDefinition(COMMON_TOOLS.ROOM);
+            expect(roomDef).toBeDefined();
+            expect(roomDef.requiresSelection).toBe(false);
 
             const moveDef = getToolDefinition(COMMON_TOOLS.MOVE);
             expect(moveDef.capability).toBe('movable');
@@ -932,5 +962,131 @@ describe('Universal 3D Scene Common Tools Architecture (sms 4 Style)', () => {
             expect(wall.textureBack).toBeNull();
         });
     });
+
+    describe('9. Wall & Room Interactive Suite Tools (Tool-First Workflow)', () => {
+        let mockCtx;
+        let controller;
+        let mockWallInteractiveSuite;
+        let mockRoomInteractiveSuite;
+        let mockWallMesh;
+        let dummyWall;
+
+        beforeEach(() => {
+            dummyWall = {
+                id: 'w101',
+                type: 'outer',
+                startX: 0,
+                startY: 0,
+                endX: 200,
+                endY: 0,
+                height: 300,
+                thickness: 20
+            };
+            mockWallMesh = new THREE.Mesh(new THREE.BoxGeometry(200, 300, 20));
+            mockWallMesh.userData = {
+                entity: dummyWall,
+                isWall: true,
+                isWallMesh: true
+            };
+            dummyWall.mesh3D = mockWallMesh;
+
+            mockWallInteractiveSuite = {
+                attach: vi.fn(),
+                detach: vi.fn(),
+                activeMode: 'neutral'
+            };
+
+            mockRoomInteractiveSuite = {
+                attach: vi.fn(),
+                detach: vi.fn(),
+                activateBuildingRiseMode: vi.fn(),
+                deactivateBuildingRiseMode: vi.fn(),
+                isBuildingRiseMode: false
+            };
+
+            mockCtx = {
+                scene: new THREE.Scene(),
+                camera: new THREE.PerspectiveCamera(),
+                renderer: { domElement: { style: {} } },
+                interactions: {
+                    wallInteractiveSuite: mockWallInteractiveSuite,
+                    roomInteractiveSuite: mockRoomInteractiveSuite,
+                    transformControls: { attach: vi.fn(), detach: vi.fn() },
+                    universalSpinGizmo: { attach: vi.fn(), detach: vi.fn() },
+                    highlightRenderer: { setSelectionHighlight: vi.fn(), clearSelectionHighlight: vi.fn() }
+                },
+                gizmoManager: {
+                    setTransformMode: vi.fn()
+                },
+                requestRender: vi.fn()
+            };
+
+            controller = new CommonInteractionController(mockCtx);
+        });
+
+        it('resolves keyboard shortcuts e, k, n, x to wall tools', () => {
+            expect(globalShortcutRegistry.resolveEvent({ key: 'e' })).toBe('push_pull');
+            expect(globalShortcutRegistry.resolveEvent({ key: 'k' })).toBe('corner');
+            expect(globalShortcutRegistry.resolveEvent({ key: 'n' })).toBe('extrude_recess');
+            expect(globalShortcutRegistry.resolveEvent({ key: 'x' })).toBe('split');
+        });
+
+        it('activates wall tools without prior selection (tool-first flow)', () => {
+            controller.setTool(COMMON_TOOLS.EXTENDER);
+            expect(controller.activeTool).toBe('push_pull');
+
+            // When wall is subsequently selected / actioned
+            controller.select(dummyWall, mockWallMesh, 'wall');
+            expect(mockWallInteractiveSuite.attach).toHaveBeenCalledWith(mockWallMesh, 'push_pull');
+        });
+
+        it('activates Vertices (corner) tool directly on wall selection', () => {
+            controller.setTool(COMMON_TOOLS.VERTICES);
+            expect(controller.activeTool).toBe('corner');
+
+            controller.select(dummyWall, mockWallMesh, 'wall');
+            expect(mockWallInteractiveSuite.attach).toHaveBeenCalledWith(mockWallMesh, 'corner');
+        });
+
+        it('activates Bay/Niche (extrude_recess) tool directly on wall selection', () => {
+            controller.setTool(COMMON_TOOLS.BAY_NICHE);
+            expect(controller.activeTool).toBe('extrude_recess');
+
+            controller.select(dummyWall, mockWallMesh, 'wall');
+            expect(mockWallInteractiveSuite.attach).toHaveBeenCalledWith(mockWallMesh, 'extrude_recess');
+        });
+
+        it('activates Split (split) tool directly on wall selection', () => {
+            controller.setTool(COMMON_TOOLS.SPLIT);
+            expect(controller.activeTool).toBe('split');
+
+            controller.select(dummyWall, mockWallMesh, 'wall');
+            expect(mockWallInteractiveSuite.attach).toHaveBeenCalledWith(mockWallMesh, 'split');
+        });
+
+        it('activates Room Suite tool directly on wall/room selection', () => {
+            controller.setTool(COMMON_TOOLS.ROOM);
+            expect(controller.activeTool).toBe('room_suite');
+
+            controller.select(dummyWall, mockWallMesh, 'wall');
+            expect(mockRoomInteractiveSuite.attach).toHaveBeenCalledWith(mockWallMesh);
+        });
+
+        it('clears previous selection and enters clean targeting mode when wall tool is chosen', () => {
+            // 1. Select wall first in neutral mode
+            controller.select(dummyWall, mockWallMesh, 'wall');
+            expect(controller.selectedEntity).toBe(dummyWall);
+
+            // 2. Click Extender tool: enters clean targeting mode
+            controller.setTool(COMMON_TOOLS.EXTENDER);
+            expect(controller.selectedEntity).toBeNull();
+            expect(mockWallInteractiveSuite.detach).toHaveBeenCalled();
+
+            // 3. Subsequently clicking/selecting any wall pins the action
+            controller.select(dummyWall, mockWallMesh, 'wall');
+            expect(mockWallInteractiveSuite.attach).toHaveBeenCalledWith(mockWallMesh, 'push_pull');
+        });
+    });
 });
+
 

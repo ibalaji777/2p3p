@@ -66,7 +66,7 @@ function _createArrowheadShape(dir, size = 10, width = 8) {
     return shape;
 }
 
-function _createDoubleArrowShape(length = 14, stemW = 3.0, headL = 3.8, headW = 7.0) {
+export function _createDoubleArrowShape(length = 14, stemW = 3.0, headL = 3.8, headW = 7.0) {
     const shape = new THREE.Shape();
     const halfL = length / 2;
     const halfW = stemW / 2;
@@ -86,7 +86,7 @@ function _createDoubleArrowShape(length = 14, stemW = 3.0, headL = 3.8, headW = 
     return shape;
 }
 
-function _createFourWayArrowShape(size = 18, stemW = 3.2, headL = 4.2, headW = 8.0) {
+export function _createFourWayArrowShape(size = 18, stemW = 3.2, headL = 4.2, headW = 8.0) {
     const shape = new THREE.Shape();
     const halfS = size / 2;
     const halfW = stemW / 2;
@@ -122,7 +122,7 @@ function _createFourWayArrowShape(size = 18, stemW = 3.2, headL = 4.2, headW = 8
 
 const _badgeTextureCache = new Map();
 
-function _getDimensionBadgeTexture(text) {
+export function _getDimensionBadgeTexture(text) {
     if (_badgeTextureCache.has(text)) {
         return _badgeTextureCache.get(text);
     }
@@ -1054,7 +1054,7 @@ export class WallExtenderGizmo extends THREE.Group {
         this.mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
     }
 
-    attach(object) {
+    attach(object, targetProtrusion = undefined) {
         if (!object) return;
         this.target = object;
         this.visible = true;
@@ -1064,9 +1064,13 @@ export class WallExtenderGizmo extends THREE.Group {
         this.initialExtrudeDepth = 0;
         
         const wall = this._getWallEntity();
-        this.existingProtrusion = object.userData?.widget 
-            || (object.userData?.isProtrusion ? (object.userData.entity?.type === 'solid_protrusion' ? object.userData.entity : null) : null)
-            || (wall?.attachedWidgets?.find(w => (w.type === 'solid_protrusion' || w.configId === 'solid_protrusion') && (w.depth || w.width)));
+        if (targetProtrusion !== undefined) {
+            this.existingProtrusion = targetProtrusion;
+        } else {
+            this.existingProtrusion = object.userData?.widget 
+                || (object.userData?.isProtrusion ? (object.userData.entity?.type === 'solid_protrusion' ? object.userData.entity : (object.userData.widget || null)) : null)
+                || (wall?.attachedWidgets?.find(w => (w.type === 'solid_protrusion' || w.configId === 'solid_protrusion') && (w.depth || w.width)));
+        }
         
         if (wall) {
             const p1 = (wall.startAnchor && typeof wall.startAnchor.position === 'function') ? wall.startAnchor.position() : { x: wall.startX || 0, y: wall.startY || 0 };
@@ -1617,6 +1621,12 @@ export class WallExtenderGizmo extends THREE.Group {
         const isMobile = (typeof window !== 'undefined' && window.innerWidth <= 768);
 
         const suite = this.ctx.interactions?.wallInteractiveSuite;
+        if (suite && !suite.isOperationActive()) {
+            if (this.domBadge) this.domBadge.textContent = statusText;
+            if (this.domConfirmBar) this.domConfirmBar.style.display = 'none';
+            if (suite.domConfirmBar) suite.domConfirmBar.style.display = 'none';
+            return;
+        }
         if (suite && suite.confirmStatusBadge && suite.activeMode === 'push_pull') {
             suite.confirmStatusBadge.textContent = statusText;
             if (suite.domConfirmBar && this.ctx.renderer) {
@@ -1664,6 +1674,11 @@ export class WallExtenderGizmo extends THREE.Group {
     _onPointerDown(e) {
         if (!this.visible) return;
         if (e.button !== 0) return;
+        
+        const suite = this.ctx.interactions?.wallInteractiveSuite;
+        if (suite && !suite.isOperationActive()) {
+            return;
+        }
         
         this.updateMouse(e);
         this.raycaster.setFromCamera(this.mouse, this.ctx.camera);
@@ -2397,7 +2412,7 @@ export class WallExtenderGizmo extends THREE.Group {
 
         coreEventBus.emit(EVENTS.WALL_CHANGE, { entity: wall });
         
-        if (this.ctx.interactions && this.ctx.interactions.gizmoManager) {
+        if (this.ctx.interactions && this.ctx.interactions.gizmoManager && !this.ctx.interactions.wallInteractiveSuite && !this.ctx.interactions.commonController?.activeTool) {
             try {
                 this.ctx.interactions.gizmoManager.setTransformMode('select');
             } catch(e) {}
@@ -2433,7 +2448,7 @@ export class WallExtenderGizmo extends THREE.Group {
         }
         this._snapshotCmd = null;
         
-        if (this.ctx.interactions && this.ctx.interactions.gizmoManager) {
+        if (this.ctx.interactions && this.ctx.interactions.gizmoManager && !this.ctx.interactions.wallInteractiveSuite && !this.ctx.interactions.commonController?.activeTool) {
             try {
                 this.ctx.interactions.gizmoManager.setTransformMode('select');
             } catch(e) {}

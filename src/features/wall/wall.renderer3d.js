@@ -628,8 +628,8 @@ export class Wall3DBuilder {
             const midZ = (vAz + vBz + vCz) / 3;
 
             let isProtFace = false;
-            if (protrusions.length > 0) {
-                const p = protrusions[0];
+            for (let pi = 0; pi < protrusions.length; pi++) {
+                const p = protrusions[pi];
                 const pW = p.width || 40;
                 const pT = p.t !== undefined ? p.t : 0.5;
                 const xCenter = pT * length;
@@ -639,8 +639,10 @@ export class Wall3DBuilder {
                 if (midX >= x1 - 0.05 && midX <= x2 + 0.05) {
                     if (facing === 1 && midZ >= t / 2 - 0.1) {
                         isProtFace = true;
+                        break;
                     } else if (facing === -1 && midZ <= -t / 2 + 0.1) {
                         isProtFace = true;
+                        break;
                     }
                 }
             }
@@ -876,6 +878,40 @@ export class Wall3DBuilder {
                 }
                 extraMeshes.push(mMesh);
                 if (ctx.interactables) ctx.interactables.push(mMesh);
+            });
+        }
+
+        if (protrusions.length > 0) {
+            protrusions.forEach((prot) => {
+                const protW = prot.width || 40;
+                const protT = prot.t !== undefined ? prot.t : 0.5;
+                const xCenter = protT * length;
+                const x1 = Math.max(0, Math.min(length, xCenter - protW / 2));
+                const x2 = Math.max(0, Math.min(length, xCenter + protW / 2));
+                const actualW = x2 - x1;
+                if (actualW < 0.1) return;
+
+                const protH = prot.height || maxH;
+                const protElev = prot.elevation || 0;
+                const protDepth = Math.abs(Number(prot.depth) || 10);
+                const isBack = (prot.facing === -1 || prot.facing === 'back' || prot.side === 'right');
+                const facing = isBack ? -1 : 1;
+                const zCenter = facing === 1 ? (t / 2 + protDepth / 2) : (-t / 2 - protDepth / 2);
+
+                const protHitGeo = new THREE.BoxGeometry(actualW, protH, protDepth);
+                protHitGeo.translate((x1 + x2) / 2, protElev + protH / 2, zCenter);
+                shearGeo(protHitGeo);
+
+                const protHitMesh = new THREE.Mesh(protHitGeo, new THREE.MeshBasicMaterial({ visible: false, side: THREE.DoubleSide }));
+                protHitMesh.userData = {
+                    isProtrusion: true,
+                    isWidget: true,
+                    entity: prot,
+                    widget: prot,
+                    parentWall: w,
+                    wall: w
+                };
+                extraHitboxes.push(protHitMesh);
             });
         }
 

@@ -247,6 +247,68 @@ export class CommonInteractionController {
             }
         }
 
+        // 6. Wall & Room Interactive Suite Tools (Room, Extender, Vertices, Bay/Niche, Split, Wall Corners)
+        const isWallSuiteTool = (
+            toolId === COMMON_TOOLS.EXTENDER ||
+            toolId === COMMON_TOOLS.VERTICES ||
+            toolId === COMMON_TOOLS.BAY_NICHE ||
+            toolId === COMMON_TOOLS.SPLIT ||
+            toolId === COMMON_TOOLS.WALL_CORNERS ||
+            toolId === COMMON_TOOLS.ROOM
+        );
+
+        if (isWallSuiteTool) {
+            if (this.ctx.gizmoManager) {
+                this.ctx.gizmoManager.setTransformMode('none', true);
+            }
+            if (this.ctx.interactions?.wallInteractiveSuite) {
+                this.ctx.interactions.wallInteractiveSuite.detach();
+            }
+            if (this.ctx.interactions?.roomInteractiveSuite) {
+                this.ctx.interactions.roomInteractiveSuite.detach();
+            }
+            this.clearSelection();
+
+            const isTouch = typeof window !== 'undefined' && (
+                'ontouchstart' in window || 
+                (navigator.maxTouchPoints && navigator.maxTouchPoints > 0) ||
+                window.matchMedia?.('(pointer: coarse)')?.matches
+            );
+            const suite = this.ctx.interactions?.wallInteractiveSuite;
+            if (suite && typeof suite.showGuideBadge === 'function') {
+                if (toolId === COMMON_TOOLS.EXTENDER) {
+                    suite.showGuideBadge(isTouch ? '👆 Tap any wall to extend' : '↔️ Hover any wall to preview, click to extend');
+                } else if (toolId === COMMON_TOOLS.SPLIT) {
+                    suite.showGuideBadge(isTouch ? '👆 Tap any wall to split' : '✂️ Hover any wall to preview cut, click to place');
+                } else if (toolId === COMMON_TOOLS.BAY_NICHE) {
+                    suite.showGuideBadge(isTouch ? '👆 Tap any wall to add bay/niche' : '🔲 Hover any wall to preview, click to place');
+                } else if (toolId === COMMON_TOOLS.VERTICES) {
+                    suite.showGuideBadge(isTouch ? '👆 Tap any wall to edit corners' : '📐 Click any wall to edit corners');
+                } else if (toolId === COMMON_TOOLS.WALL_CORNERS) {
+                    suite.showGuideBadge(isTouch ? '👆 Tap any wall corner to configure' : '📐 Click any wall corner to configure');
+                } else {
+                    suite.hideGuideBadge();
+                }
+            }
+        } else {
+            const suite = this.ctx.interactions?.wallInteractiveSuite;
+            if (suite && typeof suite.hideGuideBadge === 'function') {
+                suite.hideGuideBadge();
+            }
+            const wasWallSuite = (
+                previousTool === COMMON_TOOLS.EXTENDER ||
+                previousTool === COMMON_TOOLS.VERTICES ||
+                previousTool === COMMON_TOOLS.BAY_NICHE ||
+                previousTool === COMMON_TOOLS.SPLIT ||
+                previousTool === COMMON_TOOLS.WALL_CORNERS
+            );
+            if (wasWallSuite && this.ctx.interactions?.wallInteractiveSuite) {
+                if (this.ctx.interactions.wallInteractiveSuite.activeMode !== 'menu') {
+                    this.ctx.interactions.wallInteractiveSuite.detach();
+                }
+            }
+        }
+
         // Emit global event for reactive UI updates
         coreEventBus.emit('CommonToolChanged', {
             activeTool: this.activeTool,
@@ -305,6 +367,48 @@ export class CommonInteractionController {
             this.ctx.interactions.highlightRenderer.setSelectionHighlight(this.selectedMesh);
         }
 
+        // Auto-attach active wall/room tool if one is pre-selected (tool-first CAD flow)
+        const isWallSuiteTool = (
+            this.activeTool === COMMON_TOOLS.EXTENDER ||
+            this.activeTool === COMMON_TOOLS.VERTICES ||
+            this.activeTool === COMMON_TOOLS.BAY_NICHE ||
+            this.activeTool === COMMON_TOOLS.SPLIT ||
+            this.activeTool === COMMON_TOOLS.WALL_CORNERS ||
+            this.activeTool === COMMON_TOOLS.ROOM
+        );
+
+        if (isWallSuiteTool) {
+            const isWall = entity && (
+                entity.type === 'outer' || 
+                entity.type === 'inner' || 
+                entity.type === 'compound' || 
+                entity.type === 'wall' || 
+                entity.type === 'arc' || 
+                entity.walls || 
+                entity.parentArc ||
+                this.selectedMesh?.userData?.isWallMesh ||
+                this.selectedMesh?.userData?.isWallSide ||
+                this.selectedMesh?.userData?.isWall
+            );
+            const isRoom = Boolean(this.selectedMesh?.userData?.isFloor || entity?.type === 'room' || entity?.path);
+
+            if (this.activeTool === COMMON_TOOLS.ROOM) {
+                if (this.ctx.interactions?.wallInteractiveSuite) {
+                    this.ctx.interactions.wallInteractiveSuite.detach();
+                }
+                if ((isWall || isRoom) && this.ctx.interactions?.roomInteractiveSuite) {
+                    this.ctx.interactions.roomInteractiveSuite.attach(this.selectedMesh || entity);
+                }
+            } else {
+                if (this.ctx.interactions?.roomInteractiveSuite && !this.ctx.interactions.roomInteractiveSuite.isBuildingRiseMode) {
+                    this.ctx.interactions.roomInteractiveSuite.detach();
+                }
+                if (isWall && this.ctx.interactions?.wallInteractiveSuite) {
+                    this.ctx.interactions.wallInteractiveSuite.attach(this.selectedMesh || entity, this.activeTool);
+                }
+            }
+        }
+
         coreEventBus.emit('InteractionStateChanged', this.getInteractionState());
         coreEventBus.emit('CommonSelectionChanged', {
             entity: this.selectedEntity,
@@ -360,7 +464,18 @@ export class CommonInteractionController {
             }
         }
 
-        if (this.activeTool !== COMMON_TOOLS.SELECT && this.activeTool !== COMMON_TOOLS.MATERIAL && this.activeTool !== COMMON_TOOLS.BUILDING_RISE && this.activeTool !== COMMON_TOOLS.WALL_CORNERS) {
+        const isPersistentTool = (
+            this.activeTool === COMMON_TOOLS.SELECT ||
+            this.activeTool === COMMON_TOOLS.MATERIAL ||
+            this.activeTool === COMMON_TOOLS.BUILDING_RISE ||
+            this.activeTool === COMMON_TOOLS.WALL_CORNERS ||
+            this.activeTool === COMMON_TOOLS.ROOM ||
+            this.activeTool === COMMON_TOOLS.EXTENDER ||
+            this.activeTool === COMMON_TOOLS.VERTICES ||
+            this.activeTool === COMMON_TOOLS.BAY_NICHE ||
+            this.activeTool === COMMON_TOOLS.SPLIT
+        );
+        if (!isPersistentTool) {
             this.setTool(COMMON_TOOLS.SELECT);
         }
 

@@ -288,7 +288,7 @@ describe('Interactive Suites Compact HUD & Responsive Tooltip System', () => {
 
             // Verify action buttons have <svg> line art and no emojis
             const buttons = suite.domHUD.querySelectorAll('.sms4-wall-hud-buttons button');
-            expect(buttons.length).toBeGreaterThanOrEqual(7);
+            expect(buttons.length).toBeGreaterThanOrEqual(5);
             buttons.forEach(btn => {
                 expect(btn.innerHTML).toContain('<svg');
                 expect(btn.textContent).not.toMatch(/[\u{1F300}-\u{1F9FF}]/u); // No emoji Unicode ranges

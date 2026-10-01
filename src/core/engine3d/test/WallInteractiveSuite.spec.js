@@ -386,5 +386,334 @@ describe('WallInteractiveSuite - Bay / Niche (extrude_recess) Tool', () => {
 
         expect(mockWall.elevation).toBe(25);
     });
+
+    describe('Wall Operation Lifecycle & Selection Lockout', () => {
+        it('reports isOperationActive correctly across lifecycle states', () => {
+            // 1. Initially detached: false
+            suite.detach();
+            expect(suite.isOperationActive()).toBe(false);
+
+            // 2. Attached in neutral menu mode: false (allows clicking other objects)
+            suite.attach(mockMesh, 'menu');
+            expect(suite.isOperationActive()).toBe(false);
+
+            // 3. Attached in Extender (push_pull) mode: true (locks out background selection)
+            suite.attach(mockMesh, 'push_pull');
+            expect(suite.isOperationActive()).toBe(true);
+
+            // 4. Committing changes resets lock
+            suite.commitChanges();
+            expect(suite.isOperationActive()).toBe(false);
+            expect(suite.target).toBeNull();
+
+            // 5. Attached in Split mode: true (pinned cut with Done/Cancel bar)
+            suite.attach(mockMesh, 'split');
+            expect(suite.isOperationActive()).toBe(true);
+            expect(suite.isSplitPinned).toBe(true);
+
+            // 6. Canceling changes resets lock
+            suite.cancelChanges();
+            expect(suite.isOperationActive()).toBe(false);
+            expect(suite.target).toBeNull();
+        });
+
+        it('tracks previewSplit dynamically on hovered wall', () => {
+            // Hover at mid-point (T = 0.5)
+            suite.previewSplit(mockMesh, new THREE.Vector3(100, 0, 0));
+            expect(suite.splitLaserPlane.visible).toBe(true);
+            expect(suite.splitCurrentT).toBeCloseTo(0.5, 1);
+
+            // Hover at 25% along wall (T = 0.25)
+            suite.previewSplit(mockMesh, new THREE.Vector3(50, 0, 0));
+            expect(suite.splitCurrentT).toBeCloseTo(0.25, 1);
+
+            // Hover away from walls: hides laser
+            suite.previewSplit(null);
+            expect(suite.splitLaserPlane.visible).toBe(false);
+        });
+
+        it('tracks previewExtrude dynamically on hovered wall', () => {
+            // Hover at mid-point (T = 0.5)
+            suite.previewExtrude(mockMesh, new THREE.Vector3(100, 0, 0));
+            expect(suite.extrudeGroup.visible).toBe(true);
+            expect(suite.extrudeStartT).toBeLessThan(0.5);
+            expect(suite.extrudeEndT).toBeGreaterThan(0.5);
+            expect(suite.extrudeBadge.style.display).toBe('block');
+
+            // Hover away from walls: hides extrude ghost
+            suite.previewExtrude(null);
+            expect(suite.extrudeGroup.visible).toBe(false);
+            expect(suite.extrudeBadge.style.display).toBe('none');
+        });
+
+        it('attaches in extrude_recess mode, pins operation, and reports isOperationActive', () => {
+            suite.attach(mockMesh, 'extrude_recess');
+            expect(suite.isOperationActive()).toBe(true);
+            expect(suite.isExtrudePinned).toBe(true);
+
+            // Committing changes resets lock and detaches
+            suite.commitChanges();
+            expect(suite.isOperationActive()).toBe(false);
+            expect(suite.target).toBeNull();
+        });
+
+        it('clears selection in InteractionSystem and CommonInteractionController on detach while retaining active tool', () => {
+            const mockCommonCtrl = {
+                activeTool: 'push_pull',
+                selectedEntity: mockWall,
+                selectedMesh: mockMesh,
+                selectedType: 'wall',
+                interactionState: 'SELECTING',
+                hudMode: 'confirm',
+                getInteractionState: () => ({ activeTool: 'push_pull', state: 'IDLE' }),
+                getCurrentCapabilities: () => []
+            };
+            suite.ctx.interactions = {
+                selectedObject: mockMesh,
+                highlightRenderer: { clearAll: vi.fn() },
+                _isDeselecting: false
+            };
+            suite.ctx.commonTools = mockCommonCtrl;
+
+            suite.attach(mockMesh, 'push_pull');
+            expect(suite.target).toBe(mockMesh);
+
+            suite.detach();
+
+            expect(suite.target).toBeNull();
+            expect(suite.ctx.interactions.selectedObject).toBeNull();
+            expect(mockCommonCtrl.selectedEntity).toBeNull();
+            expect(mockCommonCtrl.selectedMesh).toBeNull();
+            expect(mockCommonCtrl.activeTool).toBe('push_pull'); // tool retained!
+            expect(suite.ctx.interactions.highlightRenderer.clearAll).toHaveBeenCalled();
+        });
+
+        it('previews wall extender using WallExtenderGizmo applied design and extenderBadge, and clears on null', () => {
+            suite.previewExtender(mockMesh, { x: 50, y: 60, z: 50 });
+            expect(suite.extenderBadge.style.display).toBe('block');
+            expect(suite.extenderBadge.textContent).toContain('Click to Place Extension');
+            expect(suite.extenderGizmo.visible).toBe(true);
+            expect(suite.extenderGizmo.currentExtrudeDepth).toBe(30);
+
+            // Hover away from wall
+            suite.previewExtender(null);
+            expect(suite.extenderBadge.style.display).toBe('none');
+            expect(suite.extenderGizmo.visible).toBe(false);
+        });
+
+        it('previews wall vertices with 3D amber ghost box, corner pins, slope bar, and verticesBadge, and clears on null', () => {
+            suite.previewVertices(mockMesh, { x: 50, y: 60, z: 50 });
+            expect(suite.verticesBadge.style.display).toBe('block');
+            expect(suite.verticesBadge.textContent).toContain('Click to Edit Vertices & Slope');
+            expect(suite.wallGhostPreviewGroup.children.length).toBeGreaterThan(0);
+            expect(suite.wallGhostPreviewGroup.visible).toBe(true);
+
+            // Hover away from wall
+            suite.previewVertices(null);
+            expect(suite.verticesBadge.style.display).toBe('none');
+            expect(suite.wallGhostPreviewGroup.children.length).toBe(0);
+        });
+
+        it('previews wall corner with 3D emerald ghost box, junction cylinders, and cornerBadge, and clears on null', () => {
+            suite.previewWallCorner(mockMesh, { x: 50, y: 60, z: 50 });
+            expect(suite.cornerBadge.style.display).toBe('block');
+            expect(suite.cornerBadge.textContent).toContain('Click to Configure Corner Joint');
+            expect(suite.wallGhostPreviewGroup.children.length).toBeGreaterThan(0);
+            expect(suite.wallGhostPreviewGroup.visible).toBe(true);
+
+            // Hover away from wall
+            suite.previewWallCorner(null);
+            expect(suite.cornerBadge.style.display).toBe('none');
+            expect(suite.wallGhostPreviewGroup.children.length).toBe(0);
+        });
+
+        it('shows and hides mobile guide badge correctly', () => {
+            suite.showGuideBadge('👆 Tap any wall to extend');
+            expect(suite.guideBadge.style.display).toBe('block');
+            expect(suite.guideBadge.textContent).toBe('👆 Tap any wall to extend');
+
+            suite.hideGuideBadge();
+            expect(suite.guideBadge.style.display).toBe('none');
+
+            // Attaching automatically hides guide badge
+            suite.showGuideBadge('👆 Tap any wall to extend');
+            suite.attach(mockMesh, 'push_pull');
+            expect(suite.guideBadge.style.display).toBe('none');
+        });
+
+        it('pins extender at exact preview coordinates on click and activates operation with Done/Cancel', () => {
+            // 1. Hover preview
+            suite.previewExtender(mockMesh, { x: 50, y: 0, z: 50 });
+            expect(suite.extenderStartT).toBeDefined();
+            expect(suite.extenderEndT).toBeDefined();
+            const prevStart = suite.extenderStartT;
+            const prevEnd = suite.extenderEndT;
+            const prevFacing = suite.extenderFacing;
+
+            // 2. Click on wall to place/pin
+            suite.attach(mockMesh, 'push_pull');
+            expect(suite.isExtenderPinned).toBe(true);
+            expect(suite.isOperationActive()).toBe(true);
+            expect(suite.extenderGizmo.tStart).toBe(prevStart);
+            expect(suite.extenderGizmo.tEnd).toBe(prevEnd);
+            expect(suite.extenderGizmo.activeFacing).toBe(prevFacing);
+            expect(suite.domConfirmBar.style.display).toBe('flex');
+            expect(suite.extenderBadge.style.display).toBe('none');
+
+            // 3. While pinned, operation blocks further hovering/switching
+            suite.previewExtender(mockMesh, { x: 10, y: 0, z: 10 });
+            expect(suite.extenderGizmo.tStart).toBe(prevStart); // unchanged
+        });
+
+        it('commits extender changes on Done and detaches cleanly allowing subsequent selection', () => {
+            suite.previewExtender(mockMesh, { x: 50, y: 0, z: 50 });
+            suite.attach(mockMesh, 'push_pull');
+            expect(suite.isOperationActive()).toBe(true);
+
+            // Spy on extenderGizmo.commit
+            const commitSpy = vi.spyOn(suite.extenderGizmo, 'commit');
+            suite.commitChanges();
+
+            expect(commitSpy).toHaveBeenCalled();
+            expect(suite.isExtenderPinned).toBe(false);
+            expect(suite.isOperationActive()).toBe(false);
+            expect(suite.target).toBeNull();
+            expect(suite.domConfirmBar.style.display).toBe('none');
+        });
+
+        it('cancels extender changes on Cancel and detaches cleanly allowing subsequent selection', () => {
+            suite.previewExtender(mockMesh, { x: 50, y: 0, z: 50 });
+            suite.attach(mockMesh, 'push_pull');
+            expect(suite.isOperationActive()).toBe(true);
+
+            // Spy on extenderGizmo.cancel
+            const cancelSpy = vi.spyOn(suite.extenderGizmo, 'cancel');
+            suite.cancelChanges();
+
+            expect(cancelSpy).toHaveBeenCalled();
+            expect(suite.isExtenderPinned).toBe(false);
+            expect(suite.isOperationActive()).toBe(false);
+            expect(suite.target).toBeNull();
+            expect(suite.domConfirmBar.style.display).toBe('none');
+        });
+
+        it('supports mobile touch tap with hitPoint to calculate coordinates directly without prior hover', () => {
+            // Direct attach with hitPoint (mobile tap simulation)
+            suite.attach(mockMesh, 'push_pull', { x: 100, y: 0, z: 100 });
+
+            expect(suite.isExtenderPinned).toBe(true);
+            expect(suite.isOperationActive()).toBe(true);
+            expect(suite.extenderGizmo.tStart).toBeDefined();
+            expect(suite.extenderGizmo.tEnd).toBeDefined();
+            expect(suite.domConfirmBar.style.display).toBe('flex');
+        });
+
+        it('should use clean default depth (+30 cm) when previewing on empty wall space and not inherit existing protrusion depth (+108 cm)', () => {
+            const existingProt = {
+                id: 'prot_1',
+                type: 'solid_protrusion',
+                configId: 'solid_protrusion',
+                t: 0.25,
+                width: 40,
+                height: 280,
+                depth: 108,
+                facing: 1
+            };
+            mockWall.attachedWidgets = [existingProt];
+
+            // Hover over empty space at t = 0.75 (x = 150)
+            suite.previewExtender(mockMesh, { x: 150, y: 140, z: 0 });
+
+            expect(suite.extenderTargetProtrusion).toBeNull();
+            expect(suite.extenderGizmo.currentExtrudeDepth).toBe(30);
+            expect(suite.extenderBadge.textContent).toContain('+30 cm');
+            expect(suite.extenderBadge.textContent).toContain('Click to Place Extension');
+        });
+
+        it('should target existing protrusion for editing and show its depth (+108 cm) when hovering over it', () => {
+            const existingProt = {
+                id: 'prot_1',
+                type: 'solid_protrusion',
+                configId: 'solid_protrusion',
+                t: 0.25,
+                width: 40,
+                height: 280,
+                depth: 108,
+                facing: 1
+            };
+            mockWall.attachedWidgets = [existingProt];
+
+            // Hover over existing protrusion at t = 0.25 (x = 50)
+            suite.previewExtender(mockMesh, { x: 50, y: 140, z: 0 });
+
+            expect(suite.extenderTargetProtrusion).toBe(existingProt);
+            expect(suite.extenderGizmo.currentExtrudeDepth).toBe(108);
+            expect(suite.extenderBadge.textContent).toContain('+108 cm');
+            expect(suite.extenderBadge.textContent).toContain('Click to Edit Extension');
+        });
+
+        it('should place multiple independent protrusions on a single wall with distinct depths', () => {
+            mockWall.attachedWidgets = [];
+
+            // 1. Place first protrusion at t = 0.25 (x = 50) with depth 40
+            suite.previewExtender(mockMesh, { x: 50, y: 140, z: 0 });
+            suite.attach(mockMesh, 'push_pull', { x: 50, y: 140, z: 0 });
+            suite.extenderGizmo.currentExtrudeDepth = 40;
+            suite.commitChanges();
+
+            expect(mockWall.attachedWidgets.length).toBe(1);
+            expect(mockWall.attachedWidgets[0].depth).toBe(40);
+
+            // 2. Place second protrusion at t = 0.75 (x = 150) with depth 60
+            suite.previewExtender(mockMesh, { x: 150, y: 140, z: 0 });
+            expect(suite.extenderTargetProtrusion).toBeNull();
+            expect(suite.extenderGizmo.currentExtrudeDepth).toBe(30); // Clean depth, NOT 40
+
+            suite.attach(mockMesh, 'push_pull', { x: 150, y: 140, z: 0 });
+            suite.extenderGizmo.currentExtrudeDepth = 60;
+            suite.commitChanges();
+
+            expect(mockWall.attachedWidgets.length).toBe(2);
+            expect(mockWall.attachedWidgets[0].depth).toBe(40);
+            expect(mockWall.attachedWidgets[1].depth).toBe(60);
+        });
+
+        it('should easily allow selecting and editing an existing protrusion directly via its hitbox', () => {
+            const existingProt = {
+                id: 'prot_edit',
+                type: 'solid_protrusion',
+                configId: 'solid_protrusion',
+                t: 0.5,
+                width: 50,
+                height: 200,
+                depth: 35,
+                facing: 1
+            };
+            mockWall.attachedWidgets = [existingProt];
+
+            const mockHitbox = new THREE.Mesh(new THREE.BoxGeometry(50, 200, 35));
+            mockHitbox.userData = {
+                isProtrusion: true,
+                widget: existingProt,
+                parentWall: mockWall
+            };
+
+            // Direct selection of the protrusion hitbox
+            suite.attach(mockHitbox, 'push_pull');
+
+            expect(suite.isExtenderPinned).toBe(true);
+            expect(suite.extenderTargetProtrusion).toBe(existingProt);
+            expect(suite.extenderGizmo.existingProtrusion).toBe(existingProt);
+            expect(suite.extenderGizmo.currentExtrudeDepth).toBe(35);
+
+            // Adjust depth to 55 and commit
+            suite.extenderGizmo.currentExtrudeDepth = 55;
+            suite.commitChanges();
+
+            expect(existingProt.depth).toBe(55);
+            expect(mockWall.attachedWidgets.length).toBe(1);
+        });
+    });
 });
+
 

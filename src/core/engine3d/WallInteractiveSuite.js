@@ -8,6 +8,8 @@ import { WallReformer } from '../engine2d/WallReformer.js';
 import { SnapshotCommand } from '../commands/SnapshotCommand.js';
 import { WallEngine } from '../wall/WallEngine.js';
 import { WallGeometryEngine } from '../wall/WallGeometryEngine.js';
+import { UnitConverter } from '../units/UnitConverter.js';
+import { useSettingsStore } from '../../stores/useSettingsStore.js';
 
 /**
  * WallInteractiveSuite
@@ -42,6 +44,13 @@ export class WallInteractiveSuite extends THREE.Group {
         this.splitLaserPlane.renderOrder = 1005;
         this.splitLaserPlane.visible = false;
         this.add(this.splitLaserPlane);
+
+        // 3D Wall Ghost Preview Group (for Extender, Vertices, Wall Corner highlights)
+        this.wallGhostPreviewGroup = new THREE.Group();
+        this.wallGhostPreviewGroup.name = 'WallGhostPreviewGroup';
+        this.wallGhostPreviewGroup.renderOrder = 1003;
+        this.wallGhostPreviewGroup.visible = false;
+        this.add(this.wallGhostPreviewGroup);
 
         // 3D Extrusion / Recess Ghost Group & Bi-directional Drag Handles
         this.extrudeGroup = new THREE.Group();
@@ -95,6 +104,8 @@ export class WallInteractiveSuite extends THREE.Group {
         this.initialStartT = 0.25;
         this.initialEndT = 0.75;
         this.splitCurrentT = 0.5;
+        this.isSplitPinned = false;
+        this.splitCurrentHit = null;
 
         this.raycaster = new THREE.Raycaster();
         this.mouse = new THREE.Vector2();
@@ -490,13 +501,6 @@ export class WallInteractiveSuite extends THREE.Group {
 
         this.hudButtons = [
             {
-                id: 'height',
-                label: 'Height',
-                icon: `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M8 5l4-3 4 3M8 19l4 3 4-3"/></svg>`,
-                title: 'Wall Uniform Height',
-                subtitle: 'Adjust wall uniform height (Wall / Room Scope)'
-            },
-            {
                 id: 'room_suite',
                 label: 'Room',
                 icon: `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>`,
@@ -514,8 +518,8 @@ export class WallInteractiveSuite extends THREE.Group {
                 id: 'corner',
                 label: 'Vertices',
                 icon: `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M3 12h6M15 12h6M12 3v6M12 15v6"/></svg>`,
-                title: 'Vertices & Slope',
-                subtitle: 'Move wall vertices & slope corners (Panel #2)'
+                title: 'Vertices, Height & Slope',
+                subtitle: 'Adjust wall height, slope, baseline elevation & vertices (Panel #2)'
             },
             {
                 id: 'extrude_recess',
@@ -530,13 +534,6 @@ export class WallInteractiveSuite extends THREE.Group {
                 icon: `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><line x1="20" y1="4" x2="8.12" y2="15.88"/><line x1="14.47" y1="14.48" x2="20" y2="20"/></svg>`,
                 title: 'Slice Wall',
                 subtitle: 'Slice wall in 3D (Panel #3)'
-            },
-            {
-                id: 'slope',
-                label: 'Slope',
-                icon: `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polygon points="3 20 12 4 21 20 3 20"/></svg>`,
-                title: 'Wall Top Profile',
-                subtitle: 'Toggle flat / single / gable profile (Panel #7)'
             }
         ];
 
@@ -754,7 +751,7 @@ export class WallInteractiveSuite extends THREE.Group {
             display: inline-flex;
             align-items: center;
             gap: 3px;
-            padding: 2.5px 8px;
+            padding: 3px 9px;
             border-radius: 9999px;
             border: 1px solid #bbf7d0;
             background: #f0fdf4;
@@ -764,10 +761,11 @@ export class WallInteractiveSuite extends THREE.Group {
             cursor: pointer;
             transition: all 0.15s ease;
             outline: none;
-            min-height: 22px;
+            min-height: 24px;
             line-height: 1;
             white-space: nowrap;
             box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+            touch-action: manipulation;
         `;
         btnDone.onmouseenter = () => {
             btnDone.style.background = '#dcfce7';
@@ -783,36 +781,37 @@ export class WallInteractiveSuite extends THREE.Group {
         };
         this._attachTooltip(btnDone, 'Apply Changes', 'Save modifications to wall (Enter)');
 
-        // Cancel Button (Borderless hover-red close button)
+        // Cancel Button (Red pill button with vector SVG icon and label)
         const btnCancel = document.createElement('button');
-        btnCancel.innerHTML = `✕`;
+        btnCancel.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg><span>Cancel</span>`;
         btnCancel.title = 'Cancel editing and ignore changes (Esc)';
         btnCancel.style.cssText = `
-            display: flex;
+            display: inline-flex;
             align-items: center;
-            justify-content: center;
-            width: 20px;
-            height: 20px;
-            border-radius: 6px;
-            border: none;
-            background: transparent;
-            color: #94a3b8;
+            gap: 3px;
+            padding: 3px 9px;
+            border-radius: 9999px;
+            border: 1px solid #fecaca;
+            background: #fef2f2;
+            color: #b91c1c;
+            font-size: 10.5px;
+            font-weight: 700;
             cursor: pointer;
-            font-size: 11px;
-            font-weight: 800;
             transition: all 0.15s ease;
             outline: none;
-            padding: 0;
+            min-height: 24px;
             line-height: 1;
-            flex-shrink: 0;
+            white-space: nowrap;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+            touch-action: manipulation;
         `;
         btnCancel.onmouseenter = () => {
             btnCancel.style.background = '#fee2e2';
-            btnCancel.style.color = '#ef4444';
+            btnCancel.style.transform = 'translateY(-1px)';
         };
         btnCancel.onmouseleave = () => {
-            btnCancel.style.background = 'transparent';
-            btnCancel.style.color = '#94a3b8';
+            btnCancel.style.background = '#fef2f2';
+            btnCancel.style.transform = 'translateY(0)';
         };
         btnCancel.onclick = (e) => {
             e.stopPropagation();
@@ -973,8 +972,130 @@ export class WallInteractiveSuite extends THREE.Group {
             user-select: none;
         `;
 
+        this.extenderBadge = document.createElement('div');
+        this.extenderBadge.className = 'sms4-extender-live-badge';
+        this.extenderBadge.style.cssText = `
+            position: fixed;
+            display: none;
+            transform: translate(-50%, -100%);
+            padding: 5px 12px;
+            border-radius: 12px;
+            background: rgba(59, 130, 246, 0.94);
+            border: 2px solid #ffffff;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5), 0 0 14px rgba(59, 130, 246, 0.6);
+            color: #ffffff;
+            font-family: 'Inter', -apple-system, sans-serif;
+            font-size: 12px;
+            font-weight: 800;
+            white-space: nowrap;
+            pointer-events: none;
+            z-index: 100003;
+            user-select: none;
+        `;
+
+        this.guideBadge = document.createElement('div');
+        this.guideBadge.className = 'sms4-wall-guide-badge';
+        this.guideBadge.style.cssText = `
+            position: fixed;
+            top: 72px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: none;
+            padding: 8px 18px;
+            border-radius: 20px;
+            background: rgba(15, 23, 42, 0.92);
+            border: 1.5px solid rgba(59, 130, 246, 0.6);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4), 0 0 12px rgba(59, 130, 246, 0.3);
+            color: #ffffff;
+            font-family: 'Inter', -apple-system, sans-serif;
+            font-size: 13px;
+            font-weight: 600;
+            white-space: nowrap;
+            pointer-events: none;
+            z-index: 100003;
+            user-select: none;
+            backdrop-filter: blur(8px);
+            transition: opacity 0.2s ease, transform 0.2s ease;
+        `;
+
+        this.verticesBadge = document.createElement('div');
+        this.verticesBadge.className = 'sms4-vertices-live-badge';
+        this.verticesBadge.style.cssText = `
+            position: fixed;
+            display: none;
+            transform: translate(-50%, -100%);
+            padding: 5px 12px;
+            border-radius: 12px;
+            background: rgba(245, 158, 11, 0.94);
+            border: 2px solid #ffffff;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5), 0 0 14px rgba(245, 158, 11, 0.6);
+            color: #ffffff;
+            font-family: 'Inter', -apple-system, sans-serif;
+            font-size: 12px;
+            font-weight: 800;
+            white-space: nowrap;
+            pointer-events: none;
+            z-index: 100003;
+            user-select: none;
+        `;
+
+        this.cornerBadge = document.createElement('div');
+        this.cornerBadge.className = 'sms4-corner-live-badge';
+        this.cornerBadge.style.cssText = `
+            position: fixed;
+            display: none;
+            transform: translate(-50%, -100%);
+            padding: 5px 12px;
+            border-radius: 12px;
+            background: rgba(16, 185, 129, 0.94);
+            border: 2px solid #ffffff;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5), 0 0 14px rgba(16, 185, 129, 0.6);
+            color: #ffffff;
+            font-family: 'Inter', -apple-system, sans-serif;
+            font-size: 12px;
+            font-weight: 800;
+            white-space: nowrap;
+            pointer-events: none;
+            z-index: 100003;
+            user-select: none;
+        `;
+
         document.body.appendChild(this.splitBadge);
         document.body.appendChild(this.extrudeBadge);
+        document.body.appendChild(this.extenderBadge);
+        document.body.appendChild(this.verticesBadge);
+        document.body.appendChild(this.cornerBadge);
+        document.body.appendChild(this.guideBadge);
+    }
+
+    showGuideBadge(text) {
+        if (!this.guideBadge) return;
+        this.guideBadge.textContent = text;
+        this.guideBadge.style.display = 'block';
+    }
+
+    hideGuideBadge() {
+        if (!this.guideBadge) return;
+        this.guideBadge.style.display = 'none';
+    }
+
+    _clearGhostPreview() {
+        if (!this.wallGhostPreviewGroup) return;
+        while (this.wallGhostPreviewGroup.children.length > 0) {
+            const child = this.wallGhostPreviewGroup.children[0];
+            this.wallGhostPreviewGroup.remove(child);
+            child.traverse?.(c => {
+                if (c.geometry) c.geometry.dispose();
+                if (c.material) {
+                    if (Array.isArray(c.material)) c.material.forEach(m => m.dispose());
+                    else c.material.dispose();
+                }
+            });
+        }
+        this.wallGhostPreviewGroup.visible = false;
+        if (this.extenderBadge) this.extenderBadge.style.display = 'none';
+        if (this.verticesBadge) this.verticesBadge.style.display = 'none';
+        if (this.cornerBadge) this.cornerBadge.style.display = 'none';
     }
 
     _refreshHUDButtonStates() {
@@ -1042,7 +1163,8 @@ export class WallInteractiveSuite extends THREE.Group {
                 extrude_recess: 'Bay/Niche',
                 height: 'Height',
                 split: 'Split',
-                slope: 'Slope'
+                slope: 'Slope',
+                wall_corners: 'Wall Corners'
             };
             const icons = {
                 push_pull: `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17l-5-5 5-5M17 7l5 5-5 5M2 12h20"/></svg>`,
@@ -1050,7 +1172,8 @@ export class WallInteractiveSuite extends THREE.Group {
                 extrude_recess: `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>`,
                 height: `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M8 5l4-3 4 3M8 19l4 3 4-3"/></svg>`,
                 split: `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><line x1="20" y1="4" x2="8.12" y2="15.88"/><line x1="14.47" y1="14.48" x2="20" y2="20"/></svg>`,
-                slope: `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polygon points="3 20 12 4 21 20 3 20"/></svg>`
+                slope: `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polygon points="3 20 12 4 21 20 3 20"/></svg>`,
+                wall_corners: `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18"/><path d="M3 21V3"/><circle cx="3" cy="21" r="2"/></svg>`
             };
             const iconSvg = icons[mode] || '';
             const labelTxt = labels[mode] || 'Editing';
@@ -1091,8 +1214,22 @@ export class WallInteractiveSuite extends THREE.Group {
         }
 
         if (mode === 'push_pull') {
-            this.extenderGizmo.attach(this.target);
-            this.extenderGizmo.setPreset('middle_bay');
+            this.extenderGizmo.attach(this.target, this.extenderTargetProtrusion);
+            this.extenderGizmo.selectionScope = 'subregion';
+            if (this.extenderStartT !== undefined && this.extenderEndT !== undefined) {
+                this.extenderGizmo.tStart = this.extenderStartT;
+                this.extenderGizmo.tEnd = this.extenderEndT;
+            } else if (!this.extenderTargetProtrusion) {
+                this.extenderGizmo.setPreset('middle_bay');
+            }
+            if (this.extenderFacing !== undefined) {
+                this.extenderGizmo.activeFacing = this.extenderFacing;
+                this.extenderGizmo.activeSide = this.extenderFacing === 1 ? 'front' : 'back';
+            }
+            this.extenderGizmo.currentExtrudeDepth = this.extenderDepth || (this.extenderGizmo.existingProtrusion ? this.extenderGizmo.existingProtrusion.depth : 30);
+            this.extenderGizmo.updateHandles();
+            this.extenderGizmo.visible = true;
+            this.isExtenderPinned = true;
             this._updatePresetButtonHighlights();
             this.cornerGizmo.detach();
             this.heightGizmo.detach();
@@ -1105,13 +1242,7 @@ export class WallInteractiveSuite extends THREE.Group {
             this._hideSplitLaser();
             this.extrudeCurrentDepth = 0; // Neutral 0cm start on entry
             this._showExtrudeGhost();
-        } else if (mode === 'height') {
-            this.extenderGizmo.detach();
-            this.cornerGizmo.detach();
-            this.heightGizmo.attach(this.target);
-            this._hideSplitLaser();
-            this._hideExtrudeGhost();
-        } else if (mode === 'corner') {
+        } else if (mode === 'height' || mode === 'corner') {
             this.extenderGizmo.detach();
             this.cornerGizmo.attach(this.target);
             this.heightGizmo.detach();
@@ -1123,6 +1254,19 @@ export class WallInteractiveSuite extends THREE.Group {
             this.heightGizmo.detach();
             this._showSplitLaser();
             this._hideExtrudeGhost();
+        } else if (mode === 'wall_corners') {
+            this.extenderGizmo.detach();
+            this.cornerGizmo.detach();
+            this.heightGizmo.detach();
+            this._hideSplitLaser();
+            this._hideExtrudeGhost();
+            if (this.ctx.interactions?.cornerFilletGizmo) {
+                const wall = this.target?.userData?.entity;
+                const anc = wall?.startAnchor || wall?.endAnchor;
+                if (anc) {
+                    this.ctx.interactions.cornerFilletGizmo.attach(anc);
+                }
+            }
         } else if (mode === 'slope') {
             if (wall) {
                 const planner = this.ctx.planner || window.plannerInstance;
@@ -1164,7 +1308,8 @@ export class WallInteractiveSuite extends THREE.Group {
         }
 
         if (mode === 'extrude_recess') {
-            const depth = this.extrudeCurrentDepth;
+            let depth = this.extrudeCurrentDepth;
+            if (depth === 0) depth = 30;
             if (Math.abs(depth) >= 5) {
                 const effectiveDepth = depth * (this.activeFacing || 1);
                 this.extrudeWall(effectiveDepth, this.extrudeStartT, this.extrudeEndT);
@@ -1575,7 +1720,7 @@ export class WallInteractiveSuite extends THREE.Group {
         this.mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
         this.mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
 
-        if (this.isSplitMode) {
+        if (this.isSplitMode && !this.isSplitPinned) {
             this.raycaster.setFromCamera(this.mouse, this.ctx.camera);
             const wall = this.target.userData?.entity;
             if (!wall) return;
@@ -1736,7 +1881,19 @@ export class WallInteractiveSuite extends THREE.Group {
             e.stopPropagation();
             if (e.stopImmediatePropagation) e.stopImmediatePropagation();
 
-            this.splitWall({ x: splitX, y: 0, z: splitZ });
+            // Pin the cut point and show confirmation bar
+            this.splitCurrentHit = { x: splitX, y: 0, z: splitZ };
+            this.isSplitPinned = true;
+            if (this.splitBadge) {
+                const wallLen = Math.hypot(dx, dy);
+                const splitDist = Math.round(wallLen * this.splitCurrentT);
+                this.splitBadge.textContent = `✂️ Cut pinned at ${splitDist} cm · Click Done to Split or Cancel`;
+            }
+            if (this.domConfirmBar) {
+                this.domConfirmBar.style.display = 'flex';
+                this._updateHUDPosition();
+            }
+            if (this.ctx.requestRender) this.ctx.requestRender();
             return;
         }
 
@@ -1897,24 +2054,686 @@ export class WallInteractiveSuite extends THREE.Group {
         }
     }
 
-    attach(wallMesh, mode = 'menu') {
+    attach(wallMesh, mode = 'menu', hitPoint = null) {
+        this.hideGuideBadge();
+        this._clearGhostPreview();
+        if (this.target === wallMesh && this.activeMode === mode && (this.isOperationActive() || this.domConfirmBar?.style.display === 'flex')) {
+            this._updateHUDPosition();
+            return;
+        }
+
+        // Resolve existing protrusion if clicking directly on a protrusion hitbox
+        if (wallMesh?.userData?.isProtrusion && (wallMesh.userData.widget || wallMesh.userData.entity)) {
+            const prot = wallMesh.userData.widget || wallMesh.userData.entity;
+            this.extenderTargetProtrusion = prot;
+            const wall = wallMesh.userData.parentWall || wallMesh.userData.wall || prot.wall;
+            const p1 = (wall?.startAnchor && typeof wall.startAnchor.position === 'function') ? wall.startAnchor.position() : (wall?.startAnchor || { x: wall?.startX || 0, y: wall?.startY || 0 });
+            const p2 = (wall?.endAnchor && typeof wall.endAnchor.position === 'function') ? wall.endAnchor.position() : (wall?.endAnchor || { x: wall?.endX || 0, y: wall?.endY || 0 });
+            const wallLen = Math.max(1, Math.hypot(p2.x - p1.x, p2.y - p1.y));
+            const protW = prot.width || 40;
+            const protT = prot.t !== undefined ? prot.t : 0.5;
+            const halfT = (protW / 2) / wallLen;
+            this.extenderStartT = Math.max(0.02, protT - halfT);
+            this.extenderEndT = Math.min(0.98, protT + halfT);
+            this.extenderFacing = prot.facing || 1;
+            this.extenderDepth = prot.depth || 30;
+        }
+
+        // Cross-device hitPoint resolution for direct touch / click placement
+        if (wallMesh && hitPoint) {
+            const wall = wallMesh.userData?.entity || wallMesh.userData?.parentWall || wallMesh.parent?.userData?.entity;
+            if (wall) {
+                const p1 = (wall.startAnchor && typeof wall.startAnchor.position === 'function') ? wall.startAnchor.position() : (wall.startAnchor || { x: wall.startX || 0, y: wall.startY || 0 });
+                const p2 = (wall.endAnchor && typeof wall.endAnchor.position === 'function') ? wall.endAnchor.position() : (wall.endAnchor || { x: wall.endX || 0, y: wall.endY || 0 });
+                const wallLen = Math.hypot(p2.x - p1.x, p2.y - p1.y);
+                if (wallLen >= 1) {
+                    const dx = p2.x - p1.x;
+                    const dy = p2.y - p1.y;
+                    const projT = Math.max(0.05, Math.min(0.95, ((hitPoint.x - p1.x) * dx + (hitPoint.z - p1.y) * dy) / (wallLen * wallLen)));
+                    if (mode === 'push_pull') {
+                        let matchedProtrusion = null;
+                        if (wallMesh.userData?.isProtrusion && (wallMesh.userData.widget || wallMesh.userData.entity)) {
+                            matchedProtrusion = wallMesh.userData.widget || wallMesh.userData.entity;
+                        } else if (wall.attachedWidgets && wall.attachedWidgets.length > 0) {
+                            matchedProtrusion = wall.attachedWidgets.find(w => {
+                                if (w.type !== 'solid_protrusion' && w.configId !== 'solid_protrusion') return false;
+                                const pW = w.width || 40;
+                                const pT = w.t !== undefined ? w.t : 0.5;
+                                const halfT = (pW / 2) / wallLen;
+                                const t1 = Math.max(0, pT - halfT);
+                                const t2 = Math.min(1, pT + halfT);
+                                return projT >= (t1 - 0.02) && projT <= (t2 + 0.02);
+                            }) || null;
+                        }
+
+                        this.extenderTargetProtrusion = matchedProtrusion;
+                        if (matchedProtrusion) {
+                            const protW = matchedProtrusion.width || 40;
+                            const protT = matchedProtrusion.t !== undefined ? matchedProtrusion.t : 0.5;
+                            const halfT = (protW / 2) / wallLen;
+                            this.extenderStartT = Math.max(0.02, protT - halfT);
+                            this.extenderEndT = Math.min(0.98, protT + halfT);
+                            this.extenderFacing = matchedProtrusion.facing || 1;
+                            this.extenderDepth = matchedProtrusion.depth || 30;
+                        } else if (this.extenderStartT === undefined) {
+                            const halfSpan = Math.min(0.25, Math.max(0.08, 50 / wallLen));
+                            this.extenderStartT = Math.max(0.02, projT - halfSpan);
+                            this.extenderEndT = Math.min(0.98, projT + halfSpan);
+                            const wallMidX = p1.x + (this.extenderStartT + this.extenderEndT) * 0.5 * dx;
+                            const wallMidZ = p1.y + (this.extenderStartT + this.extenderEndT) * 0.5 * dy;
+                            const camPos = this.ctx.camera ? this.ctx.camera.position : new THREE.Vector3();
+                            const nx = -dy / wallLen;
+                            const ny = dx / wallLen;
+                            const dot = (camPos.x - wallMidX) * nx + (camPos.z - wallMidZ) * ny;
+                            this.extenderFacing = dot >= 0 ? 1 : -1;
+                            this.extenderDepth = 30;
+                        }
+                    } else if (mode === 'split') {
+                        this.splitCurrentT = projT;
+                    } else if (mode === 'extrude_recess' && this.extrudeStartT === undefined) {
+                        const halfSpan = Math.min(0.25, Math.max(0.08, 50 / wallLen));
+                        this.extrudeStartT = Math.max(0.02, projT - halfSpan);
+                        this.extrudeEndT = Math.min(0.98, projT + halfSpan);
+                    }
+                }
+            }
+        }
+
         this.target = wallMesh;
         this.setMode(mode || 'menu');
+        if (mode === 'split' && wallMesh) {
+            const wall = wallMesh.userData?.entity || wallMesh.userData?.parentWall || wallMesh.parent?.userData?.entity;
+            if (wall) {
+                const p1 = (wall.startAnchor && typeof wall.startAnchor.position === 'function') ? wall.startAnchor.position() : (wall.startAnchor || { x: wall.startX || 0, y: wall.startY || 0 });
+                const p2 = (wall.endAnchor && typeof wall.endAnchor.position === 'function') ? wall.endAnchor.position() : (wall.endAnchor || { x: wall.endX || 0, y: wall.endY || 0 });
+                const dx = p2.x - p1.x;
+                const dy = p2.y - p1.y;
+                const splitX = p1.x + this.splitCurrentT * dx;
+                const splitZ = p1.y + this.splitCurrentT * dy;
+                this.splitCurrentHit = { x: splitX, y: 0, z: splitZ };
+                this.isSplitPinned = true;
+                if (this.splitBadge) {
+                    const wallLen = Math.hypot(dx, dy);
+                    const splitDist = Math.round(wallLen * this.splitCurrentT);
+                    this.splitBadge.textContent = `✂️ Cut pinned at ${splitDist} cm · Click Done to Split or Cancel`;
+                }
+            }
+        } else if (mode === 'extrude_recess' && wallMesh) {
+            const wall = wallMesh.userData?.entity || wallMesh.userData?.parentWall || wallMesh.parent?.userData?.entity;
+            if (wall) {
+                const p1 = (wall.startAnchor && typeof wall.startAnchor.position === 'function') ? wall.startAnchor.position() : (wall.startAnchor || { x: wall.startX || 0, y: wall.startY || 0 });
+                const p2 = (wall.endAnchor && typeof wall.endAnchor.position === 'function') ? wall.endAnchor.position() : (wall.endAnchor || { x: wall.endX || 0, y: wall.endY || 0 });
+                const dx = p2.x - p1.x;
+                const dy = p2.y - p1.y;
+                const wallLen = Math.hypot(dx, dy);
+                if (wallLen >= 1) {
+                    if (this.extrudeStartT === undefined || this.extrudeEndT === undefined) {
+                        this.extrudeStartT = 0.25;
+                        this.extrudeEndT = 0.75;
+                    }
+                    this.isExtrudePinned = true;
+                    if (this.extrudeBadge) {
+                        const bayLen = Math.round(wallLen * (this.extrudeEndT - this.extrudeStartT));
+                        this.extrudeBadge.textContent = `🔲 Bay/Niche pinned (${bayLen} cm) · Drag arrow for depth, click Done`;
+                    }
+                }
+            }
+        } else if (mode === 'push_pull' && wallMesh) {
+            const wall = wallMesh.userData?.entity || wallMesh.userData?.parentWall || wallMesh.parent?.userData?.entity;
+            if (wall && this.extenderGizmo) {
+                this.isExtenderPinned = true;
+                if (this.extenderStartT !== undefined && this.extenderEndT !== undefined) {
+                    this.extenderGizmo.tStart = this.extenderStartT;
+                    this.extenderGizmo.tEnd = this.extenderEndT;
+                }
+                if (this.extenderFacing !== undefined) {
+                    this.extenderGizmo.activeFacing = this.extenderFacing;
+                    this.extenderGizmo.activeSide = this.extenderFacing === 1 ? 'front' : 'back';
+                }
+                if (!this.extenderGizmo.existingProtrusion && !this.extenderGizmo.currentExtrudeDepth) {
+                    this.extenderGizmo.currentExtrudeDepth = this.extenderDepth || 30;
+                } else if (this.extenderGizmo.existingProtrusion) {
+                    this.extenderGizmo.currentExtrudeDepth = this.extenderDepth || this.extenderGizmo.existingProtrusion.depth || 30;
+                }
+                this.extenderGizmo.updateHandles();
+                this.extenderGizmo.visible = true;
+            }
+            if (this.extenderBadge) this.extenderBadge.style.display = 'none';
+        }
         this._updateHUDPosition();
     }
 
     detach() {
         if (this.target) this.target.visible = true;
         this.target = null;
+        this.isSplitPinned = false;
+        this.splitCurrentHit = null;
+        this.isExtrudePinned = false;
+        this.isExtenderPinned = false;
+        this.extenderStartT = undefined;
+        this.extenderEndT = undefined;
+        this.extenderFacing = undefined;
+        this.extenderDepth = undefined;
+        this.extenderTargetProtrusion = null;
+        if (this.extenderBadge) this.extenderBadge.style.display = 'none';
         this.extenderGizmo.detach();
         this.cornerGizmo.detach();
         this.heightGizmo.detach();
         this._hideSplitLaser();
         this._hideExtrudeGhost();
+        this._clearGhostPreview();
         if (this.domHUD) this.domHUD.style.display = 'none';
         if (this.domConfirmBar) this.domConfirmBar.style.display = 'none';
         this._snapshotCmd = null;
         this._initialWallSnapshot = null;
+
+        if (this.ctx.interactions && !this.ctx.interactions._isDeselecting) {
+            this.ctx.interactions.selectedObject = null;
+            if (this.ctx.interactions.highlightRenderer) {
+                if (typeof this.ctx.interactions.highlightRenderer.clearAll === 'function') {
+                    this.ctx.interactions.highlightRenderer.clearAll();
+                } else if (typeof this.ctx.interactions.highlightRenderer.clearSelectionHighlight === 'function') {
+                    this.ctx.interactions.highlightRenderer.clearSelectionHighlight();
+                }
+            }
+        }
+        const commonCtrl = this.ctx.commonTools || this.ctx.interactions?.commonController;
+        if (commonCtrl) {
+            if (typeof commonCtrl.clearSelection === 'function') {
+                commonCtrl.clearSelection();
+            } else {
+                commonCtrl.selectedEntity = null;
+                commonCtrl.selectedMesh = null;
+                commonCtrl.selectedType = null;
+                commonCtrl.activeAction = null;
+                commonCtrl.interactionState = 'IDLE';
+                commonCtrl.hudMode = 'none';
+            }
+            if (coreEventBus) {
+                coreEventBus.emit('InteractionStateChanged', typeof commonCtrl.getInteractionState === 'function' ? commonCtrl.getInteractionState() : { activeTool: commonCtrl.activeTool, state: 'IDLE' });
+                coreEventBus.emit('CommonSelectionChanged', {
+                    entity: null,
+                    mesh: null,
+                    capabilities: typeof commonCtrl.getCurrentCapabilities === 'function' ? commonCtrl.getCurrentCapabilities() : []
+                });
+            }
+        }
+
+        const activeTool = commonCtrl?.activeTool;
+        const isTouch = typeof window !== 'undefined' && (
+            'ontouchstart' in window || 
+            (navigator.maxTouchPoints && navigator.maxTouchPoints > 0) ||
+            window.matchMedia?.('(pointer: coarse)')?.matches
+        );
+        if (activeTool === 'push_pull' || activeTool === 'extender') {
+            this.showGuideBadge(isTouch ? '👆 Tap any wall to extend' : '↔️ Hover any wall to preview, click to extend');
+        } else if (activeTool === 'split') {
+            this.showGuideBadge(isTouch ? '👆 Tap any wall to split' : '✂️ Hover any wall to preview cut, click to place');
+        } else if (activeTool === 'extrude_recess' || activeTool === 'bay_niche') {
+            this.showGuideBadge(isTouch ? '👆 Tap any wall to add bay/niche' : '🔲 Hover any wall to preview, click to place');
+        } else if (activeTool === 'corner' || activeTool === 'vertices') {
+            this.showGuideBadge(isTouch ? '👆 Tap any wall to edit corners' : '📐 Click any wall to edit corners');
+        } else if (activeTool === 'wall_corners') {
+            this.showGuideBadge(isTouch ? '👆 Tap any wall corner to configure' : '📐 Click any wall corner to configure');
+        } else {
+            this.hideGuideBadge();
+        }
+
+        if (this.ctx.requestRender) this.ctx.requestRender();
+    }
+
+    isOperationActive() {
+        if (!this.target) return false;
+        if (this.isExtrudeDragging) return true;
+        if (this.isSplitPinned) return true;
+        if (this.isExtrudePinned) return true;
+        if (this.isExtenderPinned) return true;
+        if (this.extenderGizmo?.isDragging || this.cornerGizmo?.isDragging || this.heightGizmo?.isDragging) return true;
+        if (this.domConfirmBar && this.domConfirmBar.style.display !== 'none' && this.activeMode && this.activeMode !== 'menu' && this.activeMode !== 'neutral') {
+            return true;
+        }
+        return false;
+    }
+
+
+    previewExtender(wallMesh, hitPoint) {
+        if (this.isOperationActive()) return;
+        if (!wallMesh) {
+            this._clearGhostPreview();
+            if (this.extenderGizmo && !this.isOperationActive()) {
+                this.extenderGizmo.detach();
+            }
+            if (this.extenderBadge) this.extenderBadge.style.display = 'none';
+            return;
+        }
+        const wall = wallMesh.userData?.entity || wallMesh.userData?.parentWall || wallMesh.parent?.userData?.entity;
+        if (!wall) {
+            this._clearGhostPreview();
+            if (this.extenderGizmo && !this.isOperationActive()) {
+                this.extenderGizmo.detach();
+            }
+            if (this.extenderBadge) this.extenderBadge.style.display = 'none';
+            return;
+        }
+
+        const p1 = (wall.startAnchor && typeof wall.startAnchor.position === 'function') ? wall.startAnchor.position() : (wall.startAnchor || { x: wall.startX || 0, y: wall.startY || 0 });
+        const p2 = (wall.endAnchor && typeof wall.endAnchor.position === 'function') ? wall.endAnchor.position() : (wall.endAnchor || { x: wall.endX || 0, y: wall.endY || 0 });
+        const wallLen = Math.hypot(p2.x - p1.x, p2.y - p1.y);
+        if (wallLen < 1) return;
+
+        let projT = 0.5;
+        if (hitPoint) {
+            const dx = p2.x - p1.x;
+            const dy = p2.y - p1.y;
+            projT = ((hitPoint.x - p1.x) * dx + (hitPoint.z - p1.y) * dy) / (wallLen * wallLen);
+        }
+        projT = Math.max(0.05, Math.min(0.95, projT));
+
+        // Check if hitPoint is hovering over an existing solid protrusion on this wall
+        let matchedProtrusion = null;
+        if (wallMesh.userData?.isProtrusion && (wallMesh.userData.widget || wallMesh.userData.entity)) {
+            matchedProtrusion = wallMesh.userData.widget || wallMesh.userData.entity;
+        } else if (wall.attachedWidgets && wall.attachedWidgets.length > 0) {
+            matchedProtrusion = wall.attachedWidgets.find(w => {
+                if (w.type !== 'solid_protrusion' && w.configId !== 'solid_protrusion') return false;
+                const pW = w.width || 40;
+                const pT = w.t !== undefined ? w.t : 0.5;
+                const halfT = (pW / 2) / wallLen;
+                const t1 = Math.max(0, pT - halfT);
+                const t2 = Math.min(1, pT + halfT);
+                return projT >= (t1 - 0.02) && projT <= (t2 + 0.02);
+            }) || null;
+        }
+
+        this._clearGhostPreview();
+        this.extenderTargetProtrusion = matchedProtrusion;
+
+        if (matchedProtrusion) {
+            // Target the existing protrusion for editing
+            this.extenderGizmo.attach(wallMesh, matchedProtrusion);
+            this.extenderStartT = this.extenderGizmo.tStart;
+            this.extenderEndT = this.extenderGizmo.tEnd;
+            this.extenderFacing = this.extenderGizmo.activeFacing || 1;
+            this.extenderDepth = this.extenderGizmo.currentExtrudeDepth || matchedProtrusion.depth || 30;
+        } else {
+            // Fresh sub-region extension on empty wall space
+            const halfSpan = Math.min(0.25, Math.max(0.08, 50 / wallLen));
+            const tStart = Math.max(0.02, projT - halfSpan);
+            const tEnd = Math.min(0.98, projT + halfSpan);
+
+            this.extenderGizmo.attach(wallMesh, null);
+            this.extenderGizmo.selectionScope = 'subregion';
+            this.extenderGizmo.tStart = tStart;
+            this.extenderGizmo.tEnd = tEnd;
+
+            // Camera line-of-sight facing detection
+            const dx = p2.x - p1.x;
+            const dy = p2.y - p1.y;
+            const wallMidX = p1.x + (tStart + tEnd) * 0.5 * dx;
+            const wallMidZ = p1.y + (tStart + tEnd) * 0.5 * dy;
+            const camPos = this.ctx.camera ? this.ctx.camera.position : new THREE.Vector3();
+            const nx = -dy / wallLen;
+            const ny = dx / wallLen;
+            const dot = (camPos.x - wallMidX) * nx + (camPos.z - wallMidZ) * ny;
+            const facing = dot >= 0 ? 1 : -1;
+            this.extenderGizmo.activeFacing = facing;
+            this.extenderGizmo.activeSide = facing === 1 ? 'front' : 'back';
+            this.extenderGizmo.currentExtrudeDepth = 30;
+
+            this.extenderStartT = tStart;
+            this.extenderEndT = tEnd;
+            this.extenderFacing = facing;
+            this.extenderDepth = 30;
+        }
+
+        this.extenderGizmo.updateHandles();
+        this.extenderGizmo.visible = true;
+
+        if (this.extenderBadge) {
+            const bayLenCm = Math.round(wallLen * (this.extenderGizmo.tEnd - this.extenderGizmo.tStart));
+            const extDepth = Math.round(this.extenderGizmo.currentExtrudeDepth || 30);
+            if (matchedProtrusion) {
+                this.extenderBadge.textContent = `↔️ Click to Edit Extension (+${extDepth} cm · Width: ${bayLenCm} cm)`;
+            } else {
+                this.extenderBadge.textContent = `↔️ Click to Place Extension (+${extDepth} cm · Width: ${bayLenCm} cm)`;
+            }
+            if (this.ctx.renderer && this.ctx.camera) {
+                const dom = this.ctx.renderer.domElement;
+                const rect = dom.getBoundingClientRect();
+                const wallBaseY = (wall.elevation || 0);
+                const wallH = (wall.height !== undefined ? wall.height : (wall.config?.height || 120));
+                const dx = p2.x - p1.x;
+                const dy = p2.y - p1.y;
+                const wallMidX = p1.x + (this.extenderGizmo.tStart + this.extenderGizmo.tEnd) * 0.5 * dx;
+                const wallMidZ = p1.y + (this.extenderGizmo.tStart + this.extenderGizmo.tEnd) * 0.5 * dy;
+                const nx = -dy / wallLen;
+                const ny = dx / wallLen;
+                const facing = this.extenderGizmo.activeFacing || 1;
+                const worldMidX = wallMidX + (extDepth / 2) * nx * facing;
+                const worldMidZ = wallMidZ + (extDepth / 2) * ny * facing;
+                const worldMidY = wallBaseY + wallH / 2;
+                const v = new THREE.Vector3(worldMidX, worldMidY, worldMidZ).project(this.ctx.camera);
+                const screenX = rect.left + ((v.x + 1) * rect.width) / 2;
+                const screenY = rect.top + ((-v.y + 1) * rect.height) / 2;
+                this.extenderBadge.style.left = `${screenX}px`;
+                this.extenderBadge.style.top = `${screenY - 24}px`;
+                this.extenderBadge.style.display = 'block';
+            }
+        }
+
+        if (this.ctx.requestRender) this.ctx.requestRender();
+    }
+
+    previewVertices(wallMesh, hitPoint) {
+        if (this.isOperationActive()) return;
+        if (!wallMesh) {
+            this._clearGhostPreview();
+            return;
+        }
+        const wall = wallMesh.userData?.entity || wallMesh.userData?.parentWall || wallMesh.parent?.userData?.entity;
+        if (!wall) {
+            this._clearGhostPreview();
+            return;
+        }
+
+        const p1 = (wall.startAnchor && typeof wall.startAnchor.position === 'function') ? wall.startAnchor.position() : (wall.startAnchor || { x: wall.startX || 0, y: wall.startY || 0 });
+        const p2 = (wall.endAnchor && typeof wall.endAnchor.position === 'function') ? wall.endAnchor.position() : (wall.endAnchor || { x: wall.endX || 0, y: wall.endY || 0 });
+        const wallBaseY = (wall.elevation || 0);
+        const wallH = (wall.height !== undefined ? wall.height : (wall.config?.height || 120));
+        const t = (wall.thickness !== undefined ? wall.thickness : 20);
+
+        const dx = p2.x - p1.x;
+        const dy = p2.y - p1.y;
+        const wallLen = Math.hypot(dx, dy);
+        if (wallLen < 1) return;
+
+        const angle = Math.atan2(dy, dx);
+        const midX = wallLen * 0.5;
+        const midY = wallH * 0.5;
+
+        this._clearGhostPreview();
+
+        this.wallGhostPreviewGroup.position.set(p1.x, wallBaseY, p1.y);
+        this.wallGhostPreviewGroup.rotation.set(0, -angle, 0);
+        this.wallGhostPreviewGroup.visible = true;
+
+        // 1. Translucent 3D Wall Boundary Box (Warm Gold / Amber)
+        const boxGeo = new THREE.BoxGeometry(wallLen, wallH, t + 1.2);
+        const boxMat = new THREE.MeshBasicMaterial({ color: 0xfacc15, transparent: true, opacity: 0.20, depthTest: false, side: THREE.DoubleSide });
+        const boxMesh = new THREE.Mesh(boxGeo, boxMat);
+        boxMesh.position.set(midX, midY, 0);
+        boxMesh.raycast = () => {};
+
+        // 2. Glowing Amber/Gold Edges
+        const edgesGeo = new THREE.EdgesGeometry(boxGeo);
+        const edgesMat = new THREE.LineBasicMaterial({ color: 0xfacc15, linewidth: 2, depthTest: false });
+        const edges = new THREE.LineSegments(edgesGeo, edgesMat);
+        edges.position.copy(boxMesh.position);
+        edges.raycast = () => {};
+
+        // 3. 4 Corner Vertex Spheres
+        const sphereGeo = new THREE.SphereGeometry(3.5, 12, 12);
+        const sphereMat = new THREE.MeshBasicMaterial({ color: 0xffffff, depthTest: false });
+        const cornerCoords = [
+            [0, 0, 0],
+            [wallLen, 0, 0],
+            [0, wallH, 0],
+            [wallLen, wallH, 0]
+        ];
+        const cornerPins = [];
+        cornerCoords.forEach(([cx, cy, cz]) => {
+            const pin = new THREE.Mesh(sphereGeo, sphereMat);
+            pin.position.set(cx, cy, cz);
+            pin.raycast = () => {};
+            cornerPins.push(pin);
+        });
+
+        // 4. Top Edge Sloping Bar Indicator
+        const topBarGeo = new THREE.BoxGeometry(wallLen * 0.4, 2.5, t + 2);
+        const topBarMat = new THREE.MeshBasicMaterial({ color: 0xfacc15, depthTest: false });
+        const topBar = new THREE.Mesh(topBarGeo, topBarMat);
+        topBar.position.set(midX, wallH, 0);
+        topBar.raycast = () => {};
+
+        this.wallGhostPreviewGroup.add(boxMesh, edges, ...cornerPins, topBar);
+
+        // 5. Update Badge
+        if (this.verticesBadge) {
+            const wallLenCm = Math.round(wallLen);
+            this.verticesBadge.textContent = `📐 Click to Edit Vertices & Slope (${wallLenCm} cm)`;
+            if (this.ctx.renderer && this.ctx.camera) {
+                const dom = this.ctx.renderer.domElement;
+                const rect = dom.getBoundingClientRect();
+                const worldMidX = (p1.x + p2.x) * 0.5;
+                const worldMidZ = (p1.y + p2.y) * 0.5;
+                const worldMidY = wallBaseY + wallH / 2;
+                const v = new THREE.Vector3(worldMidX, worldMidY, worldMidZ).project(this.ctx.camera);
+                const screenX = rect.left + ((v.x + 1) * rect.width) / 2;
+                const screenY = rect.top + ((-v.y + 1) * rect.height) / 2;
+                this.verticesBadge.style.left = `${screenX}px`;
+                this.verticesBadge.style.top = `${screenY - 24}px`;
+                this.verticesBadge.style.display = 'block';
+            }
+        }
+
+        if (this.ctx.requestRender) this.ctx.requestRender();
+    }
+
+    previewWallCorner(wallMesh, hitPoint) {
+        if (this.isOperationActive()) return;
+        if (!wallMesh) {
+            this._clearGhostPreview();
+            return;
+        }
+        const wall = wallMesh.userData?.entity || wallMesh.userData?.parentWall || wallMesh.parent?.userData?.entity;
+        if (!wall) {
+            this._clearGhostPreview();
+            return;
+        }
+
+        const p1 = (wall.startAnchor && typeof wall.startAnchor.position === 'function') ? wall.startAnchor.position() : (wall.startAnchor || { x: wall.startX || 0, y: wall.startY || 0 });
+        const p2 = (wall.endAnchor && typeof wall.endAnchor.position === 'function') ? wall.endAnchor.position() : (wall.endAnchor || { x: wall.endX || 0, y: wall.endY || 0 });
+        const wallBaseY = (wall.elevation || 0);
+        const wallH = (wall.height !== undefined ? wall.height : (wall.config?.height || 120));
+        const t = (wall.thickness !== undefined ? wall.thickness : 20);
+
+        const dx = p2.x - p1.x;
+        const dy = p2.y - p1.y;
+        const wallLen = Math.hypot(dx, dy);
+        if (wallLen < 1) return;
+
+        const angle = Math.atan2(dy, dx);
+        const midX = wallLen * 0.5;
+        const midY = wallH * 0.5;
+
+        this._clearGhostPreview();
+
+        this.wallGhostPreviewGroup.position.set(p1.x, wallBaseY, p1.y);
+        this.wallGhostPreviewGroup.rotation.set(0, -angle, 0);
+        this.wallGhostPreviewGroup.visible = true;
+
+        // 1. Translucent 3D Wall Boundary Box (Emerald Green)
+        const boxGeo = new THREE.BoxGeometry(wallLen, wallH, t + 1.2);
+        const boxMat = new THREE.MeshBasicMaterial({ color: 0x10b981, transparent: true, opacity: 0.20, depthTest: false, side: THREE.DoubleSide });
+        const boxMesh = new THREE.Mesh(boxGeo, boxMat);
+        boxMesh.position.set(midX, midY, 0);
+        boxMesh.raycast = () => {};
+
+        // 2. Glowing Emerald Edges
+        const edgesGeo = new THREE.EdgesGeometry(boxGeo);
+        const edgesMat = new THREE.LineBasicMaterial({ color: 0x10b981, linewidth: 2, depthTest: false });
+        const edges = new THREE.LineSegments(edgesGeo, edgesMat);
+        edges.position.copy(boxMesh.position);
+        edges.raycast = () => {};
+
+        // 3. Corner Junction Cylinders at start and end
+        const cylRadius = Math.max(8, t / 2 + 1);
+        const cylGeo = new THREE.CylinderGeometry(cylRadius, cylRadius, wallH, 16);
+        const cylMat = new THREE.MeshBasicMaterial({ color: 0x34d399, transparent: true, opacity: 0.35, depthTest: false });
+
+        const startCyl = new THREE.Mesh(cylGeo, cylMat);
+        startCyl.position.set(0, midY, 0);
+        startCyl.raycast = () => {};
+
+        const endCyl = new THREE.Mesh(cylGeo, cylMat);
+        endCyl.position.set(wallLen, midY, 0);
+        endCyl.raycast = () => {};
+
+        // Base rings
+        const ringGeo = new THREE.RingGeometry(cylRadius - 1, cylRadius + 2, 24);
+        ringGeo.rotateX(-Math.PI / 2);
+        const ringMat = new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide, depthTest: false });
+        const startRing = new THREE.Mesh(ringGeo, ringMat);
+        startRing.position.set(0, 1, 0);
+        startRing.raycast = () => {};
+
+        const endRing = new THREE.Mesh(ringGeo, ringMat);
+        endRing.position.set(wallLen, 1, 0);
+        endRing.raycast = () => {};
+
+        this.wallGhostPreviewGroup.add(boxMesh, edges, startCyl, endCyl, startRing, endRing);
+
+        // 4. Update Badge
+        if (this.cornerBadge) {
+            const wallLenCm = Math.round(wallLen);
+            this.cornerBadge.textContent = `📐 Click to Configure Corner Joint (${wallLenCm} cm)`;
+            if (this.ctx.renderer && this.ctx.camera) {
+                const dom = this.ctx.renderer.domElement;
+                const rect = dom.getBoundingClientRect();
+                const worldMidX = (p1.x + p2.x) * 0.5;
+                const worldMidZ = (p1.y + p2.y) * 0.5;
+                const worldMidY = wallBaseY + wallH / 2;
+                const v = new THREE.Vector3(worldMidX, worldMidY, worldMidZ).project(this.ctx.camera);
+                const screenX = rect.left + ((v.x + 1) * rect.width) / 2;
+                const screenY = rect.top + ((-v.y + 1) * rect.height) / 2;
+                this.cornerBadge.style.left = `${screenX}px`;
+                this.cornerBadge.style.top = `${screenY - 24}px`;
+                this.cornerBadge.style.display = 'block';
+            }
+        }
+
+        if (this.ctx.requestRender) this.ctx.requestRender();
+    }
+
+    previewExtrude(wallMesh, hitPoint) {
+        if (this.isOperationActive()) return;
+        if (!wallMesh) {
+            this._hideExtrudeGhost();
+            if (!this.isOperationActive()) {
+                this.target = null;
+            }
+            return;
+        }
+        const wall = wallMesh.userData?.entity || wallMesh.userData?.parentWall || wallMesh.parent?.userData?.entity;
+        if (!wall) {
+            this._hideExtrudeGhost();
+            this.target = null;
+            return;
+        }
+
+        const p1 = (wall.startAnchor && typeof wall.startAnchor.position === 'function') ? wall.startAnchor.position() : (wall.startAnchor || { x: wall.startX || 0, y: wall.startY || 0 });
+        const p2 = (wall.endAnchor && typeof wall.endAnchor.position === 'function') ? wall.endAnchor.position() : (wall.endAnchor || { x: wall.endX || 0, y: wall.endY || 0 });
+        const wallBaseY = (wall.elevation || 0);
+        const wallH = (wall.height !== undefined ? wall.height : (wall.config?.height || 120));
+        const t = (wall.thickness !== undefined ? wall.thickness : 20);
+
+        const dx = p2.x - p1.x;
+        const dy = p2.y - p1.y;
+        const wallLen = Math.hypot(dx, dy);
+        if (wallLen < 1) return;
+
+        let projT = 0.5;
+        if (hitPoint) {
+            projT = ((hitPoint.x - p1.x) * dx + (hitPoint.z - p1.y) * dy) / (wallLen * wallLen);
+        }
+        projT = Math.max(0.15, Math.min(0.85, projT));
+
+        const halfSpan = Math.min(0.25, Math.max(0.08, 50 / wallLen));
+        this.extrudeStartT = Math.max(0.02, projT - halfSpan);
+        this.extrudeEndT = Math.min(0.98, projT + halfSpan);
+        this.target = wallMesh;
+        this.extrudeCurrentDepth = 0; // neutral ghost box preview
+        this.extrudeGroup.visible = true;
+        this._updateExtrudeGhostGeometry();
+
+        if (this.extrudeBadge) {
+            const bayLen = Math.round(wallLen * (this.extrudeEndT - this.extrudeStartT));
+            this.extrudeBadge.textContent = `🔲 Click to Place Bay/Niche (${bayLen} cm)`;
+            if (this.ctx.renderer && this.ctx.camera) {
+                const dom = this.ctx.renderer.domElement;
+                const rect = dom.getBoundingClientRect();
+                const midT = (this.extrudeStartT + this.extrudeEndT) * 0.5;
+                const midX = p1.x + midT * dx;
+                const midZ = p1.y + midT * dy;
+                const midY = wallBaseY + wallH / 2;
+                const v = new THREE.Vector3(midX, midY, midZ).project(this.ctx.camera);
+                const screenX = rect.left + ((v.x + 1) * rect.width) / 2;
+                const screenY = rect.top + ((-v.y + 1) * rect.height) / 2;
+                this.extrudeBadge.style.left = `${screenX}px`;
+                this.extrudeBadge.style.top = `${screenY - 24}px`;
+                this.extrudeBadge.style.display = 'block';
+            }
+        }
+
+        if (this.ctx.requestRender) this.ctx.requestRender();
+    }
+
+    previewSplit(wallMesh, hitPoint) {
+        if (this.isOperationActive()) return;
+        if (!wallMesh) {
+            this._hideSplitLaser();
+            return;
+        }
+        const wall = wallMesh.userData?.entity;
+        if (!wall) {
+            this._hideSplitLaser();
+            return;
+        }
+
+        const p1 = (wall.startAnchor && typeof wall.startAnchor.position === 'function') ? wall.startAnchor.position() : (wall.startAnchor || { x: wall.startX || 0, y: wall.startY || 0 });
+        const p2 = (wall.endAnchor && typeof wall.endAnchor.position === 'function') ? wall.endAnchor.position() : (wall.endAnchor || { x: wall.endX || 0, y: wall.endY || 0 });
+        const wallBaseY = (wall.elevation || 0);
+        const wallH = (wall.height !== undefined ? wall.height : (wall.config?.height || 120));
+        const t = (wall.thickness !== undefined ? wall.thickness : 20);
+
+        const dx = p2.x - p1.x;
+        const dy = p2.y - p1.y;
+        const wallLen = Math.hypot(dx, dy);
+        if (wallLen < 1) return;
+
+        let projT = 0.5;
+        if (hitPoint) {
+            projT = ((hitPoint.x - p1.x) * dx + (hitPoint.z - p1.y) * dy) / (wallLen * wallLen);
+        }
+        const clampedT = Math.max(0.1, Math.min(0.9, projT));
+        this.splitCurrentT = clampedT;
+
+        const sliceX = p1.x + clampedT * dx;
+        const sliceZ = p1.y + clampedT * dy;
+        const sliceY = wallBaseY + wallH / 2;
+
+        const wallAngle = Math.atan2(dy, dx);
+        this.splitLaserPlane.geometry.dispose();
+        this.splitLaserPlane.geometry = new THREE.PlaneGeometry(t + 14, wallH + 10);
+        this.splitLaserPlane.position.set(sliceX, sliceY, sliceZ);
+        this.splitLaserPlane.rotation.set(0, -wallAngle + Math.PI / 2, 0);
+        this.splitLaserPlane.visible = true;
+
+        if (this.splitBadge) {
+            const splitDist = Math.round(wallLen * clampedT);
+            this.splitBadge.textContent = `✂️ Click to Split at ${splitDist} cm (Remaining: ${Math.round(wallLen - splitDist)} cm)`;
+            if (this.ctx.renderer && this.ctx.camera) {
+                const dom = this.ctx.renderer.domElement;
+                const rect = dom.getBoundingClientRect();
+                const v = new THREE.Vector3(sliceX, sliceY, sliceZ).project(this.ctx.camera);
+                const screenX = rect.left + ((v.x + 1) * rect.width) / 2;
+                const screenY = rect.top + ((-v.y + 1) * rect.height) / 2;
+                this.splitBadge.style.left = `${screenX}px`;
+                this.splitBadge.style.top = `${screenY - 24}px`;
+                this.splitBadge.style.display = 'block';
+            }
+        }
+
         if (this.ctx.requestRender) this.ctx.requestRender();
     }
 
@@ -2087,6 +2906,18 @@ export class WallInteractiveSuite extends THREE.Group {
         }
         if (this.extrudeBadge && this.extrudeBadge.parentElement) {
             this.extrudeBadge.parentElement.removeChild(this.extrudeBadge);
+        }
+        if (this.extenderBadge && this.extenderBadge.parentElement) {
+            this.extenderBadge.parentElement.removeChild(this.extenderBadge);
+        }
+        if (this.verticesBadge && this.verticesBadge.parentElement) {
+            this.verticesBadge.parentElement.removeChild(this.verticesBadge);
+        }
+        if (this.cornerBadge && this.cornerBadge.parentElement) {
+            this.cornerBadge.parentElement.removeChild(this.cornerBadge);
+        }
+        if (this.guideBadge && this.guideBadge.parentElement) {
+            this.guideBadge.parentElement.removeChild(this.guideBadge);
         }
         this.extenderGizmo.dispose();
         this.cornerGizmo.dispose();

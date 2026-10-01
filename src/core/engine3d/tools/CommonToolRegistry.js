@@ -12,7 +12,12 @@ export const COMMON_TOOLS = {
     AXIS_UP: 'axis_up',
     AXIS_DOWN: 'axis_down',
     BUILDING_RISE: 'building_rise',
-    WALL_CORNERS: 'wall_corners'
+    WALL_CORNERS: 'wall_corners',
+    ROOM: 'room_suite',
+    EXTENDER: 'push_pull',
+    VERTICES: 'corner',
+    BAY_NICHE: 'extrude_recess',
+    SPLIT: 'split'
 };
 
 export const COMMON_TOOL_DEFINITIONS = [
@@ -50,6 +55,51 @@ export const COMMON_TOOL_DEFINITIONS = [
         hotkey: 'C',
         tooltip: 'Wall Corners: Show all wall corners & curve joints (Key: C)',
         description: 'Display and interact with all wall corner joints to create curved walls and fillet bends.',
+        requiresSelection: false
+    },
+    {
+        id: COMMON_TOOLS.ROOM,
+        label: 'Room',
+        icon: 'room',
+        hotkey: 'R',
+        tooltip: 'Room & Building Controls',
+        description: 'Open Room & Building Height / Foundation Controls.',
+        requiresSelection: false
+    },
+    {
+        id: COMMON_TOOLS.EXTENDER,
+        label: 'Extender',
+        icon: 'extender',
+        hotkey: 'E',
+        tooltip: 'Extender (Wall Thickness & Baseline Push/Pull)',
+        description: 'Extend wall thickness & baseline push/pull in 3D.',
+        requiresSelection: false
+    },
+    {
+        id: COMMON_TOOLS.VERTICES,
+        label: 'Vertices',
+        icon: 'vertices',
+        hotkey: 'K',
+        tooltip: 'Vertices, Height & Slope',
+        description: 'Adjust wall height, slope, baseline elevation & vertices.',
+        requiresSelection: false
+    },
+    {
+        id: COMMON_TOOLS.BAY_NICHE,
+        label: 'Bay/Niche',
+        icon: 'bay_niche',
+        hotkey: 'N',
+        tooltip: 'Bay Window & Niche',
+        description: 'Extrude bay window or recessed niche in 3D.',
+        requiresSelection: false
+    },
+    {
+        id: COMMON_TOOLS.SPLIT,
+        label: 'Split',
+        icon: 'split',
+        hotkey: 'X',
+        tooltip: 'Slice / Split Wall (Key: X)',
+        description: 'Slice wall in 3D with interactive laser plane.',
         requiresSelection: false
     },
     {

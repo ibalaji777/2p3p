@@ -27,35 +27,155 @@
         </svg>
       </button>
 
-      <!-- BUILDING RISE & ROOM LIFT TOOL -->
-      <button 
-        class="tool-btn" 
-        :class="{ active: currentTool === 'building_rise' }"
-        @click="selectTool('building_rise')"
-        title="Building Rise & Room Lift Tool (Key: U)"
-      >
-        <svg class="tool-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-          <rect x="4" y="10" width="16" height="11" rx="1.5"></rect>
-          <line x1="8" y1="10" x2="8" y2="21"></line>
-          <line x1="16" y1="10" x2="16" y2="21"></line>
-          <polyline points="9 5 12 2 15 5"></polyline>
-          <polyline points="9 7 12 10 15 7"></polyline>
-        </svg>
-      </button>
+      <div class="toolbar-divider-h"></div>
 
-      <!-- WALL CORNERS / CURVE TOOL -->
-      <button 
-        class="tool-btn" 
-        :class="{ active: currentTool === 'wall_corners' }"
-        @click="selectTool('wall_corners')"
-        title="Wall Corners: Show all wall corners & curve joints (Key: C)"
-      >
-        <svg class="tool-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M4 20V10a6 6 0 0 1 6-6h10"></path>
-          <circle cx="4" cy="20" r="2.2" fill="currentColor"></circle>
-          <circle cx="20" cy="4" r="2.2" fill="currentColor"></circle>
-        </svg>
-      </button>
+      <!-- MASTER WALL ARCHITECTURE TOOLS BUTTON WITH FLYOUT SUBMENU -->
+      <div class="wall-tools-anchor" ref="wallToolsAnchorRef">
+        <button 
+          class="tool-btn wall-master-btn" 
+          :class="{ active: isWallToolActive }"
+          @click="toggleWallMenu"
+          title="Wall Architecture Tools (Room, Extender, Vertices, Bay/Niche, Split, Corners)"
+        >
+          <!-- Dynamic icon reflecting active sub-tool, or default Wall Brick icon -->
+          <svg v-if="currentTool === 'room_suite'" class="tool-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+            <polyline points="9 22 9 12 15 12 15 22"></polyline>
+          </svg>
+          <svg v-else-if="currentTool === 'push_pull'" class="tool-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M7 17l-5-5 5-5M17 7l5 5-5 5M2 12h20"></path>
+          </svg>
+          <svg v-else-if="currentTool === 'corner'" class="tool-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="3"></circle>
+            <path d="M3 12h6M15 12h6M12 3v6M12 15v6"></path>
+          </svg>
+          <svg v-else-if="currentTool === 'extrude_recess'" class="tool-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+            <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+            <line x1="12" y1="22.08" x2="12" y2="12"></line>
+          </svg>
+          <svg v-else-if="currentTool === 'split'" class="tool-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="6" cy="6" r="3"></circle>
+            <circle cx="6" cy="18" r="3"></circle>
+            <line x1="20" y1="4" x2="8.12" y2="15.88"></line>
+            <line x1="14.47" y1="14.48" x2="20" y2="20"></line>
+          </svg>
+          <svg v-else-if="currentTool === 'wall_corners'" class="tool-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4 20V10a6 6 0 0 1 6-6h10"></path>
+            <circle cx="4" cy="20" r="2.2" fill="currentColor"></circle>
+            <circle cx="20" cy="4" r="2.2" fill="currentColor"></circle>
+          </svg>
+          <svg v-else class="tool-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="4" width="18" height="16" rx="2"></rect>
+            <line x1="3" y1="12" x2="21" y2="12"></line>
+            <line x1="9" y1="4" x2="9" y2="12"></line>
+            <line x1="15" y1="12" x2="15" y2="20"></line>
+          </svg>
+          <span class="sub-indicator-badge">›</span>
+        </button>
+
+        <!-- FLOATING WALL TOOLS FLYOUT SUBMENU -->
+        <div class="wall-tools-flyout" v-show="showWallMenu">
+          <div class="flyout-header-row">
+            <span class="flyout-header-title">Wall Tools</span>
+            <button class="flyout-close-btn" @click.stop="showWallMenu = false" title="Close Submenu">✕</button>
+          </div>
+          <div class="flyout-items">
+            <!-- 1. Room -->
+            <button 
+              class="flyout-item-btn" 
+              :class="{ active: currentTool === 'room_suite' || currentTool === 'building_rise' }"
+              @click="handleSelectWallTool('room_suite')"
+              title="Room & Building Controls (Key: U)"
+            >
+              <svg class="flyout-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+                <polyline points="9 22 9 12 15 12 15 22"></polyline>
+              </svg>
+              <span class="flyout-label">Room</span>
+              <kbd class="flyout-badge">U</kbd>
+            </button>
+
+            <!-- 2. Extender -->
+            <button 
+              class="flyout-item-btn" 
+              :class="{ active: currentTool === 'push_pull' }"
+              @click="handleSelectWallTool('push_pull')"
+              title="Extender: Wall Thickness & Baseline (Key: E)"
+            >
+              <svg class="flyout-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M7 17l-5-5 5-5M17 7l5 5-5 5M2 12h20"></path>
+              </svg>
+              <span class="flyout-label">Extender</span>
+              <kbd class="flyout-badge">E</kbd>
+            </button>
+
+            <!-- 3. Vertices -->
+            <button 
+              class="flyout-item-btn" 
+              :class="{ active: currentTool === 'corner' }"
+              @click="handleSelectWallTool('corner')"
+              title="Vertices: Height, Slope & Vertices (Key: K)"
+            >
+              <svg class="flyout-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="3"></circle>
+                <path d="M3 12h6M15 12h6M12 3v6M12 15v6"></path>
+              </svg>
+              <span class="flyout-label">Vertices</span>
+              <kbd class="flyout-badge">K</kbd>
+            </button>
+
+            <!-- 4. Bay/Niche -->
+            <button 
+              class="flyout-item-btn" 
+              :class="{ active: currentTool === 'extrude_recess' }"
+              @click="handleSelectWallTool('extrude_recess')"
+              title="Bay/Niche: Extrude Bay Window or Niche (Key: N)"
+            >
+              <svg class="flyout-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+                <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+                <line x1="12" y1="22.08" x2="12" y2="12"></line>
+              </svg>
+              <span class="flyout-label">Bay/Niche</span>
+              <kbd class="flyout-badge">N</kbd>
+            </button>
+
+            <!-- 5. Split -->
+            <button 
+              class="flyout-item-btn" 
+              :class="{ active: currentTool === 'split' }"
+              @click="handleSelectWallTool('split')"
+              title="Split: Slice Wall in 3D (Key: X)"
+            >
+              <svg class="flyout-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="6" cy="6" r="3"></circle>
+                <circle cx="6" cy="18" r="3"></circle>
+                <line x1="20" y1="4" x2="8.12" y2="15.88"></line>
+                <line x1="14.47" y1="14.48" x2="20" y2="20"></line>
+              </svg>
+              <span class="flyout-label">Split</span>
+              <kbd class="flyout-badge">X</kbd>
+            </button>
+
+            <!-- 6. Corners -->
+            <button 
+              class="flyout-item-btn" 
+              :class="{ active: currentTool === 'wall_corners' }"
+              @click="handleSelectWallTool('wall_corners')"
+              title="Wall Corners: Show Corners & Curved Fillets (Key: C)"
+            >
+              <svg class="flyout-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M4 20V10a6 6 0 0 1 6-6h10"></path>
+                <circle cx="4" cy="20" r="2.2" fill="currentColor"></circle>
+                <circle cx="20" cy="4" r="2.2" fill="currentColor"></circle>
+              </svg>
+              <span class="flyout-label">Corners</span>
+              <kbd class="flyout-badge">C</kbd>
+            </button>
+          </div>
+        </div>
+      </div>
 
       <div class="toolbar-divider-h"></div>
 
@@ -262,6 +382,46 @@
                   </div>
                   <div class="keys-container">
                     <kbd class="key-chip">U</kbd>
+                  </div>
+                </div>
+
+                <div class="shortcut-item">
+                  <div class="action-desc">
+                    <strong>Wall Extender (Push/Pull)</strong>
+                    <span>Extend wall thickness & baseline push/pull in 3D</span>
+                  </div>
+                  <div class="keys-container">
+                    <kbd class="key-chip">E</kbd>
+                  </div>
+                </div>
+
+                <div class="shortcut-item">
+                  <div class="action-desc">
+                    <strong>Wall Vertices & Height</strong>
+                    <span>Adjust wall height, slope, baseline elevation & vertices</span>
+                  </div>
+                  <div class="keys-container">
+                    <kbd class="key-chip">K</kbd>
+                  </div>
+                </div>
+
+                <div class="shortcut-item">
+                  <div class="action-desc">
+                    <strong>Bay Window & Recessed Niche</strong>
+                    <span>Extrude bay window or recessed niche in 3D</span>
+                  </div>
+                  <div class="keys-container">
+                    <kbd class="key-chip">N</kbd>
+                  </div>
+                </div>
+
+                <div class="shortcut-item">
+                  <div class="action-desc">
+                    <strong>Split Wall</strong>
+                    <span>Slice wall in 3D with interactive laser plane</span>
+                  </div>
+                  <div class="keys-container">
+                    <kbd class="key-chip">X</kbd>
                   </div>
                 </div>
 
@@ -510,6 +670,38 @@ const selectedEntity = ref(null);
 const showHelpPopup = ref(false);
 const activeDeviceTab = ref(props.isDesktop ? 'desktop' : 'touch');
 
+const WALL_TOOLS_SET = new Set([
+  'room_suite',
+  'building_rise',
+  'push_pull',
+  'corner',
+  'extrude_recess',
+  'split',
+  'wall_corners'
+]);
+
+const showWallMenu = ref(false);
+const wallToolsAnchorRef = ref(null);
+
+const isWallToolActive = computed(() => {
+  return WALL_TOOLS_SET.has(currentTool.value);
+});
+
+const toggleWallMenu = () => {
+  showWallMenu.value = !showWallMenu.value;
+};
+
+const handleSelectWallTool = (toolId) => {
+  selectTool(toolId);
+  showWallMenu.value = false;
+};
+
+const handleClickOutside = (event) => {
+  if (showWallMenu.value && wallToolsAnchorRef.value && !wallToolsAnchorRef.value.contains(event.target)) {
+    showWallMenu.value = false;
+  }
+};
+
 const currentCaps = ref({
   selectable: true,
   material: true,
@@ -577,7 +769,15 @@ const selectTool = (toolId) => {
     }
   }
 
-  if (currentTool.value === toolId && toolId === 'wall_corners') {
+  const toggleableTools = [
+    'wall_corners',
+    'room_suite',
+    'push_pull',
+    'corner',
+    'extrude_recess',
+    'split'
+  ];
+  if (currentTool.value === toolId && toggleableTools.includes(toolId)) {
     toolId = 'select';
   }
   currentTool.value = toolId;
@@ -638,9 +838,12 @@ onMounted(() => {
   unsubs.push(coreEventBus.on('ToggleCommonHelpModal', () => {
     showHelpPopup.value = !showHelpPopup.value;
   }));
+
+  window.addEventListener('pointerdown', handleClickOutside);
 });
 
 onBeforeUnmount(() => {
+  window.removeEventListener('pointerdown', handleClickOutside);
   unsubs.forEach(unsub => unsub());
   unsubs = [];
 });
@@ -743,6 +946,165 @@ onBeforeUnmount(() => {
   background: rgba(226, 232, 240, 0.9);
   margin: 1px 0;
   flex-shrink: 0;
+}
+
+/* WALL MASTER BUTTON & FLYOUT SUBMENU */
+.wall-tools-anchor {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+}
+
+.wall-master-btn {
+  position: relative;
+}
+
+.sub-indicator-badge {
+  position: absolute;
+  right: 1px;
+  bottom: 0px;
+  font-size: 8px;
+  font-weight: 800;
+  line-height: 1;
+  color: inherit;
+  opacity: 0.8;
+  pointer-events: none;
+}
+
+.wall-tools-flyout {
+  position: absolute;
+  left: calc(100% + 8px);
+  top: 0;
+  background: rgba(255, 255, 255, 0.98);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(226, 232, 240, 0.95);
+  box-shadow: 
+    0 12px 30px -4px rgba(15, 23, 42, 0.16),
+    0 4px 10px -2px rgba(15, 23, 42, 0.08);
+  border-radius: 12px;
+  padding: 6px;
+  min-width: 165px;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  animation: flyoutSlideIn 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes flyoutSlideIn {
+  from {
+    opacity: 0;
+    transform: translateX(-6px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+
+.flyout-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 3px 6px 5px;
+  border-bottom: 1px solid rgba(226, 232, 240, 0.8);
+}
+
+.flyout-header-title {
+  font-size: 11px;
+  font-weight: 700;
+  color: #475569;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.flyout-close-btn {
+  background: transparent;
+  border: none;
+  font-size: 11px;
+  color: #94a3b8;
+  cursor: pointer;
+  padding: 2px 5px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+.flyout-close-btn:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+}
+
+.flyout-items {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.flyout-item-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 8px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  font-size: 13px;
+  font-weight: 500;
+  color: #334155;
+  transition: all 0.15s ease;
+  min-height: 34px;
+  box-sizing: border-box;
+}
+
+.flyout-item-btn:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+}
+
+.flyout-item-btn.active {
+  background: #eff6ff;
+  color: #2563eb;
+  border-color: #bfdbfe;
+  font-weight: 600;
+}
+
+.flyout-icon {
+  width: 15px;
+  height: 15px;
+  stroke: currentColor;
+  flex-shrink: 0;
+}
+
+.flyout-label {
+  flex: 1;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.flyout-badge {
+  font-size: 10px;
+  font-weight: 600;
+  background: #f1f5f9;
+  color: #64748b;
+  border: 1px solid #e2e8f0;
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-family: inherit;
+}
+
+.flyout-item-btn.active .flyout-badge {
+  background: #dbeafe;
+  border-color: #bfdbfe;
+  color: #1d4ed8;
 }
 
 .catalog-btn {

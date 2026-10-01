@@ -791,7 +791,7 @@ export class InteractionSystem {
             }
 
             // Direct check for interactive Wall Gizmo handles (Push/Pull, Corners, Height, Extrude Bay/Niche)
-            if (this.wallInteractiveSuite) {
+            if (this.wallInteractiveSuite && this.wallInteractiveSuite.isOperationActive()) {
                 this.raycaster.setFromCamera(this.mouse, this.ctx.camera);
                 const extGizmo = this.wallInteractiveSuite.extenderGizmo || this.wallInteractiveSuite.pushPullGizmo;
                 if (extGizmo && extGizmo.visible) {
@@ -806,16 +806,12 @@ export class InteractionSystem {
                 if (this.wallInteractiveSuite.extrudeGroup && this.wallInteractiveSuite.extrudeGroup.visible) {
                     const handleObjects = [
                         this.wallInteractiveSuite.extrudeHandle,
-        this.wallInteractiveSuite.extrudeStartHandle,
+                        this.wallInteractiveSuite.extrudeStartHandle,
                         this.wallInteractiveSuite.extrudeEndHandle
                     ];
                     if (this.raycaster.intersectObjects(handleObjects, true).length > 0) return;
                 }
-                if (this.wallInteractiveSuite.activeMode && this.wallInteractiveSuite.activeMode !== 'menu' && this.wallInteractiveSuite.activeMode !== 'neutral') {
-                    // Prevent deselecting active wall when clicking around during editing
-                    const wallObj = this.wallInteractiveSuite.target;
-                    if (wallObj && this.raycaster.intersectObject(wallObj, true).length > 0) return;
-                }
+                return;
             }
 
             if (this.stairInteractiveSuite && this.stairInteractiveSuite.visible) {
@@ -878,6 +874,10 @@ export class InteractionSystem {
                 if (this.elevationSegmentGizmo && this.elevationSegmentGizmo.visible) {
                     if (this.raycaster.intersectObjects(this.elevationSegmentGizmo.handles.children, true).length > 0) return;
                 }
+                return;
+            }
+
+            if (this.wallInteractiveSuite?.isOperationActive()) {
                 return;
             }
 
@@ -1124,13 +1124,75 @@ export class InteractionSystem {
                 dom.style.cursor = 'pointer';
                 const hitMesh = validIntersects[0].object;
 
-                if (this.hoveredObject !== hitMesh) {
+                const activeWallTool = this.commonController?.activeTool;
+                const isWallTool = (
+                    activeWallTool === COMMON_TOOLS.SPLIT ||
+                    activeWallTool === COMMON_TOOLS.BAY_NICHE ||
+                    activeWallTool === COMMON_TOOLS.EXTENDER ||
+                    activeWallTool === COMMON_TOOLS.VERTICES ||
+                    activeWallTool === COMMON_TOOLS.WALL_CORNERS
+                );
+
+                if (isWallTool && this.wallInteractiveSuite?.isOperationActive()) {
+                    if (this.hoveredObject) {
+                        if (this.hoveredObject !== this.selectedObject) {
+                            this.setHighlight(this.hoveredObject, false);
+                        }
+                        this.hoveredObject = null;
+                    }
+                    return;
+                }
+
+                let wallMesh = hitMesh;
+                while (wallMesh && !wallMesh.userData?.isWallSide && !wallMesh.userData?.isWallMesh && !wallMesh.userData?.isWall && !wallMesh.userData?.isProtrusion && wallMesh.parent) {
+                    wallMesh = wallMesh.parent;
+                }
+                const isBaseWall = wallMesh && (wallMesh.userData?.isWallSide || wallMesh.userData?.isWallMesh || wallMesh.userData?.isWall || wallMesh.userData?.isProtrusion);
+
+                const targetToHighlight = isWallTool ? (isBaseWall && activeWallTool !== COMMON_TOOLS.EXTENDER ? wallMesh : null) : hitMesh;
+
+                if (this.hoveredObject !== targetToHighlight) {
                     if (this.hoveredObject && this.hoveredObject !== this.selectedObject) {
                         this.setHighlight(this.hoveredObject, false);
                     }
-                    this.hoveredObject = hitMesh;
+                    this.hoveredObject = targetToHighlight;
                     if (this.hoveredObject && this.hoveredObject !== this.selectedObject) {
                         this.setHighlight(this.hoveredObject, true, 0x93c5fd);
+                    }
+                }
+
+                // Interactive live previews on hovered wall
+                if (isWallTool && !this.wallInteractiveSuite?.isOperationActive()) {
+                    if (activeWallTool === COMMON_TOOLS.SPLIT) {
+                        if (isBaseWall) {
+                            this.wallInteractiveSuite?.previewSplit(wallMesh, validIntersects[0].point);
+                        } else {
+                            this.wallInteractiveSuite?.previewSplit(null);
+                        }
+                    } else if (activeWallTool === COMMON_TOOLS.BAY_NICHE) {
+                        if (isBaseWall) {
+                            this.wallInteractiveSuite?.previewExtrude(wallMesh, validIntersects[0].point);
+                        } else {
+                            this.wallInteractiveSuite?.previewExtrude(null);
+                        }
+                    } else if (activeWallTool === COMMON_TOOLS.EXTENDER) {
+                        if (isBaseWall) {
+                            this.wallInteractiveSuite?.previewExtender(wallMesh, validIntersects[0].point);
+                        } else {
+                            this.wallInteractiveSuite?.previewExtender(null);
+                        }
+                    } else if (activeWallTool === COMMON_TOOLS.VERTICES) {
+                        if (isBaseWall) {
+                            this.wallInteractiveSuite?.previewVertices(wallMesh, validIntersects[0].point);
+                        } else {
+                            this.wallInteractiveSuite?.previewVertices(null);
+                        }
+                    } else if (activeWallTool === COMMON_TOOLS.WALL_CORNERS) {
+                        if (isBaseWall) {
+                            this.wallInteractiveSuite?.previewWallCorner(wallMesh, validIntersects[0].point);
+                        } else {
+                            this.wallInteractiveSuite?.previewWallCorner(null);
+                        }
                     }
                 }
             } else {
@@ -1140,6 +1202,19 @@ export class InteractionSystem {
                         this.setHighlight(this.hoveredObject, false);
                     }
                     this.hoveredObject = null;
+                }
+                if (!this.wallInteractiveSuite?.isOperationActive()) {
+                    if (this.commonController?.activeTool === COMMON_TOOLS.SPLIT) {
+                        this.wallInteractiveSuite?.previewSplit(null);
+                    } else if (this.commonController?.activeTool === COMMON_TOOLS.BAY_NICHE) {
+                        this.wallInteractiveSuite?.previewExtrude(null);
+                    } else if (this.commonController?.activeTool === COMMON_TOOLS.EXTENDER) {
+                        this.wallInteractiveSuite?.previewExtender(null);
+                    } else if (this.commonController?.activeTool === COMMON_TOOLS.VERTICES) {
+                        this.wallInteractiveSuite?.previewVertices(null);
+                    } else if (this.commonController?.activeTool === COMMON_TOOLS.WALL_CORNERS) {
+                        this.wallInteractiveSuite?.previewWallCorner(null);
+                    }
                 }
             }
         };
@@ -1710,7 +1785,8 @@ export class InteractionSystem {
             const wallEntity = object.userData?.parentWall || object.userData?.entity;
             const isWallType = wallEntity && (wallEntity.type === 'outer' || wallEntity.type === 'inner' || wallEntity.type === 'compound' || wallEntity.type === 'wall' || wallEntity.type === 'arc' || wallEntity.walls || wallEntity.parentArc);
             const isBaseWall = (object.userData?.isWallSide || object.userData?.isWall || object.userData?.isWallMesh || isWallType) && !object.userData?.isOpening;
-            const isRiseMode = this.commonController?.activeTool === COMMON_TOOLS.BUILDING_RISE || Boolean(this.roomInteractiveSuite?.isBuildingRiseMode);
+            const currentCommonTool = this.commonController?.activeTool;
+            const isRiseMode = currentCommonTool === COMMON_TOOLS.BUILDING_RISE || currentCommonTool === COMMON_TOOLS.ROOM || Boolean(this.roomInteractiveSuite?.isBuildingRiseMode);
             
             const isFoundation = Boolean(object.userData?.isBuildingFoundation || object.userData?.entity?.isBuildingFoundation);
             let foundationTarget = null;
@@ -1729,8 +1805,22 @@ export class InteractionSystem {
                     this.wallInteractiveSuite.detach();
                 }
             } else {
-                if (isBaseWall && this.wallInteractiveSuite) {
-                    this.wallInteractiveSuite.attach(object, 'menu');
+                const isWallSuiteTool = (
+                    currentCommonTool === COMMON_TOOLS.EXTENDER ||
+                    currentCommonTool === COMMON_TOOLS.VERTICES ||
+                    currentCommonTool === COMMON_TOOLS.BAY_NICHE ||
+                    currentCommonTool === COMMON_TOOLS.SPLIT ||
+                    currentCommonTool === COMMON_TOOLS.WALL_CORNERS
+                );
+
+                if (object.userData?.isProtrusion && this.wallInteractiveSuite) {
+                    this.wallInteractiveSuite.attach(object, 'push_pull', hitInfo?.point);
+                } else if (isBaseWall && this.wallInteractiveSuite) {
+                    if (isWallSuiteTool) {
+                        this.wallInteractiveSuite.attach(object, currentCommonTool, hitInfo?.point);
+                    } else {
+                        this.wallInteractiveSuite.attach(object, 'menu');
+                    }
                 } else if (this.wallInteractiveSuite) {
                     this.wallInteractiveSuite.detach();
                 }
