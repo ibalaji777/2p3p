@@ -222,4 +222,102 @@ describe('WallInteractiveSuite - Bay / Niche (extrude_recess) Tool', () => {
         expect(mockPlanner.commandManager.execute).toHaveBeenCalled();
         expect(mockCtx.buildScene).toHaveBeenCalled();
     });
+
+    it('should construct photorealistic 3D lit arrows (shaft + cone) with Emerald Green for Bay and Amethyst Purple for Niche', () => {
+        suite.attach(mockMesh, 'extrude_recess');
+
+        // Check Bay (+Z) Arrow meshes and materials
+        const outMeshes = [];
+        suite.extrudeHandle.traverse(child => {
+            if (child.isMesh && child.userData?.part === 'depth_out' && child.material?.visible !== false) {
+                outMeshes.push(child);
+            }
+        });
+
+        // Must have both Cylindrical Stalk and Conical Arrowhead
+        expect(outMeshes.length).toBe(2);
+        const hasOutCylinder = outMeshes.some(m => m.geometry instanceof THREE.CylinderGeometry);
+        const hasOutCone = outMeshes.some(m => m.geometry instanceof THREE.ConeGeometry);
+        expect(hasOutCylinder).toBe(true);
+        expect(hasOutCone).toBe(true);
+
+        // Check material is MeshStandardMaterial with plain raiser pearl-white (0xf8fafc)
+        outMeshes.forEach(m => {
+            expect(m.material).toBeInstanceOf(THREE.MeshStandardMaterial);
+            expect(m.material.color.getHex()).toBe(0xf8fafc);
+            expect(m.material.depthTest).toBe(false);
+        });
+
+        // Check Niche (-Z) Arrow meshes and materials
+        const inMeshes = [];
+        suite.extrudeHandle.traverse(child => {
+            if (child.isMesh && child.userData?.part === 'depth_in' && child.material?.visible !== false) {
+                inMeshes.push(child);
+            }
+        });
+
+        // Must have both Cylindrical Stalk and Conical Arrowhead
+        expect(inMeshes.length).toBe(2);
+        const hasInCylinder = inMeshes.some(m => m.geometry instanceof THREE.CylinderGeometry);
+        const hasInCone = inMeshes.some(m => m.geometry instanceof THREE.ConeGeometry);
+        expect(hasInCylinder).toBe(true);
+        expect(hasInCone).toBe(true);
+
+        // Check material is MeshStandardMaterial with plain raiser pearl-white (0xf8fafc)
+        inMeshes.forEach(m => {
+            expect(m.material).toBeInstanceOf(THREE.MeshStandardMaterial);
+            expect(m.material.color.getHex()).toBe(0xf8fafc);
+            expect(m.material.depthTest).toBe(false);
+        });
+
+        // Check Boundary Handles have 3D arrows (Cylinder + Cone) with raiser pearl-white (0xf8fafc)
+        const boundaryMeshes = [];
+        suite.extrudeStartHandle.traverse(child => {
+            if (child.isMesh && child.userData?.part === 'boundary_start' && child.userData?.isRing !== true && child.material?.visible !== false) {
+                boundaryMeshes.push(child);
+            }
+        });
+        const hasBoundCylinder = boundaryMeshes.some(m => m.geometry instanceof THREE.CylinderGeometry && m.geometry.parameters.height === 16);
+        const hasBoundCone = boundaryMeshes.some(m => m.geometry instanceof THREE.ConeGeometry);
+        expect(hasBoundCylinder).toBe(true);
+        expect(hasBoundCone).toBe(true);
+        boundaryMeshes.forEach(m => {
+            expect(m.material.color.getHex()).toBe(0xf8fafc);
+        });
+
+        // Verify boundary handles point outward away from bay
+        const startCone = boundaryMeshes.find(m => m.geometry instanceof THREE.ConeGeometry);
+        expect(startCone.position.x).toBeLessThan(0); // start handle points left (-X, outward)
+
+        const endMeshes = [];
+        suite.extrudeEndHandle.traverse(child => {
+            if (child.isMesh && child.userData?.part === 'boundary_end' && child.userData?.isRing !== true && child.material?.visible !== false) {
+                endMeshes.push(child);
+            }
+        });
+        const endCone = endMeshes.find(m => m.geometry instanceof THREE.ConeGeometry);
+        expect(endCone.position.x).toBeGreaterThan(0); // end handle points right (+X, outward)
+
+        // Verify hover highlight
+        suite._setHandleHighlight('depth_out');
+        outMeshes.forEach(m => {
+            expect(m.material.color.getHex()).toBe(0xfacc15); // Vibrant yellow on hover
+        });
+
+        suite._setHandleHighlight(null);
+        outMeshes.forEach(m => {
+            expect(m.material.color.getHex()).toBe(0xf8fafc); // Restored raiser plain pearl-white
+        });
+
+        // Verify boundary hover highlight
+        suite._setHandleHighlight('boundary_start');
+        boundaryMeshes.forEach(m => {
+            expect(m.material.color.getHex()).toBe(0xfacc15);
+        });
+        suite._setHandleHighlight(null);
+        boundaryMeshes.forEach(m => {
+            expect(m.material.color.getHex()).toBe(0xf8fafc);
+        });
+    });
 });
+

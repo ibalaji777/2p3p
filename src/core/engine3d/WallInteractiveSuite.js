@@ -77,10 +77,10 @@ export class WallInteractiveSuite extends THREE.Group {
         this.extrudeHandle = this._buildBiDirectionalExtrudeHandle();
         this.extrudeGroup.add(this.extrudeHandle);
 
-        this.extrudeStartHandle = this._buildBoundaryHandle('start', 0x00f0ff);
+        this.extrudeStartHandle = this._buildBoundaryHandle('start', 0xf8fafc);
         this.extrudeGroup.add(this.extrudeStartHandle);
 
-        this.extrudeEndHandle = this._buildBoundaryHandle('end', 0x00f0ff);
+        this.extrudeEndHandle = this._buildBoundaryHandle('end', 0xf8fafc);
         this.extrudeGroup.add(this.extrudeEndHandle);
 
         this.target = null;
@@ -190,14 +190,28 @@ export class WallInteractiveSuite extends THREE.Group {
         // 1. Central radiant base disc
         const discGeo = new THREE.CylinderGeometry(15, 15, 5, 24);
         discGeo.rotateX(Math.PI / 2);
-        const discMesh = new THREE.Mesh(discGeo, new THREE.MeshBasicMaterial({ color: 0x00f0ff, depthTest: false, transparent: true, opacity: 0.9 }));
+        const discMesh = new THREE.Mesh(discGeo, new THREE.MeshStandardMaterial({
+            color: 0xf8fafc,
+            metalness: 0.35,
+            roughness: 0.22,
+            depthTest: false,
+            depthWrite: false,
+            transparent: true,
+            opacity: 0.95
+        }));
         discMesh.userData = { isExtrudeHandle: true, part: 'slide_center' };
         discMesh.renderOrder = 1010;
         group.add(discMesh);
 
         // 2. White inner accent ring
         const ringGeo = new THREE.TorusGeometry(10, 2, 12, 24);
-        const ringMesh = new THREE.Mesh(ringGeo, new THREE.MeshBasicMaterial({ color: 0xffffff, depthTest: false }));
+        const ringMesh = new THREE.Mesh(ringGeo, new THREE.MeshStandardMaterial({
+            color: 0xffffff,
+            metalness: 0.35,
+            roughness: 0.22,
+            depthTest: false,
+            depthWrite: false
+        }));
         ringMesh.userData = { isExtrudeHandle: true, part: 'slide_center', isRing: true };
         ringMesh.renderOrder = 1011;
         group.add(ringMesh);
@@ -208,110 +222,169 @@ export class WallInteractiveSuite extends THREE.Group {
         
         // Invisible generous hit collider for out arrow
         const outHit = new THREE.Mesh(
-            new THREE.CylinderGeometry(18, 18, 30, 12),
+            new THREE.CylinderGeometry(18, 18, 44, 16),
             new THREE.MeshBasicMaterial({ visible: false })
         );
         outHit.rotation.x = Math.PI / 2;
-        outHit.position.z = 16;
+        outHit.position.z = 24.5;
         outHit.userData = { isExtrudeHandle: true, part: 'depth_out' };
         outGroup.add(outHit);
 
-        const outShaft = new THREE.Mesh(new THREE.CylinderGeometry(3, 3, 14, 16), new THREE.MeshBasicMaterial({ color: 0x10b981, depthTest: false }));
-        outShaft.rotation.x = Math.PI / 2;
-        outShaft.position.z = 8;
+        const matBay = new THREE.MeshStandardMaterial({
+            color: 0xf8fafc,
+            metalness: 0.35,
+            roughness: 0.22,
+            depthTest: false,
+            depthWrite: false
+        });
+
+        // 3D Cylindrical Stalk
+        const outShaftGeo = new THREE.CylinderGeometry(2.8, 2.8, 24, 16);
+        outShaftGeo.rotateX(Math.PI / 2);
+        const outShaft = new THREE.Mesh(outShaftGeo, matBay);
+        outShaft.position.z = 14.5;
         outShaft.userData = { isExtrudeHandle: true, part: 'depth_out' };
         outShaft.renderOrder = 1010;
-        const outHead = new THREE.Mesh(new THREE.ConeGeometry(10, 20, 16), new THREE.MeshBasicMaterial({ color: 0x10b981, depthTest: false }));
-        outHead.rotation.x = Math.PI / 2;
-        outHead.position.z = 20;
+
+        // 3D Flared Conical Arrowhead
+        const outHeadGeo = new THREE.ConeGeometry(9.0, 18, 16);
+        outHeadGeo.rotateX(Math.PI / 2);
+        const outHead = new THREE.Mesh(outHeadGeo, matBay);
+        outHead.position.z = 35;
         outHead.userData = { isExtrudeHandle: true, part: 'depth_out' };
         outHead.renderOrder = 1010;
+
         outGroup.add(outShaft, outHead);
         group.add(outGroup);
 
-        // 4. Inward Arrow (Amethyst Purple -Z) -> Recess Niche
+        // 4. Inward Arrow (Plain Raiser Pearl-White -Z) -> Recess Niche
         const inGroup = new THREE.Group();
         inGroup.userData = { isExtrudeHandle: true, part: 'depth_in' };
 
         // Invisible generous hit collider for in arrow
         const inHit = new THREE.Mesh(
-            new THREE.CylinderGeometry(18, 18, 30, 12),
+            new THREE.CylinderGeometry(18, 18, 44, 16),
             new THREE.MeshBasicMaterial({ visible: false })
         );
         inHit.rotation.x = -Math.PI / 2;
-        inHit.position.z = -16;
+        inHit.position.z = -24.5;
         inHit.userData = { isExtrudeHandle: true, part: 'depth_in' };
         inGroup.add(inHit);
 
-        const inShaft = new THREE.Mesh(new THREE.CylinderGeometry(3, 3, 14, 16), new THREE.MeshBasicMaterial({ color: 0xa855f7, depthTest: false }));
-        inShaft.rotation.x = -Math.PI / 2;
-        inShaft.position.z = -8;
+        const matNiche = new THREE.MeshStandardMaterial({
+            color: 0xf8fafc,
+            metalness: 0.35,
+            roughness: 0.22,
+            depthTest: false,
+            depthWrite: false
+        });
+
+        // 3D Cylindrical Stalk
+        const inShaftGeo = new THREE.CylinderGeometry(2.8, 2.8, 24, 16);
+        inShaftGeo.rotateX(-Math.PI / 2);
+        const inShaft = new THREE.Mesh(inShaftGeo, matNiche);
+        inShaft.position.z = -14.5;
         inShaft.userData = { isExtrudeHandle: true, part: 'depth_in' };
         inShaft.renderOrder = 1010;
-        const inHead = new THREE.Mesh(new THREE.ConeGeometry(10, 20, 16), new THREE.MeshBasicMaterial({ color: 0xa855f7, depthTest: false }));
-        inHead.rotation.x = -Math.PI / 2;
-        inHead.position.z = -20;
+
+        // 3D Flared Conical Arrowhead
+        const inHeadGeo = new THREE.ConeGeometry(9.0, 18, 16);
+        inHeadGeo.rotateX(-Math.PI / 2);
+        const inHead = new THREE.Mesh(inHeadGeo, matNiche);
+        inHead.position.z = -35;
         inHead.userData = { isExtrudeHandle: true, part: 'depth_in' };
         inHead.renderOrder = 1010;
+
         inGroup.add(inShaft, inHead);
         group.add(inGroup);
 
         return group;
     }
 
-    _buildBoundaryHandle(side, color = 0x00f0ff) {
+    _buildBoundaryHandle(side, color = 0xf8fafc) {
         const group = new THREE.Group();
         const partName = side === 'start' ? 'boundary_start' : 'boundary_end';
         group.userData = { isExtrudeHandle: true, part: partName };
         group.renderOrder = 1010;
 
+        const isStart = side === 'start';
+        const sign = isStart ? -1 : 1;
+
         // Invisible generous hit collider along wall height and bracket
         const hitBox = new THREE.Mesh(
-            new THREE.BoxGeometry(32, 120, 24),
+            new THREE.BoxGeometry(44, 120, 24),
             new THREE.MeshBasicMaterial({ visible: false })
         );
         hitBox.name = 'laserHitBox';
+        hitBox.position.x = sign * 18;
         hitBox.userData = { isExtrudeHandle: true, part: partName };
         group.add(hitBox);
 
-        // 1. Vertical glowing laser cutting line
+        // 1. Vertical laser cutting line
         const lineGeo = new THREE.BufferGeometry().setFromPoints([
             new THREE.Vector3(0, -60, 0),
             new THREE.Vector3(0, 60, 0)
         ]);
-        const lineMat = new THREE.LineBasicMaterial({ color: 0x00f0ff, linewidth: 3, depthTest: false, transparent: true, opacity: 0.95 });
+        const lineMat = new THREE.LineBasicMaterial({ color: 0x94a3b8, linewidth: 2, depthTest: false, transparent: true, opacity: 0.75 });
         const lineMesh = new THREE.Line(lineGeo, lineMat);
         lineMesh.name = 'laserLine';
         lineMesh.renderOrder = 1009;
         group.add(lineMesh);
 
-        // 2. Boundary central pill grip
+        // 2. Boundary central pill grip (Raiser pearl-white brushed chrome)
         const discGeo = new THREE.CylinderGeometry(11, 11, 6, 20);
         discGeo.rotateX(Math.PI / 2);
-        const discMesh = new THREE.Mesh(discGeo, new THREE.MeshBasicMaterial({ color: color, depthTest: false, transparent: true, opacity: 0.95 }));
+        const matBase = new THREE.MeshStandardMaterial({
+            color: color,
+            metalness: 0.35,
+            roughness: 0.22,
+            depthTest: false,
+            depthWrite: false
+        });
+        const discMesh = new THREE.Mesh(discGeo, matBase);
         discMesh.userData = { isExtrudeHandle: true, part: partName };
         discMesh.renderOrder = 1010;
         group.add(discMesh);
 
         // 3. Accent ring
         const ringGeo = new THREE.TorusGeometry(7, 1.6, 12, 20);
-        const ringMesh = new THREE.Mesh(ringGeo, new THREE.MeshBasicMaterial({ color: 0xffffff, depthTest: false }));
+        const ringMesh = new THREE.Mesh(ringGeo, new THREE.MeshStandardMaterial({
+            color: 0xffffff,
+            metalness: 0.35,
+            roughness: 0.22,
+            depthTest: false,
+            depthWrite: false
+        }));
         ringMesh.userData = { isExtrudeHandle: true, part: partName, isRing: true };
         ringMesh.renderOrder = 1011;
         group.add(ringMesh);
 
-        // 4. Direction arrow cone along wall length
-        const coneGeo = new THREE.ConeGeometry(9, 20, 16);
-        if (side === 'start') {
-            coneGeo.rotateZ(Math.PI / 2); // points -X (left)
+        // 4. Direction arrow (Stalk + Cone Head) along wall length (pointing outward away from bay)
+        // 3D Stalk
+        const stalkGeo = new THREE.CylinderGeometry(2.4, 2.4, 16, 16);
+        if (isStart) {
+            stalkGeo.rotateZ(Math.PI / 2); // points -X (left, outward)
         } else {
-            coneGeo.rotateZ(-Math.PI / 2); // points +X (right)
+            stalkGeo.rotateZ(-Math.PI / 2); // points +X (right, outward)
         }
-        const coneMesh = new THREE.Mesh(coneGeo, new THREE.MeshBasicMaterial({ color: color, depthTest: false }));
-        coneMesh.position.set(side === 'start' ? -16 : 16, 0, 0);
+        const stalkMesh = new THREE.Mesh(stalkGeo, matBase);
+        stalkMesh.position.set(sign * 16, 0, 0);
+        stalkMesh.userData = { isExtrudeHandle: true, part: partName };
+        stalkMesh.renderOrder = 1010;
+
+        // 3D Flared Conical Arrowhead
+        const coneGeo = new THREE.ConeGeometry(8.0, 16, 16);
+        if (isStart) {
+            coneGeo.rotateZ(Math.PI / 2); // points -X (left, outward)
+        } else {
+            coneGeo.rotateZ(-Math.PI / 2); // points +X (right, outward)
+        }
+        const coneMesh = new THREE.Mesh(coneGeo, matBase);
+        coneMesh.position.set(sign * 31, 0, 0);
         coneMesh.userData = { isExtrudeHandle: true, part: partName };
         coneMesh.renderOrder = 1010;
-        group.add(coneMesh);
+
+        group.add(stalkMesh, coneMesh);
 
         return group;
     }
@@ -328,7 +401,7 @@ export class WallInteractiveSuite extends THREE.Group {
         const hitBox = handleGroup.getObjectByName('laserHitBox');
         if (hitBox) {
             hitBox.geometry.dispose();
-            hitBox.geometry = new THREE.BoxGeometry(32, wallH, 24);
+            hitBox.geometry = new THREE.BoxGeometry(44, wallH, 24);
         }
     }
 
@@ -345,11 +418,11 @@ export class WallInteractiveSuite extends THREE.Group {
             if (child.material && child.material.visible === false) return; // skip invisible hit colliders
             const part = child.userData?.part;
             if (part === 'depth_out') {
-                child.material.color.setHex(isOutHover ? 0xfacc15 : 0x10b981);
+                child.material.color.setHex(isOutHover ? 0xfacc15 : 0xf8fafc);
             } else if (part === 'depth_in') {
-                child.material.color.setHex(isInHover ? 0xfacc15 : 0xa855f7);
+                child.material.color.setHex(isInHover ? 0xfacc15 : 0xf8fafc);
             } else if (part === 'slide_center' && child.userData?.isRing !== true) {
-                child.material.color.setHex(isSlideHover ? 0xfacc15 : 0x00f0ff);
+                child.material.color.setHex(isSlideHover ? 0xfacc15 : 0xf8fafc);
             }
         });
 
@@ -358,11 +431,11 @@ export class WallInteractiveSuite extends THREE.Group {
             if (child.isMesh) {
                 if (child.material && child.material.visible === false) return;
                 if (child.userData?.isRing !== true) {
-                    child.material.color.setHex(isStartHover ? 0xfacc15 : 0x00f0ff);
+                    child.material.color.setHex(isStartHover ? 0xfacc15 : 0xf8fafc);
                 }
             } else if (child.isLine) {
-                child.material.color.setHex(isStartHover ? 0xfacc15 : 0x00f0ff);
-                child.material.opacity = isStartHover ? 1.0 : 0.85;
+                child.material.color.setHex(isStartHover ? 0xfacc15 : 0x94a3b8);
+                child.material.opacity = isStartHover ? 1.0 : 0.75;
             }
         });
 
@@ -371,11 +444,11 @@ export class WallInteractiveSuite extends THREE.Group {
             if (child.isMesh) {
                 if (child.material && child.material.visible === false) return;
                 if (child.userData?.isRing !== true) {
-                    child.material.color.setHex(isEndHover ? 0xfacc15 : 0x00f0ff);
+                    child.material.color.setHex(isEndHover ? 0xfacc15 : 0xf8fafc);
                 }
             } else if (child.isLine) {
-                child.material.color.setHex(isEndHover ? 0xfacc15 : 0x00f0ff);
-                child.material.opacity = isEndHover ? 1.0 : 0.85;
+                child.material.color.setHex(isEndHover ? 0xfacc15 : 0x94a3b8);
+                child.material.opacity = isEndHover ? 1.0 : 0.75;
             }
         });
 
@@ -1462,12 +1535,12 @@ export class WallInteractiveSuite extends THREE.Group {
 
         // Update Left Boundary Handle & Vertical Laser Cut Line
         this.extrudeStartHandle.position.set(startX, midY, surfaceZ + 2 * facing);
-        this.extrudeStartHandle.rotation.set(0, facing === 1 ? 0 : Math.PI, 0);
+        this.extrudeStartHandle.rotation.set(0, 0, 0);
         this._updateBoundaryLine(this.extrudeStartHandle, wallH);
 
         // Update Right Boundary Handle & Vertical Laser Cut Line
         this.extrudeEndHandle.position.set(endX, midY, surfaceZ + 2 * facing);
-        this.extrudeEndHandle.rotation.set(0, facing === 1 ? 0 : Math.PI, 0);
+        this.extrudeEndHandle.rotation.set(0, 0, 0);
         this._updateBoundaryLine(this.extrudeEndHandle, wallH);
 
         // Update Floating HUD Status in single unified Confirm Bar
