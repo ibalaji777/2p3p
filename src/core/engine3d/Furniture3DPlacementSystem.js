@@ -42,7 +42,7 @@ export class Furniture3DPlacementSystem {
 
         // Master Ghost Group in 3D Scene
         this.ghostGroup = new THREE.Group();
-        this.ghostGroup.name = 'Sims4_FurniturePlacement_GhostGroup';
+        this.ghostGroup.name = 'sms4_FurniturePlacement_GhostGroup';
         this.ghostGroup.visible = false;
         this.ghostGroup.raycast = () => {};
         this.ctx.scene.add(this.ghostGroup);
@@ -78,7 +78,7 @@ export class Furniture3DPlacementSystem {
 
     createBadgeDOM() {
         this.badgeDom = document.createElement('div');
-        this.badgeDom.id = 'sims4-furniture-placement-badge';
+        this.badgeDom.id = 'sms4-furniture-placement-badge';
         this.badgeDom.style.cssText = `
             position: fixed;
             display: none;

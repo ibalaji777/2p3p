@@ -486,16 +486,16 @@ describe('Universal 3D Scene Common Tools Architecture (Sims 4 Style)', () => {
 
         it('should execute 45-degree Sims 4 stepped orbit rotation', () => {
             cameraController.controls.target.set(0, 0, 0);
-            cameraController.rotateSims4Isometric(1);
+            cameraController.rotatesms4Isometric(1);
 
             expect(cameraController.isAnimating).toBe(true);
-            expect(cameraController.sims4IsoIndex).toBe(1);
+            expect(cameraController.sms4IsoIndex).toBe(1);
         });
 
         it('should toggle between Top-Down view and Isometric perspective with T key', () => {
             cameraController.controls.target.set(0, 0, 0);
             camera.position.set(0, 800, 0.001); // Top down
-            cameraController.toggleSims4TopDown();
+            cameraController.togglesms4TopDown();
 
             expect(cameraController.isAnimating).toBe(true);
         });

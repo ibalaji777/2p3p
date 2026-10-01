@@ -100,7 +100,7 @@ export class StairInteractiveSuite extends THREE.Group {
         if (typeof document === 'undefined') return;
 
         this.domHUD = document.createElement('div');
-        this.domHUD.className = 'sims4-staircase-3d-hud';
+        this.domHUD.className = 'sms4-staircase-3d-hud';
         this.domHUD.style.cssText = `
             position: absolute;
             display: none;
@@ -572,7 +572,7 @@ export class StairInteractiveSuite extends THREE.Group {
         if (typeof document === 'undefined') return;
 
         this.tooltip = document.createElement('div');
-        this.tooltip.className = 'sims4-stair-tooltip';
+        this.tooltip.className = 'sms4-stair-tooltip';
         this.tooltip.style.cssText = `
             position: fixed;
             display: none;

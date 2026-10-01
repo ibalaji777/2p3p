@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="app-root" :style="{ '--app-unit': `'${displayUnit}'` }">
     <AppToast />
     <TopToolbar
@@ -98,7 +98,7 @@
         @zoom-out="zoomOut"
         @reset-zoom="resetZoom"
         @reset-camera="resetCamera"
-        @set-sims4-view="setSims4View"
+        @set-sms4-view="setsms4View"
         @set-topdown-view="setTopDownView"
         @rotate-camera-left="rotateCameraLeft"
         @rotate-camera-right="rotateCameraRight"
@@ -786,17 +786,17 @@ onMounted(() => {
         renderer3D.value.interactions?.cancelRelocation?.();
         renderer3D.value.interactions?.hideAllPlacementGhosts?.();
         if (typeof document !== 'undefined') {
-            const stairBadge = document.getElementById('sims4-stair-placement-badge');
+            const stairBadge = document.getElementById('sms4-stair-placement-badge');
             if (stairBadge) stairBadge.style.display = 'none';
-            const furnBadge = document.getElementById('sims4-furniture-placement-badge');
+            const furnBadge = document.getElementById('sms4-furniture-placement-badge');
             if (furnBadge) furnBadge.style.display = 'none';
-            const wallPluginBadge = document.getElementById('wall-plugin-placement-badge') || document.querySelector('.sims4-wall-plugin-hud');
+            const wallPluginBadge = document.getElementById('wall-plugin-placement-badge') || document.querySelector('.sms4-wall-plugin-hud');
             if (wallPluginBadge) wallPluginBadge.style.display = 'none';
-            const stairHud = document.querySelector('.sims4-staircase-3d-hud');
+            const stairHud = document.querySelector('.sms4-staircase-3d-hud');
             if (stairHud) stairHud.style.display = 'none';
-            const wallHud = document.querySelector('.sims4-wall-3d-hud');
+            const wallHud = document.querySelector('.sms4-wall-3d-hud');
             if (wallHud) wallHud.style.display = 'none';
-            const wallConfirm = document.querySelector('.sims4-wall-confirm-bar');
+            const wallConfirm = document.querySelector('.sms4-wall-confirm-bar');
             if (wallConfirm) wallConfirm.style.display = 'none';
         }
     }
@@ -1037,17 +1037,17 @@ watch(viewMode, (newMode) => {
             renderer3D.value.interactions?.cancelRelocation?.();
             renderer3D.value.interactions?.hideAllPlacementGhosts?.();
             if (typeof document !== 'undefined') {
-                const stairBadge = document.getElementById('sims4-stair-placement-badge');
+                const stairBadge = document.getElementById('sms4-stair-placement-badge');
                 if (stairBadge) stairBadge.style.display = 'none';
-                const furnBadge = document.getElementById('sims4-furniture-placement-badge');
+                const furnBadge = document.getElementById('sms4-furniture-placement-badge');
                 if (furnBadge) furnBadge.style.display = 'none';
-                const wallPluginBadge = document.getElementById('wall-plugin-placement-badge') || document.querySelector('.sims4-wall-plugin-hud');
+                const wallPluginBadge = document.getElementById('wall-plugin-placement-badge') || document.querySelector('.sms4-wall-plugin-hud');
                 if (wallPluginBadge) wallPluginBadge.style.display = 'none';
-                const stairHud = document.querySelector('.sims4-staircase-3d-hud');
+                const stairHud = document.querySelector('.sms4-staircase-3d-hud');
                 if (stairHud) stairHud.style.display = 'none';
-                const wallHud = document.querySelector('.sims4-wall-3d-hud');
+                const wallHud = document.querySelector('.sms4-wall-3d-hud');
                 if (wallHud) wallHud.style.display = 'none';
-                const wallConfirm = document.querySelector('.sims4-wall-confirm-bar');
+                const wallConfirm = document.querySelector('.sms4-wall-confirm-bar');
                 if (wallConfirm) wallConfirm.style.display = 'none';
             }
         }
@@ -1074,17 +1074,17 @@ const switchTo2D = () => {
             }
         }
         if (typeof document !== 'undefined') {
-            const stairBadge = document.getElementById('sims4-stair-placement-badge');
+            const stairBadge = document.getElementById('sms4-stair-placement-badge');
             if (stairBadge) stairBadge.style.display = 'none';
-            const furnBadge = document.getElementById('sims4-furniture-placement-badge');
+            const furnBadge = document.getElementById('sms4-furniture-placement-badge');
             if (furnBadge) furnBadge.style.display = 'none';
-            const wallPluginBadge = document.getElementById('wall-plugin-placement-badge') || document.querySelector('.sims4-wall-plugin-hud');
+            const wallPluginBadge = document.getElementById('wall-plugin-placement-badge') || document.querySelector('.sms4-wall-plugin-hud');
             if (wallPluginBadge) wallPluginBadge.style.display = 'none';
-            const stairHud = document.querySelector('.sims4-staircase-3d-hud');
+            const stairHud = document.querySelector('.sms4-staircase-3d-hud');
             if (stairHud) stairHud.style.display = 'none';
-            const wallHud = document.querySelector('.sims4-wall-3d-hud');
+            const wallHud = document.querySelector('.sms4-wall-3d-hud');
             if (wallHud) wallHud.style.display = 'none';
-            const wallConfirm = document.querySelector('.sims4-wall-confirm-bar');
+            const wallConfirm = document.querySelector('.sms4-wall-confirm-bar');
             if (wallConfirm) wallConfirm.style.display = 'none';
         }
     }
@@ -1170,7 +1170,7 @@ const resetCamera = () => {
     }
 };
 
-const setSims4View = () => {
+const setsms4View = () => {
     if (viewMode.value === '3d' && renderer3D.value) {
         ViewportEngine.setPresetView(VIEW_PRESETS.ISO, { renderer3D: renderer3D.value });
     }

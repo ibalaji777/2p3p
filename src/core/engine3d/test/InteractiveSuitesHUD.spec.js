@@ -225,7 +225,7 @@ describe('Interactive Suites Compact HUD & Responsive Tooltip System', () => {
 
         it('should structure submenus at the bottom instead of side and manage visibility dynamically', () => {
             expect(suite.bottomSubmenuContainer).toBeDefined();
-            expect(suite.bottomSubmenuContainer.className).toBe('sims4-room-bottom-submenu');
+            expect(suite.bottomSubmenuContainer.className).toBe('sms4-room-bottom-submenu');
             expect(suite.roomBadge).toBeDefined();
             expect(suite.heightPills).toBeDefined();
             expect(suite.roomActionsContainer).toBeDefined();
@@ -287,7 +287,7 @@ describe('Interactive Suites Compact HUD & Responsive Tooltip System', () => {
             expect(suite.domHUD).toBeDefined();
 
             // Verify action buttons have <svg> line art and no emojis
-            const buttons = suite.domHUD.querySelectorAll('.sims4-wall-hud-buttons button');
+            const buttons = suite.domHUD.querySelectorAll('.sms4-wall-hud-buttons button');
             expect(buttons.length).toBeGreaterThanOrEqual(7);
             buttons.forEach(btn => {
                 expect(btn.innerHTML).toContain('<svg');
@@ -314,7 +314,7 @@ describe('Interactive Suites Compact HUD & Responsive Tooltip System', () => {
             const placement = new Stair3DPlacementSystem(mockCtx, {});
             placement.createBadgeDOM();
 
-            const badgeDom = document.getElementById('sims4-stair-placement-badge');
+            const badgeDom = document.getElementById('sms4-stair-placement-badge');
             expect(badgeDom).toBeDefined();
 
             // Check cancel button is borderless

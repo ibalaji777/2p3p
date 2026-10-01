@@ -360,22 +360,22 @@ export class InteractionSystem {
         this.wallHighlight = this.highlightRenderer.wallSelectionMesh;
         this.wallHoverHighlight = this.highlightRenderer.wallHoverMesh;
 
-        this.sims4FloorPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+        this.sms4FloorPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
         this._tempFloorHit = new THREE.Vector3();
         this._grabOffset = new THREE.Vector3();
 
-        this.sims4FootprintMat = new THREE.LineBasicMaterial({
+        this.sms4FootprintMat = new THREE.LineBasicMaterial({
             color: 0x00f0ff,
             linewidth: 2.5,
             depthTest: false,
             transparent: true,
             opacity: 0.95
         });
-        this.sims4Footprint = new THREE.LineSegments(new THREE.BufferGeometry(), this.sims4FootprintMat);
-        this.sims4Footprint.renderOrder = 1008;
-        this.sims4Footprint.raycast = () => {};
-        this.sims4Footprint.visible = false;
-        this.ctx.scene.add(this.sims4Footprint);
+        this.sms4Footprint = new THREE.LineSegments(new THREE.BufferGeometry(), this.sms4FootprintMat);
+        this.sms4Footprint.renderOrder = 1008;
+        this.sms4Footprint.raycast = () => {};
+        this.sms4Footprint.visible = false;
+        this.ctx.scene.add(this.sms4Footprint);
 
         this.commonController = new CommonInteractionController(this.ctx);
         this.ctx.commonTools = this.commonController;
@@ -613,15 +613,15 @@ export class InteractionSystem {
         this.mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
     }
 
-    _updateSims4Footprint(object) {
+    _updatesms4Footprint(object) {
         if (!object) {
-            this.sims4Footprint.visible = false;
+            this.sms4Footprint.visible = false;
             return;
         }
         object.updateMatrixWorld(true);
         const box = new THREE.Box3().setFromObject(object);
         if (box.isEmpty() || !isFinite(box.min.x)) {
-            this.sims4Footprint.visible = false;
+            this.sms4Footprint.visible = false;
             return;
         }
 
@@ -659,21 +659,21 @@ export class InteractionSystem {
             new THREE.Vector3(minX, groundY, maxZ - tick), new THREE.Vector3(minX + tick, groundY, maxZ - tick)
         ];
 
-        if (this.sims4Footprint.geometry) this.sims4Footprint.geometry.dispose();
-        this.sims4Footprint.geometry = new THREE.BufferGeometry().setFromPoints(points);
-        this.sims4Footprint.position.set(0, 0, 0);
-        this.sims4Footprint.rotation.set(0, 0, 0);
-        this.sims4Footprint.scale.set(1, 1, 1);
-        this.sims4Footprint.visible = true;
+        if (this.sms4Footprint.geometry) this.sms4Footprint.geometry.dispose();
+        this.sms4Footprint.geometry = new THREE.BufferGeometry().setFromPoints(points);
+        this.sms4Footprint.position.set(0, 0, 0);
+        this.sms4Footprint.rotation.set(0, 0, 0);
+        this.sms4Footprint.scale.set(1, 1, 1);
+        this.sms4Footprint.visible = true;
     }
 
-    rotateSelectedObjectSims4(deltaDeg = 45) {
+    rotateSelectedObjectsms4(deltaDeg = 45) {
         if (!this.selectedObject) return;
         const ent = this.selectedObject.userData?.entity;
         if (ent && this.commonController) {
             this.commonController.transformEngine.executeSpin(ent, deltaDeg);
             if (this.selectedObject) {
-                this._updateSims4Footprint(this.selectedObject);
+                this._updatesms4Footprint(this.selectedObject);
                 if (this.highlightRenderer) this.highlightRenderer.setSelectionHighlight(this.selectedObject);
                 this.setHighlight(this.selectedObject, true);
             }
@@ -1151,11 +1151,11 @@ export class InteractionSystem {
             }
 
             // Complete Sims 4 Spin / Right-Click Rotation
-            if (this.isPotentialSims4Spin || this.isSims4Spinning) {
-                if (e.button === 2 && !this.isSims4Spinning && this.selectedObject) {
+            if (this.isPotentialsms4Spin || this.issms4Spinning) {
+                if (e.button === 2 && !this.issms4Spinning && this.selectedObject) {
                     // Single right-click tap: Step rotate 45 degrees
-                    this.rotateSelectedObjectSims4(45);
-                } else if (this.isSims4Spinning && this.selectedObject) {
+                    this.rotateSelectedObjectsms4(45);
+                } else if (this.issms4Spinning && this.selectedObject) {
                     // Finished dragging rotation: commit to planner history
                     const ent = this.selectedObject.userData?.entity;
                     const plannerInst = window.planner?.value || window.planner || this.ctx.planner;
@@ -1164,14 +1164,14 @@ export class InteractionSystem {
                     } else if (plannerInst && ent) {
                         TransformEngine.executeDiscreteStep(plannerInst, ent, { absoluteRotation: ent.rotation });
                     }
-                    if (this.ctx.requestRender) this.ctx.requestRender('sims4_spin_end');
+                    if (this.ctx.requestRender) this.ctx.requestRender('sms4_spin_end');
                 }
-                this.isPotentialSims4Spin = false;
-                this.isSims4Spinning = false;
+                this.isPotentialsms4Spin = false;
+                this.issms4Spinning = false;
                 if (this.ctx.controls) this.ctx.controls.enabled = (this.mode === 'camera');
                 dom.style.cursor = 'auto';
                 if (this.selectedObject) {
-                    this._updateSims4Footprint(this.selectedObject);
+                    this._updatesms4Footprint(this.selectedObject);
                     if (this.highlightRenderer) this.highlightRenderer.setSelectionHighlight(this.selectedObject);
                     this.setHighlight(this.selectedObject, true, 0x00f0ff);
                 }
@@ -1561,17 +1561,17 @@ export class InteractionSystem {
             this.stairInteractiveSuite.detach();
         }
         if (typeof document !== 'undefined') {
-            const stairBadge = document.getElementById('sims4-stair-placement-badge');
+            const stairBadge = document.getElementById('sms4-stair-placement-badge');
             if (stairBadge) stairBadge.style.display = 'none';
-            const furnBadge = document.getElementById('sims4-furniture-placement-badge');
+            const furnBadge = document.getElementById('sms4-furniture-placement-badge');
             if (furnBadge) furnBadge.style.display = 'none';
-            const wallPluginBadge = document.getElementById('wall-plugin-placement-badge') || document.querySelector('.sims4-wall-plugin-hud');
+            const wallPluginBadge = document.getElementById('wall-plugin-placement-badge') || document.querySelector('.sms4-wall-plugin-hud');
             if (wallPluginBadge) wallPluginBadge.style.display = 'none';
             const roofBadge = document.querySelector('.roof3d-live-dimension-badge');
             if (roofBadge) roofBadge.style.display = 'none';
             const roofHUD = document.querySelector('.roof3d-mode-hud');
             if (roofHUD) roofHUD.style.display = 'none';
-            const stairHUD = document.querySelector('.sims4-staircase-3d-hud');
+            const stairHUD = document.querySelector('.sms4-staircase-3d-hud');
             if (stairHUD) stairHUD.style.display = 'none';
         }
     }
@@ -1621,7 +1621,8 @@ export class InteractionSystem {
                 this.highlightRenderer.clearSelectionHighlight();
                 this.highlightRenderer.clearHoverHighlight();
             }
-        }        if (this.ctx && typeof this.ctx.requestRender === 'function') this.ctx.requestRender();
+        }
+        if (this.ctx && typeof this.ctx.requestRender === 'function') this.ctx.requestRender();
     }
 
     selectObject(object, intersect = null, preventAutoFocus = true) {
@@ -1947,10 +1948,10 @@ export class InteractionSystem {
         if (this.cornerFilletGizmo && this.cornerFilletGizmo.destroy) this.cornerFilletGizmo.destroy();
         if (this._onSelectionChanged) {
             coreEventBus.off(EVENTS.SELECTION_CHANGED, this._onSelectionChanged);
-        }
-        if (this.sims4Footprint) {
-            if (this.sims4Footprint.geometry) this.sims4Footprint.geometry.dispose();
-            if (this.sims4Footprint.material) this.sims4Footprint.material.dispose();
+        }sms4
+        if (this.simssms4print) {sms4
+            if (this.sms4Footprint.geometry) this.sms4Footprint.geometry.dispose();
+            if (this.sms4Footprint.material) thisms4s4Footprint.material.dispose(sms4
             if (this.sims4Footprint.parent) this.sims4Footprint.parent.remove(this.sims4Footprint);
         }
     }

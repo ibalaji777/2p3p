@@ -72,7 +72,7 @@ export class Stair3DPlacementSystem {
 
         // Master Ghost Group in 3D Scene — positioned at cursor = visual center
         this.ghostGroup = new THREE.Group();
-        this.ghostGroup.name = 'Sims4_StairPlacement_GhostGroup';
+        this.ghostGroup.name = 'sms4_StairPlacement_GhostGroup';
         this.ghostGroup.visible = false;
         this.ghostGroup.raycast = () => {};
         this.ctx.scene.add(this.ghostGroup);
@@ -97,7 +97,7 @@ export class Stair3DPlacementSystem {
             opacity: 0.95
         });
         this.snapGuideMesh = new THREE.LineSegments(new THREE.BufferGeometry(), this.snapGuideMat);
-        this.snapGuideMesh.name = 'Sims4_StairPlacement_SnapGuide';
+        this.snapGuideMesh.name = 'sms4_StairPlacement_SnapGuide';
         this.snapGuideMesh.renderOrder = 1010;
         this.snapGuideMesh.raycast = () => {};
         this.snapGuideMesh.visible = false;
@@ -159,7 +159,7 @@ export class Stair3DPlacementSystem {
 
     createBadgeDOM() {
         this.badgeDom = document.createElement('div');
-        this.badgeDom.id = 'sims4-stair-placement-badge';
+        this.badgeDom.id = 'sms4-stair-placement-badge';
         this.badgeDom.style.cssText = `
             position: fixed;
             display: none;

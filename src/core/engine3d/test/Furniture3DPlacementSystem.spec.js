@@ -121,7 +121,7 @@ describe('Furniture3DPlacementSystem Unified HUD & Wall Collision', () => {
         expect(placementSystem.wallSnapEnabled).toBe(true);
         expect(placementSystem.snapMode).toBe(10);
 
-        const badge = document.getElementById('sims4-furniture-placement-badge');
+        const badge = document.getElementById('sms4-furniture-placement-badge');
         expect(badge).toBeTruthy();
 
         // Coordinates

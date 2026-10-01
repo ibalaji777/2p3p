@@ -647,7 +647,7 @@ export class RoomInteractiveSuite extends THREE.Group {
     _createLiveTooltip() {
         if (typeof document === 'undefined') return;
         this.domTooltip = document.createElement('div');
-        this.domTooltip.className = 'sims4-room-drag-tooltip';
+        this.domTooltip.className = 'sms4-room-drag-tooltip';
         this.domTooltip.style.cssText = `
             position: fixed;
             display: none;
@@ -732,7 +732,7 @@ export class RoomInteractiveSuite extends THREE.Group {
         if (typeof document === 'undefined') return;
 
         this.domRoomHUD = document.createElement('div');
-        this.domRoomHUD.className = 'sims4-room-speech-hud';
+        this.domRoomHUD.className = 'sms4-room-speech-hud';
         this.domRoomHUD.style.cssText = `
             position: fixed;
             display: none;
@@ -1067,7 +1067,7 @@ export class RoomInteractiveSuite extends THREE.Group {
 
         // Top-Right Header Line (Badge docked at top-right corner)
         const headerRow = document.createElement('div');
-        headerRow.className = 'sims4-room-header-row';
+        headerRow.className = 'sms4-room-header-row';
         headerRow.style.cssText = `
             display: flex;
             align-items: center;
@@ -1081,7 +1081,7 @@ export class RoomInteractiveSuite extends THREE.Group {
         `;
 
         this.roomBadge = document.createElement('div');
-        this.roomBadge.className = 'sims4-room-badge';
+        this.roomBadge.className = 'sms4-room-badge';
         this.roomBadge.style.cssText = `
             font-size: 9.5px;
             font-weight: 700;
@@ -1105,7 +1105,7 @@ export class RoomInteractiveSuite extends THREE.Group {
 
         // Row 3: Bottom Submenu Container (Height Pills & Room Action Icons at Bottom)
         this.bottomSubmenuContainer = document.createElement('div');
-        this.bottomSubmenuContainer.className = 'sims4-room-bottom-submenu';
+        this.bottomSubmenuContainer.className = 'sms4-room-bottom-submenu';
         this.bottomSubmenuContainer.style.cssText = `
             display: flex;
             flex-direction: column;
@@ -1118,7 +1118,7 @@ export class RoomInteractiveSuite extends THREE.Group {
 
         // Submenu Item 1: Wall Height Presets Pills
         this.heightPills = document.createElement('div');
-        this.heightPills.className = 'sims4-room-height-pills';
+        this.heightPills.className = 'sms4-room-height-pills';
         this.heightPills.style.cssText = `
             display: flex;
             align-items: center;
@@ -1215,7 +1215,7 @@ export class RoomInteractiveSuite extends THREE.Group {
 
         // Submenu Item 2: Room Action Buttons Container (Rotate, Move, Copy, Delete)
         this.roomActionsContainer = document.createElement('div');
-        this.roomActionsContainer.className = 'sims4-room-actions';
+        this.roomActionsContainer.className = 'sms4-room-actions';
         this.roomActionsContainer.style.cssText = `
             display: flex;
             align-items: center;
@@ -1480,7 +1480,7 @@ export class RoomInteractiveSuite extends THREE.Group {
         if (typeof document === 'undefined') return;
 
         this.domBuildingHUD = document.createElement('div');
-        this.domBuildingHUD.className = 'sims4-building-rise-hud';
+        this.domBuildingHUD.className = 'sms4-building-rise-hud';
         this.domBuildingHUD.style.cssText = `
             position: fixed;
             top: 75px;

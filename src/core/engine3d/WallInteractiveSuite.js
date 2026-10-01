@@ -385,7 +385,7 @@ export class WallInteractiveSuite extends THREE.Group {
     _createDOMHUD() {
         if (typeof document === 'undefined') return;
         this.domHUD = document.createElement('div');
-        this.domHUD.className = 'sims4-wall-3d-hud';
+        this.domHUD.className = 'sms4-wall-3d-hud';
         this.domHUD.style.cssText = `
             position: fixed;
             display: none;
@@ -470,7 +470,7 @@ export class WallInteractiveSuite extends THREE.Group {
 
         // Scrollable container for buttons so close button stays permanently fixed at the end
         const buttonsContainer = document.createElement('div');
-        buttonsContainer.className = 'sims4-wall-hud-buttons';
+        buttonsContainer.className = 'sms4-wall-hud-buttons';
         buttonsContainer.style.cssText = `
             display: flex;
             align-items: center;
@@ -587,7 +587,7 @@ export class WallInteractiveSuite extends THREE.Group {
     _createConfirmBar() {
         if (typeof document === 'undefined') return;
         this.domConfirmBar = document.createElement('div');
-        this.domConfirmBar.className = 'sims4-wall-confirm-bar';
+        this.domConfirmBar.className = 'sms4-wall-confirm-bar';
         this.domConfirmBar.style.cssText = `
             position: fixed;
             display: none;
@@ -627,7 +627,7 @@ export class WallInteractiveSuite extends THREE.Group {
         `;
 
         this.confirmStatusBadge = document.createElement('div');
-        this.confirmStatusBadge.className = 'sims4-confirm-badge';
+        this.confirmStatusBadge.className = 'sms4-confirm-badge';
         this.confirmStatusBadge.style.cssText = `
             display: inline-flex;
             align-items: center;
@@ -652,7 +652,7 @@ export class WallInteractiveSuite extends THREE.Group {
 
         // Bottom Controls Card: Presets + Actions
         const controlsCard = document.createElement('div');
-        controlsCard.className = 'sims4-confirm-controls';
+        controlsCard.className = 'sms4-confirm-controls';
         controlsCard.style.cssText = `
             display: flex;
             align-items: center;
@@ -775,7 +775,7 @@ export class WallInteractiveSuite extends THREE.Group {
         if (typeof document === 'undefined') return;
 
         this.tooltip = document.createElement('div');
-        this.tooltip.className = 'sims4-wall-tooltip';
+        this.tooltip.className = 'sms4-wall-tooltip';
         this.tooltip.style.cssText = `
             position: fixed;
             display: none;
@@ -858,7 +858,7 @@ export class WallInteractiveSuite extends THREE.Group {
     _createLiveBadges() {
         if (typeof document === 'undefined') return;
         this.splitBadge = document.createElement('div');
-        this.splitBadge.className = 'sims4-split-live-badge';
+        this.splitBadge.className = 'sms4-split-live-badge';
         this.splitBadge.style.cssText = `
             position: fixed;
             display: none;
@@ -879,7 +879,7 @@ export class WallInteractiveSuite extends THREE.Group {
         `;
 
         this.extrudeBadge = document.createElement('div');
-        this.extrudeBadge.className = 'sims4-extrude-live-badge';
+        this.extrudeBadge.className = 'sms4-extrude-live-badge';
         this.extrudeBadge.style.cssText = `
             position: fixed;
             display: none;

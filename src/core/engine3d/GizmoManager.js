@@ -273,7 +273,7 @@ export class GizmoManager {
                 }
 
                 /* 1. Top Space-Saving Controls Ribbon Disabled */
-                .mat-sims4-top-hud {
+                .mat-sms4-top-hud {
                     display: none !important;
                 }
 
@@ -551,10 +551,10 @@ export class GizmoManager {
 
                 /* Mobile Optimization (< 640px) */
                 @media (max-width: 640px) {
-                    .mat-sims4-top-hud {
+                    .mat-sms4-top-hud {
                         display: none !important;
                     }
-                    .mat-sims4-bottom-dock {
+                    .mat-sms4-bottom-dock {
                         bottom: 0 !important;
                         left: 0 !important;
                         right: 0 !important;
@@ -571,10 +571,10 @@ export class GizmoManager {
 
                 /* Tablet Optimization (641px - 1024px) */
                 @media (min-width: 641px) and (max-width: 1024px) {
-                    .mat-sims4-top-hud {
+                    .mat-sms4-top-hud {
                         display: none !important;
                     }
-                    .mat-sims4-bottom-dock {
+                    .mat-sms4-bottom-dock {
                         bottom: 10px !important;
                         left: 16px !important;
                         right: 16px !important;
@@ -586,7 +586,7 @@ export class GizmoManager {
                 }
 
                 /* 2. Docked Bottom Material Tray (Light Theme, Ultra Compact) */
-                .mat-sims4-bottom-dock {
+                .mat-sms4-bottom-dock {
                     position: fixed;
                     bottom: 0;
                     left: 0;
@@ -605,7 +605,7 @@ export class GizmoManager {
                     box-sizing: border-box;
                     max-height: 160px;
                 }
-                .mat-sims4-bottom-dock.collapsed {
+                .mat-sms4-bottom-dock.collapsed {
                     transform: translateY(calc(100% - 32px));
                 }
 
@@ -831,7 +831,7 @@ export class GizmoManager {
                 }
 
                 @media (max-width: 768px) {
-                    .mat-sims4-top-hud { padding: 3px 6px; gap: 4px; top: 6px; }
+                    .mat-sms4-top-hud { padding: 3px 6px; gap: 4px; top: 6px; }
                     .mat-hud-name { max-width: 80px; font-size: 10px; }
                     .mat-scope-pill, .mat-face-pill { padding: 2.5px 5px; font-size: 9px; }
                     .mat-card { width: 64px; height: 80px; }
@@ -850,7 +850,7 @@ export class GizmoManager {
             <span id="gizmo-material-face-name" style="display: none;">Select Material Type</span>
 
             <!-- Docked Bottom Material Catalog Tray -->
-            <div class="mat-sims4-bottom-dock" id="mat-sims4-bottom-dock">
+            <div class="mat-sms4-bottom-dock" id="mat-sms4-bottom-dock">
                 <div class="mat-dock-header">
                     <div class="mat-cat-nav-wrapper">
                         <button class="mat-cat-scroll-arrow" id="mat-cat-scroll-left" title="Scroll categories left">◀</button>
@@ -901,7 +901,7 @@ export class GizmoManager {
         // Block pointer events from hitting the 3D scene below only when interacting with HUD or dock elements
         ['pointerdown', 'pointerup', 'mousedown', 'mouseup', 'click', 'wheel', 'touchstart', 'touchend', 'touchmove'].forEach(evt => {
             this.materialPanel.addEventListener(evt, e => {
-                if (e.target.closest('.mat-sims4-top-hud, .mat-sims4-bottom-dock, .mat-lib-grid-wrapper, #gizmo-subgroup-tabs-container, .gizmo-wall-target-bar, .gizmo-decor-chip, .gizmo-decor-card, .gizmo-slider, .gizmo-input-num, input, button')) {
+                if (e.target.closest('.mat-sms4-top-hud, .mat-sms4-bottom-dock, .mat-lib-grid-wrapper, #gizmo-subgroup-tabs-container, .gizmo-wall-target-bar, .gizmo-decor-chip, .gizmo-decor-card, .gizmo-slider, .gizmo-input-num, input, button')) {
                     e.stopPropagation();
                 }
             }, { passive: false });
@@ -1112,7 +1112,7 @@ export class GizmoManager {
 
         // Toggle Catalog Tray collapse/expand
         const toggleDock = () => {
-            const dock = this.materialPanel.querySelector('#mat-sims4-bottom-dock');
+            const dock = this.materialPanel.querySelector('#mat-sms4-bottom-dock');
             const collapseBtn = this.materialPanel.querySelector('#mat-dock-collapse-btn');
             const trayBtn = this.materialPanel.querySelector('#mat-toggle-tray-btn');
             if (!dock) return;
@@ -2902,12 +2902,12 @@ export class GizmoManager {
         const side = this.activeFace || this.activeObject?.userData?.side || selectedObj?.userData?.side || 'front';
         
         // Synchronize Top HUD scope & face pills
-        const hudScopeBtns = this.materialPanel.querySelectorAll('.mat-sims4-top-hud .mat-scope-pill');
+        const hudScopeBtns = this.materialPanel.querySelectorAll('.mat-sms4-top-hud .mat-scope-pill');
         hudScopeBtns.forEach(btn => {
             btn.classList.toggle('active', btn.getAttribute('data-scope') === (this.materialScope || 'selectedFace'));
         });
 
-        const hudFaceBtns = this.materialPanel.querySelectorAll('.mat-sims4-top-hud .mat-face-pill');
+        const hudFaceBtns = this.materialPanel.querySelectorAll('.mat-sms4-top-hud .mat-face-pill');
         hudFaceBtns.forEach(btn => {
             btn.classList.toggle('active', btn.getAttribute('data-side') === side);
         });

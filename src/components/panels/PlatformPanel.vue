@@ -18,7 +18,7 @@
         </div>
 
         <!-- Sims 4 Step Controls: Big Raise & Lower Buttons -->
-        <div class="sims4-step-control-section">
+        <div class="sms4-step-control-section">
             <div class="step-buttons-grid">
                 <button 
                     class="step-btn btn-raise" 
@@ -480,7 +480,7 @@ const duplicatePlatform = () => {
 }
 
 /* Sims 4 Step Control Section */
-.sims4-step-control-section {
+.sms4-step-control-section {
     display: flex;
     flex-direction: column;
     gap: 8px;

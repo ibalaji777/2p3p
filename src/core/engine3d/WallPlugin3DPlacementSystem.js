@@ -48,7 +48,7 @@ export class WallPlugin3DPlacementSystem {
 
         // Container for all 3D Ghost and Highlight elements
         this.placementGroup = new THREE.Group();
-        this.placementGroup.name = 'Sims4_WallPlacement_Group';
+        this.placementGroup.name = 'sms4_WallPlacement_Group';
         this.placementGroup.visible = false;
         this.placementGroup.raycast = () => {};
         this.ctx.scene.add(this.placementGroup);
@@ -105,7 +105,7 @@ export class WallPlugin3DPlacementSystem {
 
     createBadgeDOM() {
         this.badgeDom = document.createElement('div');
-        this.badgeDom.id = 'sims4-wall-plugin-badge';
+        this.badgeDom.id = 'sms4-wall-plugin-badge';
         this.badgeDom.style.cssText = `
             position: fixed;
             display: none;

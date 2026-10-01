@@ -282,9 +282,9 @@ const isVisible = computed(() => {
       return false;
     }
     if (typeof document !== 'undefined') {
-      const activePlacementBadge = document.getElementById('sims4-stair-placement-badge') ||
-                                   document.getElementById('sims4-furniture-placement-badge') ||
-                                   document.querySelector('.sims4-wall-plugin-hud');
+      const activePlacementBadge = document.getElementById('sms4-stair-placement-badge') ||
+                                   document.getElementById('sms4-furniture-placement-badge') ||
+                                   document.querySelector('.sms4-wall-plugin-hud');
       if (activePlacementBadge && activePlacementBadge.style.display !== 'none') {
         return false;
       }

@@ -59,7 +59,7 @@ export class CameraController {
         // Default perspective
         this.defaultDistance = 1500;
         this.defaultPosition = new THREE.Vector3(1200, 800, 1200);
-        this.sims4IsoIndex = 0;
+        this.sms4IsoIndex = 0;
 
         if (this.camera && this.camera.position.lengthSq() < 10) {
             this.camera.position.copy(this.defaultPosition);
@@ -93,13 +93,13 @@ export class CameraController {
 
             // Sims 4 45° Stepped Rotation (< / > / , / . / Q / E)
             if (key === '<' || key === ',' || (keyLower === 'q' && !e.ctrlKey && !e.metaKey && !this.preview3D?.interactions?.drawing)) {
-                this.rotateSims4Isometric(-1);
+                this.rotatesms4Isometric(-1);
             } else if (key === '>' || key === '.' || (keyLower === 'e' && !e.ctrlKey && !e.metaKey && !this.preview3D?.interactions?.drawing)) {
-                this.rotateSims4Isometric(1);
+                this.rotatesms4Isometric(1);
             }
             // Sims 4 Top-Down Toggle (T)
             else if (keyLower === 't' && !e.ctrlKey && !e.metaKey && !this.preview3D?.interactions?.drawing) {
-                this.toggleSims4TopDown();
+                this.togglesms4TopDown();
             }
             // Zoom in / out shortcuts (+ / - / Z / X)
             else if (key === '+' || key === '=' || keyLower === 'z') {
@@ -276,18 +276,18 @@ export class CameraController {
      * Sets Sims 4 Isometric 45° View around the active center / target.
      * @param {number|null} quadrantIndex
      */
-    setSims4IsometricView(quadrantIndex = null) {
+    setsms4IsometricView(quadrantIndex = null) {
         if (quadrantIndex !== null) {
-            this.sims4IsoIndex = (quadrantIndex % 4 + 4) % 4;
-        } else if (this.sims4IsoIndex === undefined) {
-            this.sims4IsoIndex = 0;
+            this.sms4IsoIndex = (quadrantIndex % 4 + 4) % 4;
+        } else if (this.sms4IsoIndex === undefined) {
+            this.sms4IsoIndex = 0;
         }
 
         const center = this.controls.target.clone();
         const dist = Math.max(400, this.camera.position.distanceTo(center));
 
         // 4 quadrants for Sims 4 Isometric View (45°, 135°, 225°, 315°)
-        const angle = this.sims4IsoIndex * (Math.PI / 2) + Math.PI / 4;
+        const angle = this.sms4IsoIndex * (Math.PI / 2) + Math.PI / 4;
         const dir = new THREE.Vector3(Math.cos(angle), 0.75, Math.sin(angle)).normalize();
         const newPos = center.clone().add(dir.multiplyScalar(dist));
         this.animateTo(newPos, center);
@@ -297,10 +297,10 @@ export class CameraController {
      * Rotates camera in 45° step around target pivot (Sims 4 style < / >).
      * @param {number} direction - +1 for clockwise, -1 for counter-clockwise.
      */
-    rotateSims4Isometric(direction = 1) {
-        if (this.sims4IsoIndex === undefined) this.sims4IsoIndex = 0;
-        this.sims4IsoIndex = (this.sims4IsoIndex + direction + 4) % 4;
-        this.setSims4IsometricView(this.sims4IsoIndex);
+    rotatesms4Isometric(direction = 1) {
+        if (this.sms4IsoIndex === undefined) this.sms4IsoIndex = 0;
+        this.sms4IsoIndex = (this.sms4IsoIndex + direction + 4) % 4;
+        this.setsms4IsometricView(this.sms4IsoIndex);
     }
 
     /**
@@ -318,10 +318,10 @@ export class CameraController {
     /**
      * Toggles smoothly between Top-Down view and 45° Isometric perspective.
      */
-    toggleSims4TopDown() {
+    togglesms4TopDown() {
         const dir = new THREE.Vector3().subVectors(this.camera.position, this.controls.target).normalize();
         if (dir.y > 0.92) {
-            this.setSims4IsometricView();
+            this.setsms4IsometricView();
         } else {
             this.setTopDownView();
         }
@@ -368,7 +368,7 @@ export class CameraController {
         const center = new THREE.Vector3();
         box.getCenter(center);
         this.controls.target.copy(center);
-        this.setSims4IsometricView(0);
+        this.setsms4IsometricView(0);
     }
 
     animateTo(position, target) {

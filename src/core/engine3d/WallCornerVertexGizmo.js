@@ -55,7 +55,7 @@ export class WallCornerVertexGizmo extends THREE.Group {
     _createLiveBadge() {
         if (typeof document === 'undefined') return;
         this.domBadge = document.createElement('div');
-        this.domBadge.className = 'sims4-edgepoint-badge';
+        this.domBadge.className = 'sms4-edgepoint-badge';
         this.domBadge.style.cssText = `
             position: absolute;
             display: none;

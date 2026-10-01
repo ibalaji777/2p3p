@@ -102,15 +102,15 @@ describe('ViewportEngine Canonical Subsystem', () => {
 
         beforeEach(() => {
             cam3D = {
-                setSims4IsometricView: vi.fn(),
+                setsms4IsometricView: vi.fn(),
                 setTopDownView: vi.fn(),
                 setFrontElevationView: vi.fn(),
                 setBackElevationView: vi.fn(),
                 setLeftElevationView: vi.fn(),
                 setRightElevationView: vi.fn(),
                 resetCamera: vi.fn(),
-                rotateSims4Isometric: vi.fn(),
-                toggleSims4TopDown: vi.fn()
+                rotatesms4Isometric: vi.fn(),
+                togglesms4TopDown: vi.fn()
             };
             renderer3D = {
                 cameraController: cam3D,
@@ -120,16 +120,16 @@ describe('ViewportEngine Canonical Subsystem', () => {
 
         it('should dispatch all 4 isometric quadrants', () => {
             ViewportEngine.setPresetView(VIEW_PRESETS.ISO, { renderer3D });
-            expect(cam3D.setSims4IsometricView).toHaveBeenCalledWith(0);
+            expect(cam3D.setsms4IsometricView).toHaveBeenCalledWith(0);
 
             ViewportEngine.setPresetView(VIEW_PRESETS.ISO_SE, { renderer3D });
-            expect(cam3D.setSims4IsometricView).toHaveBeenCalledWith(1);
+            expect(cam3D.setsms4IsometricView).toHaveBeenCalledWith(1);
 
             ViewportEngine.setPresetView(VIEW_PRESETS.ISO_SW, { renderer3D });
-            expect(cam3D.setSims4IsometricView).toHaveBeenCalledWith(2);
+            expect(cam3D.setsms4IsometricView).toHaveBeenCalledWith(2);
 
             ViewportEngine.setPresetView(VIEW_PRESETS.ISO_NW, { renderer3D });
-            expect(cam3D.setSims4IsometricView).toHaveBeenCalledWith(3);
+            expect(cam3D.setsms4IsometricView).toHaveBeenCalledWith(3);
         });
 
         it('should dispatch top-down blueprint view', () => {
@@ -156,15 +156,15 @@ describe('ViewportEngine Canonical Subsystem', () => {
 
         it('should rotate view stepped 45 degrees left and right', () => {
             ViewportEngine.rotateView(-1, { renderer3D });
-            expect(cam3D.rotateSims4Isometric).toHaveBeenCalledWith(-1);
+            expect(cam3D.rotatesms4Isometric).toHaveBeenCalledWith(-1);
 
             ViewportEngine.rotateView(1, { renderer3D });
-            expect(cam3D.rotateSims4Isometric).toHaveBeenCalledWith(1);
+            expect(cam3D.rotatesms4Isometric).toHaveBeenCalledWith(1);
         });
 
         it('should toggle top-down view smoothly', () => {
             ViewportEngine.toggleTopDown({ renderer3D });
-            expect(cam3D.toggleSims4TopDown).toHaveBeenCalled();
+            expect(cam3D.togglesms4TopDown).toHaveBeenCalled();
         });
     });
 

@@ -168,16 +168,16 @@ export class ViewportEngine {
         switch (preset) {
             case VIEW_PRESETS.ISO:
             case VIEW_PRESETS.ISO_NE:
-                if (typeof cam3D.setSims4IsometricView === 'function') cam3D.setSims4IsometricView(0);
+                if (typeof cam3D.setsms4IsometricView === 'function') cam3D.setsms4IsometricView(0);
                 break;
             case VIEW_PRESETS.ISO_SE:
-                if (typeof cam3D.setSims4IsometricView === 'function') cam3D.setSims4IsometricView(1);
+                if (typeof cam3D.setsms4IsometricView === 'function') cam3D.setsms4IsometricView(1);
                 break;
             case VIEW_PRESETS.ISO_SW:
-                if (typeof cam3D.setSims4IsometricView === 'function') cam3D.setSims4IsometricView(2);
+                if (typeof cam3D.setsms4IsometricView === 'function') cam3D.setsms4IsometricView(2);
                 break;
             case VIEW_PRESETS.ISO_NW:
-                if (typeof cam3D.setSims4IsometricView === 'function') cam3D.setSims4IsometricView(3);
+                if (typeof cam3D.setsms4IsometricView === 'function') cam3D.setsms4IsometricView(3);
                 break;
             case VIEW_PRESETS.TOP:
             case VIEW_PRESETS.BLUEPRINT:
@@ -213,8 +213,8 @@ export class ViewportEngine {
     static rotateView(direction = 1, ctx) {
         const renderer3D = ctx.renderer3D || ctx;
         const cam3D = renderer3D?.cameraController;
-        if (cam3D && typeof cam3D.rotateSims4Isometric === 'function') {
-            cam3D.rotateSims4Isometric(direction);
+        if (cam3D && typeof cam3D.rotatesms4Isometric === 'function') {
+            cam3D.rotatesms4Isometric(direction);
         }
         if (renderer3D.requestRender) {
             renderer3D.requestRender('viewport_rotate', 35);
@@ -229,8 +229,8 @@ export class ViewportEngine {
     static toggleTopDown(ctx) {
         const renderer3D = ctx.renderer3D || ctx;
         const cam3D = renderer3D?.cameraController;
-        if (cam3D && typeof cam3D.toggleSims4TopDown === 'function') {
-            cam3D.toggleSims4TopDown();
+        if (cam3D && typeof cam3D.togglesms4TopDown === 'function') {
+            cam3D.togglesms4TopDown();
         }
         if (renderer3D.requestRender) {
             renderer3D.requestRender('viewport_toggle_topdown', 35);

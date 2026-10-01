@@ -639,13 +639,13 @@ export class CommonInteractionController {
                 }
                 break;
             case SHORTCUT_ACTIONS.ROTATE_CAMERA_LEFT:
-                if (this.ctx.cameraController?.rotateSims4Isometric) {
-                    this.ctx.cameraController.rotateSims4Isometric(-1);
+                if (this.ctx.cameraController?.rotatesms4Isometric) {
+                    this.ctx.cameraController.rotatesms4Isometric(-1);
                 }
                 break;
             case SHORTCUT_ACTIONS.ROTATE_CAMERA_RIGHT:
-                if (this.ctx.cameraController?.rotateSims4Isometric) {
-                    this.ctx.cameraController.rotateSims4Isometric(1);
+                if (this.ctx.cameraController?.rotatesms4Isometric) {
+                    this.ctx.cameraController.rotatesms4Isometric(1);
                 }
                 break;
             case SHORTCUT_ACTIONS.HELP:

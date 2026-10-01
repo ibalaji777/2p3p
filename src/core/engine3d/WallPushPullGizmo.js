@@ -301,8 +301,8 @@ export class WallPushPullGizmo extends THREE.Group {
         this.matPurple = new THREE.MeshBasicMaterial({ color: 0xa855f7, depthTest: false, transparent: true, opacity: 0.95 });
         
         // 1. Build Front and Back center arrow handles with circular halo rings
-        this.handleFront = this._buildSims4Handle('front', 0x0070f3);
-        this.handleBack = this._buildSims4Handle('back', 0x0070f3);
+        this.handleFront = this._buildsms4Handle('front', 0x0070f3);
+        this.handleBack = this._buildsms4Handle('back', 0x0070f3);
 
         // 2. Build Width Boundary Handles (Left & Right - Subtle Guide Lines with Circular Grips)
         this.startWidthHandle = this._buildBoundaryHandle('start', 0x0070f3);
@@ -758,7 +758,7 @@ export class WallPushPullGizmo extends THREE.Group {
         }
 
         this.domConfirmBar = document.createElement('div');
-        this.domConfirmBar.className = 'sims4-pushpull-confirm-bar';
+        this.domConfirmBar.className = 'sms4-pushpull-confirm-bar';
         this.domConfirmBar.style.cssText = `
             position: absolute;
             display: none;
@@ -798,7 +798,7 @@ export class WallPushPullGizmo extends THREE.Group {
         `;
 
         this.domBadge = document.createElement('div');
-        this.domBadge.className = 'sims4-pushpull-badge';
+        this.domBadge.className = 'sms4-pushpull-badge';
         this.domBadge.style.cssText = `
             display: inline-flex;
             align-items: center;
@@ -937,7 +937,7 @@ export class WallPushPullGizmo extends THREE.Group {
         container.appendChild(this.domConfirmBar);
     }
 
-    _buildSims4Handle(side, color = 0x0070f3) {
+    _buildsms4Handle(side, color = 0x0070f3) {
         const group = new THREE.Group();
         group.userData = { isWallPushPullHandle: true, side, part: side };
         group.renderOrder = 999990;

@@ -36,7 +36,7 @@
     <!-- Unified Top-Right 3D Camera Controls Bar (Paired with Navigation Cube) -->
     <div v-show="viewMode === '3d'" class="scene-view-bar">
         <!-- 1. Isometric 3D View -->
-        <button class="view-bar-btn" @click="$emit('set-sims4-view')" title="Isometric 3D View">
+        <button class="view-bar-btn" @click="$emit('set-sms4-view')" title="Isometric 3D View">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
                 <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
@@ -118,7 +118,7 @@ const props = defineProps({
 const emit = defineEmits([
   'update:showGuide', 'update:showAdvancedTools', 'handle-adv-trigger-click', 'set-advanced-tool',
   'toggle-wall-tracking', 'toggle-xray-mode', 'set-wall-cutaway-mode', 'zoom-in', 'zoom-out', 'reset-zoom', 'reset-camera',
-  'set-sims4-view', 'set-topdown-view', 'rotate-camera-left', 'rotate-camera-right', 'toggle-catalog', 'toggle-properties'
+  'set-sms4-view', 'set-topdown-view', 'rotate-camera-left', 'rotate-camera-right', 'toggle-catalog', 'toggle-properties'
 ]);
 
 const cycleWallMode = () => {

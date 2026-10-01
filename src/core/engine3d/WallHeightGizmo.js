@@ -67,7 +67,7 @@ export class WallHeightGizmo extends THREE.Group {
     _createLiveBadge() {
         if (typeof document === 'undefined') return;
         this.domBadge = document.createElement('div');
-        this.domBadge.className = 'sims4-wallheight-badge';
+        this.domBadge.className = 'sms4-wallheight-badge';
         this.domBadge.style.cssText = `
             position: fixed;
             display: none;

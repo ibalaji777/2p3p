@@ -137,7 +137,7 @@ export class Ribbon3DDrawSystem {
 
     createBadgeDOM() {
         this.badgeDom = document.createElement('div');
-        this.badgeDom.id = 'sims4-ribbon-draw-badge';
+        this.badgeDom.id = 'sms4-ribbon-draw-badge';
         this.badgeDom.style.cssText = `
             position: fixed;
             display: none;
