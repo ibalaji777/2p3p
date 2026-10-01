@@ -105,7 +105,7 @@
         <div class="decor-gallery" v-if="roofConfig && roofConfig.roofType !== 'flat'">
             <MaterialSizeInput :modelValue="selectedEntity.tileSize || selectedEntity.config?.tileSize || 100" :defaultMax="200" @change="updateTileSize($event)" />
             
-            <!-- Sims 4 Paint Scope & Per-Slope Toggle -->
+            <!-- sms 4 Paint Scope & Per-Slope Toggle -->
             <div style="background: rgba(15, 23, 42, 0.04); border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px; margin-top: 12px; margin-bottom: 12px;">
                 <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
                     <span style="font-size: 12px; font-weight: 700; color: #1e293b;">Painting Mode</span>
@@ -285,7 +285,7 @@
                 </div>
             </div>
 
-            <!-- Sims 4 Roof Sculptures & Ridge Decor Manager -->
+            <!-- sms 4 Roof Sculptures & Ridge Decor Manager -->
             <div style="margin-top: 18px; border-top: 1px solid #e2e8f0; padding-top: 12px;">
                 <h4 class="props-subtitle" style="margin: 0 0 10px 0; display: flex; align-items: center; justify-content: space-between;">
                     <span style="display: flex; align-items: center; gap: 6px;">

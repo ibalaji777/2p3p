@@ -15,7 +15,7 @@ const STAIR_SVG_PLACE = `<svg width="12" height="12" viewBox="0 0 24 24" fill="n
 /**
  * Stair3DPlacementSystem
  * 
- * Direct Sims 4-Style 3D Staircase Placement & Real-Time Ghost/Footprint Highlighting.
+ * Direct sms 4-Style 3D Staircase Placement & Real-Time Ghost/Footprint Highlighting.
  * 
  * COORDINATE ARCHITECTURE:
  * ========================
@@ -59,14 +59,14 @@ export class Stair3DPlacementSystem {
         this._isSnapped = false; // Wall edge snap hysteresis state
         this._lastSnappedPos = null; // Coordinates of active snap target
 
-        // Sims 4 Relocation (Move) State
+        // sms 4 Relocation (Move) State
         this.isRelocating = false;
         this.relocatingEntity = null;
         this.initialEntityPosition = null;
 
         this.stairBuilder = new Stair3DBuilder(ctx.assets, [], ctx.helpers);
 
-        // Sims 4 Dynamic Height Auto-Detection State
+        // sms 4 Dynamic Height Auto-Detection State
         this.autoHeightEnabled = true;
         this.lastDetection = null;
 
@@ -200,7 +200,7 @@ export class Stair3DPlacementSystem {
                 </button>
             </div>
 
-            <!-- Centered Frosted Glass Controls Card (Sims 4 speech HUD standard) -->
+            <!-- Centered Frosted Glass Controls Card (sms 4 speech HUD standard) -->
             <div style="display: flex; align-items: center; justify-content: center; gap: 3px; background: rgba(255, 255, 255, 0.96); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border: 1px solid rgba(226, 232, 240, 0.95); border-radius: 10px; padding: 3px 6px; box-shadow: 0 10px 25px -4px rgba(15, 23, 42, 0.12), 0 2px 6px -1px rgba(15, 23, 42, 0.04); width: fit-content; align-self: center; box-sizing: border-box; white-space: nowrap; flex-shrink: 0;">
                 <button id="stair-ui-btn-auto" type="button" title="Toggle Auto Height Detection" style="display: inline-flex; flex-direction: row; align-items: center; justify-content: center; gap: 3px; white-space: nowrap; flex-shrink: 0; background: #ecfdf5; border: 1px solid #a7f3d0; color: #059669; border-radius: 6px; padding: 2.5px 7px; font-size: 10.5px; font-weight: 600; cursor: pointer; min-height: 22px; line-height: 1; outline: none; transition: all 0.12s ease;">
                     ${STAIR_SVG_AUTO}<span>Auto</span>
@@ -494,7 +494,7 @@ export class Stair3DPlacementSystem {
         let worldX = cursorX + this._grabOffset.x;
         let worldZ = cursorZ + this._grabOffset.z;
 
-        // Sims 4 Real-Time Height Auto-Detection
+        // sms 4 Real-Time Height Auto-Detection
         const detection = this.autoHeightEnabled ? StairHeightDetector.detect({
             x: worldX,
             z: worldZ,
@@ -699,7 +699,7 @@ export class Stair3DPlacementSystem {
             // Shift model preview so geometric center aligns with cursor
             tempWrapper.position.set(-center.x, 0, -center.z);
 
-            // Apply 10/10 Sims 4 luminous holographic ghost material styling
+            // Apply 10/10 sms 4 luminous holographic ghost material styling
             const ghostMat = new THREE.MeshStandardMaterial({
                 color: 0x00f0ff,
                 emissive: 0x004466,

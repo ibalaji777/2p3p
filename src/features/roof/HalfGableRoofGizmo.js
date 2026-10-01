@@ -572,7 +572,7 @@ export class HalfGableRoofGizmo extends THREE.Group {
         const axis = conf.ridgeAxis || 'x';
         const flip = !!conf.flipSlope;
 
-        // 1. Dedicated High Ridge Apex Peak Handle (Sims 4 Vertical Pitch Arrow)
+        // 1. Dedicated High Ridge Apex Peak Handle (sms 4 Vertical Pitch Arrow)
         const peakGroup = new THREE.Group();
         peakGroup.userData = { type: 'pitch', role: 'peak' };
 
@@ -592,7 +592,7 @@ export class HalfGableRoofGizmo extends THREE.Group {
         this.handles.add(peakGroup);
         this.peakHandle = peakGroup;
 
-        // 2. Dedicated Slope Curvature Handle (Sims 4 Clean Sphere on slope face)
+        // 2. Dedicated Slope Curvature Handle (sms 4 Clean Sphere on slope face)
         const curveGroup = new THREE.Group();
         curveGroup.userData = { type: 'curve', role: 'slope_curve' };
 
@@ -658,7 +658,7 @@ export class HalfGableRoofGizmo extends THREE.Group {
             const edgeGroup = new THREE.Group();
             edgeGroup.userData = { type: 'edge', role, edgeIndex: i };
 
-            // Outward 3D Arrow (Sims 4 Eave / Rake Arrow)
+            // Outward 3D Arrow (sms 4 Eave / Rake Arrow)
             const eCollar = new THREE.Mesh(new THREE.CylinderGeometry(4, 4, 2, 16), curMat);
             eCollar.rotation.x = Math.PI / 2;
             eCollar.position.z = 1;
@@ -679,7 +679,7 @@ export class HalfGableRoofGizmo extends THREE.Group {
             this.edgeHandles.push(edgeGroup);
         }
 
-        // 4. Corner Vertex Handles (Sims 4 Diagonal Corner Arrows)
+        // 4. Corner Vertex Handles (sms 4 Diagonal Corner Arrows)
         const corners = ['nw', 'ne', 'se', 'sw'];
         for (let i = 0; i < numPts; i++) {
             const cornerGroup = new THREE.Group();

@@ -143,7 +143,7 @@ describe('Roof Pipeline & 3D Addition', () => {
         expect(plannerInstance.roofs[0].config.material).toBe('terracotta_tiles_roof');
     });
 
-    it('5. should handle Sims 4 style interactive 3D roof placement and drag-to-draw', async () => {
+    it('5. should handle sms 4 style interactive 3D roof placement and drag-to-draw', async () => {
         const { Roof3DPlacementSystem } = await import('../../../core/engine3d/Roof3DPlacementSystem.js');
         
         const mockPlanner = {

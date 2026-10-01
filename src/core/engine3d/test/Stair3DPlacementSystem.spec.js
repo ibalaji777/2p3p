@@ -116,7 +116,7 @@ describe('Stair3DPlacementSystem Unified Architecture & Wall Collision', () => {
         placementSystem = new Stair3DPlacementSystem(mockCtx, {});
     });
 
-    it('should initialize with center-anchoring and Sims 4 10/10 highlight meshes', () => {
+    it('should initialize with center-anchoring and sms 4 10/10 highlight meshes', () => {
         expect(placementSystem.footprintMesh).toBeDefined();
         expect(placementSystem.footprintFillMesh).toBeDefined();
         expect(placementSystem.footprintArrowMesh).toBeDefined();

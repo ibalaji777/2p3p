@@ -88,7 +88,7 @@ export function setupPointerEvents(planner) {
             if (planner.tool === 'roof' || planner.tool === 'shape_floor_cut') return;
             let rawPos = { x: planner.snap(pos.x), y: planner.snap(pos.y) };
 
-            // Real-time Sims 4 Room Box 2D Live Preview
+            // Real-time sms 4 Room Box 2D Live Preview
             if (planner.tool === 'room_box' || planner.tool === 'foundation_box' || planner.drawingRoomBox) {
                 let snapPos = rawPos;
                 let snappedObj = false;

@@ -5,7 +5,7 @@ import { coreEventBus } from '../EventBus.js';
 /**
  * PlatformInteractiveSuite
  * 
- * Central coordinator managing Sims 4-style 3D interactive editing for platforms:
+ * Central coordinator managing sms 4-style 3D interactive editing for platforms:
  * 1. Floating 3D HUD Toolbar directly hovering over the selected platform:
  *    - ▲ Raise Platform (+15cm / +1 Step)
  *    - ▼ Lower Platform (-15cm / -1 Step)

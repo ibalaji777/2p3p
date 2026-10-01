@@ -1,7 +1,7 @@
 /**
  * WallPaintSystem
  * 
- * Provides Sims 4-style 3D Material & Paint Tooling:
+ * Provides sms 4-style 3D Material & Paint Tooling:
  * 1. Single Face Mode: Paints only the clicked wall face (front or back).
  * 2. Room Loop Mode (Shift+Click / Toggle): Automatically detects the room polygon loop
  *    adjacent to the clicked wall face and paints all interior-facing wall surfaces in that room.

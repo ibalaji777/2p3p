@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import * as THREE from 'three';
 import { WallCutawaySystem } from '../WallCutawaySystem.js';
 
-describe('Sims 4 3-Way 3D Wall Visibility & Cutaway Viewport System', () => {
+describe('sms 4 3-Way 3D Wall Visibility & Cutaway Viewport System', () => {
     let mockCtx;
     let cutawaySystem;
     let frontWallGroup;

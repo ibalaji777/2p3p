@@ -233,7 +233,7 @@ function _getDimensionBadgeTexture(text) {
 /**
  * WallPushPullGizmo
  * 
- * Provides interactive Sims 4-style 3D push/pull handles directly on wall surfaces.
+ * Provides interactive sms 4-style 3D push/pull handles directly on wall surfaces.
  * 
  * 3-Step Elevation Workflow:
  * 1. User selects specific area on wall face (Horizontal Left/Right & Vertical Top/Bottom handles + Glowing 2D Selection Box).

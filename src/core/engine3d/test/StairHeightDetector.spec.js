@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { StairHeightDetector, STAIR_PROXIMITY_CONFIG } from '../../../features/stairs/StairHeightDetector.js';
 
-describe('Sims 4 Staircase Height Auto-Detection Engine', () => {
+describe('sms 4 Staircase Height Auto-Detection Engine', () => {
     let mockPlanner;
 
     beforeEach(() => {

@@ -6,7 +6,7 @@
         <template v-if="selectedEntity.type && selectedEntity.type.startsWith('stair_v5_')">
             <MaterialSlotsPanel :entity="selectedEntity" @sync-engine="$emit('sync-engine')" />
 
-            <!-- Sims 4 Style Shape Morpher -->
+            <!-- sms 4 Style Shape Morpher -->
             <div style="margin-bottom: 12px;">
                 <label style="display: block; font-size: 11px; font-weight: 700; color: #64748b; margin-bottom: 6px; text-transform: uppercase;">Staircase Shape</label>
                 <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px;">

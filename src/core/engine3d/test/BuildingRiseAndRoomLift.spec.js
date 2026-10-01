@@ -35,7 +35,7 @@ beforeAll(() => {
     }
 });
 
-describe('Sims 4 Building Rise Tool & Specific Room Lift Suite', () => {
+describe('sms 4 Building Rise Tool & Specific Room Lift Suite', () => {
     let mockPlanner;
     let mockCtx;
     let mockCamera;
@@ -568,7 +568,7 @@ describe('Sims 4 Building Rise Tool & Specific Room Lift Suite', () => {
         expect(controller.activeTool).toBe(COMMON_TOOLS.SELECT);
     });
 
-    it('Sims 4 Gizmo: all colliders are raycastable in Three.js (transparent: true, opacity: 0, visible !== false)', () => {
+    it('sms 4 Gizmo: all colliders are raycastable in Three.js (transparent: true, opacity: 0, visible !== false)', () => {
         const room = {
             path: [{ x: 0, y: 0 }, { x: 200, y: 0 }, { x: 200, y: 200 }, { x: 0, y: 200 }],
             cx: 100, cy: 100, elevation: 0
@@ -595,7 +595,7 @@ describe('Sims 4 Building Rise Tool & Specific Room Lift Suite', () => {
         });
     });
 
-    it('Sims 4 Styling: includes top and bottom collar disks, pearl-white base, and white double-rail cage', () => {
+    it('sms 4 Styling: includes top and bottom collar disks, pearl-white base, and white double-rail cage', () => {
         const room = {
             path: [{ x: 0, y: 0 }, { x: 200, y: 0 }, { x: 200, y: 200 }, { x: 0, y: 200 }],
             cx: 100, cy: 100, elevation: 0
@@ -1555,7 +1555,7 @@ describe('Sims 4 Building Rise Tool & Specific Room Lift Suite', () => {
         });
     });
 
-    describe('Sims 4 Dual Foundation and Interior Platform Pipeline', () => {
+    describe('sms 4 Dual Foundation and Interior Platform Pipeline', () => {
         it('should have unified Up and Down handles with mode-based highlighting', () => {
             expect(suite.topConeMesh).toBeDefined();
             expect(suite.btmConeMesh).toBeDefined();

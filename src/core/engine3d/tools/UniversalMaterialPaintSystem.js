@@ -1,6 +1,6 @@
 /**
  * UniversalMaterialPaintSystem.js
- * Universal face-based Material Painting System for 3D Scenes (Sims 4 Style).
+ * Universal face-based Material Painting System for 3D Scenes (sms 4 Style).
  * 
  * Implements:
  * 1. Space-saving controls & Active Material Brush workflow

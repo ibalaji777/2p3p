@@ -27,7 +27,7 @@ beforeAll(() => {
     }
 });
 
-describe('StairInteractiveSuite - Sims 4 Advanced Staircase Controls', () => {
+describe('StairInteractiveSuite - sms 4 Advanced Staircase Controls', () => {
     let mockCtx;
     let suite;
     let mockPlanner;
@@ -134,7 +134,7 @@ describe('StairInteractiveSuite - Sims 4 Advanced Staircase Controls', () => {
         });
     });
 
-    describe('3. Sims 4 Shape Morphing & Bending', () => {
+    describe('3. sms 4 Shape Morphing & Bending', () => {
         it('should morph from straight into an L-turn with balanced steps', () => {
             suite.attach(stairGroup);
             expect(stairEntity.shape).toBe('straight');

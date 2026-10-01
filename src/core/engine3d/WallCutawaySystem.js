@@ -3,7 +3,7 @@ import * as THREE from 'three';
 /**
  * WallCutawaySystem
  * 
- * Manages Sims 4-style 3-state Wall Visibility & Dynamic Camera Cutaways:
+ * Manages sms 4-style 3-state Wall Visibility & Dynamic Camera Cutaways:
  * 1. 'walls_up': Full 3D rendering of all walls at full height
  * 2. 'cutaway': Dynamic camera line-of-sight cutaway (camera-facing foreground walls automatically lower to 15cm cutlines)
  * 3. 'walls_down': All walls collapsed to 15cm floor-level profile cutlines for unobstructed room inspection

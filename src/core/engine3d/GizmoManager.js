@@ -258,7 +258,7 @@ export class GizmoManager {
             const style = document.createElement('style');
             style.id = 'gizmo-material-styles';
             style.innerHTML = `
-                /* Sims 4 Style Non-Obtrusive Light 3D Material HUD & Catalog Dock */
+                /* sms 4 Style Non-Obtrusive Light 3D Material HUD & Catalog Dock */
                 .mat-lib-overlay {
                     position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
                     background: transparent !important;
@@ -1774,7 +1774,7 @@ export class GizmoManager {
         }
         const selectedObj = realSelectedObj;
 
-        // Activate Sims 4 UniversalMaterialPaintSystem & start session if not started
+        // Activate sms 4 UniversalMaterialPaintSystem & start session if not started
         if (this.ctx?.commonTools?.paintSystem) {
             if (!this.ctx.commonTools.paintSystem.isSessionActive && selectedObj?.userData?.entity) {
                 this.ctx.commonTools.paintSystem.startSession(selectedObj.userData.entity);
@@ -2947,7 +2947,7 @@ export class GizmoManager {
         // Selected decor object
         const selectedDecor = attachedDecors.find(d => d.id === this.activeDecorId) || null;
 
-        // 0. Material Scope Selector (Sims 4 Paint Scope Standard)
+        // 0. Material Scope Selector (sms 4 Paint Scope Standard)
         const isSelectedFace = this.materialScope === 'selectedFace' || !this.materialScope;
         const isRoomLoop = this.materialScope === 'room';
         const isExteriorLoop = this.materialScope === 'exterior';

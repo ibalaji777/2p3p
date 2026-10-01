@@ -8,7 +8,7 @@ import { FLOOR_REGISTRY, WOOD_REGISTRY, STONE_REGISTRY, BRICK_REGISTRY, DEFAULT_
 /**
  * Platform3DBuilder
  * 
- * Reusable 3D Geometry and Material Builder for Sims 4-style Platforms.
+ * Reusable 3D Geometry and Material Builder for sms 4-style Platforms.
  * Follows the 3-Layer CAD/BIM Architecture:
  * - Layer 1: Component Registry (Platform selection & hover)
  * - Layer 2: Material Slots (top: floor material, side: platform trim material)
@@ -213,7 +213,7 @@ export class Platform3DBuilder {
     }
 
     /**
-     * Builds perimeter side riser geometry according to Sims 4 trim styles.
+     * Builds perimeter side riser geometry according to sms 4 trim styles.
      */
     _buildTrimGeometry(pts, height, trimStyle = 'flat', isSunken = false) {
         const n = pts.length;

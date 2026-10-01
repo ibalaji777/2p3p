@@ -179,7 +179,7 @@ export class ObjectCapabilityEvaluator {
             };
         }
 
-        // 9b. Platforms (Sims 4 Style)
+        // 9b. Platforms (sms 4 Style)
         if (isPlatform) {
             return {
                 selectable: true,

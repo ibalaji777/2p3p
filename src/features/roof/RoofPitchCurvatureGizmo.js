@@ -7,7 +7,7 @@ import { RoofEngine } from '../../core/roof/RoofEngine.js';
 /**
  * RoofPitchCurvatureGizmo
  * 
- * Complete Sims 4 In-Viewport 3D Interactive Roof Gizmo with Dedicated Mode-Separated Controls:
+ * Complete sms 4 In-Viewport 3D Interactive Roof Gizmo with Dedicated Mode-Separated Controls:
  * 
  * - 'corners' (Default Shape Mode):
  *     1. Apex Pitch Dual-Arrow (Gold ↕): Dedicated at the Ridge Apex Top.
@@ -665,7 +665,7 @@ export class RoofPitchCurvatureGizmo extends THREE.Group {
             this.peakHandle = peakGroup;
         }
 
-        // Slope Curvature Orb (Sims 4 Clean Sphere on the slope face)
+        // Slope Curvature Orb (sms 4 Clean Sphere on the slope face)
         const supportsCurve = conf.roofType === 'curved' || conf.curve !== undefined || ['gable', 'shed', 'curved', 'gambrel', 'mansard', 'turret_round', 'turret_octagonal', 'turret_hexagonal'].includes(conf.roofType);
         if (!isFlat && supportsCurve) {
             const curveGroup = new THREE.Group();
@@ -679,7 +679,7 @@ export class RoofPitchCurvatureGizmo extends THREE.Group {
             this.curveHandle = curveGroup;
         }
 
-        // Eave Overhang Pull-Tabs (Sims 4 Outward 3D Arrows)
+        // Eave Overhang Pull-Tabs (sms 4 Outward 3D Arrows)
         this.overhangHandles = [];
         for (let i = 0; i < numPts; i++) {
             const tabGroup = new THREE.Group();
@@ -710,7 +710,7 @@ export class RoofPitchCurvatureGizmo extends THREE.Group {
             this.overhangHandles.push(tabGroup);
         }
 
-        // Boundary Corner Stretch Handles (Sims 4 Diagonal Corner Arrows)
+        // Boundary Corner Stretch Handles (sms 4 Diagonal Corner Arrows)
         this.stretchHandles = [];
         const corners = ['nw', 'ne', 'se', 'sw'];
         for (let i = 0; i < numPts; i++) {
@@ -852,7 +852,7 @@ export class RoofPitchCurvatureGizmo extends THREE.Group {
             });
         }
 
-        // Boundary Corner Stretch Handles (Sims 4 Diagonal Corner Arrows)
+        // Boundary Corner Stretch Handles (sms 4 Diagonal Corner Arrows)
         if (this.stretchHandles && this.stretchHandles.length > 0) {
             pts.forEach((p, idx) => {
                 if (idx >= this.stretchHandles.length) return;

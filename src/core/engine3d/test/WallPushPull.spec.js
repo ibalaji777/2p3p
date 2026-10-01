@@ -30,7 +30,7 @@ beforeAll(() => {
     }
 });
 
-describe('WallPushPullGizmo - Sims 4-Style 2D-on-3D Region Selection & Push/Pull', () => {
+describe('WallPushPullGizmo - sms 4-Style 2D-on-3D Region Selection & Push/Pull', () => {
     let ctx;
     let gizmo;
     let mockWall;

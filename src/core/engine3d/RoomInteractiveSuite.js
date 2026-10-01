@@ -13,8 +13,8 @@ import { RoofMutationEngine } from '../roof/RoofMutationEngine.js';
 /**
  * RoomInteractiveSuite
  * 
- * Central coordinator managing Sims 4-style 3D room interactions & building rise:
- * 1. 3D In-Scene Room Lift Gizmo (Suspended mid-air in the room volume like in Sims 4):
+ * Central coordinator managing sms 4-style 3D room interactions & building rise:
+ * 1. 3D In-Scene Room Lift Gizmo (Suspended mid-air in the room volume like in sms 4):
  *    - Vertical Up Arrow Cone: Drag to lift room platform elevation
  *    - Vertical Down Arrow Cone: Drag to lower room platform elevation
  *    - Angled 45° Diagonal Cone: Drag to adjust room wall height
@@ -23,7 +23,7 @@ import { RoofMutationEngine } from '../roof/RoofMutationEngine.js';
  *    - Radiant white/cyan double outline framing the top and bottom contour of the room
  * 3. 3D Wall Push/Pull Outward Arrows:
  *    - Horizontal cylindrical stems with cone arrowheads extending from each wall
- * 4. Floating Speech-Bubble HUD (Sims 4 Top Menu):
+ * 4. Floating Speech-Bubble HUD (sms 4 Top Menu):
  *    - ⬇ / ⬆ Platform elevation step (-15cm / +15cm)
  *    - ↺ / ↻ 90° Rotation (CCW / CW)
  *    - ✥ Move room
@@ -48,7 +48,7 @@ export class RoomInteractiveSuite extends THREE.Group {
         this.downY = 0;
         this.dragDistance = 0;
 
-        // 1. Central Room Lift Handle Group (Sims 4 Style)
+        // 1. Central Room Lift Handle Group (sms 4 Style)
         this.liftHandleGroup = new THREE.Group();
         this.liftHandleGroup.name = 'Room_LiftHandleGroup';
         this.liftHandleGroup.visible = false;
@@ -203,7 +203,7 @@ export class RoomInteractiveSuite extends THREE.Group {
     }
 
     /**
-     * Constructs the Sims 4-style 3D Room Lift Gizmo.
+     * Constructs the sms 4-style 3D Room Lift Gizmo.
      * Streamlined vertical handle with Top Up arrow and Bottom Down arrow.
      */
     _create3DLiftGizmo() {
@@ -213,7 +213,7 @@ export class RoomInteractiveSuite extends THREE.Group {
             if (c.geometry) c.geometry.dispose();
         }
 
-        // Authentic Sims 4 pearl-white / brushed chrome base material
+        // Authentic sms 4 pearl-white / brushed chrome base material
         this.matBase = new THREE.MeshStandardMaterial({
             color: 0xf8fafc,
             metalness: 0.35,
@@ -338,7 +338,7 @@ export class RoomInteractiveSuite extends THREE.Group {
 
     /**
      * Builds the 3D glowing selection cage around the room boundaries.
-     * Solid crisp white double-rail framing matching Sims 4 (media_1789179003661.png).
+     * Solid crisp white double-rail framing matching sms 4 (media_1789179003661.png).
      */
     _updateRoomCage() {
         while (this.roomCage.children.length > 0) {
@@ -370,7 +370,7 @@ export class RoomInteractiveSuite extends THREE.Group {
             );
         }
 
-        // Top Double Wireframe Loop (Sims 4 Style)
+        // Top Double Wireframe Loop (sms 4 Style)
         for (let i = 0; i < path.length; i++) {
             const p1 = path[i];
             const p2 = path[(i + 1) % path.length];
@@ -726,7 +726,7 @@ export class RoomInteractiveSuite extends THREE.Group {
     }
 
     /**
-     * Creates the floating speech-bubble style HUD (Sims 4 style with Scope Switcher & Dedicated Done).
+     * Creates the floating speech-bubble style HUD (sms 4 style with Scope Switcher & Dedicated Done).
      */
     _createRoomDOMHUD() {
         if (typeof document === 'undefined') return;
@@ -2206,7 +2206,7 @@ export class RoomInteractiveSuite extends THREE.Group {
             }
             if (cleanPts.length < 3) return;
 
-            // Compute outward offset so foundation sits flush with outer face of exterior walls (Sims 4 style)
+            // Compute outward offset so foundation sits flush with outer face of exterior walls (sms 4 style)
             const roomWalls = this._getRoomBoundingWalls(r);
             let maxThk = 20;
             if (roomWalls && roomWalls.length > 0) {
@@ -2294,7 +2294,7 @@ export class RoomInteractiveSuite extends THREE.Group {
 
     /**
      * Automatically creates, updates, or removes interior room platforms
-     * (Sims 4 split-level stage or sunken conversation pit).
+     * (sms 4 split-level stage or sunken conversation pit).
      */
     _syncInteriorPlatforms(pltH = (this.room?.platformHeight || 0)) {
         const planner = this.planner;

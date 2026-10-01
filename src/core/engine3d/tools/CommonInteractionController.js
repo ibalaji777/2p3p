@@ -145,7 +145,7 @@ export class CommonInteractionController {
                 targetEntity?.constructor?.name === 'PremiumStaircase'
             );
 
-            // 2a. Sims 4 Move Delegation for Staircases
+            // 2a. sms 4 Move Delegation for Staircases
             if (toolId === COMMON_TOOLS.MOVE && isStair && targetEntity) {
                 if (this.ctx.gizmoManager) {
                     this.ctx.gizmoManager.setTransformMode('none', true);

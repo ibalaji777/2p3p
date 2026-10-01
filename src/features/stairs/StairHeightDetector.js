@@ -1,7 +1,7 @@
 /**
  * StairHeightDetector.js
  * 
- * Architectural & Sims 4-Style Real-Time Staircase Height Auto-Detection Engine.
+ * Architectural & sms 4-Style Real-Time Staircase Height Auto-Detection Engine.
  * 
  * Automatically detects target structures (platforms, walls, upper levels, split landings)
  * when a staircase is moved or dragged in the 3D scene, and computes ergonomic IRC/IBC
@@ -88,7 +88,7 @@ export class StairHeightDetector {
         const candidates = [];
 
         // ─────────────────────────────────────────────────────────────────────────────
-        // 1. SCAN PLATFORMS (Highest priority in Sims 4 Build Mode)
+        // 1. SCAN PLATFORMS (Highest priority in sms 4 Build Mode)
         // ─────────────────────────────────────────────────────────────────────────────
         const platforms = planner.platforms || [];
         for (const platform of platforms) {

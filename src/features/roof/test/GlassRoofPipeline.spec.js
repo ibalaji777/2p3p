@@ -4,8 +4,8 @@ import { ROOF_DECOR_REGISTRY } from '../roof.registry.js';
 import { Roof3DBuilder } from '../builders/Roof3DBuilder.js';
 import { ComponentRegistry } from '../../../core/engine3d/ComponentRegistry.js';
 
-describe('Sims 4 Glass Roofs & Skylight Mullions Pipeline', () => {
-    it('registers all 4 Sims 4 glass roof finishes in ROOF_DECOR_REGISTRY', () => {
+describe('sms 4 Glass Roofs & Skylight Mullions Pipeline', () => {
+    it('registers all 4 sms 4 glass roof finishes in ROOF_DECOR_REGISTRY', () => {
         const expectedGlassKeys = [
             'glass_roof_square_grid',
             'glass_roof_diamond_lattice',

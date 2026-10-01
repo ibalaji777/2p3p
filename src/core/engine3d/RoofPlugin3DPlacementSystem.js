@@ -7,7 +7,7 @@ import { RoofEngine } from '../roof/index.js';
 /**
  * RoofPlugin3DPlacementSystem
  * 
- * Direct Sims 4-Style 3D Roof Plugin & Sculpture Placement:
+ * Direct sms 4-Style 3D Roof Plugin & Sculpture Placement:
  * 1. Glass & Skylight Addons: Snap onto roof slopes with rectangular aperture void ghost preview.
  * 2. Wrought Iron Ridge Cresting: Snaps along the roof's top ridge lines (Victorian lace, gothic spikes, modern metal caps).
  * 3. Apex Finials & Weather Vanes: Snaps directly to roof apex points, peak ends, and turret pinnacles.

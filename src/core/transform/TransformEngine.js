@@ -537,7 +537,7 @@ export class TransformEngine {
     // ==========================================
 
     /**
-     * Executes a discrete, atomic transformation (e.g. keyboard 'R', 45° Sims 4 tap, sidebar slider).
+     * Executes a discrete, atomic transformation (e.g. keyboard 'R', 45° sms 4 tap, sidebar slider).
      * Immediately creates and executes a single TransformCommand.
      * 
      * @param {Object} planner 

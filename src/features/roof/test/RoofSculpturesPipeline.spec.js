@@ -4,7 +4,7 @@ import { RoofSculpture3DBuilder } from '../builders/RoofSculpture3DBuilder.js';
 import { Roof3DBuilder } from '../builders/Roof3DBuilder.js';
 import { ComponentRegistry } from '../../../core/engine3d/ComponentRegistry.js';
 
-describe('Sims 4 Roof Ridge Cresting, Apex Finials & Chimney Stacks Pipeline', () => {
+describe('sms 4 Roof Ridge Cresting, Apex Finials & Chimney Stacks Pipeline', () => {
     const createMockCtx = () => {
         const targetGroup = new THREE.Group();
         return {

@@ -12,7 +12,7 @@ import { WallGeometryEngine } from '../wall/WallGeometryEngine.js';
 /**
  * WallInteractiveSuite
  * 
- * Central coordinator managing all Sims 4-style 3D interactive editing tools for walls:
+ * Central coordinator managing all sms 4-style 3D interactive editing tools for walls:
  * 1. Floating 3D HUD Toolbar directly hovering over the selected wall
  * 2. Dedicated Single-Tool Modes: Push/Pull, Height, Corners, Split Cutter, Unified 3D Bay Extrude & Niche Recess
  * 3. Radiant Glowing Selection Outline Ribbon framing the wall in 3D
@@ -543,7 +543,7 @@ export class WallInteractiveSuite extends THREE.Group {
         `;
         this.domHUD.appendChild(divider);
 
-        // Permanently fixed close button on menu (borderless Sims 4 speech HUD style)
+        // Permanently fixed close button on menu (borderless sms 4 speech HUD style)
         const btnClose = document.createElement('button');
         btnClose.innerHTML = `✕`;
         btnClose.title = 'Deselect wall (Esc)';

@@ -10,7 +10,7 @@
  * - Preset view projections (4-quadrant Isometric, Top-Down blueprint, Front/Back/Left/Right elevations)
  * - Stepped 45° rotation
  * - Studio & architectural sky/ground lighting environments
- * - Dynamic Sims 4-style wall cutaway modes ('walls_up', 'cutaway', 'walls_down')
+ * - Dynamic sms 4-style wall cutaway modes ('walls_up', 'cutaway', 'walls_down')
  */
 
 export const VIEW_PRESETS = Object.freeze({
@@ -205,7 +205,7 @@ export class ViewportEngine {
     }
 
     /**
-     * Rotates camera in 45° step around target pivot (Sims 4 style).
+     * Rotates camera in 45° step around target pivot (sms 4 style).
      * 
      * @param {number} [direction=1] - +1 clockwise, -1 counter-clockwise
      * @param {Object} ctx - Context object containing renderer3D

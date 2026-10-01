@@ -14,7 +14,7 @@ import { renderElevationSegment3D } from '../../features/elevation/elevationSegm
 /**
  * WallPlugin3DPlacementSystem
  * 
- * Direct Sims 4-Style 3D Wall Placement & Real-Time Wall Aperture Highlighting.
+ * Direct sms 4-Style 3D Wall Placement & Real-Time Wall Aperture Highlighting.
  * Supports Mobile & Desktop:
  * - Doors, Windows, Jali Panels, and Custom Openings
  * - Curtains, Drapes, Roman & Roller Blinds
@@ -25,7 +25,7 @@ import { renderElevationSegment3D } from '../../features/elevation/elevationSegm
  * - Wall Trims, Chair Rails, Picture Rails (freeform or smart magnetic height)
  * - Crown Moldings & Friezes (miter-sheared corner-to-corner along top ceiling line)
  * - Elevation Corner Elements, Quoins & Pillars
- * - Sims 4 Scope Placement (Single Wall, Whole Room Loop, Exterior Perimeter Loop)
+ * - sms 4 Scope Placement (Single Wall, Whole Room Loop, Exterior Perimeter Loop)
  */
 export class WallPlugin3DPlacementSystem {
     constructor(ctx, interactionSystem) {
@@ -977,7 +977,7 @@ export class WallPlugin3DPlacementSystem {
     }
 
     /**
-     * Position the glowing Sims 4 wall cutout aperture or molding ribbon and live 3D preview model
+     * Position the glowing sms 4 wall cutout aperture or molding ribbon and live 3D preview model
      * Supports mitered corner joints for seamless wall span!
      */
     updateApertureAndModel(tool, wallEntity, t, elev, facing, wallLen, dx, dy, p1, p2, thick, wallH, itemW, itemH, depth, isValid, isMoldingOrTrim, isAttachedSurfaceElement, isFascia, projDist, preset) {

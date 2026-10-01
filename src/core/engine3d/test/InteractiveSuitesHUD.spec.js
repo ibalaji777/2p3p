@@ -281,7 +281,7 @@ describe('Interactive Suites Compact HUD & Responsive Tooltip System', () => {
         });
     });
 
-    describe('Sims 4 Speech HUD Standard Compliance (Wall & Stair Placement)', () => {
+    describe('sms 4 Speech HUD Standard Compliance (Wall & Stair Placement)', () => {
         it('should ensure WallInteractiveSuite uses vector SVGs without emojis and borderless close button', () => {
             const suite = new WallInteractiveSuite(mockCtx);
             expect(suite.domHUD).toBeDefined();

@@ -408,7 +408,7 @@ export class RoofMutationEngine {
 
     /**
      * Sets material texture assignment.
-     * Supports Sims 4-style scope ('single' vs 'all') and per-slope slots.
+     * Supports sms 4-style scope ('single' vs 'all') and per-slope slots.
      * @param {Object} roof 
      * @param {string} materialKey 
      * @param {'single'|'all'|'fascia'|'gable'} [scope='single'] 

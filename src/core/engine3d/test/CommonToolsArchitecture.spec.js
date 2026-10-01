@@ -12,7 +12,7 @@ import { MaterialSlots } from '../../constants/materialSlots.js';
 import { MaterialFactory } from '../MaterialFactory.js';
 import { WallEngine } from '../../wall/WallEngine.js';
 
-describe('Universal 3D Scene Common Tools Architecture (Sims 4 Style)', () => {
+describe('Universal 3D Scene Common Tools Architecture (sms 4 Style)', () => {
     describe('1. CommonToolRegistry', () => {
         it('should define all 8 common tools', () => {
             expect(COMMON_TOOLS.SELECT).toBe('select');
@@ -449,7 +449,7 @@ describe('Universal 3D Scene Common Tools Architecture (Sims 4 Style)', () => {
         });
     });
 
-    describe('7. Sims 4 Camera Movement & Scene Navigation', () => {
+    describe('7. sms 4 Camera Movement & Scene Navigation', () => {
         let camera, domElement, preview3D, cameraController;
 
         beforeEach(() => {
@@ -484,7 +484,7 @@ describe('Universal 3D Scene Common Tools Architecture (Sims 4 Style)', () => {
             expect(cameraController.controls.target.z).not.toBe(0);
         });
 
-        it('should execute 45-degree Sims 4 stepped orbit rotation', () => {
+        it('should execute 45-degree sms 4 stepped orbit rotation', () => {
             cameraController.controls.target.set(0, 0, 0);
             cameraController.rotatesms4Isometric(1);
 

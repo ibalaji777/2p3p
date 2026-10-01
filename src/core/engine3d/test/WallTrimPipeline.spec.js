@@ -6,7 +6,7 @@ import { MaterialSlots, ComponentTypes } from '../../constants/materialSlots.js'
 import { MOLDING_REGISTRY } from '../../../features/wall/wall.registry.js';
 import { WallSerializer } from '../../../features/wall/wall.serializer.js';
 
-describe('Sims 4-Style Wall Trims, Chair Rails & Dynamic Mitering Pipeline', () => {
+describe('sms 4-Style Wall Trims, Chair Rails & Dynamic Mitering Pipeline', () => {
     let builder;
 
     beforeEach(() => {
@@ -15,7 +15,7 @@ describe('Sims 4-Style Wall Trims, Chair Rails & Dynamic Mitering Pipeline', () 
         ComponentRegistry.componentRegistry.clear();
     });
 
-    it('1. should generate valid 3D geometry for all Sims 4 Wall Trim profiles', () => {
+    it('1. should generate valid 3D geometry for all sms 4 Wall Trim profiles', () => {
         const trimProfiles = [
             { profileType: 'chair_rail', expectedHeight: 8, depth: 2.5 },
             { profileType: 'picture_rail', expectedHeight: 6, depth: 2.2 },
@@ -168,7 +168,7 @@ describe('Sims 4-Style Wall Trims, Chair Rails & Dynamic Mitering Pipeline', () 
         expect(geo.boundingBox.max.x).toBeGreaterThan(200);
     });
 
-    it('5. should register all Sims 4 Wall Trim presets and aliases in MOLDING_REGISTRY', () => {
+    it('5. should register all sms 4 Wall Trim presets and aliases in MOLDING_REGISTRY', () => {
         const trimKeys = [
             'wall_trim',
             'chair_rail',

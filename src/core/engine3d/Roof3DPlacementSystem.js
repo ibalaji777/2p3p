@@ -7,7 +7,7 @@ import { RoofEngine } from '../roof/index.js';
 /**
  * Roof3DPlacementSystem
  * 
- * Direct Sims 4-Style 3D Roof Placement & Drawing System:
+ * Direct sms 4-Style 3D Roof Placement & Drawing System:
  * - Drag-to-Draw: Click on wall top/surface -> drag diagonal -> release to place Gable, Hip, or Flat roof piece.
  * - Room Snap: Hover over a closed room or wall loop to preview and click-to-fit roof over that specific room.
  * - Live 3D Ghost: Real-time extruded roof geometry with pitch, ridge, overhangs, and materials.
@@ -721,7 +721,7 @@ export class Roof3DPlacementSystem {
         const planner = this.getPlanner();
         let targetElevation = this.getBaseRoofElevation();
 
-        // 1. Direct 3D Raycasting against actual wall, floor slab, terrain, and roof meshes (Sims 4 Placement)
+        // 1. Direct 3D Raycasting against actual wall, floor slab, terrain, and roof meshes (sms 4 Placement)
         const structureObjects = [];
         const scanGroup = (grp) => {
             if (!grp) return;

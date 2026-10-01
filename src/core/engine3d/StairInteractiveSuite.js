@@ -7,13 +7,13 @@ import { coreEventBus } from '../EventBus.js';
 /**
  * StairInteractiveSuite
  * 
- * Central coordinator managing Sims 4-style 3D interactive editing for staircases:
+ * Central coordinator managing sms 4-style 3D interactive editing for staircases:
  * 1. In-Scene 3D Control Handles:
  *    - Width Handles (Left & Right): Double-sided arrow handles to drag and resize width in 3D.
  *    - Landing / Bending Handle: At the landing / bend node to slide the landing up/down
  *      (redistributing step counts between Flight 1 & Flight 2) or bend the flight into L/U shapes.
  *    - Top Height Handle: Vertical arrow to raise/lower total height with auto IRC/IBC step sizing.
- * 2. Floating 3D HUD Action Bar (Sims 4 Style):
+ * 2. Floating 3D HUD Action Bar (sms 4 Style):
  *    - Shape Morphing Segment: Straight, L-Shape, U-Shape, T-Shape.
  *    - Turn Direction Flip: Toggle Left vs Right.
  *    - Width Steppers: Quick ±10cm adjustments.

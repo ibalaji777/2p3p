@@ -8,7 +8,7 @@ import { WallHeightPolicy } from '../wall/WallHeightPolicy.js';
 /**
  * WallCornerVertexGizmo (Edge / Point Move - Panel #2)
  * 
- * Provides unified Sims 4 & CAD-style 3D Edge & Point manipulation:
+ * Provides unified sms 4 & CAD-style 3D Edge & Point manipulation:
  * 1. Top Corner Vertical Arrows (↑): Drag individual top vertices up/down to create custom sloped or stepped walls.
  * 2. Top Edge Center Bar (↕): Drag top edge up/down to adjust overall wall height.
  * 3. Corner Nodes (↔): Drag corner anchor vertices horizontally in (X, Z) to reshape walls and joint angles.
@@ -33,7 +33,7 @@ export class WallCornerVertexGizmo extends THREE.Group {
         this.handles.name = 'WallCornerVertex_Handles';
         this.add(this.handles);
         
-        // Materials (Sims 4 Radiant Emerald, Amber, Cyan Neon & Gold Styling)
+        // Materials (sms 4 Radiant Emerald, Amber, Cyan Neon & Gold Styling)
         this.matDefault = new THREE.MeshBasicMaterial({ color: 0x38bdf8, depthTest: false, transparent: true, opacity: 0.95 });
         this.matHeight = new THREE.MeshBasicMaterial({ color: 0x10b981, depthTest: false, transparent: true, opacity: 0.95 });
         this.matSlope = new THREE.MeshBasicMaterial({ color: 0xf59e0b, depthTest: false, transparent: true, opacity: 0.95 });

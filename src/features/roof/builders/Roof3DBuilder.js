@@ -419,7 +419,7 @@ export class Roof3DBuilder {
                 });
             }
 
-            // Render Attached Sims 4 Roof Sculptures (Ridge Cresting, Apex Finials, Chimney Stacks)
+            // Render Attached sms 4 Roof Sculptures (Ridge Cresting, Apex Finials, Chimney Stacks)
             const sculptureBuilder = new RoofSculpture3DBuilder(this.ctx);
             const ridgeSegments = this.getRoofRidgeSegments(roof);
             const apexPoints = this.getRoofApexPoints(roof);

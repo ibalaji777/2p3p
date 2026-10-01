@@ -134,7 +134,7 @@ export class PremiumPlatform {
         });
         this.group.add(this.highlightLine);
 
-        // 4. Center Info Badge (Sims 4 Platform Step Badge)
+        // 4. Center Info Badge (sms 4 Platform Step Badge)
         this.badgeGroup = new Konva.Group({ listening: false });
         this.badgeBg = new Konva.Tag({
             fill: '#0f172a',
@@ -342,11 +342,11 @@ export class PremiumPlatform {
     }
 
     /* -------------------------------------------------------------------------- */
-    /*                         SIMS 4 PLATFORM OPERATIONS                         */
+    /*                         sms 4 PLATFORM OPERATIONS                         */
     /* -------------------------------------------------------------------------- */
 
     /**
-     * Raises platform height by step increment (The Sims 4 ▲ Up Arrow).
+     * Raises platform height by step increment (The sms 4 ▲ Up Arrow).
      * @param {number} [step] 
      */
     raisePlatform(step = this.stepHeight) {
@@ -358,7 +358,7 @@ export class PremiumPlatform {
     }
 
     /**
-     * Lowers platform height by step increment (The Sims 4 ▼ Down Arrow).
+     * Lowers platform height by step increment (The sms 4 ▼ Down Arrow).
      * Supports negative values for sunken conversation pits.
      * @param {number} [step] 
      */

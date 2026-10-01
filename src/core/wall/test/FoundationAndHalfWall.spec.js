@@ -32,7 +32,7 @@ beforeAll(() => {
     }
 });
 
-describe('Foundation & Half-Wall Architecture (Sims 4)', () => {
+describe('Foundation & Half-Wall Architecture (sms 4)', () => {
     let mockPlanner;
 
     beforeEach(() => {

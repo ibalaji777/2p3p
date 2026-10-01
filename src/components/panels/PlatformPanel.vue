@@ -17,7 +17,7 @@
             />
         </div>
 
-        <!-- Sims 4 Step Controls: Big Raise & Lower Buttons -->
+        <!-- sms 4 Step Controls: Big Raise & Lower Buttons -->
         <div class="sms4-step-control-section">
             <div class="step-buttons-grid">
                 <button 
@@ -50,7 +50,7 @@
             </div>
         </div>
 
-        <!-- Trim Profile Selector (Sims 4 Style) -->
+        <!-- Trim Profile Selector (sms 4 Style) -->
         <div class="control-group-block">
             <label class="section-label">Perimeter Trim & Riser Profile</label>
             <div class="trim-styles-grid">
@@ -479,7 +479,7 @@ const duplicatePlatform = () => {
     border-color: #f59e0b;
 }
 
-/* Sims 4 Step Control Section */
+/* sms 4 Step Control Section */
 .sms4-step-control-section {
     display: flex;
     flex-direction: column;

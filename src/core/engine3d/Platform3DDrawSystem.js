@@ -5,7 +5,7 @@ import { Platform3DBuilder } from './Platform3DBuilder.js';
 /**
  * Platform3DDrawSystem
  * 
- * Direct 3D interactive drawing and placement system for Sims 4-style platforms:
+ * Direct 3D interactive drawing and placement system for sms 4-style platforms:
  * - platform / platform_rect: Click & drag to place a rectangular platform with live 3D preview and step badge.
  * - platform_polygon: Click point-by-point to draw custom polygonal platforms in 3D.
  */

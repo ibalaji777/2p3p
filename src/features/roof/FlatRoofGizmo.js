@@ -781,7 +781,7 @@ export class FlatRoofGizmo extends THREE.Group {
         const basePts = entity.points || [];
         const numPts = basePts.length >= 3 ? basePts.length : 4;
 
-        // 1. Dedicated Edge Push/Pull Handles (Sims 4 Outward 3D Arrows)
+        // 1. Dedicated Edge Push/Pull Handles (sms 4 Outward 3D Arrows)
         for (let i = 0; i < numPts; i++) {
             const tabGroup = new THREE.Group();
             tabGroup.userData = { type: 'edge', edgeIndex: i };
@@ -806,7 +806,7 @@ export class FlatRoofGizmo extends THREE.Group {
             this.edgeHandles.push(tabGroup);
         }
 
-        // 2. Corner Vertex Handles (Sims 4 Diagonal Corner Arrows)
+        // 2. Corner Vertex Handles (sms 4 Diagonal Corner Arrows)
         const corners = ['nw', 'ne', 'se', 'sw'];
         for (let i = 0; i < numPts; i++) {
             const cornerGroup = new THREE.Group();
@@ -836,7 +836,7 @@ export class FlatRoofGizmo extends THREE.Group {
             this.cornerHandles.push(cornerGroup);
         }
 
-        // 3. Vertical Slab Thickness Handle (Sims 4 Vertical Arrow)
+        // 3. Vertical Slab Thickness Handle (sms 4 Vertical Arrow)
         const thickGroup = new THREE.Group();
         thickGroup.userData = { type: 'thickness' };
 
@@ -946,7 +946,7 @@ export class FlatRoofGizmo extends THREE.Group {
             });
         }
 
-        // Position Corner Vertex Handles (Sims 4 Diagonal Corner Arrows)
+        // Position Corner Vertex Handles (sms 4 Diagonal Corner Arrows)
         if (this.cornerHandles && this.cornerHandles.length > 0) {
             pts.forEach((p, idx) => {
                 if (idx >= this.cornerHandles.length) return;

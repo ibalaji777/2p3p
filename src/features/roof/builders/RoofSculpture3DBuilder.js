@@ -4,7 +4,7 @@ import { ComponentRegistry } from '../../../core/engine3d/ComponentRegistry.js';
 /**
  * RoofSculpture3DBuilder
  * 
- * Precision 3D parametric builder for Sims 4-style architectural roof sculptures:
+ * Precision 3D parametric builder for sms 4-style architectural roof sculptures:
  * 1. Wrought Iron Ridge Cresting (Victorian lace ironwork, gothic spikes, modern metal cap strips)
  * 2. Apex Finials & Weather Vanes (Victorian iron spires, copper turret spires, globe orbs, weather rooster vanes)
  * 3. Chimney Stacks (Traditional red brick, Tudor stone, modern metal flue pipes, double brick stacks)

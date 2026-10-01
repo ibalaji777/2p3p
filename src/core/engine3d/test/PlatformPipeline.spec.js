@@ -31,7 +31,7 @@ beforeAll(() => {
     }
 });
 
-describe('Sims 4 Platform Engine & 3D BIM Pipeline', () => {
+describe('sms 4 Platform Engine & 3D BIM Pipeline', () => {
     let mockPlanner;
     let builder;
 

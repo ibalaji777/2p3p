@@ -852,7 +852,7 @@ export class InteractionSystem {
             }
             this.lastTapTime = now;
             
-            // If currently in a specialized sub-gizmo mode (not Sims 4 move/translate), check gizmo handle raycasts
+            // If currently in a specialized sub-gizmo mode (not sms 4 move/translate), check gizmo handle raycasts
             if (this.ctx.currentTransformMode && this.ctx.currentTransformMode !== 'none' && this.ctx.currentTransformMode !== 'translate' && this.ctx.currentTransformMode !== 'move') {
                 this.raycaster.setFromCamera(this.mouse, this.ctx.camera);
                 
@@ -1150,7 +1150,7 @@ export class InteractionSystem {
                 return;
             }
 
-            // Complete Sims 4 Spin / Right-Click Rotation
+            // Complete sms 4 Spin / Right-Click Rotation
             if (this.isPotentialsms4Spin || this.issms4Spinning) {
                 if (e.button === 2 && !this.issms4Spinning && this.selectedObject) {
                     // Single right-click tap: Step rotate 45 degrees

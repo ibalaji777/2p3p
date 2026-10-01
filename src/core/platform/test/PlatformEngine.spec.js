@@ -335,7 +335,7 @@ describe('PlatformEngine - Canonical Domain Architecture', () => {
             expect(platform.materials.top.id).toBe('wood_golden_teak');
         });
 
-        it('should raise and lower platform in discrete step increments (Sims 4 style)', () => {
+        it('should raise and lower platform in discrete step increments (sms 4 style)', () => {
             const platform = PlatformEngine.createPlatform(mockPlanner, {
                 x: 200, y: 200, height: 15, stepHeight: 15
             });

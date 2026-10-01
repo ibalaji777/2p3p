@@ -14,7 +14,7 @@ import { EVENTS } from '../constants/events.js';
 /**
  * Wall3DDrawSystem
  * 
- * Enables direct Sims 4-style 3D Wall and Room Box drawing in the 3D scene.
+ * Enables direct sms 4-style 3D Wall and Room Box drawing in the 3D scene.
  * Features:
  * - Direct 3D wall mesh raycasting
  * - Midpoint (50%) & Quarter-point Snap with Amber Diamond indicator
@@ -398,7 +398,7 @@ export class Wall3DDrawSystem {
         this.raycaster.setFromCamera(this.mouse, this.ctx.camera);
         const elev = this.getFloorElevation();
 
-        // 1. Direct 3D Raycasting against actual wall and roof meshes (Sims 4 Roof & Upper Wall placement)
+        // 1. Direct 3D Raycasting against actual wall and roof meshes (sms 4 Roof & Upper Wall placement)
         const structureObjects = [];
         if (this.ctx.structureGroup) {
             this.ctx.structureGroup.traverse(child => {
@@ -714,7 +714,7 @@ export class Wall3DDrawSystem {
         const pt = snapResult.point;
         const elev = this.drawing ? (this.drawingElevation !== undefined ? this.drawingElevation : pt.y) : pt.y;
 
-        // 1. Render Sims 4-Style Glowing Snap Halo around Snapped Wall(s)
+        // 1. Render sms 4-Style Glowing Snap Halo around Snapped Wall(s)
         if (snapResult.connectedWalls && snapResult.connectedWalls.length > 0) {
             this.snapHaloGroup.visible = true;
             this.snapHalos.forEach((h, idx) => {

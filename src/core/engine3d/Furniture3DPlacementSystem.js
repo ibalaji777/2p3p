@@ -9,7 +9,7 @@ import { SpatialHostResolver } from '../spatial/SpatialHostResolver.js';
 /**
  * Furniture3DPlacementSystem
  * 
- * Direct Sims 4-Style 3D Placement for:
+ * Direct sms 4-Style 3D Placement for:
  * - Furniture & Soft Furnishings (Sofas, Beds, Tables, Chairs, Storage, Wardrobes)
  * - Modular Kitchen (Counters, Islands, Cabinets, Floating Uppers, Sinks, Ranges)
  * - Bathroom & Sanitary (Vanities, Toilets, Showers, Bathtubs, Basins, Fixtures)
@@ -522,7 +522,7 @@ export class Furniture3DPlacementSystem {
                         return;
                     }
 
-                    // Apply Sims 4 glowing cyan holographic highlight to actual 3D model meshes
+                    // Apply sms 4 glowing cyan holographic highlight to actual 3D model meshes
                     if (Array.isArray(c.material)) {
                         c.material = c.material.map(m => {
                             const gm = m.clone ? m.clone() : m;

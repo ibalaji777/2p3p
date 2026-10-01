@@ -101,7 +101,7 @@
             <button class="chip-btn" :class="{ active: activeCategoryChip === 'chimney' }" @click="activeCategoryChip = 'chimney'">🧱 Chimney Stacks</button>
         </div>
 
-        <!-- Quick Category Filter Chips (Sims 4 Wall Trims & Moldings) -->
+        <!-- Quick Category Filter Chips (sms 4 Wall Trims & Moldings) -->
         <div class="category-chips-bar" v-if="props.type === 'wall_trim'">
             <button class="chip-btn" :class="{ active: activeCategoryChip === 'all' }" @click="activeCategoryChip = 'all'">All Trims</button>
             <button class="chip-btn" :class="{ active: activeCategoryChip === 'chair_rail' }" @click="activeCategoryChip = 'chair_rail'">Chair Rails & Bands</button>

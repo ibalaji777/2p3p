@@ -1,6 +1,6 @@
 /**
  * CommonToolRegistry.js
- * Universal Tool Registry & Metadata for 3D Scene Interactions (Sims 4 Style)
+ * Universal Tool Registry & Metadata for 3D Scene Interactions (sms 4 Style)
  */
 
 export const COMMON_TOOLS = {

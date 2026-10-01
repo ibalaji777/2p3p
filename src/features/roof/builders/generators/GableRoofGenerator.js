@@ -107,7 +107,7 @@ export class GableRoofGenerator {
                     };
                 });
 
-                // Calculate aperture cutouts for any upper-level walls/rooms intersecting this roof (Sims 4 Room roof void clipping)
+                // Calculate aperture cutouts for any upper-level walls/rooms intersecting this roof (sms 4 Room roof void clipping)
                 const wallCutouts = [];
                 const rotDeg = roof.rotation || (roof.group && typeof roof.group.rotation === 'function' ? roof.group.rotation() : 0);
                 const isRotated = Math.abs(rotDeg % 360) > 0.01;

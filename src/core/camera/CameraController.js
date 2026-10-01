@@ -8,12 +8,12 @@ export class CameraController {
         this.domElement = domElement;
         this.preview3D = preview3D;
         
-        // 1. Initialize OrbitControls with Sims 4 Ground Plane & Physics Settings
+        // 1. Initialize OrbitControls with sms 4 Ground Plane & Physics Settings
         this.controls = new OrbitControls(this.camera, this.domElement);
         this.controls.enableDamping = true;
         this.controls.dampingFactor = 0.08;
         
-        // CRITICAL: Ground-plane horizontal panning (Sims 4 style, stays on XZ floor)
+        // CRITICAL: Ground-plane horizontal panning (sms 4 style, stays on XZ floor)
         this.controls.screenSpacePanning = false;
         
         // Bounded angles so camera never dips under the floor or flips upside down
@@ -24,7 +24,7 @@ export class CameraController {
         this.controls.rotateSpeed = 0.85;
         this.controls.zoomSpeed = 1.1;
 
-        // Sims 4 Mouse Configuration:
+        // sms 4 Mouse Configuration:
         // - Right-Click Drag: Pan across ground plane
         // - Middle-Click Drag: Rotate / Pitch tilt
         // - Left-Click Drag: Rotate / Orbit (when not interacting with objects)
@@ -76,7 +76,7 @@ export class CameraController {
         };
         this.controls.addEventListener('start', this._onControlStart);
 
-        // Sims 4 Build Mode Keyboard Event Listeners
+        // sms 4 Build Mode Keyboard Event Listeners
         this._onKeyDown = (e) => {
             if (['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName)) return;
             if (document.activeElement?.isContentEditable) return;
@@ -91,13 +91,13 @@ export class CameraController {
                 if (this.isAnimating) this.isAnimating = false;
             }
 
-            // Sims 4 45° Stepped Rotation (< / > / , / . / Q / E)
+            // sms 4 45° Stepped Rotation (< / > / , / . / Q / E)
             if (key === '<' || key === ',' || (keyLower === 'q' && !e.ctrlKey && !e.metaKey && !this.preview3D?.interactions?.drawing)) {
                 this.rotatesms4Isometric(-1);
             } else if (key === '>' || key === '.' || (keyLower === 'e' && !e.ctrlKey && !e.metaKey && !this.preview3D?.interactions?.drawing)) {
                 this.rotatesms4Isometric(1);
             }
-            // Sims 4 Top-Down Toggle (T)
+            // sms 4 Top-Down Toggle (T)
             else if (keyLower === 't' && !e.ctrlKey && !e.metaKey && !this.preview3D?.interactions?.drawing) {
                 this.togglesms4TopDown();
             }
@@ -273,7 +273,7 @@ export class CameraController {
     }
 
     /**
-     * Sets Sims 4 Isometric 45° View around the active center / target.
+     * Sets sms 4 Isometric 45° View around the active center / target.
      * @param {number|null} quadrantIndex
      */
     setsms4IsometricView(quadrantIndex = null) {
@@ -286,7 +286,7 @@ export class CameraController {
         const center = this.controls.target.clone();
         const dist = Math.max(400, this.camera.position.distanceTo(center));
 
-        // 4 quadrants for Sims 4 Isometric View (45°, 135°, 225°, 315°)
+        // 4 quadrants for sms 4 Isometric View (45°, 135°, 225°, 315°)
         const angle = this.sms4IsoIndex * (Math.PI / 2) + Math.PI / 4;
         const dir = new THREE.Vector3(Math.cos(angle), 0.75, Math.sin(angle)).normalize();
         const newPos = center.clone().add(dir.multiplyScalar(dist));
@@ -294,7 +294,7 @@ export class CameraController {
     }
 
     /**
-     * Rotates camera in 45° step around target pivot (Sims 4 style < / >).
+     * Rotates camera in 45° step around target pivot (sms 4 style < / >).
      * @param {number} direction - +1 for clockwise, -1 for counter-clockwise.
      */
     rotatesms4Isometric(direction = 1) {
@@ -432,7 +432,7 @@ export class CameraController {
             changed = true;
         }
 
-        // 2. Sims 4 Continuous WASD / Arrow Key Floor Panning
+        // 2. sms 4 Continuous WASD / Arrow Key Floor Panning
         if (this.activeKeys.size > 0) {
             // Forward horizontal vector (projected onto ground plane XZ)
             const forward = new THREE.Vector3()
@@ -446,7 +446,7 @@ export class CameraController {
                 .crossVectors(forward, new THREE.Vector3(0, 1, 0))
                 .normalize();
 
-            // Calculate base pan speed scaled by camera distance (Sims 4 tactile feel)
+            // Calculate base pan speed scaled by camera distance (sms 4 tactile feel)
             const camDistance = this.camera.position.distanceTo(this.controls.target);
             const baseSpeed = Math.max(8, camDistance * 0.02);
             const speedMultiplier = this.isShiftDown ? 2.2 : 1.0;
