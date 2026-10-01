@@ -39,11 +39,35 @@ export class WallHeightGizmo extends THREE.Group {
         this.handles.name = 'WallHeight_Handles';
         this.add(this.handles);
         
-        // Materials
-        this.matHeight = new THREE.MeshBasicMaterial({ color: 0x10b981, depthTest: false, transparent: true, opacity: 0.95 });
-        this.matSlope = new THREE.MeshBasicMaterial({ color: 0xf59e0b, depthTest: false, transparent: true, opacity: 0.95 });
-        this.matHover = new THREE.MeshBasicMaterial({ color: 0xfacc15, depthTest: false, transparent: true, opacity: 1.0 });
-        this.matActive = new THREE.MeshBasicMaterial({ color: 0x22c55e, depthTest: false, transparent: true, opacity: 1.0 });
+        // Materials (SMS 4 pearl-white / brushed chrome base material matching room raiser)
+        this.matHeight = new THREE.MeshStandardMaterial({
+            color: 0xf8fafc,
+            metalness: 0.35,
+            roughness: 0.22,
+            depthTest: false,
+            depthWrite: false
+        });
+        this.matSlope = new THREE.MeshStandardMaterial({
+            color: 0xf8fafc,
+            metalness: 0.35,
+            roughness: 0.22,
+            depthTest: false,
+            depthWrite: false
+        });
+        this.matHover = new THREE.MeshStandardMaterial({
+            color: 0xfacc15,
+            metalness: 0.35,
+            roughness: 0.22,
+            depthTest: false,
+            depthWrite: false
+        });
+        this.matActive = new THREE.MeshStandardMaterial({
+            color: 0xfacc15,
+            metalness: 0.35,
+            roughness: 0.22,
+            depthTest: false,
+            depthWrite: false
+        });
 
         this._createLiveBadge();
         
@@ -206,14 +230,15 @@ export class WallHeightGizmo extends THREE.Group {
         hitMesh.userData = { isWallHeightHandle: true, handleType: 'uniform_height' };
         centerGroup.add(hitMesh);
 
-        const arrowGeo = new THREE.ConeGeometry(5, 14, 16);
+        const arrowGeo = new THREE.ConeGeometry(6.5, 14, 16);
         const arrowMesh = new THREE.Mesh(arrowGeo, this.matHeight.clone());
+        arrowMesh.position.set(0, 10, 0);
         arrowMesh.userData = { isWallHeightHandle: true, handleType: 'uniform_height' };
         centerGroup.add(arrowMesh);
 
-        const stemGeo = new THREE.CylinderGeometry(1.6, 1.6, 12, 12);
-        stemGeo.translate(0, -6, 0);
+        const stemGeo = new THREE.CylinderGeometry(2.0, 2.0, 14, 16);
         const stemMesh = new THREE.Mesh(stemGeo, this.matHeight.clone());
+        stemMesh.position.set(0, -1, 0);
         stemMesh.userData = { isWallHeightHandle: true, handleType: 'uniform_height' };
         centerGroup.add(stemMesh);
         this.handles.add(centerGroup);

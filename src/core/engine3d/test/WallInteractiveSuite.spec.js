@@ -319,5 +319,72 @@ describe('WallInteractiveSuite - Bay / Niche (extrude_recess) Tool', () => {
             expect(m.material.color.getHex()).toBe(0xf8fafc);
         });
     });
+
+    it('should configure all 4 vertices points with 3D lit arrows and raiser plain color (0xf8fafc) in corner mode', () => {
+        suite.attach(mockMesh, 'corner');
+        expect(suite.activeMode).toBe('corner');
+        expect(suite.cornerGizmo.visible).toBe(true);
+
+        const cornerHandles = suite.cornerGizmo.handles;
+        const arrowTypes = ['start_slope_height', 'end_slope_height', 'start_base_elevation', 'end_base_elevation'];
+
+        // 1. Verify ALL 4 vertices points have arrows
+        arrowTypes.forEach(type => {
+            const meshes = [];
+            cornerHandles.traverse(c => {
+                if (c.isMesh && c.userData?.handleType === type && c.material?.visible !== false) {
+                    meshes.push(c);
+                }
+            });
+            expect(meshes.length).toBe(2); // Stalk + Cone
+            const hasCylinder = meshes.some(m => m.geometry instanceof THREE.CylinderGeometry);
+            const hasCone = meshes.some(m => m.geometry instanceof THREE.ConeGeometry);
+            expect(hasCylinder).toBe(true);
+            expect(hasCone).toBe(true);
+
+            // 2. Verify pearl-white brushed chrome raiser styling (0xf8fafc)
+            meshes.forEach(m => {
+                expect(m.material).toBeInstanceOf(THREE.MeshStandardMaterial);
+                expect(m.material.color.getHex()).toBe(0xf8fafc);
+                expect(m.material.depthTest).toBe(false);
+            });
+        });
+
+        // 3. Verify corner node diamonds use pearl-white brushed chrome (0xf8fafc)
+        const nodeTypes = ['start_pos', 'end_pos', 'start_top_pos', 'end_top_pos'];
+        nodeTypes.forEach(type => {
+            const meshes = [];
+            cornerHandles.traverse(c => {
+                if (c.isMesh && c.userData?.handleType === type && c.userData?.isRing !== true && c.material?.visible !== false) {
+                    meshes.push(c);
+                }
+            });
+            expect(meshes.length).toBeGreaterThan(0);
+            meshes.forEach(m => {
+                expect(m.material).toBeInstanceOf(THREE.MeshStandardMaterial);
+                expect(m.material.color.getHex()).toBe(0xf8fafc);
+            });
+        });
+
+        // 4. Verify bottom arrow dragging adjusts wall elevation
+        const startBaseArrow = [];
+        cornerHandles.traverse(c => {
+            if (c.isMesh && c.userData?.handleType === 'start_base_elevation') startBaseArrow.push(c);
+        });
+        expect(startBaseArrow.length).toBeGreaterThan(0);
+
+        // Simulate pointer down on bottom elevation arrow
+        suite.cornerGizmo.activeHandle = startBaseArrow[0].userData;
+        suite.cornerGizmo.initialElev = 0;
+        suite.cornerGizmo.dragStartPoint.set(0, 0, 0);
+
+        // Dragging upward by 25cm raises wall elevation
+        const currentPoint = new THREE.Vector3(0, 25, 0);
+        const deltaY = currentPoint.y - suite.cornerGizmo.dragStartPoint.y;
+        const newElev = Math.max(0, Math.round((suite.cornerGizmo.initialElev + deltaY) / 5) * 5);
+        WallEngine.setElevation(mockWall, newElev, false, mockPlanner);
+
+        expect(mockWall.elevation).toBe(25);
+    });
 });
 

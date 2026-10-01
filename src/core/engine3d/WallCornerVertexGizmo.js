@@ -33,12 +33,28 @@ export class WallCornerVertexGizmo extends THREE.Group {
         this.handles.name = 'WallCornerVertex_Handles';
         this.add(this.handles);
         
-        // Materials (sms 4 Radiant Emerald, Amber, Cyan Neon & Gold Styling)
-        this.matDefault = new THREE.MeshBasicMaterial({ color: 0x38bdf8, depthTest: false, transparent: true, opacity: 0.95 });
-        this.matHeight = new THREE.MeshBasicMaterial({ color: 0x10b981, depthTest: false, transparent: true, opacity: 0.95 });
-        this.matSlope = new THREE.MeshBasicMaterial({ color: 0xf59e0b, depthTest: false, transparent: true, opacity: 0.95 });
-        this.matHover = new THREE.MeshBasicMaterial({ color: 0xfacc15, depthTest: false, transparent: true, opacity: 1.0 });
-        this.matActive = new THREE.MeshBasicMaterial({ color: 0x22c55e, depthTest: false, transparent: true, opacity: 1.0 });
+        // Materials (SMS 4 pearl-white / brushed chrome base material matching room raiser)
+        this.matBase = new THREE.MeshStandardMaterial({
+            color: 0xf8fafc,
+            metalness: 0.35,
+            roughness: 0.22,
+            depthTest: false,
+            depthWrite: false
+        });
+        this.matAccentRing = new THREE.MeshStandardMaterial({
+            color: 0xffffff,
+            metalness: 0.35,
+            roughness: 0.22,
+            depthTest: false,
+            depthWrite: false
+        });
+        this.matHover = new THREE.MeshStandardMaterial({
+            color: 0xfacc15,
+            metalness: 0.35,
+            roughness: 0.22,
+            depthTest: false,
+            depthWrite: false
+        });
 
         this._createLiveBadge();
         
@@ -138,21 +154,25 @@ export class WallCornerVertexGizmo extends THREE.Group {
         const midZ = (p1.y + p2.y) / 2;
 
         // 1. Bottom Corner Nodes (Planar X, Z movement)
-        this._createCornerNode('start_pos', p1.x, wallBaseY, p1.y, wall.startAnchor, 0x38bdf8);
-        this._createCornerNode('end_pos', p2.x, wallBaseY, p2.y, wall.endAnchor, 0x38bdf8);
+        this._createCornerNode('start_pos', p1.x, wallBaseY, p1.y, wall.startAnchor);
+        this._createCornerNode('end_pos', p2.x, wallBaseY, p2.y, wall.endAnchor);
 
         // 2. Top Corner Nodes (Planar X, Z movement at top)
-        this._createCornerNode('start_top_pos', p1.x, wallBaseY + startH, p1.y, wall.startAnchor, 0x00f0ff);
-        this._createCornerNode('end_top_pos', p2.x, wallBaseY + endH, p2.y, wall.endAnchor, 0x00f0ff);
+        this._createCornerNode('start_top_pos', p1.x, wallBaseY + startH, p1.y, wall.startAnchor);
+        this._createCornerNode('end_top_pos', p2.x, wallBaseY + endH, p2.y, wall.endAnchor);
 
-        // 3. Top Corner Vertical Height/Slope Arrows (Panel #2 ↑ / ↓)
-        this._createVerticalArrow('start_slope_height', p1.x, wallBaseY + startH + 6, p1.y, 0xf59e0b);
-        this._createVerticalArrow('end_slope_height', p2.x, wallBaseY + endH + 6, p2.y, 0xf59e0b);
+        // 3. Top Corner Vertical Height/Slope Arrows (Panel #2 ↑)
+        this._createVerticalArrow('start_slope_height', p1.x, wallBaseY + startH + 4, p1.y, 'up');
+        this._createVerticalArrow('end_slope_height', p2.x, wallBaseY + endH + 4, p2.y, 'up');
 
-        // 4. Center Top Edge Lift Bar (↕ overall height)
-        this._createTopEdgeBar('top_edge_height', midX, wallBaseY + maxH + 6, midZ, 0x10b981);
+        // 4. Bottom Corner Vertical Elevation Arrows (Panel #2 ↓) - all 4 vertices now have arrows
+        this._createVerticalArrow('start_base_elevation', p1.x, wallBaseY - 4, p1.y, 'down');
+        this._createVerticalArrow('end_base_elevation', p2.x, wallBaseY - 4, p2.y, 'down');
 
-        // 5. Wall Normal Move Handles (Previous Push/Pull logic: Move entire wall along normal vector)
+        // 5. Center Top Edge Lift Bar (↕ overall height)
+        this._createTopEdgeBar('top_edge_height', midX, wallBaseY + maxH + 4, midZ);
+
+        // 6. Wall Normal Move Handles (Push/Pull logic: Move entire wall along normal vector)
         const dx = p2.x - p1.x;
         const dy = p2.y - p1.y;
         const len = Math.hypot(dx, dy);
@@ -161,35 +181,36 @@ export class WallCornerVertexGizmo extends THREE.Group {
             const normX = -dy / len;
             const normZ = dx / len;
             const frontOffset = t / 2 + 10;
-            this._createWallMoveHandle('front', midX + normX * frontOffset, wallBaseY + maxH / 2, midZ + normZ * frontOffset, 0x00f0ff);
-            this._createWallMoveHandle('back', midX - normX * frontOffset, wallBaseY + maxH / 2, midZ - normZ * frontOffset, 0x38bdf8);
+            this._createWallMoveHandle('front', midX + normX * frontOffset, wallBaseY + maxH / 2, midZ + normZ * frontOffset);
+            this._createWallMoveHandle('back', midX - normX * frontOffset, wallBaseY + maxH / 2, midZ - normZ * frontOffset);
         }
     }
 
-    _createWallMoveHandle(side, x, y, z, color = 0x00f0ff) {
+    _createWallMoveHandle(side, x, y, z) {
         const group = new THREE.Group();
         group.position.set(x, y, z);
         group.userData = { isWallCornerHandle: true, handleType: 'wall_normal_move', side, isWallMove: true };
         group.renderOrder = 1005;
 
         // Generous invisible hit collider
-        const hitGeo = new THREE.CylinderGeometry(20, 20, 24, 16);
+        const hitGeo = new THREE.CylinderGeometry(20, 20, 36, 16);
         hitGeo.rotateX(Math.PI / 2);
         const hitMesh = new THREE.Mesh(hitGeo, new THREE.MeshBasicMaterial({ visible: false }));
         hitMesh.userData = { isWallCornerHandle: true, handleType: 'wall_normal_move', side, isWallMove: true };
         group.add(hitMesh);
 
-        // Center radiant disc
-        const discGeo = new THREE.CylinderGeometry(11, 11, 4, 20);
+        // Center radiant disc (brushed chrome pearl-white)
+        const discGeo = new THREE.CylinderGeometry(12, 12, 4.5, 24);
         discGeo.rotateX(Math.PI / 2);
-        const discMesh = new THREE.Mesh(discGeo, new THREE.MeshBasicMaterial({ color, depthTest: false, transparent: true, opacity: 0.9 }));
+        const discMesh = new THREE.Mesh(discGeo, this.matBase.clone());
         discMesh.userData = { isWallCornerHandle: true, handleType: 'wall_normal_move', side, isWallMove: true };
         discMesh.renderOrder = 1005;
         group.add(discMesh);
 
         // Accent ring
-        const ringGeo = new THREE.TorusGeometry(7, 1.4, 8, 20);
-        const ringMesh = new THREE.Mesh(ringGeo, new THREE.MeshBasicMaterial({ color: 0xffffff, depthTest: false }));
+        const ringGeo = new THREE.TorusGeometry(8.5, 1.2, 12, 24);
+        const ringMesh = new THREE.Mesh(ringGeo, this.matAccentRing.clone());
+        ringMesh.userData = { isWallCornerHandle: true, handleType: 'wall_normal_move', side, isWallMove: true, isRing: true };
         ringMesh.renderOrder = 1006;
         group.add(ringMesh);
 
@@ -202,10 +223,20 @@ export class WallCornerVertexGizmo extends THREE.Group {
             group.rotation.y = -angle + (side === 'back' ? Math.PI : 0);
         }
 
-        const arrowGeo = new THREE.ConeGeometry(7, 16, 16);
+        // 3D Stalk
+        const stalkGeo = new THREE.CylinderGeometry(2.0, 2.0, 12, 16);
+        stalkGeo.rotateX(Math.PI / 2);
+        const stalkMesh = new THREE.Mesh(stalkGeo, this.matBase.clone());
+        stalkMesh.position.set(0, 0, 10);
+        stalkMesh.userData = { isWallCornerHandle: true, handleType: 'wall_normal_move', side, isWallMove: true };
+        stalkMesh.renderOrder = 1005;
+        group.add(stalkMesh);
+
+        // 3D Flared Conical Arrowhead
+        const arrowGeo = new THREE.ConeGeometry(6.5, 14, 16);
         arrowGeo.rotateX(Math.PI / 2);
-        const arrowMesh = new THREE.Mesh(arrowGeo, new THREE.MeshBasicMaterial({ color, depthTest: false }));
-        arrowMesh.position.set(0, 0, 12);
+        const arrowMesh = new THREE.Mesh(arrowGeo, this.matBase.clone());
+        arrowMesh.position.set(0, 0, 20);
         arrowMesh.userData = { isWallCornerHandle: true, handleType: 'wall_normal_move', side, isWallMove: true };
         arrowMesh.renderOrder = 1005;
         group.add(arrowMesh);
@@ -213,90 +244,104 @@ export class WallCornerVertexGizmo extends THREE.Group {
         this.handles.add(group);
     }
 
-    _createCornerNode(type, x, y, z, anchor, color = 0x38bdf8) {
+    _createCornerNode(type, x, y, z, anchor) {
         const group = new THREE.Group();
         group.position.set(x, y, z);
         group.userData = { isWallCornerHandle: true, handleType: type, anchor: anchor, isPlanar: true };
         group.renderOrder = 1001;
 
         // Invisible generous hit collider
-        const hitGeo = new THREE.SphereGeometry(7, 12, 12);
+        const hitGeo = new THREE.SphereGeometry(9, 12, 12);
         const hitMesh = new THREE.Mesh(hitGeo, new THREE.MeshBasicMaterial({ visible: false }));
         hitMesh.userData = { isWallCornerHandle: true, handleType: type, anchor: anchor, isPlanar: true };
         group.add(hitMesh);
 
-        // Outer Diamond / Octahedron
-        const geo = new THREE.OctahedronGeometry(4.5);
-        const mesh = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color, depthTest: false, transparent: true, opacity: 0.95 }));
+        // Outer Diamond / Octahedron (brushed chrome pearl-white)
+        const geo = new THREE.OctahedronGeometry(5.0);
+        const mesh = new THREE.Mesh(geo, this.matBase.clone());
         mesh.userData = { isWallCornerHandle: true, handleType: type, anchor: anchor, isPlanar: true };
         mesh.renderOrder = 1001;
         group.add(mesh);
 
         // Center ring accent
-        const ringGeo = new THREE.TorusGeometry(3.5, 0.8, 8, 16);
+        const ringGeo = new THREE.TorusGeometry(3.8, 0.9, 12, 24);
         ringGeo.rotateX(Math.PI / 2);
-        const ringMesh = new THREE.Mesh(ringGeo, new THREE.MeshBasicMaterial({ color: 0xffffff, depthTest: false }));
+        const ringMesh = new THREE.Mesh(ringGeo, this.matAccentRing.clone());
+        ringMesh.userData = { isWallCornerHandle: true, handleType: type, anchor: anchor, isPlanar: true, isRing: true };
         ringMesh.renderOrder = 1002;
         group.add(ringMesh);
 
         this.handles.add(group);
     }
 
-    _createVerticalArrow(type, x, y, z, color = 0xf59e0b) {
+    _createVerticalArrow(type, x, y, z, dir = 'up') {
         const group = new THREE.Group();
         group.position.set(x, y, z);
-        group.userData = { isWallCornerHandle: true, handleType: type, isVertical: true };
+        const isUp = dir === 'up';
+        const sign = isUp ? 1 : -1;
+        group.userData = { isWallCornerHandle: true, handleType: type, isVertical: true, isBaseElev: !isUp };
         group.renderOrder = 1003;
 
         // Invisible hit collider
-        const hitGeo = new THREE.CylinderGeometry(8, 8, 24, 12);
+        const hitGeo = new THREE.CylinderGeometry(9, 9, 28, 12);
         const hitMesh = new THREE.Mesh(hitGeo, new THREE.MeshBasicMaterial({ visible: false }));
-        hitMesh.userData = { isWallCornerHandle: true, handleType: type, isVertical: true };
+        hitMesh.userData = { isWallCornerHandle: true, handleType: type, isVertical: true, isBaseElev: !isUp };
         group.add(hitMesh);
 
-        // Arrow Cone pointing UP
-        const coneGeo = new THREE.ConeGeometry(4.5, 12, 16);
-        const coneMesh = new THREE.Mesh(coneGeo, new THREE.MeshBasicMaterial({ color, depthTest: false, transparent: true, opacity: 0.95 }));
-        coneMesh.position.set(0, 6, 0);
-        coneMesh.userData = { isWallCornerHandle: true, handleType: type, isVertical: true };
-        coneMesh.renderOrder = 1003;
-        group.add(coneMesh);
-
-        // Arrow Shaft
-        const stemGeo = new THREE.CylinderGeometry(1.4, 1.4, 10, 12);
-        const stemMesh = new THREE.Mesh(stemGeo, new THREE.MeshBasicMaterial({ color, depthTest: false }));
-        stemMesh.position.set(0, -1, 0);
-        stemMesh.userData = { isWallCornerHandle: true, handleType: type, isVertical: true };
+        // Arrow Shaft (3D Cylindrical Stalk)
+        const stemGeo = new THREE.CylinderGeometry(2.0, 2.0, 14, 16);
+        const stemMesh = new THREE.Mesh(stemGeo, this.matBase.clone());
+        stemMesh.position.set(0, sign * 7, 0);
+        stemMesh.userData = { isWallCornerHandle: true, handleType: type, isVertical: true, isBaseElev: !isUp };
         stemMesh.renderOrder = 1003;
         group.add(stemMesh);
+
+        // Arrow Flared Cone (pointing UP or DOWN)
+        const coneGeo = new THREE.ConeGeometry(6.5, 14, 16);
+        if (!isUp) {
+            coneGeo.rotateX(Math.PI);
+        }
+        const coneMesh = new THREE.Mesh(coneGeo, this.matBase.clone());
+        coneMesh.position.set(0, sign * 18, 0);
+        coneMesh.userData = { isWallCornerHandle: true, handleType: type, isVertical: true, isBaseElev: !isUp };
+        coneMesh.renderOrder = 1003;
+        group.add(coneMesh);
 
         this.handles.add(group);
     }
 
-    _createTopEdgeBar(type, x, y, z, color = 0x10b981) {
+    _createTopEdgeBar(type, x, y, z) {
         const group = new THREE.Group();
         group.position.set(x, y, z);
         group.userData = { isWallCornerHandle: true, handleType: type, isTopEdge: true };
         group.renderOrder = 1004;
 
         // Invisible hit collider
-        const hitGeo = new THREE.BoxGeometry(20, 18, 16);
+        const hitGeo = new THREE.BoxGeometry(22, 26, 18);
         const hitMesh = new THREE.Mesh(hitGeo, new THREE.MeshBasicMaterial({ visible: false }));
         hitMesh.userData = { isWallCornerHandle: true, handleType: type, isTopEdge: true };
         group.add(hitMesh);
 
         // Center pill grip
-        const pillGeo = new THREE.CylinderGeometry(3.5, 3.5, 14, 16);
+        const pillGeo = new THREE.CylinderGeometry(3.5, 3.5, 16, 20);
         pillGeo.rotateZ(Math.PI / 2);
-        const pillMesh = new THREE.Mesh(pillGeo, new THREE.MeshBasicMaterial({ color, depthTest: false, transparent: true, opacity: 0.95 }));
+        const pillMesh = new THREE.Mesh(pillGeo, this.matBase.clone());
         pillMesh.userData = { isWallCornerHandle: true, handleType: type, isTopEdge: true };
         pillMesh.renderOrder = 1004;
         group.add(pillMesh);
 
+        // 3D Stalk
+        const stemGeo = new THREE.CylinderGeometry(1.8, 1.8, 10, 16);
+        const stemMesh = new THREE.Mesh(stemGeo, this.matBase.clone());
+        stemMesh.position.set(0, 7, 0);
+        stemMesh.userData = { isWallCornerHandle: true, handleType: type, isTopEdge: true };
+        stemMesh.renderOrder = 1004;
+        group.add(stemMesh);
+
         // Up arrow cone
-        const upConeGeo = new THREE.ConeGeometry(3.5, 8, 12);
-        const upCone = new THREE.Mesh(upConeGeo, new THREE.MeshBasicMaterial({ color, depthTest: false }));
-        upCone.position.set(0, 7, 0);
+        const upConeGeo = new THREE.ConeGeometry(5.5, 12, 16);
+        const upCone = new THREE.Mesh(upConeGeo, this.matBase.clone());
+        upCone.position.set(0, 16, 0);
         upCone.userData = { isWallCornerHandle: true, handleType: type, isTopEdge: true };
         upCone.renderOrder = 1004;
         group.add(upCone);
@@ -332,6 +377,7 @@ export class WallCornerVertexGizmo extends THREE.Group {
             this.initialH = wallH;
             this.initialStartH = (wall.startHeight !== undefined ? wall.startHeight : wallH);
             this.initialEndH = (wall.endHeight !== undefined ? wall.endHeight : wallH);
+            this.initialElev = (wall.elevation !== undefined ? wall.elevation : 0);
 
             const p1 = (wall.startAnchor && typeof wall.startAnchor.position === 'function') ? wall.startAnchor.position() : (wall.startAnchor || { x: wall.startX || 0, y: wall.startY || 0 });
             const p2 = (wall.endAnchor && typeof wall.endAnchor.position === 'function') ? wall.endAnchor.position() : (wall.endAnchor || { x: wall.endX || 0, y: wall.endY || 0 });
@@ -484,6 +530,14 @@ export class WallCornerVertexGizmo extends THREE.Group {
                         if (this.domBadge) {
                             this._updateBadgeText(`📐 End Height: ${newEndH} cm (${deltaY >= 0 ? '+' : ''}${Math.round(deltaY)} cm)`);
                         }
+                    } else if (this.activeHandle.handleType === 'start_base_elevation' || this.activeHandle.handleType === 'end_base_elevation') {
+                        // Dragging bottom corner arrow: Adjust wall elevation
+                        const newElev = Math.max(0, Math.round((this.initialElev + deltaY) / 5) * 5);
+                        WallEngine.setElevation(wall, newElev, false, planner);
+
+                        if (this.domBadge) {
+                            this._updateBadgeText(`📐 Wall Elevation: ${newElev} cm (${deltaY >= 0 ? '+' : ''}${Math.round(deltaY)} cm)`);
+                        }
                     }
 
                     if (planner && typeof planner.syncAll === 'function') planner.syncAll();
@@ -545,10 +599,23 @@ export class WallCornerVertexGizmo extends THREE.Group {
             this.raycaster.setFromCamera(this.mouse, this.ctx.camera);
             const meshes = [];
             this.handles.traverse(c => {
-                if (c.isMesh && c.userData.isWallCornerHandle) meshes.push(c);
+                if (c.isMesh && c.userData.isWallCornerHandle && c.material?.visible !== false) meshes.push(c);
             });
 
             const intersects = this.raycaster.intersectObjects(meshes, false);
+            const hoveredType = intersects.length > 0 ? intersects[0].object.userData?.handleType : null;
+
+            this.handles.traverse(c => {
+                if (!c.isMesh || !c.userData.isWallCornerHandle) return;
+                if (c.material?.visible === false) return;
+                const isHovered = hoveredType && c.userData?.handleType === hoveredType;
+                if (c.userData?.isRing) {
+                    c.material.color.setHex(isHovered ? 0xfacc15 : 0xffffff);
+                } else {
+                    c.material.color.setHex(isHovered ? 0xfacc15 : 0xf8fafc);
+                }
+            });
+
             if (intersects.length > 0) {
                 this.ctx.renderer.domElement.style.cursor = 'grab';
             } else {
