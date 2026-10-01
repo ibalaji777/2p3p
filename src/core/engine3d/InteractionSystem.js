@@ -1948,11 +1948,11 @@ export class InteractionSystem {
         if (this.cornerFilletGizmo && this.cornerFilletGizmo.destroy) this.cornerFilletGizmo.destroy();
         if (this._onSelectionChanged) {
             coreEventBus.off(EVENTS.SELECTION_CHANGED, this._onSelectionChanged);
-        }sms4
-        if (this.simssms4print) {sms4
+        }
+        if (this.sms4Footprint) {
             if (this.sms4Footprint.geometry) this.sms4Footprint.geometry.dispose();
-            if (this.sms4Footprint.material) thisms4s4Footprint.material.dispose(sms4
-            if (this.sims4Footprint.parent) this.sims4Footprint.parent.remove(this.sims4Footprint);
+            if (this.sms4Footprint.material) this.sms4Footprint.material.dispose();
+            if (this.sms4Footprint.parent) this.sms4Footprint.parent.remove(this.sms4Footprint);
         }
     }
 }
