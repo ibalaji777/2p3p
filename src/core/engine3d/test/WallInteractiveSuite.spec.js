@@ -115,7 +115,7 @@ describe('WallInteractiveSuite - Bay / Niche (extrude_recess) Tool', () => {
         suite.dispose();
     });
 
-    it('should activate extrude_recess mode, show extrude handles and ghost, and detach pushPullGizmo', () => {
+    it('should activate extrude_recess mode, show extrude handles and ghost, and detach extenderGizmo', () => {
         suite.attach(mockMesh, 'menu');
         expect(suite.activeMode).toBe('menu');
 
@@ -124,7 +124,7 @@ describe('WallInteractiveSuite - Bay / Niche (extrude_recess) Tool', () => {
 
         expect(suite.activeMode).toBe('extrude_recess');
         expect(suite.extrudeGroup.visible).toBe(true);
-        expect(suite.pushPullGizmo.visible).toBe(false);
+        expect(suite.extenderGizmo.visible).toBe(false);
         expect(suite.cornerGizmo.visible).toBe(false);
         expect(suite.heightGizmo.visible).toBe(false);
 

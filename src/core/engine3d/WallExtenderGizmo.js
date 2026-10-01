@@ -183,26 +183,26 @@ function _getDimensionBadgeTexture(text) {
         }
     };
 
-    // 1. Cyan Glow Drop Shadow
+    // 1. Dark Slate Pill Background with subtle shadow
     ctx.save();
-    ctx.shadowColor = 'rgba(0, 240, 255, 0.65)';
-    ctx.shadowBlur = 14;
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.45)';
+    ctx.shadowBlur = 10;
     ctx.shadowOffsetX = 0;
-    ctx.shadowOffsetY = 3;
+    ctx.shadowOffsetY = 2;
 
     // Rounded Pill
     const x = margin;
     const y = margin;
     _drawPill();
 
-    // 2. Royal Blue Fill (#0070f3)
-    ctx.fillStyle = '#0070f3';
+    // 2. Dark Slate Fill (#0f172a)
+    ctx.fillStyle = '#0f172a';
     ctx.fill();
     ctx.restore();
 
     // 3. Crisp Pure White Border
     ctx.save();
-    ctx.lineWidth = 3.5;
+    ctx.lineWidth = 2.5;
     ctx.strokeStyle = '#ffffff';
     _drawPill();
     ctx.stroke();
@@ -231,16 +231,16 @@ function _getDimensionBadgeTexture(text) {
 }
 
 /**
- * WallPushPullGizmo
+ * WallExtenderGizmo
  * 
- * Provides interactive sms 4-style 3D push/pull handles directly on wall surfaces.
+ * Provides interactive sms 4-style 3D extender handles directly on wall surfaces.
  * 
  * 3-Step Elevation Workflow:
  * 1. User selects specific area on wall face (Horizontal Left/Right & Vertical Top/Bottom handles + Glowing 2D Selection Box).
- * 2. User pulls outward freely to extrude a 100% solid wall block. Once increased, the Push arrow appears on the front face to adjust/push back.
+ * 2. User pulls outward freely to extrude a 100% solid wall block. Once increased, the Extender arrow appears on the front face to adjust/push back.
  * 3. User clicks Done (✓) to bake or Cancel (✕) to discard.
  */
-export class WallPushPullGizmo extends THREE.Group {
+export class WallExtenderGizmo extends THREE.Group {
     constructor(ctx) {
         super();
         this.ctx = ctx;
@@ -284,19 +284,21 @@ export class WallPushPullGizmo extends THREE.Group {
         this.initialElevTop = 120;
 
         this.handles = new THREE.Group();
-        this.handles.name = 'WallPushPull_Handles';
+        this.handles.name = 'WallExtender_Handles';
         this.add(this.handles);
         
-        // Materials (Unified Modern CAD/BIM Aesthetic: Dark Royal Blue, Bright Cyan Hover, Pure White)
-        this.matRoyalBlue = new THREE.MeshBasicMaterial({ color: 0x0070f3, depthTest: false, side: THREE.DoubleSide });
-        this.matActiveCyan = new THREE.MeshBasicMaterial({ color: 0x00d2ff, depthTest: false, side: THREE.DoubleSide });
-        this.matWhite = new THREE.MeshBasicMaterial({ color: 0xffffff, depthTest: false, side: THREE.DoubleSide });
-        this.matCyanGlow = new THREE.MeshBasicMaterial({ color: 0x00f0ff, transparent: true, opacity: 0.65, depthTest: false, side: THREE.DoubleSide });
-        this.matReticleDisc = new THREE.MeshBasicMaterial({ color: 0x0070f3, transparent: true, opacity: 0.18, depthTest: false, side: THREE.DoubleSide });
+        // Materials (Unified Modern CAD/BIM Aesthetic: Pearl-White / Brushed Chrome, Bright Amber Hover, Pure White)
+        this.matBase = new THREE.MeshStandardMaterial({ color: 0xf8fafc, metalness: 0.35, roughness: 0.22, depthTest: false, side: THREE.DoubleSide });
+        this.matRoyalBlue = this.matBase;
+        this.matActiveCyan = new THREE.MeshStandardMaterial({ color: 0xfacc15, metalness: 0.35, roughness: 0.22, depthTest: false, side: THREE.DoubleSide });
+        this.matWhite = new THREE.MeshStandardMaterial({ color: 0xffffff, metalness: 0.35, roughness: 0.22, depthTest: false, side: THREE.DoubleSide });
+        this.matDark = new THREE.MeshStandardMaterial({ color: 0x334155, metalness: 0.35, roughness: 0.22, depthTest: false, side: THREE.DoubleSide });
+        this.matCyanGlow = new THREE.MeshBasicMaterial({ color: 0x94a3b8, transparent: true, opacity: 0.45, depthTest: false, side: THREE.DoubleSide });
+        this.matReticleDisc = new THREE.MeshBasicMaterial({ color: 0xf8fafc, transparent: true, opacity: 0.18, depthTest: false, side: THREE.DoubleSide });
         this.matSky = this.matActiveCyan;
-        this.matDarkSky = this.matRoyalBlue;
+        this.matDarkSky = this.matBase;
         this.matHover = this.matActiveCyan;
-        this.matActive = new THREE.MeshBasicMaterial({ color: 0x00f0ff, depthTest: false, transparent: true, opacity: 1.0 });
+        this.matActive = this.matActiveCyan;
         this.matGreen = new THREE.MeshBasicMaterial({ color: 0x10b981, depthTest: false, transparent: true, opacity: 0.95 });
         this.matPurple = new THREE.MeshBasicMaterial({ color: 0xa855f7, depthTest: false, transparent: true, opacity: 0.95 });
         
@@ -356,7 +358,7 @@ export class WallPushPullGizmo extends THREE.Group {
 
     _buildSelectionRects() {
         this.selectionRectGroup = new THREE.Group();
-        this.selectionRectGroup.name = 'WallPushPull_SelectionRects';
+        this.selectionRectGroup.name = 'WallExtender_SelectionRects';
         this.selectionRectGroup.visible = false;
 
         const baseGeo = new THREE.PlaneGeometry(1, 1);
@@ -381,14 +383,14 @@ export class WallPushPullGizmo extends THREE.Group {
 
         // Front Face
         this.selectionPlaneFront = new THREE.Mesh(baseGeo, matFill);
-        this.selectionPlaneFront.userData = { isWallPushPullHandle: true, isSelectionPlane: true, part: 'slide_center', side: 'front' };
+        this.selectionPlaneFront.userData = { isWallPushPullHandle: true, isWallExtenderHandle: true, isSelectionPlane: true, part: 'slide_center', side: 'front' };
         this.selectionOutlineFront = new THREE.LineSegments(edgesGeo, matSingleOutline);
         this.selectionOutlineFront.raycast = () => {};
         this.selectionOutlineFront.renderOrder = 999980;
 
         // Back Face
         this.selectionPlaneBack = new THREE.Mesh(baseGeo, matFill);
-        this.selectionPlaneBack.userData = { isWallPushPullHandle: true, isSelectionPlane: true, part: 'slide_center', side: 'back' };
+        this.selectionPlaneBack.userData = { isWallPushPullHandle: true, isWallExtenderHandle: true, isSelectionPlane: true, part: 'slide_center', side: 'back' };
         this.selectionOutlineBack = new THREE.LineSegments(edgesGeo, matSingleOutline);
         this.selectionOutlineBack.raycast = () => {};
         this.selectionOutlineBack.renderOrder = 999980;
@@ -402,7 +404,7 @@ export class WallPushPullGizmo extends THREE.Group {
 
     _buildSolidBlockPreview() {
         this.solidBlockPreview = new THREE.Group();
-        this.solidBlockPreview.name = 'WallPushPull_SolidBlockPreview';
+        this.solidBlockPreview.name = 'WallExtender_SolidBlockPreview';
         this.solidBlockPreview.visible = false;
 
         const boxGeo = new THREE.BoxGeometry(1, 1, 1);
@@ -463,12 +465,12 @@ export class WallPushPullGizmo extends THREE.Group {
 
     _buildDimensionLines() {
         this.dimensionLinesGroup = new THREE.Group();
-        this.dimensionLinesGroup.name = 'WallPushPull_DimensionLines';
+        this.dimensionLinesGroup.name = 'WallExtender_DimensionLines';
         this.dimensionLinesGroup.renderOrder = 999990;
 
         const lineMat = new THREE.LineBasicMaterial({
-            color: 0x0050c8,
-            linewidth: 2,
+            color: 0x94a3b8,
+            linewidth: 1.5,
             depthTest: false,
             transparent: true,
             opacity: 0.95
@@ -478,8 +480,8 @@ export class WallPushPullGizmo extends THREE.Group {
         this.dimLinesMesh.raycast = () => {};
         this.dimensionLinesGroup.add(this.dimLinesMesh);
 
-        // 2D Flat Vector Arrowheads (Royal Blue `#0050c8`)
-        const arrowMat = new THREE.MeshBasicMaterial({ color: 0x0050c8, depthTest: false, side: THREE.DoubleSide });
+        // 2D Flat Vector Arrowheads (Slate `#94a3b8`)
+        const arrowMat = new THREE.MeshBasicMaterial({ color: 0x94a3b8, depthTest: false, side: THREE.DoubleSide });
         const createArrow = (dir) => {
             const shape = _createArrowheadShape(dir, 10, 8);
             const geo = new THREE.ShapeGeometry(shape);
@@ -521,7 +523,7 @@ export class WallPushPullGizmo extends THREE.Group {
         this.add(this.dimensionLinesGroup);
     }
 
-    _buildCornerHandle(cornerId, color = 0x0070f3) {
+    _buildCornerHandle(cornerId, color = 0xf8fafc) {
         const group = new THREE.Group();
         group.userData = { isWallPushPullHandle: true, isCorner: true, part: cornerId };
         group.renderOrder = 999990;
@@ -534,7 +536,7 @@ export class WallPushPullGizmo extends THREE.Group {
         hitMesh.userData = { isWallPushPullHandle: true, isCorner: true, part: cornerId };
         group.add(hitMesh);
 
-        // 1. Single Pure White Solid Outer Ring Disc (Radius 7.0) (Single round shape)
+        // 1. Single Pure White Solid Outer Ring Disc (Radius 7.0)
         const donutGeo = new THREE.CircleGeometry(7.0, 24);
         const donutMesh = new THREE.Mesh(donutGeo, this.matWhite);
         donutMesh.position.z = 0.04;
@@ -542,9 +544,9 @@ export class WallPushPullGizmo extends THREE.Group {
         donutMesh.renderOrder = 999991;
         group.add(donutMesh);
 
-        // 2. Inner Vibrant Dark Royal Blue Core Disc (Radius 4.8)
+        // 2. Inner Pearl-White Raiser Base Disc (Radius 4.8)
         const discGeo = new THREE.CircleGeometry(4.8, 24);
-        const discMesh = new THREE.Mesh(discGeo, this.matRoyalBlue);
+        const discMesh = new THREE.Mesh(discGeo, this.matBase.clone());
         discMesh.position.z = 0.06;
         discMesh.userData = { isWallPushPullHandle: true, isCorner: true, part: cornerId, isBase: true };
         discMesh.renderOrder = 999992;
@@ -558,9 +560,9 @@ export class WallPushPullGizmo extends THREE.Group {
         pipMesh.renderOrder = 999993;
         group.add(pipMesh);
 
-        // 4. Center Core Dot (Radius 1.0, Royal Blue)
+        // 4. Center Core Dot (Radius 1.0, Slate/Dark)
         const coreGeo = new THREE.CircleGeometry(1.0, 16);
-        const coreMesh = new THREE.Mesh(coreGeo, this.matRoyalBlue);
+        const coreMesh = new THREE.Mesh(coreGeo, this.matDark.clone());
         coreMesh.position.z = 0.10;
         coreMesh.userData = { isWallPushPullHandle: true, isCorner: true, part: cornerId, isCore: true };
         coreMesh.renderOrder = 999994;
@@ -569,9 +571,10 @@ export class WallPushPullGizmo extends THREE.Group {
         return group;
     }
 
-    _buildBoundaryHandle(side, color = 0x0070f3) {
+    _buildBoundaryHandle(side, color = 0xf8fafc) {
         const group = new THREE.Group();
         const partName = side === 'start' ? 'boundary_start' : (side === 'end' ? 'boundary_end' : (side === 'top' ? 'boundary_top' : 'boundary_bottom'));
+        const isHorizontal = (side === 'start' || side === 'end');
         const isTop = (side === 'top');
         group.userData = { isWallPushPullHandle: true, isBoundary: true, side, part: partName };
         group.renderOrder = 999990;
@@ -584,13 +587,12 @@ export class WallPushPullGizmo extends THREE.Group {
         hitBox.userData = { isWallPushPullHandle: true, isBoundary: true, side, part: partName };
         group.add(hitBox);
 
-        // 1. Subtle Boundary Guide Line
-        const isVerticalSide = (side === 'start' || side === 'end');
+        // 1. Subtle Boundary Guide Line (Slate #94a3b8)
         const lineGeo = new THREE.BufferGeometry().setFromPoints([
-            isVerticalSide ? new THREE.Vector3(0, -70, 0) : new THREE.Vector3(-70, 0, 0),
-            isVerticalSide ? new THREE.Vector3(0, 70, 0) : new THREE.Vector3(70, 0, 0)
+            isHorizontal ? new THREE.Vector3(0, -70, 0) : new THREE.Vector3(-70, 0, 0),
+            isHorizontal ? new THREE.Vector3(0, 70, 0) : new THREE.Vector3(70, 0, 0)
         ]);
-        const lineMat = new THREE.LineBasicMaterial({ color: 0x00f0ff, linewidth: 2, depthTest: false, transparent: true, opacity: 0.45 });
+        const lineMat = new THREE.LineBasicMaterial({ color: 0x94a3b8, linewidth: 2, depthTest: false, transparent: true, opacity: 0.65 });
         const lineMesh = new THREE.Line(lineGeo, lineMat);
         lineMesh.name = 'laserLine';
         lineMesh.renderOrder = 999980;
@@ -599,7 +601,7 @@ export class WallPushPullGizmo extends THREE.Group {
         // 2. Solid Pure White Border Contour around Double-Arrow
         const borderShape = _createDoubleArrowShape(18, 4.8, 5.0, 10.5);
         const borderGeo = new THREE.ShapeGeometry(borderShape);
-        if (isTop) {
+        if (isHorizontal) {
             borderGeo.rotateZ(Math.PI / 2);
         }
         const borderMesh = new THREE.Mesh(borderGeo, this.matWhite);
@@ -608,17 +610,85 @@ export class WallPushPullGizmo extends THREE.Group {
         borderMesh.userData = { isWallPushPullHandle: true, isBoundary: true, side, part: partName, isRing: true, isHalo: true };
         group.add(borderMesh);
 
-        // 3. Dark Royal Blue Base Double-Arrow Fill (#0070f3) with High Visible Z-Index 999999
+        // 3. Plain Raiser Pearl-White Base Double-Arrow Fill (0xf8fafc)
         const baseShape = _createDoubleArrowShape(15, 3.2, 4.2, 7.8);
         const baseGeo = new THREE.ShapeGeometry(baseShape);
-        if (isTop) {
+        if (isHorizontal) {
             baseGeo.rotateZ(Math.PI / 2);
         }
-        const discMesh = new THREE.Mesh(baseGeo, this.matRoyalBlue);
+        const discMesh = new THREE.Mesh(baseGeo, this.matBase.clone());
         discMesh.position.z = 0.06;
         discMesh.renderOrder = 999999;
         discMesh.userData = { isWallPushPullHandle: true, isBoundary: true, side, part: partName, isBase: true, isArrowFill: true };
         group.add(discMesh);
+
+        // 4. Directional 3D Lit Arrows (Stalk + Flared Cone) along Motion Axis
+        if (isHorizontal) {
+            // Left Stalk & Cone
+            const stalkLGeo = new THREE.CylinderGeometry(1.6, 1.6, 7, 16);
+            stalkLGeo.rotateZ(Math.PI / 2);
+            const stalkL = new THREE.Mesh(stalkLGeo, this.matBase.clone());
+            stalkL.position.set(-5, 0, 0.08);
+            stalkL.userData = { isWallPushPullHandle: true, isBoundary: true, side, part: partName, isStalk: true, isBase: true };
+            stalkL.renderOrder = 999999;
+            group.add(stalkL);
+
+            const coneLGeo = new THREE.ConeGeometry(4.5, 9, 16);
+            coneLGeo.rotateZ(Math.PI / 2);
+            const coneL = new THREE.Mesh(coneLGeo, this.matBase.clone());
+            coneL.position.set(-11, 0, 0.08);
+            coneL.userData = { isWallPushPullHandle: true, isBoundary: true, side, part: partName, isCone: true, isBase: true };
+            coneL.renderOrder = 999999;
+            group.add(coneL);
+
+            // Right Stalk & Cone
+            const stalkRGeo = new THREE.CylinderGeometry(1.6, 1.6, 7, 16);
+            stalkRGeo.rotateZ(-Math.PI / 2);
+            const stalkR = new THREE.Mesh(stalkRGeo, this.matBase.clone());
+            stalkR.position.set(5, 0, 0.08);
+            stalkR.userData = { isWallPushPullHandle: true, isBoundary: true, side, part: partName, isStalk: true, isBase: true };
+            stalkR.renderOrder = 999999;
+            group.add(stalkR);
+
+            const coneRGeo = new THREE.ConeGeometry(4.5, 9, 16);
+            coneRGeo.rotateZ(-Math.PI / 2);
+            const coneR = new THREE.Mesh(coneRGeo, this.matBase.clone());
+            coneR.position.set(11, 0, 0.08);
+            coneR.userData = { isWallPushPullHandle: true, isBoundary: true, side, part: partName, isCone: true, isBase: true };
+            coneR.renderOrder = 999999;
+            group.add(coneR);
+        } else {
+            // Up Stalk & Cone
+            const stalkUGeo = new THREE.CylinderGeometry(1.6, 1.6, 7, 16);
+            const stalkU = new THREE.Mesh(stalkUGeo, this.matBase.clone());
+            stalkU.position.set(0, 5, 0.08);
+            stalkU.userData = { isWallPushPullHandle: true, isBoundary: true, side, part: partName, isStalk: true, isBase: true };
+            stalkU.renderOrder = 999999;
+            group.add(stalkU);
+
+            const coneUGeo = new THREE.ConeGeometry(4.5, 9, 16);
+            const coneU = new THREE.Mesh(coneUGeo, this.matBase.clone());
+            coneU.position.set(0, 11, 0.08);
+            coneU.userData = { isWallPushPullHandle: true, isBoundary: true, side, part: partName, isCone: true, isBase: true };
+            coneU.renderOrder = 999999;
+            group.add(coneU);
+
+            // Down Stalk & Cone
+            const stalkDGeo = new THREE.CylinderGeometry(1.6, 1.6, 7, 16);
+            const stalkD = new THREE.Mesh(stalkDGeo, this.matBase.clone());
+            stalkD.position.set(0, -5, 0.08);
+            stalkD.userData = { isWallPushPullHandle: true, isBoundary: true, side, part: partName, isStalk: true, isBase: true };
+            stalkD.renderOrder = 999999;
+            group.add(stalkD);
+
+            const coneDGeo = new THREE.ConeGeometry(4.5, 9, 16);
+            coneDGeo.rotateX(Math.PI);
+            const coneD = new THREE.Mesh(coneDGeo, this.matBase.clone());
+            coneD.position.set(0, -11, 0.08);
+            coneD.userData = { isWallPushPullHandle: true, isBoundary: true, side, part: partName, isCone: true, isBase: true };
+            coneD.renderOrder = 999999;
+            group.add(coneD);
+        }
 
         return group;
     }
@@ -937,7 +1007,7 @@ export class WallPushPullGizmo extends THREE.Group {
         container.appendChild(this.domConfirmBar);
     }
 
-    _buildsms4Handle(side, color = 0x0070f3) {
+    _buildsms4Handle(side, color = 0xf8fafc) {
         const group = new THREE.Group();
         group.userData = { isWallPushPullHandle: true, side, part: side };
         group.renderOrder = 999990;
@@ -948,9 +1018,9 @@ export class WallPushPullGizmo extends THREE.Group {
         hitMesh.userData = { isWallPushPullHandle: true, side, part: 'base' };
         group.add(hitMesh);
 
-        // 1. Single Clean Royal Blue Disc (Radius 14) (Single round disc, no duplicate outer rounds)
+        // 1. Single Clean Pearl-White Disc (Radius 14) (plain raiser style)
         const innerDiscGeo = new THREE.CircleGeometry(14, 36);
-        const innerDisc = new THREE.Mesh(innerDiscGeo, this.matRoyalBlue);
+        const innerDisc = new THREE.Mesh(innerDiscGeo, this.matBase.clone());
         innerDisc.position.z = 0.04;
         innerDisc.renderOrder = 999992;
         innerDisc.userData = { isWallPushPullHandle: true, side, part: side, isInnerDisc: true, isBase: true, isReticle: true };
@@ -964,10 +1034,10 @@ export class WallPushPullGizmo extends THREE.Group {
         innerRing.userData = { isWallPushPullHandle: true, side, part: side, isRing: true, isHalo: true };
         group.add(innerRing);
 
-        // 3. Center Pure White 4-Way Arrow Symbol ✥ (High Visible Z-Index 999999)
+        // 3. Center Crisp 4-Way Arrow Symbol ✥ (High Visible Z-Index 999999)
         const arrowShape = _createFourWayArrowShape(18, 3.2, 4.2, 8.0);
         const shapeGeo = new THREE.ShapeGeometry(arrowShape);
-        const arrowMesh = new THREE.Mesh(shapeGeo, this.matWhite);
+        const arrowMesh = new THREE.Mesh(shapeGeo, this.matDark);
         arrowMesh.position.z = 0.08;
         arrowMesh.renderOrder = 999999;
         arrowMesh.userData = { isWallPushPullHandle: true, side, part: side, isArrowFill: true, isTicks: true };
@@ -1461,8 +1531,9 @@ export class WallPushPullGizmo extends THREE.Group {
         [this.handleFront, this.handleBack].forEach(grp => {
             if (!grp) return;
             grp.children.forEach(c => {
-                if (c.userData.isBase || c.userData.isReticle || c.userData.isInnerDisc) c.material = this.matRoyalBlue;
-                else if (c.userData.isRing || c.userData.isArrowFill || c.userData.isTicks || c.userData.isHalo) c.material = this.matWhite;
+                if (c.userData.isBase || c.userData.isReticle || c.userData.isInnerDisc) c.material = this.matBase;
+                else if (c.userData.isRing || c.userData.isHalo) c.material = this.matWhite;
+                else if (c.userData.isArrowFill || c.userData.isTicks) c.material = this.matDark;
             });
         });
 
@@ -1470,7 +1541,7 @@ export class WallPushPullGizmo extends THREE.Group {
         [this.startWidthHandle, this.endWidthHandle, this.bottomHeightHandle, this.topHeightHandle].forEach(grp => {
             if (!grp) return;
             grp.children.forEach(c => {
-                if (c.userData.isBase || c.userData.isArrowFill) c.material = this.matRoyalBlue;
+                if (c.userData.isBase || c.userData.isArrowFill || c.userData.isStalk || c.userData.isCone) c.material = this.matBase;
                 else if (c.userData.isRing || c.userData.isHalo) c.material = this.matWhite;
             });
         });
@@ -1479,7 +1550,8 @@ export class WallPushPullGizmo extends THREE.Group {
         [this.cornerBL, this.cornerBR, this.cornerTL, this.cornerTR].forEach(grp => {
             if (!grp) return;
             grp.children.forEach(c => {
-                if (c.userData.isBase || c.userData.isCore) c.material = this.matRoyalBlue;
+                if (c.userData.isBase) c.material = this.matBase;
+                else if (c.userData.isCore) c.material = this.matDark;
                 else if (c.userData.isDonut || c.userData.isPip || c.userData.isRing || c.userData.isHalo) c.material = this.matWhite;
             });
         });
@@ -1488,8 +1560,8 @@ export class WallPushPullGizmo extends THREE.Group {
     _setHandleHover(group) {
         if (!group) return;
         group.children.forEach(c => {
-            if (c.userData && c.userData.isBase) {
-                c.material = this.matActiveCyan;
+            if (c.userData && (c.userData.isBase || c.userData.isArrowFill || c.userData.isStalk || c.userData.isCone)) {
+                c.material = this.matHover;
             }
         });
     }
@@ -1606,7 +1678,7 @@ export class WallPushPullGizmo extends THREE.Group {
             
             let hitMesh = intersects[0].object;
             const originalHit = hitMesh;
-            while (hitMesh && !hitMesh.userData.isWallPushPullHandle && hitMesh.parent) {
+            while (hitMesh && !hitMesh.userData.isWallExtenderHandle && !hitMesh.userData.isWallPushPullHandle && hitMesh.parent) {
                 hitMesh = hitMesh.parent;
             }
             
@@ -1846,7 +1918,7 @@ export class WallPushPullGizmo extends THREE.Group {
                     this.ctx.updateWallGeometryLive(w);
                 }
             } catch(err) {
-                console.warn('[WallPushPullGizmo] Live wall update err:', err);
+                console.warn('[WallExtenderGizmo] Live wall update err:', err);
             }
         });
 
@@ -2398,3 +2470,5 @@ export class WallPushPullGizmo extends THREE.Group {
         this.detach();
     }
 }
+
+export { WallExtenderGizmo as WallPushPullGizmo };

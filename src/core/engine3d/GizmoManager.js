@@ -146,9 +146,9 @@ export class GizmoManager {
         this.btnPolygonEdges.onclick = () => this.setTransformMode('polygon_edges');
 
         this.btnPushPull = document.createElement('button');
-        this.btnPushPull.innerHTML = '↔<br>Push/Pull';
+        this.btnPushPull.innerHTML = '↔<br>Extender';
         this.btnPushPull.className = 'transform-menu-btn';
-        this.btnPushPull.title = 'Push / Pull Wall (Resize Room)';
+        this.btnPushPull.title = 'Extender (Resize Room / Wall)';
         this.btnPushPull.style.display = 'none';
         this.btnPushPull.onclick = () => this.setTransformMode('wall_push_pull');
         
@@ -3436,8 +3436,9 @@ export class GizmoManager {
         if (this.ctx.interactions.polygonGizmo) {
             this.ctx.interactions.polygonGizmo.detach();
         }
-        if (this.ctx.interactions.wallPushPullGizmo) {
-            this.ctx.interactions.wallPushPullGizmo.detach();
+        const wallExt = this.ctx.interactions.wallExtenderGizmo || this.ctx.interactions.wallPushPullGizmo;
+        if (wallExt) {
+            wallExt.detach();
         }
         if (this.ctx.interactions.curvedPortalRoofGizmo) {
             this.ctx.interactions.curvedPortalRoofGizmo.detach();
@@ -4044,8 +4045,9 @@ export class GizmoManager {
             if (this.materialPanel) this.materialPanel.style.display = 'none';
             if (this.cornerPanel) this.cornerPanel.style.display = 'none';
             if (this.stylePanel) this.stylePanel.style.display = 'none';
-            if (this.ctx.interactions.wallPushPullGizmo && selectedObj) {
-                this.ctx.interactions.wallPushPullGizmo.attach(selectedObj);
+            const wallExt = this.ctx.interactions.wallExtenderGizmo || this.ctx.interactions.wallPushPullGizmo;
+            if (wallExt && selectedObj) {
+                wallExt.attach(selectedObj);
             }
             return;
         }

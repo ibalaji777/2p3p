@@ -3322,7 +3322,7 @@ export class RoomInteractiveSuite extends THREE.Group {
                         this.update();
                     }
                 }
-                this._showTooltip(`Wall Push/Pull: ${stepDist >= 0 ? '+' : ''}${stepDist} cm`, e.clientX, e.clientY);
+                this._showTooltip(`Extender: ${stepDist >= 0 ? '+' : ''}${stepDist} cm`, e.clientX, e.clientY);
             }
             return;
         }

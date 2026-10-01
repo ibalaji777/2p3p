@@ -16,7 +16,7 @@ import { GableRoofGizmo } from '../../features/roof/GableRoofGizmo.js';
 import { HalfGableRoofGizmo } from '../../features/roof/HalfGableRoofGizmo.js';
 import { PolygonGizmo } from './PolygonGizmo.js';
 import { UniversalSpinGizmo } from './UniversalSpinGizmo.js';
-import { WallPushPullGizmo } from './WallPushPullGizmo.js';
+import { WallExtenderGizmo } from './WallExtenderGizmo.js';
 import { WallInteractiveSuite } from './WallInteractiveSuite.js';
 import { ElevationSegmentGizmo } from './ElevationSegmentGizmo.js';
 import { Wall3DDrawSystem } from './Wall3DDrawSystem.js';
@@ -579,8 +579,9 @@ export class InteractionSystem {
         this.stairInteractiveSuite = new StairInteractiveSuite(ctx);
         this.ctx.scene.add(this.stairInteractiveSuite);
 
-        this.wallPushPullGizmo = new WallPushPullGizmo(ctx);
-        this.ctx.scene.add(this.wallPushPullGizmo);
+        this.wallExtenderGizmo = new WallExtenderGizmo(ctx);
+        this.wallPushPullGizmo = this.wallExtenderGizmo; // backward-compatibility alias
+        this.ctx.scene.add(this.wallExtenderGizmo);
 
         this.elevationSegmentGizmo = new ElevationSegmentGizmo(ctx);
         this.ctx.scene.add(this.elevationSegmentGizmo);
@@ -792,8 +793,9 @@ export class InteractionSystem {
             // Direct check for interactive Wall Gizmo handles (Push/Pull, Corners, Height, Extrude Bay/Niche)
             if (this.wallInteractiveSuite) {
                 this.raycaster.setFromCamera(this.mouse, this.ctx.camera);
-                if (this.wallInteractiveSuite.pushPullGizmo && this.wallInteractiveSuite.pushPullGizmo.visible) {
-                    if (this.raycaster.intersectObjects(this.wallInteractiveSuite.pushPullGizmo.handles.children, true).length > 0) return;
+                const extGizmo = this.wallInteractiveSuite.extenderGizmo || this.wallInteractiveSuite.pushPullGizmo;
+                if (extGizmo && extGizmo.visible) {
+                    if (this.raycaster.intersectObjects(extGizmo.handles.children, true).length > 0) return;
                 }
                 if (this.wallInteractiveSuite.cornerGizmo && this.wallInteractiveSuite.cornerGizmo.visible) {
                     if (this.raycaster.intersectObjects(this.wallInteractiveSuite.cornerGizmo.handles.children, true).length > 0) return;
@@ -869,8 +871,9 @@ export class InteractionSystem {
                     if (this.raycaster.intersectObjects(this.polygonGizmo.edgeHandles.children, true).length > 0) return;
                     if (this.raycaster.intersectObjects(this.polygonGizmo.cornerHandles.children, true).length > 0) return;
                 }
-                if (this.wallPushPullGizmo && this.wallPushPullGizmo.visible) {
-                    if (this.raycaster.intersectObjects(this.wallPushPullGizmo.handles.children, true).length > 0) return;
+                const wallExt = this.wallExtenderGizmo || this.wallPushPullGizmo;
+                if (wallExt && wallExt.visible) {
+                    if (this.raycaster.intersectObjects(wallExt.handles.children, true).length > 0) return;
                 }
                 if (this.elevationSegmentGizmo && this.elevationSegmentGizmo.visible) {
                     if (this.raycaster.intersectObjects(this.elevationSegmentGizmo.handles.children, true).length > 0) return;

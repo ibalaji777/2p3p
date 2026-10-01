@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { EVENTS } from '../constants/events.js';
 import { coreEventBus } from '../EventBus.js';
-import { WallPushPullGizmo } from './WallPushPullGizmo.js';
+import { WallExtenderGizmo } from './WallExtenderGizmo.js';
 import { WallCornerVertexGizmo } from './WallCornerVertexGizmo.js';
 import { WallHeightGizmo } from './WallHeightGizmo.js';
 import { WallReformer } from '../engine2d/WallReformer.js';
@@ -14,7 +14,7 @@ import { WallGeometryEngine } from '../wall/WallGeometryEngine.js';
  * 
  * Central coordinator managing all sms 4-style 3D interactive editing tools for walls:
  * 1. Floating 3D HUD Toolbar directly hovering over the selected wall
- * 2. Dedicated Single-Tool Modes: Push/Pull, Height, Corners, Split Cutter, Unified 3D Bay Extrude & Niche Recess
+ * 2. Dedicated Single-Tool Modes: Extender, Height, Corners, Split Cutter, Unified 3D Bay Extrude & Niche Recess
  * 3. Radiant Glowing Selection Outline Ribbon framing the wall in 3D
  * 4. Interactive 3D Split Cutter Plane tracking mouse along wall length
  * 5. Unified 3D Extrusion & Recess Controller with double-sided drag handles & live ghost volume
@@ -25,11 +25,12 @@ export class WallInteractiveSuite extends THREE.Group {
         this.ctx = ctx;
         this.name = 'WallInteractiveSuite';
 
-        this.pushPullGizmo = new WallPushPullGizmo(ctx);
+        this.extenderGizmo = new WallExtenderGizmo(ctx);
+        this.pushPullGizmo = this.extenderGizmo; // backward-compatibility alias
         this.cornerGizmo = new WallCornerVertexGizmo(ctx);
         this.heightGizmo = new WallHeightGizmo(ctx);
 
-        this.add(this.pushPullGizmo);
+        this.add(this.extenderGizmo);
         this.add(this.cornerGizmo);
         this.add(this.heightGizmo);
 
@@ -504,10 +505,10 @@ export class WallInteractiveSuite extends THREE.Group {
             },
             {
                 id: 'push_pull',
-                label: 'Push/Pull',
+                label: 'Extender',
                 icon: `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17l-5-5 5-5M17 7l5 5-5 5M2 12h20"/></svg>`,
-                title: 'Push / Pull Thickness',
-                subtitle: 'Adjust wall thickness & baseline (Panel #1)'
+                title: 'Extender',
+                subtitle: 'Extend wall thickness & baseline (Panel #1)'
             },
             {
                 id: 'corner',
@@ -1017,7 +1018,7 @@ export class WallInteractiveSuite extends THREE.Group {
         const is2D = (this.ctx.viewMode === '2d' || this.ctx.planner?.viewMode === '2d');
 
         if (mode === 'menu' || mode === 'neutral') {
-            this.pushPullGizmo.detach();
+            this.extenderGizmo.detach();
             this.cornerGizmo.detach();
             this.heightGizmo.detach();
             this._hideSplitLaser();
@@ -1036,7 +1037,7 @@ export class WallInteractiveSuite extends THREE.Group {
         }
         if (this.domConfirmBar) {
             const labels = {
-                push_pull: 'Push/Pull',
+                push_pull: 'Extender',
                 corner: 'Vertices',
                 extrude_recess: 'Bay/Niche',
                 height: 'Height',
@@ -1090,34 +1091,34 @@ export class WallInteractiveSuite extends THREE.Group {
         }
 
         if (mode === 'push_pull') {
-            this.pushPullGizmo.attach(this.target);
-            this.pushPullGizmo.setPreset('middle_bay');
+            this.extenderGizmo.attach(this.target);
+            this.extenderGizmo.setPreset('middle_bay');
             this._updatePresetButtonHighlights();
             this.cornerGizmo.detach();
             this.heightGizmo.detach();
             this._hideSplitLaser();
             this._hideExtrudeGhost();
         } else if (mode === 'extrude_recess') {
-            this.pushPullGizmo.detach();
+            this.extenderGizmo.detach();
             this.cornerGizmo.detach();
             this.heightGizmo.detach();
             this._hideSplitLaser();
             this.extrudeCurrentDepth = 0; // Neutral 0cm start on entry
             this._showExtrudeGhost();
         } else if (mode === 'height') {
-            this.pushPullGizmo.detach();
+            this.extenderGizmo.detach();
             this.cornerGizmo.detach();
             this.heightGizmo.attach(this.target);
             this._hideSplitLaser();
             this._hideExtrudeGhost();
         } else if (mode === 'corner') {
-            this.pushPullGizmo.detach();
+            this.extenderGizmo.detach();
             this.cornerGizmo.attach(this.target);
             this.heightGizmo.detach();
             this._hideSplitLaser();
             this._hideExtrudeGhost();
         } else if (mode === 'split') {
-            this.pushPullGizmo.detach();
+            this.extenderGizmo.detach();
             this.cornerGizmo.detach();
             this.heightGizmo.detach();
             this._showSplitLaser();
@@ -1142,7 +1143,7 @@ export class WallInteractiveSuite extends THREE.Group {
                     this.ctx.updateWallGeometryLive(wall);
                 }
             }
-            this.pushPullGizmo.detach();
+            this.extenderGizmo.detach();
             this.cornerGizmo.detach();
             this.heightGizmo.attach(this.target);
             this._hideSplitLaser();
@@ -1156,8 +1157,8 @@ export class WallInteractiveSuite extends THREE.Group {
         const mode = this.activeMode;
         if (this.target) this.target.visible = true;
 
-        if (mode === 'push_pull' && this.pushPullGizmo) {
-            this.pushPullGizmo.commit();
+        if (mode === 'push_pull' && this.extenderGizmo) {
+            this.extenderGizmo.commit();
             this.detach();
             return;
         }
@@ -1221,8 +1222,8 @@ export class WallInteractiveSuite extends THREE.Group {
         if (this.target) this.target.visible = true;
         const planner = this.ctx.planner || window.planner?.value || window.plannerInstance;
 
-        if (this.activeMode === 'push_pull' && this.pushPullGizmo) {
-            this.pushPullGizmo.cancel();
+        if (this.activeMode === 'push_pull' && this.extenderGizmo) {
+            this.extenderGizmo.cancel();
         }
 
         if (this._snapshotCmd) {
@@ -1905,7 +1906,7 @@ export class WallInteractiveSuite extends THREE.Group {
     detach() {
         if (this.target) this.target.visible = true;
         this.target = null;
-        this.pushPullGizmo.detach();
+        this.extenderGizmo.detach();
         this.cornerGizmo.detach();
         this.heightGizmo.detach();
         this._hideSplitLaser();
@@ -1918,7 +1919,7 @@ export class WallInteractiveSuite extends THREE.Group {
     }
 
     updateHandles() {
-        if (this.pushPullGizmo.visible) this.pushPullGizmo.updateHandles();
+        if (this.extenderGizmo.visible) this.extenderGizmo.updateHandles();
         if (this.cornerGizmo.visible) this.cornerGizmo.updateHandles();
         if (this.heightGizmo.visible) this.heightGizmo.updateHandles();
         if (this.extrudeGroup.visible) this._updateExtrudeGhostGeometry();
@@ -2087,7 +2088,7 @@ export class WallInteractiveSuite extends THREE.Group {
         if (this.extrudeBadge && this.extrudeBadge.parentElement) {
             this.extrudeBadge.parentElement.removeChild(this.extrudeBadge);
         }
-        this.pushPullGizmo.dispose();
+        this.extenderGizmo.dispose();
         this.cornerGizmo.dispose();
         this.heightGizmo.dispose();
         if (this.splitLaserPlane.geometry) this.splitLaserPlane.geometry.dispose();

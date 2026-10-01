@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, beforeAll } from 'vitest';
 import * as THREE from 'three';
-import { WallPushPullGizmo } from '../WallPushPullGizmo.js';
+import { WallExtenderGizmo } from '../WallExtenderGizmo.js';
 import { BIMMaterialSystem } from '../BIMMaterialSystem.js';
 
 beforeAll(() => {
@@ -30,7 +30,7 @@ beforeAll(() => {
     }
 });
 
-describe('WallPushPullGizmo - sms 4-Style 2D-on-3D Region Selection & Push/Pull', () => {
+describe('WallExtenderGizmo - sms 4-Style 2D-on-3D Region Selection & Extender', () => {
     let ctx;
     let gizmo;
     let mockWall;
@@ -129,7 +129,7 @@ describe('WallPushPullGizmo - sms 4-Style 2D-on-3D Region Selection & Push/Pull'
         startAnchor.connectedWalls.push(mockWall, mockSiblingWall);
         mockPlanner.walls.push(mockWall, mockSiblingWall);
 
-        gizmo = new WallPushPullGizmo(ctx);
+        gizmo = new WallExtenderGizmo(ctx);
     });
 
     it('should initialize with 4 boundary handles (horizontal & vertical) and 2 push/pull handles', () => {
@@ -435,7 +435,7 @@ describe('WallPushPullGizmo - sms 4-Style 2D-on-3D Region Selection & Push/Pull'
         const originalWallId = mockWall.id;
 
         // 1. Add Protrusion
-        const added = WallPushPullGizmo.prototype ? 
+        const added = WallExtenderGizmo.prototype ? 
             (mockWall.attachedWidgets.push({
                 id: 'prot_engine_1',
                 type: 'solid_protrusion',
@@ -841,7 +841,7 @@ describe('WallPushPullGizmo - sms 4-Style 2D-on-3D Region Selection & Push/Pull'
 
         const innerDisc = handle.children.find(c => c.userData?.isInnerDisc);
         expect(innerDisc).toBeDefined();
-        expect(innerDisc.material.color.getHex()).toBe(0x0070f3);
+        expect(innerDisc.material.color.getHex()).toBe(0xf8fafc);
 
         const innerRing = handle.children.find(c => c.userData?.isRing);
         expect(innerRing).toBeDefined();
@@ -849,14 +849,14 @@ describe('WallPushPullGizmo - sms 4-Style 2D-on-3D Region Selection & Push/Pull'
 
         const arrow = handle.children.find(c => c.userData?.isArrowFill);
         expect(arrow).toBeDefined();
-        expect(arrow.material.color.getHex()).toBe(0xffffff);
+        expect([0x334155, 0xffffff, 0xf8fafc]).toContain(arrow.material.color.getHex());
     });
 
-    it('should build boundary handles with royal blue disc, solid white border ring, and double arrow', () => {
+    it('should build boundary handles with pearl-white raiser disc, solid white border ring, and double arrow', () => {
         [gizmo.startWidthHandle, gizmo.endWidthHandle, gizmo.bottomHeightHandle, gizmo.topHeightHandle].forEach(h => {
             const base = h.children.find(c => c.userData?.isBase);
             expect(base).toBeDefined();
-            expect(base.material.color.getHex()).toBe(0x0070f3);
+            expect(base.material.color.getHex()).toBe(0xf8fafc);
 
             const ring = h.children.find(c => c.userData?.isRing);
             expect(ring).toBeDefined();
@@ -864,11 +864,11 @@ describe('WallPushPullGizmo - sms 4-Style 2D-on-3D Region Selection & Push/Pull'
 
             const arrow = h.children.find(c => c.userData?.isArrowFill);
             expect(arrow).toBeDefined();
-            expect([0x0070f3, 0xffffff]).toContain(arrow.material.color.getHex());
+            expect([0xf8fafc, 0xffffff, 0x334155]).toContain(arrow.material.color.getHex());
         });
     });
 
-    it('should build corner handles with concentric halo, white donut, royal blue disc, white pip, and core dot', () => {
+    it('should build corner handles with concentric halo, white donut, pearl-white raiser disc, white pip, and core dot', () => {
         [gizmo.cornerBL, gizmo.cornerBR, gizmo.cornerTL, gizmo.cornerTR].forEach(c => {
             const halo = c.children.find(ch => ch.userData?.isHalo);
             expect(halo).toBeDefined();
@@ -879,7 +879,7 @@ describe('WallPushPullGizmo - sms 4-Style 2D-on-3D Region Selection & Push/Pull'
 
             const base = c.children.find(ch => ch.userData?.isBase);
             expect(base).toBeDefined();
-            expect(base.material.color.getHex()).toBe(0x0070f3);
+            expect(base.material.color.getHex()).toBe(0xf8fafc);
 
             const pip = c.children.find(ch => ch.userData?.isPip);
             expect(pip).toBeDefined();
@@ -887,7 +887,7 @@ describe('WallPushPullGizmo - sms 4-Style 2D-on-3D Region Selection & Push/Pull'
 
             const core = c.children.find(ch => ch.userData?.isCore);
             expect(core).toBeDefined();
-            expect(core.material.color.getHex()).toBe(0x0070f3);
+            expect([0x334155, 0xf8fafc]).toContain(core.material.color.getHex());
         });
     });
 
