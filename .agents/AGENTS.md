@@ -157,7 +157,7 @@ All doors, windows, openings, baseboards, moldings, sunshades, fascias, curtains
 
 **CRITICAL MANDATE**
 
-All wall push/pull operations, exterior solid wall protrusions (`solid_protrusion`), 2D wall polygons, and 3D trim/molding wrapping MUST adhere strictly to the unified architecture defined in the `wall_push_pull` skill:
+All wall push/pull operations, exterior solid wall protrusions (`solid_protrusion`), 2D wall polygons, 3D trim/molding wrapping, and 3D wall extender interactions MUST adhere strictly to the unified architecture defined in the `wall_push_pull` and `wall_extender_expert` skills:
 
 ## Required Behavior
 1. **Monolithic Wall Geometry in 2D (`wall.renderer2d.js`)**:
@@ -173,6 +173,10 @@ All wall push/pull operations, exterior solid wall protrusions (`solid_protrusio
 5. **3D Continuous Molding Wrapping & $45^\circ$ Geometric Miters (`Molding3DBuilder.js`)**:
    - Side return geometries must use $180^\circ$ $Y$-rotation (never negative scaling) to preserve positive surface normals and front-facing shading.
    - All 4 protrusion corners (2 inside corners at base wall, 2 outside corners at protrusion face) must apply $45^\circ$ vertex shearing proportionally to profile depth `distZ` / `distX`, producing gapless carpentry-grade miter joints across any multi-flute or detailed trim profile.
+6. **Multi-Protrusion & Depth Isolation (`WallExtenderGizmo.js`, `WallInteractiveSuite.js`)**:
+   - Previewing on empty wall space must start clean at $+30\text{ cm}$ default depth without inheriting any existing protrusion's depth.
+   - Single walls support multiple independent protrusions with distinct locations and depths.
+   - Clicks on existing protrusion hitboxes (`protHitMesh`) must immediately open `push_pull` mode for that targeted protrusion with its exact depth and Done/Cancel controls.
 
 # Universal Centralized Wall Engine & Single Source of Truth Rule
 
