@@ -212,4 +212,29 @@ When a wall's thickness is extended (e.g., from 20cm to 60cm) meeting a connecte
 4. **Independent Face Normals**:
    By converting to non-indexed geometry prior to computing vertex normals, each face retains its true perpendicular normal vector, completely eliminating smooth shading leakage that creates optical curve illusions.
 
+---
+
+## 6. Baseline Room Push/Pull & The sms 4 Build Mode Invariants
+
+### A. Fixed Diagonal Angle & Slope Invariance
+When resizing an enclosed room by pulling a wall along its normal:
+1. **Adjacent Wall Collinear Preservation**:
+   Adjacent walls never change their angle or slope. An attached $45^\circ$ diagonal wall must remain strictly at $45.000^\circ$ ($\Delta y / \Delta x = \pm 1.0$).
+2. **Line-Line Baseline Intersection**:
+   The shared corner anchor must slide along the infinite line of the adjacent wall to intersect the translated baseline of the pulled wall:
+   $$\vec{S} = \frac{\text{distance}}{\vec{u}_{\text{adj}} \cdot \vec{n}_W} \cdot \vec{u}_{\text{adj}}$$
+   where $\vec{u}_{\text{adj}}$ is the unit direction vector of the adjacent wall pointing towards the shared corner.
+3. **Watertight Junctions**:
+   Both orthogonal ($90^\circ$) and diagonal ($45^\circ / 135^\circ$) neighbors extend or contract cleanly along their own baselines without skewing, warping, or detaching.
+4. **Anti-Collapse Limit**:
+   Inward pushing is guarded by a minimum wall length constraint ($20\text{ cm}$) so that no room or connected wall can collapse past zero or flip inside-out.
+
+### B. Drag Mesh Stability & Mid-Wall Arrows
+1. **Zero Mid-Drag Mesh Thrashing**:
+   `_updateEdgeArrows()` must be suppressed during active pointer drag (`activeDragMode === 'edge_pushpull'`). The active arrow translates in-place along the normal vector with the wall. Full arrow rebuilding occurs only once upon pointer release (`_onPointerUp`).
+2. **Vertical Midpoint Placement**:
+   Push/pull arrows must be centered vertically on the wall face at `elev + wallH * 0.5`, matching authentic sms 4 Build Mode aesthetics.
+3. **Grid-Tile Measurement Feedback**:
+   Tooltips report distance in both physical units (cm) and building grid tiles (e.g. `+100 cm (+1 Tile)`).
+
 
