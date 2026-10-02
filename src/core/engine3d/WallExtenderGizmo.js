@@ -282,6 +282,7 @@ export class WallExtenderGizmo extends THREE.Group {
         this.elevTop = 120;
         this.initialElevBottom = 0;
         this.initialElevTop = 120;
+        this.isValidPlacement = true;
 
         this.handles = new THREE.Group();
         this.handles.name = 'WallExtender_Handles';
@@ -1166,12 +1167,13 @@ export class WallExtenderGizmo extends THREE.Group {
         if (wall.mesh3D) return wall.mesh3D;
         if (wall.parentArc && wall.parentArc.walls?.[0]?.mesh3D) return wall.parentArc.walls[0].mesh3D;
         if (wall.walls && wall.walls[0]?.mesh3D) return wall.walls[0].mesh3D;
-        if (this.target && this.target.isGroup) return this.target;
-        if (this.target && this.target.parent && this.target.parent.isGroup) return this.target.parent;
+        if (this.target && (this.target.isGroup || this.target.isMesh)) return this.target;
+        if (this.target && this.target.parent && (this.target.parent.isGroup || this.target.parent.isMesh)) return this.target.parent;
         return null;
     }
 
-    updateHandles() {
+    updateHandles(isValid = this.isValidPlacement) {
+        this.isValidPlacement = isValid !== false;
         const wall = this._getWallEntity();
         const wallGroup = this._getWallGroup();
         const arc = this._getArcEntity();
@@ -1361,12 +1363,45 @@ export class WallExtenderGizmo extends THREE.Group {
             this.cornerTR.visible = false;
         }
 
+        // Hide interactive manipulation handles if placement is invalid (red warning state)
+        if (!this.isValidPlacement) {
+            this.handleFront.visible = false;
+            this.handleBack.visible = false;
+            this.startWidthHandle.visible = false;
+            this.endWidthHandle.visible = false;
+            this.bottomHeightHandle.visible = false;
+            this.topHeightHandle.visible = false;
+            this.cornerBL.visible = false;
+            this.cornerBR.visible = false;
+            this.cornerTL.visible = false;
+            this.cornerTR.visible = false;
+        }
+
         // Position & Scale the 2D Selection Box on Wall Faces (Always visible for subregion, zero flicker)
         // Position & Scale the 2D Selection Box on Wall Faces (Shown when flat at extrudeD == 0)
         if (this.selectionRectGroup) {
             const isFlat = Math.abs(extrudeD) < 0.5;
             this.selectionRectGroup.visible = isSubRegion && isFlat;
             if (isSubRegion && isFlat) {
+                const fillColor = this.isValidPlacement ? 0x00d2ff : 0xef4444;
+                const fillOpacity = this.isValidPlacement ? 0.16 : 0.40;
+                const outlineColor = this.isValidPlacement ? 0x00f0ff : 0xef4444;
+
+                if (this.selectionPlaneFront?.material) {
+                    this.selectionPlaneFront.material.color.setHex(fillColor);
+                    this.selectionPlaneFront.material.opacity = fillOpacity;
+                }
+                if (this.selectionOutlineFront?.material) {
+                    this.selectionOutlineFront.material.color.setHex(outlineColor);
+                }
+                if (this.selectionPlaneBack?.material) {
+                    this.selectionPlaneBack.material.color.setHex(fillColor);
+                    this.selectionPlaneBack.material.opacity = fillOpacity;
+                }
+                if (this.selectionOutlineBack?.material) {
+                    this.selectionOutlineBack.material.color.setHex(outlineColor);
+                }
+
                 this.selectionPlaneFront.scale.set(spanW, spanH, 1);
                 this.selectionPlaneFront.position.set(midX, midY, t / 2 + 0.5);
 
@@ -1394,41 +1429,46 @@ export class WallExtenderGizmo extends THREE.Group {
                 const startZ = (t / 2) * facing;
                 const endZ = (t / 2 + absD) * facing;
 
-                // Outward solid protrusion (Luminous Sky-Blue / Cyan Glow)
+                // Outward solid protrusion (Luminous Sky-Blue / Cyan Glow when valid, Crimson Red when invalid)
                 this.previewMesh.position.set(midX, midY, (t / 2 + absD / 2) * facing);
                 this.previewEdges.position.copy(this.previewMesh.position);
-                this.previewEdgesMat.color.setHex(0x00f0ff); // Luminous Cyan
+                this.previewEdgesMat.color.setHex(this.isValidPlacement ? 0x00f0ff : 0xef4444);
                 if (this.previewMesh.material) {
-                    this.previewMesh.material.color.setHex(0x00d2ff);
-                    this.previewMesh.material.opacity = 0.35;
+                    this.previewMesh.material.color.setHex(this.isValidPlacement ? 0x00d2ff : 0xef4444);
+                    this.previewMesh.material.opacity = this.isValidPlacement ? 0.35 : 0.50;
                 }
 
                 // Update 3D Depth Leader Line & Floating Depth Badge (Option 1 & Option 2)
-                if (this.depthLeaderLine) {
-                    const linePts = [
-                        new THREE.Vector3(midX, this.elevTop + 6, startZ),
-                        new THREE.Vector3(midX, this.elevTop + 6, endZ)
-                    ];
-                    this.depthLeaderLine.geometry.dispose();
-                    this.depthLeaderLine.geometry = new THREE.BufferGeometry().setFromPoints(linePts);
-                    this.depthLeaderLine.visible = true;
-                }
+                if (this.isValidPlacement) {
+                    if (this.depthLeaderLine) {
+                        const linePts = [
+                            new THREE.Vector3(midX, this.elevTop + 6, startZ),
+                            new THREE.Vector3(midX, this.elevTop + 6, endZ)
+                        ];
+                        this.depthLeaderLine.geometry.dispose();
+                        this.depthLeaderLine.geometry = new THREE.BufferGeometry().setFromPoints(linePts);
+                        this.depthLeaderLine.visible = true;
+                    }
 
-                if (this.badgeDepth) {
-                    let currentUnit = 'feet_inches';
-                    try {
-                        const settingsStore = useSettingsStore();
-                        currentUnit = settingsStore?.floorPlanSettings?.measurementUnit || 'feet_inches';
-                    } catch (e) {}
+                    if (this.badgeDepth) {
+                        let currentUnit = 'feet_inches';
+                        try {
+                            const settingsStore = useSettingsStore();
+                            currentUnit = settingsStore?.floorPlanSettings?.measurementUnit || 'feet_inches';
+                        } catch (e) {}
 
-                    const depthFormatted = '+ ' + UnitConverter.formatLabel(absD, currentUnit);
-                    const badgeData = _getDimensionBadgeTexture(depthFormatted);
-                    this.badgeDepth.material.map = badgeData.texture;
-                    this.badgeDepth.material.needsUpdate = true;
-                    this.badgeDepth.scale.set(badgeData.worldW, badgeData.worldH, 1);
-                    this.badgeDepth.position.set(midX, this.elevTop + 18, (startZ + endZ) / 2);
-                    this.badgeDepth.rotation.set(0, isFrontFacing ? 0 : Math.PI, 0);
-                    this.badgeDepth.visible = true;
+                        const depthFormatted = '+ ' + UnitConverter.formatLabel(absD, currentUnit);
+                        const badgeData = _getDimensionBadgeTexture(depthFormatted);
+                        this.badgeDepth.material.map = badgeData.texture;
+                        this.badgeDepth.material.needsUpdate = true;
+                        this.badgeDepth.scale.set(badgeData.worldW, badgeData.worldH, 1);
+                        this.badgeDepth.position.set(midX, this.elevTop + 18, (startZ + endZ) / 2);
+                        this.badgeDepth.rotation.set(0, isFrontFacing ? 0 : Math.PI, 0);
+                        this.badgeDepth.visible = true;
+                    }
+                } else {
+                    if (this.depthLeaderLine) this.depthLeaderLine.visible = false;
+                    if (this.badgeDepth) this.badgeDepth.visible = false;
                 }
             } else {
                 this.solidBlockPreview.visible = false;
@@ -1438,7 +1478,9 @@ export class WallExtenderGizmo extends THREE.Group {
         }
 
         // Update Dimension Lines & Floating Pill Badges (2D Width & Height lines shown when flat, Depth badge shown when extruded)
-        if (isSubRegion && Math.abs(extrudeD) < 0.5) {
+        if (!this.isValidPlacement) {
+            this._hideDimensionBadges();
+        } else if (isSubRegion && Math.abs(extrudeD) < 0.5) {
             this._updateDimensionLinesAndBadges(spanW, spanH, startX, endX, midX, midY, this.elevBottom, this.elevTop, activeOffset, wallGroup);
         } else {
             this._hideDimensionBadges();
@@ -2280,6 +2322,11 @@ export class WallExtenderGizmo extends THREE.Group {
         const planner = this.ctx.planner || window.planner?.value || window.plannerInstance;
         if (!wall) {
             this.detach();
+            return;
+        }
+
+        if (this.isValidPlacement === false) {
+            this.cancel();
             return;
         }
 

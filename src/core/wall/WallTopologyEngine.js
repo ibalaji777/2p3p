@@ -837,10 +837,15 @@ export class WallTopologyEngine {
 
         const ptA = { x: Math.round(p1.x + tStart * dx), y: Math.round(p1.y + tStart * dy) };
         const ptB = { x: Math.round(p1.x + tEnd * dx), y: Math.round(p1.y + tEnd * dy) };
-        const ptA_ext = { x: Math.round(ptA.x + depth * nx), y: Math.round(ptA.y + depth * ny) };
-        const ptB_ext = { x: Math.round(ptB.x + depth * nx), y: Math.round(ptB.y + depth * ny) };
-
         const getAnchor = (x, y) => {
+            if (planner && planner.anchors && Array.isArray(planner.anchors)) {
+                const existing = planner.anchors.find(a => {
+                    const ax = a.x !== undefined ? a.x : (typeof a.position === 'function' ? a.position().x : 0);
+                    const ay = a.y !== undefined ? a.y : (typeof a.position === 'function' ? a.position().y : 0);
+                    return Math.hypot(ax - x, ay - y) < 3.0;
+                });
+                if (existing) return existing;
+            }
             if (planner && typeof planner.getOrCreateAnchor === 'function') return planner.getOrCreateAnchor(x, y);
             if (planner && typeof planner.findOrCreateAnchor === 'function') return planner.findOrCreateAnchor(x, y);
             const anchorObj = { x, y, position: () => ({ x, y }) };
@@ -850,8 +855,29 @@ export class WallTopologyEngine {
 
         const anc1 = wall.startAnchor || getAnchor(p1.x, p1.y);
         const anc2 = wall.endAnchor || getAnchor(p2.x, p2.y);
-        const ancA = getAnchor(ptA.x, ptA.y);
-        const ancB = getAnchor(ptB.x, ptB.y);
+
+        const distStart = Math.hypot(ptA.x - p1.x, ptA.y - p1.y);
+        const distEnd = Math.hypot(ptB.x - p2.x, ptB.y - p2.y);
+        const spanDist = Math.hypot(ptB.x - ptA.x, ptB.y - ptA.y);
+
+        if (spanDist < 20) return null;
+
+        // If ptA is close to p1 (within 25 cm SNAP_DIST) or tStart <= 0.05, anchor directly to anc1
+        const isStartFlush = distStart < 25 || tStart <= 0.05;
+        const ancA = isStartFlush ? anc1 : getAnchor(ptA.x, ptA.y);
+
+        // If ptB is close to p2 (within 25 cm SNAP_DIST) or tEnd >= 0.95, anchor directly to anc2
+        const isEndFlush = distEnd < 25 || tEnd >= 0.95;
+        const ancB = isEndFlush ? anc2 : getAnchor(ptB.x, ptB.y);
+
+        // If ancA and ancB resolved to the same anchor, abort to prevent collapsed feature
+        if (ancA === ancB) return null;
+
+        // Calculate extruded corner points directly from ancA and ancB along normal vector.
+        // This mathematically guarantees that return walls are 100% perpendicular (90 degrees) to host wall.
+        const ptA_ext = { x: Math.round(ancA.x + depth * nx), y: Math.round(ancA.y + depth * ny) };
+        const ptB_ext = { x: Math.round(ancB.x + depth * nx), y: Math.round(ancB.y + depth * ny) };
+
         const ancA_ext = getAnchor(ptA_ext.x, ptA_ext.y);
         const ancB_ext = getAnchor(ptB_ext.x, ptB_ext.y);
 
@@ -868,8 +894,8 @@ export class WallTopologyEngine {
         let wStart = null;
         let wEnd = null;
 
-        // 1. Initial segment (p1 -> ptA) if tStart > 0.05
-        if (tStart > 0.05) {
+        // 1. Initial segment (p1 -> ptA) only if NOT flush and distinct anchors
+        if (!isStartFlush && ancA !== anc1 && tStart > 0.02) {
             wStart = this.createWall(planner, {
                 ...wallOpts,
                 startAnchor: anc1,
@@ -878,7 +904,8 @@ export class WallTopologyEngine {
             newWalls.push(wStart);
         }
 
-        // 2. Return Wall 1 (ptA -> ptA_ext)
+        // 2. Return Wall 1 (ancA -> ancA_ext)
+        // Strictly perpendicular to host wall baseline
         const wReturn1 = this.createWall(planner, {
             ...wallOpts,
             startAnchor: ancA,
@@ -886,7 +913,8 @@ export class WallTopologyEngine {
         });
         newWalls.push(wReturn1);
 
-        // 3. Front Extruded Face (ptA_ext -> ptB_ext)
+        // 3. Front Extruded Face (ancA_ext -> ancB_ext)
+        // Strictly parallel to host wall baseline
         const wFront = this.createWall(planner, {
             ...wallOpts,
             startAnchor: ancA_ext,
@@ -894,7 +922,8 @@ export class WallTopologyEngine {
         });
         newWalls.push(wFront);
 
-        // 4. Return Wall 2 (ptB_ext -> ptB)
+        // 4. Return Wall 2 (ancB_ext -> ancB)
+        // Strictly perpendicular to host wall baseline
         const wReturn2 = this.createWall(planner, {
             ...wallOpts,
             startAnchor: ancB_ext,
@@ -902,8 +931,8 @@ export class WallTopologyEngine {
         });
         newWalls.push(wReturn2);
 
-        // 5. Ending segment (ptB -> p2) if tEnd < 0.95
-        if (tEnd < 0.95) {
+        // 5. Ending segment (ptB -> p2) only if NOT flush and distinct anchors
+        if (!isEndFlush && ancB !== anc2 && tEnd < 0.98) {
             wEnd = this.createWall(planner, {
                 ...wallOpts,
                 startAnchor: ancB,

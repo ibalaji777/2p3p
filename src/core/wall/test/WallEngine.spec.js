@@ -298,6 +298,75 @@ describe('WallEngine - Single Source of Truth Architecture', () => {
             WallEngine.deleteWall(mockPlanner, wall);
             expect(mockPlanner.walls.length).toBe(0);
         });
+
+        it('extrudes wall segment while permanently preserving connected corner anchors without degenerate 0-length loops', () => {
+            const aCorner = mockPlanner.getOrCreateAnchor(0, 0);
+            const aEnd = mockPlanner.getOrCreateAnchor(200, 0);
+            const aAdjoining = mockPlanner.getOrCreateAnchor(0, 150);
+
+            // Host wall meeting adjoining wall at aCorner
+            const hostWall = WallEngine.createWall(mockPlanner, { startAnchor: aCorner, endAnchor: aEnd, thickness: 20 });
+            const adjoiningWall = WallEngine.createWall(mockPlanner, { startAnchor: aCorner, endAnchor: aAdjoining, thickness: 20 });
+
+            // Extrude near start (tStart = 0.05, within 25cm flush zone)
+            const newWalls = WallEngine.extrudeWallSegment(mockPlanner, hostWall, 0.05, 0.75, 30);
+
+            expect(newWalls).not.toBeNull();
+            // Verify adjoining wall is STILL connected to an active wall at aCorner
+            const wallsAtCorner = mockPlanner.walls.filter(w => w.startAnchor === aCorner || w.endAnchor === aCorner);
+            expect(wallsAtCorner.length).toBeGreaterThanOrEqual(2);
+            expect(wallsAtCorner).toContain(adjoiningWall);
+
+            // Verify no 0-length degenerate wall (startAnchor === endAnchor) exists
+            const degenerateWalls = mockPlanner.walls.filter(w => w.startAnchor === w.endAnchor);
+            expect(degenerateWalls.length).toBe(0);
+        });
+
+        it('mathematically enforces strictly 90-degree perpendicular return walls on both sides when extruding a niche/bay', () => {
+            const a1 = mockPlanner.getOrCreateAnchor(100, 100);
+            const a2 = mockPlanner.getOrCreateAnchor(500, 100);
+            const wall = WallEngine.createWall(mockPlanner, { startAnchor: a1, endAnchor: a2, thickness: 20 });
+
+            // Host wall vector
+            const baseDx = a2.x - a1.x;
+            const baseDy = a2.y - a1.y;
+
+            // Extrude segment in the middle: tStart = 0.25, tEnd = 0.75, depth = 45 cm
+            const newWalls = WallEngine.extrudeWallSegment(mockPlanner, wall, 0.25, 0.75, 45);
+
+            expect(newWalls).not.toBeNull();
+            expect(newWalls.length).toBe(5); // wStart, wReturn1, wFront, wReturn2, wEnd
+
+            const [wStart, wReturn1, wFront, wReturn2, wEnd] = newWalls;
+
+            // wReturn1 vector
+            const r1p1 = wReturn1.startAnchor.position ? wReturn1.startAnchor.position() : wReturn1.startAnchor;
+            const r1p2 = wReturn1.endAnchor.position ? wReturn1.endAnchor.position() : wReturn1.endAnchor;
+            const r1dx = r1p2.x - r1p1.x;
+            const r1dy = r1p2.y - r1p1.y;
+
+            // Dot product with baseline must be strictly 0 (perpendicular)
+            const dot1 = r1dx * baseDx + r1dy * baseDy;
+            expect(Math.abs(dot1)).toBeLessThan(0.001);
+
+            // wReturn2 vector
+            const r2p1 = wReturn2.startAnchor.position ? wReturn2.startAnchor.position() : wReturn2.startAnchor;
+            const r2p2 = wReturn2.endAnchor.position ? wReturn2.endAnchor.position() : wReturn2.endAnchor;
+            const r2dx = r2p2.x - r2p1.x;
+            const r2dy = r2p2.y - r2p1.y;
+
+            // Dot product with baseline must be strictly 0 (perpendicular)
+            const dot2 = r2dx * baseDx + r2dy * baseDy;
+            expect(Math.abs(dot2)).toBeLessThan(0.001);
+
+            // wFront vector must be strictly parallel to baseline (cross product = 0)
+            const fp1 = wFront.startAnchor.position ? wFront.startAnchor.position() : wFront.startAnchor;
+            const fp2 = wFront.endAnchor.position ? wFront.endAnchor.position() : wFront.endAnchor;
+            const fdx = fp2.x - fp1.x;
+            const fdy = fp2.y - fp1.y;
+            const crossFront = fdx * baseDy - fdy * baseDx;
+            expect(Math.abs(crossFront)).toBeLessThan(0.001);
+        });
     });
 
     describe('3. Canonical Mutation Authority (WallMutationEngine)', () => {

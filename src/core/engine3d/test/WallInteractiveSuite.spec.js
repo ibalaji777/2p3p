@@ -714,6 +714,263 @@ describe('WallInteractiveSuite - Bay / Niche (extrude_recess) Tool', () => {
             expect(mockWall.attachedWidgets.length).toBe(1);
         });
     });
+
+    describe('Small Area / Angled Wall Validation & Red Highlight', () => {
+        let shortWall;
+        let shortMesh;
+
+        beforeEach(() => {
+            shortWall = {
+                id: 'wall_short',
+                type: 'outer',
+                startX: 0,
+                startY: 0,
+                endX: 30,
+                endY: 0,
+                startAnchor: { x: 0, y: 0, position: () => ({ x: 0, y: 0 }) },
+                endAnchor: { x: 30, y: 0, position: () => ({ x: 30, y: 0 }) },
+                thickness: 20,
+                height: 280,
+                elevation: 0,
+                attachedWidgets: [],
+                attachedMoldings: []
+            };
+            shortMesh = new THREE.Mesh(new THREE.BoxGeometry(30, 280, 20));
+            shortMesh.userData = { entity: shortWall };
+            shortWall.mesh3D = shortMesh;
+        });
+
+        it('should mark previewExtrude invalid, render red ghost, and format warning badge on short wall (< 40 cm)', () => {
+            suite.previewExtrude(shortMesh, new THREE.Vector3(15, 0, 0));
+
+            expect(suite.isValidPlacement).toBe(false);
+            expect(suite.invalidReason).toBe('wall_too_short');
+            expect(suite.extrudeBadge.textContent).toContain('Wall Too Short');
+            expect(suite.extrudeBadge.style.background).toContain('239, 68, 68');
+            expect(domElement.style.cursor).toBe('not-allowed');
+
+            // 3D Neutral Ghost volume should be crimson red (0xef4444)
+            expect(suite.bayPreviewGroup.children.length).toBeGreaterThan(0);
+            const neutralMesh = suite.bayPreviewGroup.children[0];
+            const neutralEdges = suite.bayPreviewGroup.children[1];
+            expect(neutralMesh.material.color.getHex()).toBe(0xef4444);
+            expect(neutralEdges.material.color.getHex()).toBe(0xef4444);
+
+            // Drag handles suppressed in invalid state
+            expect(suite.extrudeHandle.visible).toBe(false);
+            expect(suite.extrudeStartHandle.visible).toBe(false);
+            expect(suite.extrudeEndHandle.visible).toBe(false);
+        });
+
+        it('should block Bay/Niche attach / pinning on invalid small space and prevent deformed geometry', () => {
+            suite.previewExtrude(shortMesh, new THREE.Vector3(15, 0, 0));
+            expect(suite.isValidPlacement).toBe(false);
+
+            // Attempt to click to place on short wall
+            suite.attach(shortMesh, 'extrude_recess', new THREE.Vector3(15, 0, 0));
+
+            expect(suite.isExtrudePinned).toBe(false);
+            expect(suite.isValidPlacement).toBe(false);
+        });
+
+        it('should mark previewExtender invalid and render red solid block preview on short wall', () => {
+            suite.previewExtender(shortMesh, { x: 15, y: 0, z: 0 });
+
+            expect(suite.isValidPlacement).toBe(false);
+            expect(suite.invalidReason).toBe('wall_too_short');
+            expect(suite.extenderBadge.textContent).toContain('Wall Too Short');
+            expect(suite.extenderBadge.style.background).toContain('239, 68, 68');
+            expect(domElement.style.cursor).toBe('not-allowed');
+
+            // Solid block preview should be crimson red (0xef4444)
+            expect(suite.extenderGizmo.previewMesh.material.color.getHex()).toBe(0xef4444);
+            expect(suite.extenderGizmo.previewEdgesMat.color.getHex()).toBe(0xef4444);
+            expect(suite.extenderGizmo.previewMesh.material.opacity).toBe(0.50);
+            expect(suite.extenderGizmo.depthLeaderLine.visible).toBe(false);
+        });
+
+        it('should block extender pinning on invalid small wall', () => {
+            suite.previewExtender(shortMesh, { x: 15, y: 0, z: 0 });
+            expect(suite.isValidPlacement).toBe(false);
+
+            // Attempt to click to place
+            suite.attach(shortMesh, 'push_pull', { x: 15, y: 0, z: 0 });
+
+            expect(suite.isExtenderPinned).toBe(false);
+            expect(suite.isValidPlacement).toBe(false);
+        });
+
+        it('should mark placement invalid when span is < 30 cm on tight wall space (e.g. 13 cm bay)', () => {
+            // Test 50 cm wall near extreme edge where span drops below 30 cm
+            const tightWall = {
+                id: 'wall_tight',
+                type: 'outer',
+                startX: 0,
+                startY: 0,
+                endX: 50,
+                endY: 0,
+                startAnchor: { x: 0, y: 0, position: () => ({ x: 0, y: 0 }) },
+                endAnchor: { x: 50, y: 0, position: () => ({ x: 50, y: 0 }) },
+                thickness: 20,
+                height: 280,
+                elevation: 0,
+                attachedWidgets: [],
+                attachedMoldings: []
+            };
+            const tightMesh = new THREE.Mesh(new THREE.BoxGeometry(50, 280, 20));
+            tightMesh.userData = { entity: tightWall };
+
+            // Hover at extreme start t ~ 0.05
+            suite.previewExtrude(tightMesh, new THREE.Vector3(2.5, 0, 0));
+
+            expect(suite.isValidPlacement).toBe(false);
+            expect(suite.invalidReason).toBe('space_too_short');
+            expect(suite.extrudeBadge.textContent).toContain('Space Too Short');
+        });
+
+        it('should restore clean cyan / green highlight and allow placement when moving back to valid wall', () => {
+            // 1. First hover on short wall -> red invalid
+            suite.previewExtrude(shortMesh, new THREE.Vector3(15, 0, 0));
+            expect(suite.isValidPlacement).toBe(false);
+            expect(suite.extrudeBadge.textContent).toContain('Wall Too Short');
+
+            // 2. Move to spacious 200 cm wall -> restored to valid cyan
+            suite.previewExtrude(mockMesh, new THREE.Vector3(100, 0, 0));
+            expect(suite.isValidPlacement).toBe(true);
+            expect(suite.extrudeBadge.textContent).toContain('Click to Place Bay/Niche');
+            expect(suite.extrudeBadge.textContent).toContain('(100 cm)');
+            expect(suite.bayPreviewGroup.children[0].material.color.getHex()).toBe(0x00f0ff);
+            expect(domElement.style.cursor).toBe('pointer');
+
+            // 3. Click to place succeeds
+            suite.attach(mockMesh, 'extrude_recess', new THREE.Vector3(100, 0, 0));
+            expect(suite.isExtrudePinned).toBe(true);
+        });
+
+        it('should mark placement invalid when too close to an intersecting connected wall corner (< 25 cm)', () => {
+            const cornerAnchor = { x: 0, y: 0, position: () => ({ x: 0, y: 0 }) };
+            const endAnchor = { x: 200, y: 0, position: () => ({ x: 200, y: 0 }) };
+            const adjoiningEnd = { x: 0, y: 150, position: () => ({ x: 0, y: 150 }) };
+
+            const hostWall = {
+                id: 'host_wall_corner',
+                type: 'outer',
+                startAnchor: cornerAnchor,
+                endAnchor: endAnchor,
+                thickness: 20,
+                height: 280,
+                elevation: 0,
+                attachedWidgets: [],
+                attachedMoldings: []
+            };
+            const adjoiningWall = {
+                id: 'adjoining_wall',
+                type: 'outer',
+                startAnchor: cornerAnchor,
+                endAnchor: adjoiningEnd,
+                thickness: 20,
+                height: 280,
+                elevation: 0
+            };
+            mockPlanner.walls = [hostWall, adjoiningWall];
+
+            const hostMesh = new THREE.Mesh(new THREE.BoxGeometry(200, 280, 20));
+            hostMesh.userData = { entity: hostWall };
+
+            // Hover close to corner anchor (x = 35 cm, with 50cm halfSpan -> tStart ~ 0.05 = 10 cm < 25 cm)
+            suite.previewExtrude(hostMesh, new THREE.Vector3(35, 0, 0));
+
+            expect(suite.isValidPlacement).toBe(false);
+            expect(suite.invalidReason).toBe('connected_corner');
+            expect(suite.extrudeBadge.textContent).toContain('Too Close to Connected Corner');
+            expect(domElement.style.cursor).toBe('not-allowed');
+
+            // Clicks to place should be rejected
+            suite.attach(hostMesh, 'extrude_recess', new THREE.Vector3(35, 0, 0));
+            expect(suite.isExtrudePinned).toBe(false);
+        });
+
+        it('should mark placement invalid when wing clearance is < 20 cm for bay/niche cuts', () => {
+            // Standalone wall without connected walls, but previewed with left wing < 20 cm
+            const a1 = { x: 0, y: 0, position: () => ({ x: 0, y: 0 }) };
+            const a2 = { x: 200, y: 0, position: () => ({ x: 200, y: 0 }) };
+            const testWall = {
+                id: 'test_wall_wing',
+                type: 'outer',
+                startAnchor: a1,
+                endAnchor: a2,
+                thickness: 20,
+                height: 280,
+                elevation: 0,
+                attachedWidgets: [],
+                attachedMoldings: []
+            };
+            mockPlanner.walls = [testWall];
+            const testMesh = new THREE.Mesh(new THREE.BoxGeometry(200, 280, 20));
+            testMesh.userData = { entity: testWall };
+
+            // Hover near start such that distStart is < 20 cm (e.g. at x = 40 with span extending to 10 cm from start)
+            suite.previewExtrude(testMesh, new THREE.Vector3(38, 0, 0));
+            // Force startT to 0.05 (10 cm wing) and endT to 0.50 (100 cm)
+            suite.extrudeStartT = 0.05;
+            suite.extrudeEndT = 0.50;
+            const validation = suite._validatePlacementSpace(testWall, suite.extrudeStartT, suite.extrudeEndT, 'extrude_recess');
+
+            expect(validation.isValid).toBe(false);
+            expect(validation.reason).toBe('corner_clearance');
+            expect(validation.message).toContain('Too Close to Corner');
+        });
+
+        it('should reject commitChanges when placement is invalid', () => {
+            suite.attach(mockMesh, 'extrude_recess', new THREE.Vector3(100, 0, 0));
+            expect(suite.isExtrudePinned).toBe(true);
+
+            // Force invalid placement state (e.g. startT dragged to corner)
+            suite.extrudeStartT = 0.02; // 4 cm wing < 20 cm
+            suite.extrudeEndT = 0.50;
+
+            mockPlanner.commandManager.execute.mockClear();
+            suite.commitChanges();
+
+            // commitChanges must NOT execute command
+            expect(mockPlanner.commandManager.execute).not.toHaveBeenCalled();
+            expect(suite.isValidPlacement).toBe(false);
+        });
+
+        it('tracks cursor symmetrically to both left and right corners in previewExtrude, showing red invalid status', () => {
+            const longWall = {
+                id: 'long_wall',
+                startX: 0,
+                startY: 0,
+                endX: 500,
+                endY: 0,
+                startAnchor: { x: 0, y: 0, position: () => ({ x: 0, y: 0 }) },
+                endAnchor: { x: 500, y: 0, position: () => ({ x: 500, y: 0 }) },
+                thickness: 20,
+                height: 280
+            };
+            const longMesh = new THREE.Mesh(new THREE.BoxGeometry(500, 280, 20));
+            longMesh.userData = { entity: longWall };
+
+            // 1. Far left hover (x = 5 cm, t ~ 0.01)
+            suite.previewExtrude(longMesh, new THREE.Vector3(5, 0, 0));
+            expect(suite.extrudeStartT).toBe(0);
+            expect(suite.isValidPlacement).toBe(false);
+            expect(suite.invalidReason).toBe('corner_clearance');
+
+            // 2. Center hover (x = 250 cm, t ~ 0.5)
+            suite.previewExtrude(longMesh, new THREE.Vector3(250, 0, 0));
+            expect(suite.isValidPlacement).toBe(true);
+            expect(suite.extrudeStartT).toBeGreaterThan(0.2);
+            expect(suite.extrudeEndT).toBeLessThan(0.8);
+
+            // 3. Far right hover (x = 495 cm, t ~ 0.99)
+            suite.previewExtrude(longMesh, new THREE.Vector3(495, 0, 0));
+            expect(suite.extrudeEndT).toBe(1);
+            expect(suite.isValidPlacement).toBe(false);
+            expect(suite.invalidReason).toBe('corner_clearance');
+        });
+    });
 });
 
 

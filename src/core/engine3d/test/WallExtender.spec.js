@@ -1015,6 +1015,38 @@ describe('WallExtenderGizmo - sms 4-Style 2D-on-3D Region Selection & Extender',
         expect(existingWidget.depth).toBe(20);
         expect(existingWidget.t).toBe(0.5);
     });
+
+    it('should switch solidBlockPreview and selection rects to red (0xef4444) when updateHandles(false) is called', () => {
+        gizmo.attach(mockWall.mesh3D);
+        gizmo.selectionScope = 'subregion';
+        gizmo.tStart = 0.2;
+        gizmo.tEnd = 0.8;
+        gizmo.currentExtrudeDepth = 30;
+
+        // 1. Invalid state (red highlight, handles hidden)
+        gizmo.updateHandles(false);
+        expect(gizmo.isValidPlacement).toBe(false);
+        expect(gizmo.solidBlockPreview.visible).toBe(true);
+        expect(gizmo.previewMesh.material.color.getHex()).toBe(0xef4444);
+        expect(gizmo.previewEdgesMat.color.getHex()).toBe(0xef4444);
+        expect(gizmo.previewMesh.material.opacity).toBe(0.50);
+        expect(gizmo.handleFront.visible).toBe(false);
+        expect(gizmo.handleBack.visible).toBe(false);
+        expect(gizmo.startWidthHandle.visible).toBe(false);
+        expect(gizmo.endWidthHandle.visible).toBe(false);
+        expect(gizmo.depthLeaderLine.visible).toBe(false);
+
+        // 2. Valid state (restores cyan glow, interactive handles visible)
+        gizmo.updateHandles(true);
+        expect(gizmo.isValidPlacement).toBe(true);
+        expect(gizmo.solidBlockPreview.visible).toBe(true);
+        expect(gizmo.previewMesh.material.color.getHex()).toBe(0x00d2ff);
+        expect(gizmo.previewEdgesMat.color.getHex()).toBe(0x00f0ff);
+        expect(gizmo.previewMesh.material.opacity).toBe(0.35);
+        expect(gizmo.startWidthHandle.visible).toBe(true);
+        expect(gizmo.endWidthHandle.visible).toBe(true);
+        expect(gizmo.depthLeaderLine.visible).toBe(true);
+    });
 });
 
 

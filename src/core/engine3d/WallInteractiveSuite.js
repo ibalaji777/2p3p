@@ -60,6 +60,8 @@ export class WallInteractiveSuite extends THREE.Group {
         this.matNeutralGhost = new THREE.MeshBasicMaterial({ color: 0x00f0ff, transparent: true, opacity: 0.2, depthTest: false, side: THREE.DoubleSide });
         this.matExtrudeGhost = new THREE.MeshBasicMaterial({ color: 0x10b981, transparent: true, opacity: 0.4, depthTest: false });
         this.matRecessGhost = new THREE.MeshBasicMaterial({ color: 0xa855f7, transparent: true, opacity: 0.4, depthTest: false });
+        this.matInvalidGhost = new THREE.MeshBasicMaterial({ color: 0xef4444, transparent: true, opacity: 0.45, depthTest: false, side: THREE.DoubleSide });
+        this.matInvalidOutline = new THREE.LineBasicMaterial({ color: 0xef4444, linewidth: 2.5, depthTest: false });
 
         // Photorealistic 3D Wall Preview Group (Real return walls, front wall, floor slab)
         this.bayPreviewGroup = new THREE.Group();
@@ -106,6 +108,10 @@ export class WallInteractiveSuite extends THREE.Group {
         this.splitCurrentT = 0.5;
         this.isSplitPinned = false;
         this.splitCurrentHit = null;
+        this.isExtrudePinned = false;
+        this.isExtenderPinned = false;
+        this.isValidPlacement = true;
+        this.invalidReason = '';
 
         this.raycaster = new THREE.Raycaster();
         this.mouse = new THREE.Vector2();
@@ -1302,12 +1308,26 @@ export class WallInteractiveSuite extends THREE.Group {
         if (this.target) this.target.visible = true;
 
         if (mode === 'push_pull' && this.extenderGizmo) {
+            if (!this.isValidPlacement) {
+                this._shakeBadge(this.extenderBadge);
+                return;
+            }
             this.extenderGizmo.commit();
             this.detach();
             return;
         }
 
         if (mode === 'extrude_recess') {
+            const wall = this.target?.userData?.entity;
+            if (wall) {
+                const validation = this._validatePlacementSpace(wall, this.extrudeStartT, this.extrudeEndT, 'extrude_recess');
+                if (!validation.isValid) {
+                    this.isValidPlacement = false;
+                    this.invalidReason = validation.reason;
+                    this._shakeBadge(this.extrudeBadge);
+                    return;
+                }
+            }
             let depth = this.extrudeCurrentDepth;
             if (depth === 0) depth = 30;
             if (Math.abs(depth) >= 5) {
@@ -1454,6 +1474,11 @@ export class WallInteractiveSuite extends THREE.Group {
         }
         if (this.target) this.target.visible = true;
         if (this.extrudeBadge) this.extrudeBadge.style.display = 'none';
+        this.isValidPlacement = true;
+        this.invalidReason = '';
+        if (this.ctx.renderer?.domElement && this.ctx.renderer.domElement.style.cursor === 'not-allowed') {
+            this.ctx.renderer.domElement.style.cursor = 'default';
+        }
     }
 
     _updateExtrudeGhostGeometry() {
@@ -1481,6 +1506,10 @@ export class WallInteractiveSuite extends THREE.Group {
         const tEnd = Math.max(this.extrudeEndT, this.extrudeStartT + 0.05);
         const bayLen = Math.max(10, wallLen * (tEnd - tStart));
         const depth = this.extrudeCurrentDepth;
+
+        const validation = this._validatePlacementSpace(wall, tStart, tEnd, 'extrude_recess');
+        this.isValidPlacement = validation.isValid;
+        this.invalidReason = validation.reason;
 
         // Line-of-sight auto-facing detection
         const wallMidX = p1.x + (tStart + tEnd) * 0.5 * dx;
@@ -1658,14 +1687,17 @@ export class WallInteractiveSuite extends THREE.Group {
             if (this.target) this.target.visible = true;
 
             // --- 3. Neutral 0cm Selection Boundary ---
+            const isInvalid = !this.isValidPlacement;
+            const ghostMat = isInvalid ? this.matInvalidGhost : this.matNeutralGhost;
             const neutralGeo = new THREE.BoxGeometry(bayLen, wallH, t + 0.8);
-            const neutralMesh = new THREE.Mesh(neutralGeo, this.matNeutralGhost);
+            const neutralMesh = new THREE.Mesh(neutralGeo, ghostMat);
             neutralMesh.position.set(midX, midY, 0);
             neutralMesh.raycast = () => {};
 
+            const outlineMat = isInvalid ? this.matInvalidOutline : new THREE.LineBasicMaterial({ color: 0x00f0ff, linewidth: 2, depthTest: false });
             const neutralEdges = new THREE.LineSegments(
                 new THREE.EdgesGeometry(neutralGeo),
-                new THREE.LineBasicMaterial({ color: 0x00f0ff, linewidth: 2, depthTest: false })
+                outlineMat
             );
             neutralEdges.position.copy(neutralMesh.position);
             neutralEdges.raycast = () => {};
@@ -1689,9 +1721,21 @@ export class WallInteractiveSuite extends THREE.Group {
         this.extrudeEndHandle.rotation.set(0, 0, 0);
         this._updateBoundaryLine(this.extrudeEndHandle, wallH);
 
+        if (!this.isValidPlacement) {
+            this.extrudeHandle.visible = false;
+            this.extrudeStartHandle.visible = false;
+            this.extrudeEndHandle.visible = false;
+        } else {
+            this.extrudeHandle.visible = true;
+            this.extrudeStartHandle.visible = true;
+            this.extrudeEndHandle.visible = true;
+        }
+
         // Update Floating HUD Status in single unified Confirm Bar
         let statusMsg = '';
-        if (depth > 0) {
+        if (!this.isValidPlacement) {
+            statusMsg = validation.message;
+        } else if (depth > 0) {
             statusMsg = `🏛️ Bay Window: +${Math.round(depth)} cm · Width: ${Math.round(bayLen)} cm`;
         } else if (depth < 0) {
             const remainingCore = Math.round(t - Math.abs(depth));
@@ -1799,13 +1843,13 @@ export class WallInteractiveSuite extends THREE.Group {
                     const deltaAlongWall = deltaX * dirX + deltaZ * dirZ;
                     const deltaT = deltaAlongWall / wallLen;
                     const minSpanT = Math.min(0.15, 20 / wallLen);
-                    const newStartT = Math.max(0.02, Math.min(this.initialEndT - minSpanT, this.initialStartT + deltaT));
+                    const newStartT = Math.max(0, Math.min(this.initialEndT - minSpanT, this.initialStartT + deltaT));
                     this.extrudeStartT = Math.round(newStartT * 100) / 100;
                 } else if (this.activeExtrudePart === 'boundary_end') {
                     const deltaAlongWall = deltaX * dirX + deltaZ * dirZ;
                     const deltaT = deltaAlongWall / wallLen;
                     const minSpanT = Math.min(0.15, 20 / wallLen);
-                    const newEndT = Math.min(0.98, Math.max(this.initialStartT + minSpanT, this.initialEndT + deltaT));
+                    const newEndT = Math.min(1.0, Math.max(this.initialStartT + minSpanT, this.initialEndT + deltaT));
                     this.extrudeEndT = Math.round(newEndT * 100) / 100;
                 } else if (this.activeExtrudePart === 'slide_center') {
                     const deltaAlongWall = deltaX * dirX + deltaZ * dirZ;
@@ -1813,12 +1857,12 @@ export class WallInteractiveSuite extends THREE.Group {
                     const span = this.initialEndT - this.initialStartT;
                     let newStartT = this.initialStartT + deltaT;
                     let newEndT = this.initialEndT + deltaT;
-                    if (newStartT < 0.02) {
-                        newStartT = 0.02;
-                        newEndT = 0.02 + span;
-                    } else if (newEndT > 0.98) {
-                        newEndT = 0.98;
-                        newStartT = 0.98 - span;
+                    if (newStartT < 0) {
+                        newStartT = 0;
+                        newEndT = span;
+                    } else if (newEndT > 1.0) {
+                        newEndT = 1.0;
+                        newStartT = 1.0 - span;
                     }
                     this.extrudeStartT = Math.round(newStartT * 100) / 100;
                     this.extrudeEndT = Math.round(newEndT * 100) / 100;
@@ -2054,6 +2098,112 @@ export class WallInteractiveSuite extends THREE.Group {
         }
     }
 
+    _validatePlacementSpace(wall, startT, endT, toolMode = 'push_pull') {
+        if (!wall) return { isValid: false, reason: 'no_wall', message: 'No Wall Selected', spanCm: 0, wallLenCm: 0 };
+
+        const p1 = (wall.startAnchor && typeof wall.startAnchor.position === 'function') ? wall.startAnchor.position() : (wall.startAnchor || { x: wall.startX || 0, y: wall.startY || 0 });
+        const p2 = (wall.endAnchor && typeof wall.endAnchor.position === 'function') ? wall.endAnchor.position() : (wall.endAnchor || { x: wall.endX || 0, y: wall.endY || 0 });
+        const wallLen = Math.hypot(p2.x - p1.x, p2.y - p1.y);
+
+        const MIN_WALL_LEN = 40; // minimum 40 cm wall
+        const MIN_SPAN = 30; // minimum 30 cm span for bay/niche or extender
+
+        if (wallLen < MIN_WALL_LEN) {
+            return {
+                isValid: false,
+                reason: 'wall_too_short',
+                message: `🚫 Wall Too Short (${Math.round(wallLen)} cm · Min ${MIN_WALL_LEN} cm)`,
+                spanCm: Math.round(wallLen * Math.abs(endT - startT)),
+                wallLenCm: Math.round(wallLen)
+            };
+        }
+
+        const t1 = Math.min(startT, endT);
+        const t2 = Math.max(startT, endT);
+        const spanCm = Math.round(wallLen * (t2 - t1));
+
+        if (spanCm < MIN_SPAN) {
+            return {
+                isValid: false,
+                reason: 'space_too_short',
+                message: `🚫 Space Too Short (${spanCm} cm · Min ${MIN_SPAN} cm)`,
+                spanCm,
+                wallLenCm: Math.round(wallLen)
+            };
+        }
+
+        // Corner & Wing Clearance Validation
+        const distStart = Math.round(t1 * wallLen);
+        const distEnd = Math.round((1 - t2) * wallLen);
+
+        const planner = this.ctx.planner || window.planner?.value || window.plannerInstance;
+        const allWalls = planner?.walls || [];
+        const startNeighbors = allWalls.filter(w => w !== wall && !w.hidden && (w.startAnchor === wall.startAnchor || w.endAnchor === wall.startAnchor));
+        const endNeighbors = allWalls.filter(w => w !== wall && !w.hidden && (w.startAnchor === wall.endAnchor || w.endAnchor === wall.endAnchor));
+
+        // 1. Connected Corner Clearances (miter zones): minimum 25 cm from intersecting walls
+        if (startNeighbors.length > 0 && distStart < 25) {
+            return {
+                isValid: false,
+                reason: 'connected_corner',
+                message: `🚫 Too Close to Connected Corner (${distStart} cm · Min 25 cm)`,
+                spanCm,
+                wallLenCm: Math.round(wallLen)
+            };
+        }
+        if (endNeighbors.length > 0 && distEnd < 25) {
+            return {
+                isValid: false,
+                reason: 'connected_corner',
+                message: `🚫 Too Close to Connected Corner (${distEnd} cm · Min 25 cm)`,
+                spanCm,
+                wallLenCm: Math.round(wallLen)
+            };
+        }
+
+        // 2. Minimum Wing Clearance for Bay/Niche cuts: minimum 20 cm on both sides to prevent degenerate wall slivers
+        if (toolMode === 'extrude_recess') {
+            if (distStart < 20) {
+                return {
+                    isValid: false,
+                    reason: 'corner_clearance',
+                    message: `🚫 Too Close to Corner (${distStart} cm · Min 20 cm)`,
+                    spanCm,
+                    wallLenCm: Math.round(wallLen)
+                };
+            }
+            if (distEnd < 20) {
+                return {
+                    isValid: false,
+                    reason: 'corner_clearance',
+                    message: `🚫 Too Close to Corner (${distEnd} cm · Min 20 cm)`,
+                    spanCm,
+                    wallLenCm: Math.round(wallLen)
+                };
+            }
+        }
+
+        return {
+            isValid: true,
+            reason: 'ok',
+            message: '',
+            spanCm,
+            wallLenCm: Math.round(wallLen)
+        };
+    }
+
+    _shakeBadge(badge) {
+        if (!badge || typeof document === 'undefined') return;
+        badge.style.transition = 'transform 0.08s ease';
+        badge.style.transform = 'translate(-46%, -100%) scale(1.04)';
+        setTimeout(() => {
+            if (badge) badge.style.transform = 'translate(-54%, -100%) scale(1.04)';
+            setTimeout(() => {
+                if (badge) badge.style.transform = 'translate(-50%, -100%) scale(1)';
+            }, 80);
+        }, 80);
+    }
+
     attach(wallMesh, mode = 'menu', hitPoint = null) {
         this.hideGuideBadge();
         this._clearGhostPreview();
@@ -2089,7 +2239,7 @@ export class WallInteractiveSuite extends THREE.Group {
                 if (wallLen >= 1) {
                     const dx = p2.x - p1.x;
                     const dy = p2.y - p1.y;
-                    const projT = Math.max(0.05, Math.min(0.95, ((hitPoint.x - p1.x) * dx + (hitPoint.z - p1.y) * dy) / (wallLen * wallLen)));
+                    const projT = ((hitPoint.x - p1.x) * dx + (hitPoint.z - p1.y) * dy) / (wallLen * wallLen);
                     if (mode === 'push_pull') {
                         let matchedProtrusion = null;
                         if (wallMesh.userData?.isProtrusion && (wallMesh.userData.widget || wallMesh.userData.entity)) {
@@ -2111,14 +2261,17 @@ export class WallInteractiveSuite extends THREE.Group {
                             const protW = matchedProtrusion.width || 40;
                             const protT = matchedProtrusion.t !== undefined ? matchedProtrusion.t : 0.5;
                             const halfT = (protW / 2) / wallLen;
-                            this.extenderStartT = Math.max(0.02, protT - halfT);
-                            this.extenderEndT = Math.min(0.98, protT + halfT);
+                            this.extenderStartT = Math.max(0, protT - halfT);
+                            this.extenderEndT = Math.min(1, protT + halfT);
                             this.extenderFacing = matchedProtrusion.facing || 1;
                             this.extenderDepth = matchedProtrusion.depth || 30;
                         } else if (this.extenderStartT === undefined) {
                             const halfSpan = Math.min(0.25, Math.max(0.08, 50 / wallLen));
-                            this.extenderStartT = Math.max(0.02, projT - halfSpan);
-                            this.extenderEndT = Math.min(0.98, projT + halfSpan);
+                            const minCenter = halfSpan;
+                            const maxCenter = Math.max(minCenter, 1 - halfSpan);
+                            const clampedCenter = Math.max(minCenter, Math.min(maxCenter, projT));
+                            this.extenderStartT = Math.max(0, clampedCenter - halfSpan);
+                            this.extenderEndT = Math.min(1, clampedCenter + halfSpan);
                             const wallMidX = p1.x + (this.extenderStartT + this.extenderEndT) * 0.5 * dx;
                             const wallMidZ = p1.y + (this.extenderStartT + this.extenderEndT) * 0.5 * dy;
                             const camPos = this.ctx.camera ? this.ctx.camera.position : new THREE.Vector3();
@@ -2129,12 +2282,37 @@ export class WallInteractiveSuite extends THREE.Group {
                             this.extenderDepth = 30;
                         }
                     } else if (mode === 'split') {
-                        this.splitCurrentT = projT;
+                        this.splitCurrentT = Math.max(0.02, Math.min(0.98, projT));
                     } else if (mode === 'extrude_recess' && this.extrudeStartT === undefined) {
                         const halfSpan = Math.min(0.25, Math.max(0.08, 50 / wallLen));
-                        this.extrudeStartT = Math.max(0.02, projT - halfSpan);
-                        this.extrudeEndT = Math.min(0.98, projT + halfSpan);
+                        const minCenter = halfSpan;
+                        const maxCenter = Math.max(minCenter, 1 - halfSpan);
+                        const clampedCenter = Math.max(minCenter, Math.min(maxCenter, projT));
+                        this.extrudeStartT = Math.max(0, clampedCenter - halfSpan);
+                        this.extrudeEndT = Math.min(1, clampedCenter + halfSpan);
                     }
+                }
+            }
+        }
+
+        // Validate placement space before setting mode and pinning
+        if (wallMesh && (mode === 'extrude_recess' || mode === 'push_pull')) {
+            const wall = wallMesh.userData?.entity || wallMesh.userData?.parentWall || wallMesh.parent?.userData?.entity;
+            if (wall && !this.extenderTargetProtrusion) {
+                const tStart = mode === 'push_pull' 
+                    ? (this.extenderStartT !== undefined ? this.extenderStartT : 0.25)
+                    : (this.extrudeStartT !== undefined ? this.extrudeStartT : 0.25);
+                const tEnd = mode === 'push_pull'
+                    ? (this.extenderEndT !== undefined ? this.extenderEndT : 0.75)
+                    : (this.extrudeEndT !== undefined ? this.extrudeEndT : 0.75);
+                const validation = this._validatePlacementSpace(wall, tStart, tEnd, mode);
+                if (!validation.isValid) {
+                    this.isValidPlacement = false;
+                    this.invalidReason = validation.reason;
+                    this.isExtrudePinned = false;
+                    this.isExtenderPinned = false;
+                    this._shakeBadge(mode === 'extrude_recess' ? this.extrudeBadge : this.extenderBadge);
+                    return;
                 }
             }
         }
@@ -2171,6 +2349,13 @@ export class WallInteractiveSuite extends THREE.Group {
                         this.extrudeStartT = 0.25;
                         this.extrudeEndT = 0.75;
                     }
+                    const validation = this._validatePlacementSpace(wall, this.extrudeStartT, this.extrudeEndT, 'extrude_recess');
+                    if (!validation.isValid) {
+                        this.isValidPlacement = false;
+                        this.invalidReason = validation.reason;
+                        this._shakeBadge(this.extrudeBadge);
+                        return;
+                    }
                     this.isExtrudePinned = true;
                     if (this.extrudeBadge) {
                         const bayLen = Math.round(wallLen * (this.extrudeEndT - this.extrudeStartT));
@@ -2181,6 +2366,17 @@ export class WallInteractiveSuite extends THREE.Group {
         } else if (mode === 'push_pull' && wallMesh) {
             const wall = wallMesh.userData?.entity || wallMesh.userData?.parentWall || wallMesh.parent?.userData?.entity;
             if (wall && this.extenderGizmo) {
+                if (!this.extenderTargetProtrusion) {
+                    const tStart = this.extenderStartT !== undefined ? this.extenderStartT : 0.25;
+                    const tEnd = this.extenderEndT !== undefined ? this.extenderEndT : 0.75;
+                    const validation = this._validatePlacementSpace(wall, tStart, tEnd, 'push_pull');
+                    if (!validation.isValid) {
+                        this.isValidPlacement = false;
+                        this.invalidReason = validation.reason;
+                        this._shakeBadge(this.extenderBadge);
+                        return;
+                    }
+                }
                 this.isExtenderPinned = true;
                 if (this.extenderStartT !== undefined && this.extenderEndT !== undefined) {
                     this.extenderGizmo.tStart = this.extenderStartT;
@@ -2195,7 +2391,7 @@ export class WallInteractiveSuite extends THREE.Group {
                 } else if (this.extenderGizmo.existingProtrusion) {
                     this.extenderGizmo.currentExtrudeDepth = this.extenderDepth || this.extenderGizmo.existingProtrusion.depth || 30;
                 }
-                this.extenderGizmo.updateHandles();
+                this.extenderGizmo.updateHandles(true);
                 this.extenderGizmo.visible = true;
             }
             if (this.extenderBadge) this.extenderBadge.style.display = 'none';
@@ -2210,6 +2406,11 @@ export class WallInteractiveSuite extends THREE.Group {
         this.splitCurrentHit = null;
         this.isExtrudePinned = false;
         this.isExtenderPinned = false;
+        this.isValidPlacement = true;
+        this.invalidReason = '';
+        if (this.ctx.renderer?.domElement && this.ctx.renderer.domElement.style.cursor === 'not-allowed') {
+            this.ctx.renderer.domElement.style.cursor = 'default';
+        }
         this.extenderStartT = undefined;
         this.extenderEndT = undefined;
         this.extenderFacing = undefined;
@@ -2304,6 +2505,11 @@ export class WallInteractiveSuite extends THREE.Group {
                 this.extenderGizmo.detach();
             }
             if (this.extenderBadge) this.extenderBadge.style.display = 'none';
+            this.isValidPlacement = true;
+            this.invalidReason = '';
+            if (this.ctx.renderer?.domElement && this.ctx.renderer.domElement.style.cursor === 'not-allowed') {
+                this.ctx.renderer.domElement.style.cursor = 'default';
+            }
             return;
         }
         const wall = wallMesh.userData?.entity || wallMesh.userData?.parentWall || wallMesh.parent?.userData?.entity;
@@ -2313,6 +2519,11 @@ export class WallInteractiveSuite extends THREE.Group {
                 this.extenderGizmo.detach();
             }
             if (this.extenderBadge) this.extenderBadge.style.display = 'none';
+            this.isValidPlacement = true;
+            this.invalidReason = '';
+            if (this.ctx.renderer?.domElement && this.ctx.renderer.domElement.style.cursor === 'not-allowed') {
+                this.ctx.renderer.domElement.style.cursor = 'default';
+            }
             return;
         }
 
@@ -2327,7 +2538,6 @@ export class WallInteractiveSuite extends THREE.Group {
             const dy = p2.y - p1.y;
             projT = ((hitPoint.x - p1.x) * dx + (hitPoint.z - p1.y) * dy) / (wallLen * wallLen);
         }
-        projT = Math.max(0.05, Math.min(0.95, projT));
 
         // Check if hitPoint is hovering over an existing solid protrusion on this wall
         let matchedProtrusion = null;
@@ -2355,11 +2565,17 @@ export class WallInteractiveSuite extends THREE.Group {
             this.extenderEndT = this.extenderGizmo.tEnd;
             this.extenderFacing = this.extenderGizmo.activeFacing || 1;
             this.extenderDepth = this.extenderGizmo.currentExtrudeDepth || matchedProtrusion.depth || 30;
+            this.isValidPlacement = true;
+            this.invalidReason = '';
+            this.extenderGizmo.updateHandles(true);
         } else {
             // Fresh sub-region extension on empty wall space
             const halfSpan = Math.min(0.25, Math.max(0.08, 50 / wallLen));
-            const tStart = Math.max(0.02, projT - halfSpan);
-            const tEnd = Math.min(0.98, projT + halfSpan);
+            const minCenter = halfSpan;
+            const maxCenter = Math.max(minCenter, 1 - halfSpan);
+            const clampedCenter = Math.max(minCenter, Math.min(maxCenter, projT));
+            const tStart = Math.max(0, clampedCenter - halfSpan);
+            const tEnd = Math.min(1, clampedCenter + halfSpan);
 
             this.extenderGizmo.attach(wallMesh, null);
             this.extenderGizmo.selectionScope = 'subregion';
@@ -2384,18 +2600,41 @@ export class WallInteractiveSuite extends THREE.Group {
             this.extenderEndT = tEnd;
             this.extenderFacing = facing;
             this.extenderDepth = 30;
+
+            const validation = this._validatePlacementSpace(wall, tStart, tEnd, 'push_pull');
+            this.isValidPlacement = validation.isValid;
+            this.invalidReason = validation.reason;
+            this.extenderGizmo.updateHandles(this.isValidPlacement);
         }
 
-        this.extenderGizmo.updateHandles();
         this.extenderGizmo.visible = true;
 
         if (this.extenderBadge) {
             const bayLenCm = Math.round(wallLen * (this.extenderGizmo.tEnd - this.extenderGizmo.tStart));
             const extDepth = Math.round(this.extenderGizmo.currentExtrudeDepth || 30);
-            if (matchedProtrusion) {
-                this.extenderBadge.textContent = `↔️ Click to Edit Extension (+${extDepth} cm · Width: ${bayLenCm} cm)`;
+            if (!this.isValidPlacement) {
+                const validation = this._validatePlacementSpace(wall, this.extenderGizmo.tStart, this.extenderGizmo.tEnd, 'push_pull');
+                this.extenderBadge.textContent = validation.message;
+                this.extenderBadge.style.background = 'linear-gradient(135deg, rgba(239, 68, 68, 0.95), rgba(185, 28, 28, 0.95))';
+                this.extenderBadge.style.borderColor = 'rgba(254, 202, 202, 0.8)';
+                this.extenderBadge.style.color = '#ffffff';
+                this.extenderBadge.style.boxShadow = '0 8px 20px rgba(239, 68, 68, 0.35)';
+                if (this.ctx.renderer?.domElement) {
+                    this.ctx.renderer.domElement.style.cursor = 'not-allowed';
+                }
             } else {
-                this.extenderBadge.textContent = `↔️ Click to Place Extension (+${extDepth} cm · Width: ${bayLenCm} cm)`;
+                if (matchedProtrusion) {
+                    this.extenderBadge.textContent = `↔️ Click to Edit Extension (+${extDepth} cm · Width: ${bayLenCm} cm)`;
+                } else {
+                    this.extenderBadge.textContent = `↔️ Click to Place Extension (+${extDepth} cm · Width: ${bayLenCm} cm)`;
+                }
+                this.extenderBadge.style.background = 'linear-gradient(135deg, rgba(15, 23, 42, 0.92), rgba(30, 41, 59, 0.92))';
+                this.extenderBadge.style.borderColor = 'rgba(56, 189, 248, 0.35)';
+                this.extenderBadge.style.color = '#f8fafc';
+                this.extenderBadge.style.boxShadow = '0 8px 20px rgba(0, 0, 0, 0.25)';
+                if (this.ctx.renderer?.domElement) {
+                    this.ctx.renderer.domElement.style.cursor = 'pointer';
+                }
             }
             if (this.ctx.renderer && this.ctx.camera) {
                 const dom = this.ctx.renderer.domElement;
@@ -2646,19 +2885,43 @@ export class WallInteractiveSuite extends THREE.Group {
         if (hitPoint) {
             projT = ((hitPoint.x - p1.x) * dx + (hitPoint.z - p1.y) * dy) / (wallLen * wallLen);
         }
-        projT = Math.max(0.15, Math.min(0.85, projT));
-
         const halfSpan = Math.min(0.25, Math.max(0.08, 50 / wallLen));
-        this.extrudeStartT = Math.max(0.02, projT - halfSpan);
-        this.extrudeEndT = Math.min(0.98, projT + halfSpan);
+        const minCenter = halfSpan;
+        const maxCenter = Math.max(minCenter, 1 - halfSpan);
+        const clampedCenter = Math.max(minCenter, Math.min(maxCenter, projT));
+        this.extrudeStartT = Math.max(0, clampedCenter - halfSpan);
+        this.extrudeEndT = Math.min(1, clampedCenter + halfSpan);
         this.target = wallMesh;
         this.extrudeCurrentDepth = 0; // neutral ghost box preview
         this.extrudeGroup.visible = true;
+
+        const validation = this._validatePlacementSpace(wall, this.extrudeStartT, this.extrudeEndT, 'extrude_recess');
+        this.isValidPlacement = validation.isValid;
+        this.invalidReason = validation.reason;
+
         this._updateExtrudeGhostGeometry();
 
         if (this.extrudeBadge) {
             const bayLen = Math.round(wallLen * (this.extrudeEndT - this.extrudeStartT));
-            this.extrudeBadge.textContent = `🔲 Click to Place Bay/Niche (${bayLen} cm)`;
+            if (!this.isValidPlacement) {
+                this.extrudeBadge.textContent = validation.message;
+                this.extrudeBadge.style.background = 'linear-gradient(135deg, rgba(239, 68, 68, 0.95), rgba(185, 28, 28, 0.95))';
+                this.extrudeBadge.style.borderColor = 'rgba(254, 202, 202, 0.8)';
+                this.extrudeBadge.style.color = '#ffffff';
+                this.extrudeBadge.style.boxShadow = '0 8px 20px rgba(239, 68, 68, 0.35)';
+                if (this.ctx.renderer?.domElement) {
+                    this.ctx.renderer.domElement.style.cursor = 'not-allowed';
+                }
+            } else {
+                this.extrudeBadge.textContent = `🔲 Click to Place Bay/Niche (${bayLen} cm)`;
+                this.extrudeBadge.style.background = 'linear-gradient(135deg, rgba(15, 23, 42, 0.92), rgba(30, 41, 59, 0.92))';
+                this.extrudeBadge.style.borderColor = 'rgba(56, 189, 248, 0.35)';
+                this.extrudeBadge.style.color = '#f8fafc';
+                this.extrudeBadge.style.boxShadow = '0 8px 20px rgba(0, 0, 0, 0.25)';
+                if (this.ctx.renderer?.domElement) {
+                    this.ctx.renderer.domElement.style.cursor = 'pointer';
+                }
+            }
             if (this.ctx.renderer && this.ctx.camera) {
                 const dom = this.ctx.renderer.domElement;
                 const rect = dom.getBoundingClientRect();

@@ -241,14 +241,62 @@ flowchart TD
 
 ---
 
-## 7. Verification Checklist
+---
+
+## 7. Geometric Validation & Red Warning Highlights on Small/Angled Walls
+
+### A. Architectural Rules & Thresholds
+Wall pull features (Extender solid bump-outs, Bay Windows, Recessed Niches) require adequate physical wall length and breadth to prevent corner clipping, inverted returns, and geometric collisions:
+1. **Minimum Host Wall Length (`MIN_WALL_LEN = 40 cm`)**:
+   - Host walls shorter than 40 cm cannot accommodate returns, depth offsets, and miters.
+   - Violation message: `🚫 Wall Too Short (${wallLen} cm · Min 40 cm)`.
+2. **Minimum Feature Span (`MIN_SPAN = 30 cm`)**:
+   - Calculated feature width $\text{spanCm} = \text{wallLen} \times |t_{\text{end}} - t_{\text{start}}|$ must be at least $30\text{ cm}$.
+   - Prevents narrow slivers (e.g., 13 cm bays) that distort angled wall corners and collide return geometry.
+   - Violation message: `🚫 Space Too Short (${spanCm} cm · Min 30 cm)`.
+3. **Connected Corner Clearance (`MIN_CORNER_CLEARANCE = 25 cm`)**:
+   - When adjoining room walls meet at `startAnchor` or `endAnchor` (e.g. angled, L, or T-corners), the feature cannot be placed closer than $25\text{ cm}$ to that corner.
+   - Protects the physical corner miter boundary from colliding with extrusion cuts.
+   - Violation message: `🚫 Too Close to Connected Corner (${dist} cm · Min 25 cm)`.
+4. **Wing Clearance for Wall Cuts (`MIN_WING = 20 cm`)**:
+   - In `extrude_recess`, wall wings (`wStart` and `wEnd`) cannot be slivers $< 20\text{ cm}$.
+   - Prevents microscopic wall fragments from collapsing into anchors or breaking corner miters.
+   - Violation message: `🚫 Too Close to Corner (${dist} cm · Min 20 cm)`.
+5. **Anchor Preservation Invariant (`WallTopologyEngine.extrudeWallSegment`)**:
+   - When an extrusion begins within $25\text{ cm}$ of `p1` or $t_{\text{start}} \le 0.05$, `wReturn1` anchors directly to `anc1` (`wall.startAnchor`).
+   - When an extrusion ends within $25\text{ cm}$ of `p2` or $t_{\text{end}} \ge 0.95$, `wReturn2` anchors directly to `anc2` (`wall.endAnchor`).
+   - `wStart` and `wEnd` 0-length loops (`startAnchor === endAnchor`) are strictly prevented. Adjoining walls are guaranteed to remain 100% connected.
+
+### B. High-Fidelity 3D Red Visual Feedback (`0xef4444`)
+When validation fails (`isValidPlacement === false`):
+1. **Extender Solid Protrusion Preview**:
+   - `previewMesh.material.color` switches to Crimson Red (`0xef4444`, opacity: 0.50).
+   - `previewEdgesMat.color` switches to Crimson Red (`0xef4444`).
+   - Manipulation handles and depth leader line are suppressed to communicate that pulling is disallowed.
+2. **Bay/Niche Neutral Ghost Preview**:
+   - `matNeutralGhost` switches to `matInvalidGhost` (`0xef4444`, opacity: 0.45).
+   - Outline switches to `matInvalidOutline` (`0xef4444`, linewidth: 2.5).
+   - Bi-directional depth handles (`extrudeHandle`, `extrudeStartHandle`, `extrudeEndHandle`) are hidden.
+3. **HUD Warning Pill Badge**:
+   - Background changes to red warning gradient: `linear-gradient(135deg, rgba(239, 68, 68, 0.95), rgba(185, 28, 28, 0.95))`.
+   - Border: `rgba(254, 202, 202, 0.8)`. Box shadow: `0 8px 20px rgba(239, 68, 68, 0.35)`.
+   - Viewport cursor: `not-allowed`.
+4. **Placement Rejection**:
+   - Clicking an invalid wall segment blocks pinning (`isExtenderPinned` / `isExtrudePinned` remain `false`).
+   - `_shakeBadge(badge)` triggers tactile vibration feedback.
+   - Moving the cursor to a spacious wall segment immediately restores valid cyan/green highlights and allows standard placement.
+
+---
+
+## 8. Verification Checklist
 
 After modifying any extender or protrusion logic, verify:
 1. **Multi-Placement**: Place a $+40\text{ cm}$ extension at $t = 0.25$ and click Done. Then hover at $t = 0.75$; preview MUST show $+30\text{ cm}$ (clean), NOT $+40\text{ cm}$. Click Done; wall MUST have 2 separate protrusions.
 2. **Re-Adjustment**: In Select mode, click an existing protrusion. Gizmo MUST appear targeting that exact protrusion with its current depth. Drag depth and click Done; existing protrusion MUST update in place without creating new walls.
 3. **Cancel Integrity**: Drag handles and click Cancel; wall MUST revert to its original dimensions with zero leftover meshes.
-4. **Mobile / Touch**: Tap wall directly with `hitPoint`; extender pins at tap location without requiring prior hover.
-5. **Tests**: Run Vitest suite:
+4. **Validation & Red Highlight**: Hover over a short wall ($< 40\text{ cm}$) or narrow section ($< 30\text{ cm}$). Preview MUST turn crimson red (`0xef4444`), handles MUST be hidden, warning badge MUST display `🚫 Space/Wall Too Short`, and clicking MUST be blocked.
+5. **Mobile / Touch**: Tap wall directly with `hitPoint`; extender pins at tap location without requiring prior hover.
+6. **Tests**: Run Vitest suite:
    ```bash
    cmd.exe /c npx vitest run src/core/engine3d/test/WallInteractiveSuite.spec.js src/core/engine3d/test/WallExtender.spec.js
    ```
