@@ -1246,6 +1246,11 @@ export class WallInteractiveSuite extends THREE.Group {
             this.cornerGizmo.detach();
             this.heightGizmo.detach();
             this._hideSplitLaser();
+            if (this.extrudeStartT === undefined || this.extrudeEndT === undefined) {
+                this.extrudeStartT = 0.25;
+                this.extrudeEndT = 0.75;
+            }
+            this.isExtrudePinned = true;
             this.extrudeCurrentDepth = 0; // Neutral 0cm start on entry
             this._showExtrudeGhost();
         } else if (mode === 'height' || mode === 'corner') {
@@ -1502,8 +1507,10 @@ export class WallInteractiveSuite extends THREE.Group {
         this.extrudeGroup.position.set(p1.x, wallBaseY, p1.y);
         this.extrudeGroup.rotation.set(0, -angle, 0);
 
-        const tStart = Math.min(this.extrudeStartT, this.extrudeEndT - 0.05);
-        const tEnd = Math.max(this.extrudeEndT, this.extrudeStartT + 0.05);
+        const rawStart = (typeof this.extrudeStartT === 'number' && !isNaN(this.extrudeStartT)) ? this.extrudeStartT : 0.25;
+        const rawEnd = (typeof this.extrudeEndT === 'number' && !isNaN(this.extrudeEndT)) ? this.extrudeEndT : 0.75;
+        const tStart = Math.min(rawStart, rawEnd - 0.05);
+        const tEnd = Math.max(rawEnd, rawStart + 0.05);
         const bayLen = Math.max(10, wallLen * (tEnd - tStart));
         const depth = this.extrudeCurrentDepth;
 
@@ -2008,8 +2015,62 @@ export class WallInteractiveSuite extends THREE.Group {
 
     _onCameraChange() {
         this._updateHUDPosition();
-        if (this.activeMode === 'push_pull' || this.activeMode === 'extrude_recess') {
+        if (this.activeMode === 'push_pull' || this.activeMode === 'extrude_recess' || this.extrudeGroup?.visible) {
             this._updateExtrudeGhostGeometry();
+        }
+        this._updateBadgesPosition();
+    }
+
+    _updateBadgesPosition() {
+        if (!this.target || !this.ctx.camera || !this.ctx.renderer) return;
+        const wall = this.target.userData?.entity;
+        if (!wall) return;
+        const p1 = (wall.startAnchor && typeof wall.startAnchor.position === 'function') ? wall.startAnchor.position() : (wall.startAnchor || { x: wall.startX || 0, y: wall.startY || 0 });
+        const p2 = (wall.endAnchor && typeof wall.endAnchor.position === 'function') ? wall.endAnchor.position() : (wall.endAnchor || { x: wall.endX || 0, y: wall.endY || 0 });
+        const wallBaseY = (wall.elevation || 0);
+        const wallH = (wall.height !== undefined ? wall.height : (wall.config?.height || 120));
+        const dx = p2.x - p1.x;
+        const dy = p2.y - p1.y;
+        const dom = this.ctx.renderer.domElement;
+        if (!dom) return;
+        const rect = dom.getBoundingClientRect();
+
+        if (this.extrudeBadge && this.extrudeBadge.style.display !== 'none') {
+            const rawStart = (typeof this.extrudeStartT === 'number' && !isNaN(this.extrudeStartT)) ? this.extrudeStartT : 0.25;
+            const rawEnd = (typeof this.extrudeEndT === 'number' && !isNaN(this.extrudeEndT)) ? this.extrudeEndT : 0.75;
+            const midT = (rawStart + rawEnd) * 0.5;
+            const midX = p1.x + midT * dx;
+            const midZ = p1.y + midT * dy;
+            const midY = wallBaseY + wallH / 2;
+            const v = new THREE.Vector3(midX, midY, midZ).project(this.ctx.camera);
+            const screenX = rect.left + ((v.x + 1) * rect.width) / 2;
+            const screenY = rect.top + ((-v.y + 1) * rect.height) / 2;
+            this.extrudeBadge.style.left = `${screenX}px`;
+            this.extrudeBadge.style.top = `${screenY - 24}px`;
+        }
+        if (this.extenderBadge && this.extenderBadge.style.display !== 'none') {
+            const rawStart = (typeof this.extenderStartT === 'number' && !isNaN(this.extenderStartT)) ? this.extenderStartT : 0.25;
+            const rawEnd = (typeof this.extenderEndT === 'number' && !isNaN(this.extenderEndT)) ? this.extenderEndT : 0.75;
+            const midT = (rawStart + rawEnd) * 0.5;
+            const midX = p1.x + midT * dx;
+            const midZ = p1.y + midT * dy;
+            const midY = wallBaseY + wallH / 2;
+            const v = new THREE.Vector3(midX, midY, midZ).project(this.ctx.camera);
+            const screenX = rect.left + ((v.x + 1) * rect.width) / 2;
+            const screenY = rect.top + ((-v.y + 1) * rect.height) / 2;
+            this.extenderBadge.style.left = `${screenX}px`;
+            this.extenderBadge.style.top = `${screenY - 24}px`;
+        }
+        if (this.splitBadge && this.splitBadge.style.display !== 'none') {
+            const splitT = (typeof this.splitCurrentT === 'number' && !isNaN(this.splitCurrentT)) ? this.splitCurrentT : 0.5;
+            const splitX = p1.x + splitT * dx;
+            const splitZ = p1.y + splitT * dy;
+            const splitY = wallBaseY + wallH / 2;
+            const v = new THREE.Vector3(splitX, splitY, splitZ).project(this.ctx.camera);
+            const screenX = rect.left + ((v.x + 1) * rect.width) / 2;
+            const screenY = rect.top + ((-v.y + 1) * rect.height) / 2;
+            this.splitBadge.style.left = `${screenX}px`;
+            this.splitBadge.style.top = `${screenY - 24}px`;
         }
     }
 

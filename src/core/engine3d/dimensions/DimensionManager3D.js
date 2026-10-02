@@ -32,7 +32,12 @@ export class DimensionManager3D {
         
         if (!entity || !mesh) return;
 
-        const settings = useSettingsStore().floorPlanSettings;
+        let settings = { show3DMeasurements: true };
+        try {
+            settings = useSettingsStore()?.floorPlanSettings || settings;
+        } catch {
+            // Pinia outside Vue component context
+        }
         if (settings.show3DMeasurements === false) return;
 
         const type = entity.type || entity.configId || '';
@@ -75,7 +80,12 @@ export class DimensionManager3D {
     update() {
         if (!this.activeProvider) return;
         
-        const settings = useSettingsStore().floorPlanSettings;
+        let settings = { show3DMeasurements: true };
+        try {
+            settings = useSettingsStore()?.floorPlanSettings || settings;
+        } catch {
+            // Pinia outside Vue component context
+        }
         if (settings.show3DMeasurements === false) {
             this.clear();
             return;

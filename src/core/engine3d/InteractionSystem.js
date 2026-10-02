@@ -687,6 +687,9 @@ export class InteractionSystem {
         this._onPointerDown = (e) => {
             if (this.is2DView()) return;
             this.updateMouse(e);
+            this._pointerDownScreenX = e.clientX;
+            this._pointerDownScreenY = e.clientY;
+            this._isPointerDragging = false;
 
             // Direct 3D Wall / Room Drawing System
             if (this.wall3DDrawSystem && this.wall3DDrawSystem.isWallDrawingTool()) {
@@ -1010,6 +1013,13 @@ export class InteractionSystem {
             if (this.is2DView()) return;
             this.updateMouse(e);
 
+            if (this._pointerDownScreenX !== undefined && e.buttons !== 0) {
+                const dist = Math.hypot(e.clientX - this._pointerDownScreenX, e.clientY - this._pointerDownScreenY);
+                if (dist > 6) {
+                    this._isPointerDragging = true;
+                }
+            }
+
             // Direct 3D Wall / Room Drawing System
             if (this.wall3DDrawSystem && this.wall3DDrawSystem.isWallDrawingTool()) {
                 this.wall3DDrawSystem.onPointerMove(e);
@@ -1221,6 +1231,10 @@ export class InteractionSystem {
 
         this._onPointerUp = (e) => {
             if (this.is2DView()) return;
+            const wasPointerDragging = this._isPointerDragging;
+            this._pointerDownScreenX = undefined;
+            this._pointerDownScreenY = undefined;
+            this._isPointerDragging = false;
 
             // Universal Material Face Painting Tool
             if (this.commonController?.activeTool === COMMON_TOOLS.MATERIAL) {
@@ -1814,10 +1828,10 @@ export class InteractionSystem {
                 );
 
                 if (object.userData?.isProtrusion && this.wallInteractiveSuite) {
-                    this.wallInteractiveSuite.attach(object, 'push_pull', hitInfo?.point);
+                    this.wallInteractiveSuite.attach(object, 'push_pull', intersect?.point);
                 } else if (isBaseWall && this.wallInteractiveSuite) {
                     if (isWallSuiteTool) {
-                        this.wallInteractiveSuite.attach(object, currentCommonTool, hitInfo?.point);
+                        this.wallInteractiveSuite.attach(object, currentCommonTool, intersect?.point);
                     } else {
                         this.wallInteractiveSuite.attach(object, 'menu');
                     }
@@ -1918,7 +1932,12 @@ export class InteractionSystem {
             const shouldSkipCameraMotion = preventAutoFocus || this.ctx.preventAutoFocus || isInteractiveToolActive || isDoorOrWindow || isWall || isFloorObj || isCornerObj;
 
             if (!shouldSkipCameraMotion && this.ctx.cameraController && object) {
-                const settings = useSettingsStore().floorPlanSettings;
+                let settings = null;
+                try {
+                    settings = useSettingsStore()?.floorPlanSettings;
+                } catch {
+                    settings = null;
+                }
                 if (settings && settings.autoFocus === true) {
                     this.ctx.cameraController.focusOnObject(object, intersect, settings.autoRotate === true);
                 }

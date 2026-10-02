@@ -1,6 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach, beforeAll, vi } from 'vitest';
 import * as THREE from 'three';
+import { createPinia, setActivePinia } from 'pinia';
 import { WallInteractiveSuite } from '../WallInteractiveSuite.js';
+import { InteractionSystem } from '../InteractionSystem.js';
 import { WallEngine } from '../../wall/WallEngine.js';
 import { WallTopologyEngine } from '../../wall/WallTopologyEngine.js';
 
@@ -38,6 +40,7 @@ describe('WallInteractiveSuite - Bay / Niche (extrude_recess) Tool', () => {
     let suite;
 
     beforeEach(() => {
+        setActivePinia(createPinia());
         domElement = document.createElement('div');
         domElement.getBoundingClientRect = () => ({
             left: 0,
@@ -90,7 +93,9 @@ describe('WallInteractiveSuite - Bay / Niche (extrude_recess) Tool', () => {
                 })
             },
             getOrCreateAnchor: vi.fn((x, y) => ({ x, y, position: () => ({ x, y }) })),
-            findOrCreateAnchor: vi.fn((x, y) => ({ x, y, position: () => ({ x, y }) }))
+            findOrCreateAnchor: vi.fn((x, y) => ({ x, y, position: () => ({ x, y }) })),
+            selectEntity: vi.fn(),
+            selectedEntity: null
         };
         mockWall.planner = mockPlanner;
 
@@ -969,6 +974,68 @@ describe('WallInteractiveSuite - Bay / Niche (extrude_recess) Tool', () => {
             expect(suite.extrudeEndT).toBe(1);
             expect(suite.isValidPlacement).toBe(false);
             expect(suite.invalidReason).toBe('corner_clearance');
+        });
+
+        it('initializes default tStart and tEnd and sets isExtrudePinned when entering extrude_recess via setMode', () => {
+            suite.target = mockMesh;
+            suite.extrudeStartT = undefined;
+            suite.extrudeEndT = undefined;
+            suite.setMode('extrude_recess');
+
+            expect(suite.extrudeStartT).toBe(0.25);
+            expect(suite.extrudeEndT).toBe(0.75);
+            expect(suite.isExtrudePinned).toBe(true);
+            expect(suite.isOperationActive()).toBe(true);
+            expect(suite.extrudeGroup.visible).toBe(true);
+        });
+
+        it('synchronizes ghost geometry and badges on camera change during preview and active modes', () => {
+            suite.target = mockMesh;
+            suite.previewExtrude(mockMesh, new THREE.Vector3(50, 0, 50));
+            expect(suite.extrudeGroup.visible).toBe(true);
+            expect(suite.extrudeBadge.style.display).toBe('block');
+
+            // Move camera
+            suite.ctx.camera.position.set(0, 500, -200);
+            suite._onCameraChange();
+
+            // Facing and badge position updated without error
+            expect(suite.currentFacing).toBeDefined();
+            expect(suite.extrudeBadge.style.left).toBeDefined();
+            expect(suite.extrudeBadge.style.top).toBeDefined();
+        });
+
+        it('attaches common tools to wallInteractiveSuite via InteractionSystem.select with intersect.point without ReferenceError', () => {
+            const interactions = new InteractionSystem(suite.ctx);
+            interactions.wallInteractiveSuite = suite;
+            interactions.commonController = { activeTool: 'extrude_recess', setSelection: vi.fn(), clearSelection: vi.fn(), select: vi.fn() };
+
+            const attachSpy = vi.spyOn(suite, 'attach');
+            const mockIntersect = { point: new THREE.Vector3(50, 10, 20) };
+
+            expect(() => {
+                interactions.select(mockMesh, null, null, true, mockIntersect);
+            }).not.toThrow();
+
+            expect(attachSpy).toHaveBeenCalledWith(mockMesh, 'extrude_recess', mockIntersect.point);
+        });
+
+        it('attaches protrusion to wallInteractiveSuite in push_pull via InteractionSystem.select without ReferenceError', () => {
+            const interactions = new InteractionSystem(suite.ctx);
+            interactions.wallInteractiveSuite = suite;
+            interactions.commonController = { activeTool: 'select', setSelection: vi.fn(), clearSelection: vi.fn() };
+
+            const protMesh = new THREE.Mesh();
+            protMesh.userData = { isProtrusion: true, widget: { id: 'prot_1', width: 40, depth: 30, wall: mockWall } };
+
+            const attachSpy = vi.spyOn(suite, 'attach');
+            const mockIntersect = { point: new THREE.Vector3(40, 0, 10) };
+
+            expect(() => {
+                interactions.select(protMesh, null, null, true, mockIntersect);
+            }).not.toThrow();
+
+            expect(attachSpy).toHaveBeenCalledWith(protMesh, 'push_pull', mockIntersect.point);
         });
     });
 });
