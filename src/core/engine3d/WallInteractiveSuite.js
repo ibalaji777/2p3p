@@ -2489,35 +2489,39 @@ export class WallInteractiveSuite extends THREE.Group {
         this._snapshotCmd = null;
         this._initialWallSnapshot = null;
 
-        if (this.ctx.interactions && !this.ctx.interactions._isDeselecting) {
-            this.ctx.interactions.selectedObject = null;
-            if (this.ctx.interactions.highlightRenderer) {
-                if (typeof this.ctx.interactions.highlightRenderer.clearAll === 'function') {
-                    this.ctx.interactions.highlightRenderer.clearAll();
-                } else if (typeof this.ctx.interactions.highlightRenderer.clearSelectionHighlight === 'function') {
-                    this.ctx.interactions.highlightRenderer.clearSelectionHighlight();
+        const commonCtrl = this.ctx.commonTools || this.ctx.interactions?.commonController;
+        const isMaterialMode = commonCtrl?.activeTool === 'material';
+
+        if (!isMaterialMode) {
+            if (this.ctx.interactions && !this.ctx.interactions._isDeselecting) {
+                this.ctx.interactions.selectedObject = null;
+                if (this.ctx.interactions.highlightRenderer) {
+                    if (typeof this.ctx.interactions.highlightRenderer.clearAll === 'function') {
+                        this.ctx.interactions.highlightRenderer.clearAll();
+                    } else if (typeof this.ctx.interactions.highlightRenderer.clearSelectionHighlight === 'function') {
+                        this.ctx.interactions.highlightRenderer.clearSelectionHighlight();
+                    }
                 }
             }
-        }
-        const commonCtrl = this.ctx.commonTools || this.ctx.interactions?.commonController;
-        if (commonCtrl) {
-            if (typeof commonCtrl.clearSelection === 'function') {
-                commonCtrl.clearSelection();
-            } else {
-                commonCtrl.selectedEntity = null;
-                commonCtrl.selectedMesh = null;
-                commonCtrl.selectedType = null;
-                commonCtrl.activeAction = null;
-                commonCtrl.interactionState = 'IDLE';
-                commonCtrl.hudMode = 'none';
-            }
-            if (coreEventBus) {
-                coreEventBus.emit('InteractionStateChanged', typeof commonCtrl.getInteractionState === 'function' ? commonCtrl.getInteractionState() : { activeTool: commonCtrl.activeTool, state: 'IDLE' });
-                coreEventBus.emit('CommonSelectionChanged', {
-                    entity: null,
-                    mesh: null,
-                    capabilities: typeof commonCtrl.getCurrentCapabilities === 'function' ? commonCtrl.getCurrentCapabilities() : []
-                });
+            if (commonCtrl) {
+                if (typeof commonCtrl.clearSelection === 'function') {
+                    commonCtrl.clearSelection();
+                } else {
+                    commonCtrl.selectedEntity = null;
+                    commonCtrl.selectedMesh = null;
+                    commonCtrl.selectedType = null;
+                    commonCtrl.activeAction = null;
+                    commonCtrl.interactionState = 'IDLE';
+                    commonCtrl.hudMode = 'none';
+                }
+                if (coreEventBus) {
+                    coreEventBus.emit('InteractionStateChanged', typeof commonCtrl.getInteractionState === 'function' ? commonCtrl.getInteractionState() : { activeTool: commonCtrl.activeTool, state: 'IDLE' });
+                    coreEventBus.emit('CommonSelectionChanged', {
+                        entity: null,
+                        mesh: null,
+                        capabilities: typeof commonCtrl.getCurrentCapabilities === 'function' ? commonCtrl.getCurrentCapabilities() : []
+                    });
+                }
             }
         }
 

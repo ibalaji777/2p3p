@@ -13,6 +13,7 @@ import { usePlannerStore } from '../../../stores/usePlannerStore.js';
 import { RoofEngine } from '../../roof/RoofEngine.js';
 import { globalSpatialDependencyEngine } from '../../spatial/SpatialDependencyEngine.js';
 import { TransformEngine } from '../../transform/TransformEngine.js';
+import { renderElevationSegment3D } from '../../../features/elevation/elevationSegment.renderer3d.js';
 
 /**
  * Helper to compute local geometric center of any 3D object/group in its own local coordinate space.
@@ -264,7 +265,26 @@ export class CommonTransformEngine {
 
         entity.elevation = newElev;
 
-        if (entity.mesh3D) {
+        if (entity.type === 'elevation_segment') {
+            const deltaY = direction * step;
+            if (Array.isArray(entity.points)) {
+                entity.points.forEach(pt => {
+                    if (pt && typeof pt.y === 'number') pt.y += deltaY;
+                });
+            }
+            if (Array.isArray(entity.nodes)) {
+                entity.nodes.forEach(n => {
+                    if (n && typeof n.y === 'number') n.y += deltaY;
+                });
+            }
+            if (entity.mesh3D) {
+                entity.mesh3D.position.set(0, 0, 0);
+            }
+            const targetGroup = this.ctx?.structureGroup || this.ctx?.scene || (entity.mesh3D && entity.mesh3D.parent);
+            if (targetGroup) {
+                renderElevationSegment3D(targetGroup, entity, this.ctx?.helpers);
+            }
+        } else if (entity.mesh3D) {
             entity.mesh3D.position.y = newElev;
         }
 

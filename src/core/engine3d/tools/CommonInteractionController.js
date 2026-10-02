@@ -110,12 +110,21 @@ export class CommonInteractionController {
                 this.activeTool = previousTool;
                 return;
             }
-            this.paintSystem.startSession(this.selectedEntity);
+            const targetEntity = this.selectedEntity;
+            const targetMesh = this.selectedMesh || this.ctx.interactions?.selectedObject || targetEntity?.mesh3D || null;
+
+            this.paintSystem.startSession(targetEntity);
             this.paintSystem.setActive(true);
             if (this.ctx.interactions) {
                 if (this.ctx.interactions.transformControls) this.ctx.interactions.transformControls.detach();
                 if (this.ctx.interactions.openingGizmo) this.ctx.interactions.openingGizmo.detach();
                 if (this.ctx.interactions.wallInteractiveSuite) this.ctx.interactions.wallInteractiveSuite.detach();
+            }
+            // Preserve selected entity and mesh reference so detaching suites doesn't wipe them out
+            this.selectedEntity = targetEntity;
+            this.selectedMesh = targetMesh;
+            if (this.ctx.interactions && targetMesh) {
+                this.ctx.interactions.selectedObject = targetMesh;
             }
             if (this.ctx.gizmoManager) {
                 this.ctx.gizmoManager.setTransformMode('material', true);

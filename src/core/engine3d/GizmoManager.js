@@ -1761,7 +1761,7 @@ export class GizmoManager {
             if (this.btnDone) this.btnDone.style.display = isUnifiedHUDActive ? 'none' : 'flex';
         }
 
-        let realSelectedObj = this.ctx.interactions.selectedObject;
+        let realSelectedObj = this.ctx.interactions?.selectedObject || this.ctx.commonTools?.selectedMesh || this.ctx.commonTools?.selectedEntity?.mesh3D || null;
         if (activeObject) {
             let current = activeObject;
             while(current) {
@@ -3398,7 +3398,7 @@ export class GizmoManager {
     setTransformMode(mode, force = false) {
         if (!this.ctx.interactions.transformControls) return;
         const tc = this.ctx.interactions.transformControls;
-        const selectedObj = this.ctx.interactions.selectedObject;
+        const selectedObj = this.ctx.interactions?.selectedObject || this.ctx.commonTools?.selectedMesh || this.ctx.commonTools?.selectedEntity?.mesh3D || null;
         
         if (!force && this.ctx.currentTransformMode === mode && mode !== 'none') {
             mode = 'none';
@@ -3950,8 +3950,8 @@ export class GizmoManager {
                 this.onMaterialFaceSelected(side, -1, targetMesh, matIdx, 'categories');
             } else if (selectedObj) {
                 this.onMaterialFaceSelected('main', -1, selectedObj, 0, 'categories');
-            } else if (this.materialPanel) {
-                this.materialPanel.style.display = 'none'; // HIDDEN if no object is selected
+            } else {
+                this.onMaterialFaceSelected('all', -1, null, -1, 'categories');
             }
             return;
         }

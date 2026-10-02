@@ -17,7 +17,8 @@ export const COMMON_TOOLS = {
     EXTENDER: 'push_pull',
     VERTICES: 'corner',
     BAY_NICHE: 'extrude_recess',
-    SPLIT: 'split'
+    SPLIT: 'split',
+    ELEVATION_SEGMENT: 'elevation_segment'
 };
 
 export const COMMON_TOOL_DEFINITIONS = [
@@ -100,6 +101,15 @@ export const COMMON_TOOL_DEFINITIONS = [
         hotkey: 'X',
         tooltip: 'Slice / Split Wall (Key: X)',
         description: 'Slice wall in 3D with interactive laser plane.',
+        requiresSelection: false
+    },
+    {
+        id: COMMON_TOOLS.ELEVATION_SEGMENT,
+        label: 'Elevation Segment',
+        icon: 'elevation_segment',
+        hotkey: 'J',
+        tooltip: 'Elevation Segment: Façade Beams & Bands (Key: J)',
+        description: 'Place custom architectural beams, bands, and elevation elements freely on any wall.',
         requiresSelection: false
     },
     {

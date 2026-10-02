@@ -49,9 +49,10 @@ export class ObjectCapabilityEvaluator {
         const isFloorCut = !!mesh?.userData?.isFloorCutProxy || type === 'shape_floor_cut' || type === 'floor_cut';
         const isRoom = !!mesh?.userData?.isFloor || type === 'room' || type === 'floor' || type === 'outdoor_zone' || type === 'balcony';
         const isSolidProtrusion = !!mesh?.userData?.isProtrusion || type === 'solid_protrusion' || mesh?.userData?.widget?.type === 'solid_protrusion';
-        const isOpening = !isSolidProtrusion && (!!mesh?.userData?.isWidget || !!mesh?.userData?.isPattern || ['door', 'window', 'arch_opening', 'circular_opening', 'custom_shape_opening', 'pattern_opening', 'boolean_cut', 'niche_recess'].includes(type));
+        const isElevationSegment = !!mesh?.userData?.isElevationSegment || type === 'elevation_segment' || ent.type === 'elevation_segment';
+        const isOpening = !isSolidProtrusion && !isElevationSegment && (!!mesh?.userData?.isWidget || !!mesh?.userData?.isPattern || ['door', 'window', 'arch_opening', 'circular_opening', 'custom_shape_opening', 'pattern_opening', 'boolean_cut', 'niche_recess'].includes(type));
         const isWallPlugin = ['sunshade', 'jali_panel', 'curtain', 'wall_art', 'elevation_fascia', 'molding'].includes(type) || type.startsWith('molding_') || type.startsWith('sunshade_') || type.startsWith('jali_') || type.startsWith('curtain_') || type.startsWith('decor_wall_');
-        const isWall = (isWallMesh || ['outer', 'inner', 'compound', 'wall', 'wallDecor', 'arc'].includes(type) || ent.startX !== undefined) && !isOpening && !isWallPlugin;
+        const isWall = (isWallMesh || ['outer', 'inner', 'compound', 'wall', 'wallDecor', 'arc'].includes(type) || ent.startX !== undefined) && !isOpening && !isWallPlugin && !isElevationSegment;
 
         // 1. Base Walls
         if (isWall) {
@@ -105,6 +106,20 @@ export class ObjectCapabilityEvaluator {
                 tiltable: false,
                 elevatable: false,
                 pushPullable: true,
+                apertureResizable: false
+            };
+        }
+
+        // 4b. Elevation Segments & Facade Beams
+        if (isElevationSegment) {
+            return {
+                selectable: true,
+                material: true,
+                movable: true,
+                rotatable: false,
+                tiltable: false,
+                elevatable: true,
+                pushPullable: false,
                 apertureResizable: false
             };
         }

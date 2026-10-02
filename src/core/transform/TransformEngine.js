@@ -20,6 +20,7 @@ import { WallEngine } from '../wall/WallEngine.js';
 import { StairEngine } from '../stairs/StairEngine.js';
 import { RoofEngine } from '../roof/RoofEngine.js';
 import { StairHeightDetector } from '../../features/stairs/StairHeightDetector.js';
+import { renderElevationSegment3D } from '../../features/elevation/elevationSegment.renderer3d.js';
 
 /**
  * Computes the 3D local bounding box center of any object/mesh in its own local coordinate frame.
@@ -593,7 +594,15 @@ export class TransformEngine {
         if (params.deltaPosition) {
             if (params.deltaPosition.x !== undefined) afterState.x = Math.round((afterState.x + params.deltaPosition.x) * 10) / 10;
             if (params.deltaPosition.y !== undefined) afterState.y = Math.round((afterState.y + params.deltaPosition.y) * 10) / 10;
-            if (params.deltaPosition.elevation !== undefined) afterState.elevation = Math.round((afterState.elevation + params.deltaPosition.elevation) * 10) / 10;
+            if (params.deltaPosition.elevation !== undefined) {
+                afterState.elevation = Math.round((afterState.elevation + params.deltaPosition.elevation) * 10) / 10;
+                if ((type === 'elevation_segment' || entity.type === 'elevation_segment') && Array.isArray(afterState.points)) {
+                    const deltaElev = params.deltaPosition.elevation;
+                    afterState.points.forEach(pt => {
+                        if (pt && typeof pt.y === 'number') pt.y += deltaElev;
+                    });
+                }
+            }
         }
         if (params.absolutePosition) {
             if (params.absolutePosition.x !== undefined) afterState.x = params.absolutePosition.x;
@@ -763,24 +772,43 @@ export class TransformEngine {
             }
         }
 
-        // 5. Polygon Points (Roofs, Platforms)
+        // 5. Polygon Points (Roofs, Platforms, Elevation Segments)
         if (Array.isArray(state.points)) {
             if (entity.type === 'roof' || entity.config?.roofType) {
                 RoofEngine.setPoints(entity, state.points, p);
             } else {
                 entity.points = JSON.parse(JSON.stringify(state.points));
+                if (entity.type === 'elevation_segment') {
+                    if (Array.isArray(entity.nodes) && entity.points.length === entity.nodes.length) {
+                        entity.points.forEach((pt, idx) => {
+                            if (entity.nodes[idx]) {
+                                entity.nodes[idx].x = pt.x;
+                                entity.nodes[idx].y = pt.y;
+                                entity.nodes[idx].z = pt.z;
+                            }
+                        });
+                    }
+                    const targetGroup = p?.preview3D?.structureGroup || p?.scene || (entity.mesh3D && entity.mesh3D.parent);
+                    if (targetGroup) {
+                        renderElevationSegment3D(targetGroup, entity, p?.preview3D?.helpers || p?.helpers);
+                    }
+                }
             }
         }
 
         // 6. 3D Viewport Mesh Sync
         if (entity.mesh3D) {
-            const posX = entity.x !== undefined ? entity.x : (entity.group?.x?.() || 0);
-            const posZ = entity.y !== undefined ? entity.y : (entity.group?.y?.() || 0);
-            const posY = Number(entity.elevation) || 0;
-            entity.mesh3D.position.set(posX, posY, posZ);
+            if (entity.type === 'elevation_segment') {
+                entity.mesh3D.position.set(0, 0, 0);
+            } else {
+                const posX = entity.x !== undefined ? entity.x : (entity.group?.x?.() || 0);
+                const posZ = entity.y !== undefined ? entity.y : (entity.group?.y?.() || 0);
+                const posY = Number(entity.elevation) || 0;
+                entity.mesh3D.position.set(posX, posY, posZ);
 
-            if (entity.rotation !== undefined) {
-                entity.mesh3D.rotation.y = -(Number(entity.rotation) * Math.PI / 180);
+                if (entity.rotation !== undefined) {
+                    entity.mesh3D.rotation.y = -(Number(entity.rotation) * Math.PI / 180);
+                }
             }
             if (typeof entity.mesh3D.updateMatrixWorld === 'function') {
                 entity.mesh3D.updateMatrixWorld(true);

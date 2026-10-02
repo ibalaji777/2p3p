@@ -950,4 +950,88 @@ describe('Elevation Segment ("Sprout & Bend") Engine Suite', () => {
             expect(widgetLayer.getChildren()[0].id()).toBe(seg1.id);
         });
     });
+
+    describe('10. Unrestricted & Edge-to-Edge Placement (Modern Elevation Design)', () => {
+        it('should allow placing centered on the wall without length restrictions', () => {
+            // 200cm wall with 180cm segment
+            const shortWall = {
+                id: 'wall_short_200',
+                startX: 0,
+                startY: 0,
+                endX: 200,
+                endY: 0,
+                thickness: 20,
+                height: 280,
+                startAnchor: { position: () => ({ x: 0, y: 0 }) },
+                endAnchor: { position: () => ({ x: 200, y: 0 }) }
+            };
+
+            const seg = createStarterElevationSegment(shortWall, 100, 150, 1, { length: 180 });
+            expect(seg.points[0].u).toBe(10);
+            expect(seg.points[1].u).toBe(190);
+            expect((seg.points[0].u + seg.points[1].u) / 2).toBe(100);
+        });
+
+        it('should snap flush to start edge (u=0) when placed near wall start', () => {
+            const seg = createStarterElevationSegment(mockWall, 10, 150, 1, { length: 180 });
+            expect(seg.points[0].u).toBe(0);
+            expect(seg.points[1].u).toBe(180);
+        });
+
+        it('should snap flush to end edge (u=wallLen) when placed near wall end', () => {
+            // mockWall length is 500
+            const seg = createStarterElevationSegment(mockWall, 490, 150, 1, { length: 180 });
+            expect(seg.points[1].u).toBe(500);
+            expect(seg.points[0].u).toBe(320);
+        });
+
+        it('should respect explicit uStart and uEnd options directly', () => {
+            const seg = createStarterElevationSegment(mockWall, 250, 150, 1, { uStart: 0, uEnd: 500 });
+            expect(seg.points[0].u).toBe(0);
+            expect(seg.points[1].u).toBe(500);
+            expect(seg.points[0].t).toBe(0);
+            expect(seg.points[1].t).toBe(1);
+        });
+
+        it('should place correctly on elevated upper-floor walls (elevation = 300)', () => {
+            const upperWall = {
+                id: 'wall_upper_floor',
+                startX: 0,
+                startY: 0,
+                endX: 400,
+                endY: 0,
+                elevation: 300,
+                thickness: 20,
+                height: 280,
+                startAnchor: { position: () => ({ x: 0, y: 0 }) },
+                endAnchor: { position: () => ({ x: 400, y: 0 }) }
+            };
+
+            // Hit Y at second floor beam height (300 + 150 = 450)
+            const seg = createStarterElevationSegment(upperWall, 200, 450, 1);
+            expect(seg.points[0].y).toBe(450);
+            expect(seg.points[1].y).toBe(450);
+            expect(seg.elevation).toBe(450);
+        });
+
+        it('should inherit wall.level.elevation if wall.elevation is undefined', () => {
+            const levelWall = {
+                id: 'wall_level_two',
+                startX: 0,
+                startY: 0,
+                endX: 300,
+                endY: 0,
+                level: { elevation: 320 },
+                thickness: 20,
+                height: 280,
+                startAnchor: { position: () => ({ x: 0, y: 0 }) },
+                endAnchor: { position: () => ({ x: 300, y: 0 }) }
+            };
+
+            const seg = createStarterElevationSegment(levelWall, 150, undefined, 1);
+            // Default targetY is wallBaseY + 150 = 320 + 150 = 470
+            expect(seg.points[0].y).toBe(470);
+            expect(seg.elevation).toBe(470);
+        });
+    });
 });

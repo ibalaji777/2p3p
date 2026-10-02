@@ -582,13 +582,20 @@ export class WallPlugin3DPlacementSystem {
         const hitMesh = wallHit.object;
         const wallEntity = hitMesh.userData.parentWall || hitMesh.userData.entity || (hitMesh.parent && hitMesh.parent.userData?.entity);
 
-        if (!wallEntity || !wallEntity.startAnchor || !wallEntity.endAnchor) {
+        if (!wallEntity || (!wallEntity.startAnchor && wallEntity.startX === undefined)) {
             this.hideGhost();
             return false;
         }
 
-        const p1 = wallEntity.startAnchor.position();
-        const p2 = wallEntity.endAnchor.position();
+        const getAnchorPos = (a, fallbackX, fallbackY) => {
+            if (!a) return { x: fallbackX || 0, y: fallbackY || 0 };
+            if (typeof a.position === 'function') return a.position();
+            if (typeof a.x === 'number' && typeof a.y === 'number') return { x: a.x, y: a.y };
+            return { x: fallbackX || 0, y: fallbackY || 0 };
+        };
+
+        const p1 = getAnchorPos(wallEntity.startAnchor, wallEntity.startX, wallEntity.startY);
+        const p2 = getAnchorPos(wallEntity.endAnchor, wallEntity.endX, wallEntity.endY);
         const dx = p2.x - p1.x;
         const dy = p2.y - p1.y;
         const wallLen = Math.hypot(dx, dy);
@@ -697,7 +704,7 @@ export class WallPlugin3DPlacementSystem {
 
         let t = projDist / wallLen;
 
-        const wallBaseY = wallEntity.elevation || (wallEntity.level && wallEntity.level.elevation) || 0;
+        const wallBaseY = Number(wallEntity.elevation !== undefined ? wallEntity.elevation : ((wallEntity.level && wallEntity.level.elevation) || 0));
         const localHitY = Math.max(0, hitPt.y - wallBaseY);
 
         let levelLabel = '';
@@ -857,38 +864,72 @@ export class WallPlugin3DPlacementSystem {
             // Smart Snapping along wall length
             const halfW = itemW / 2;
             let rawProjDist = t * wallLen;
+            let uStart, uEnd;
 
-            if (rawProjDist <= halfW + 18) {
-                projDist = halfW;
-                levelLabel = 'SNAP: WALL START';
-            } else if (rawProjDist >= wallLen - halfW - 18) {
-                projDist = wallLen - halfW;
-                levelLabel = 'SNAP: WALL END';
-            } else if (Math.abs(rawProjDist - wallLen / 2) <= 15) {
+            // 1. Precedence: Check Wall Center snap first
+            const distToCenter = Math.abs(rawProjDist - wallLen / 2);
+            if (distToCenter <= 15) {
+                const centerLen = Math.min(itemW, wallLen);
+                uStart = Math.max(0, (wallLen - centerLen) / 2);
+                uEnd = Math.min(wallLen, uStart + centerLen);
                 projDist = wallLen / 2;
                 levelLabel = 'SNAP: WALL CENTER';
+            } else if (rawProjDist <= 20 || Math.abs(rawProjDist - halfW) <= 12) {
+                // 2. Start edge snap (flush with wall start at u = 0)
+                uStart = 0;
+                uEnd = Math.min(wallLen, itemW);
+                projDist = (uStart + uEnd) / 2;
+                levelLabel = 'SNAP: WALL START (EDGE)';
+            } else if (rawProjDist >= wallLen - 20 || Math.abs(rawProjDist - (wallLen - halfW)) <= 12) {
+                // 3. End edge snap (flush with wall end at u = wallLen)
+                uEnd = wallLen;
+                uStart = Math.max(0, wallLen - itemW);
+                projDist = (uStart + uEnd) / 2;
+                levelLabel = 'SNAP: WALL END (EDGE)';
             } else {
-                projDist = Math.max(0, Math.min(wallLen, rawProjDist));
+                // 4. Free unrestricted placement anywhere along wall span
+                if (itemW >= wallLen) {
+                    uStart = 0;
+                    uEnd = wallLen;
+                    projDist = wallLen / 2;
+                } else {
+                    uStart = Math.max(0, Math.min(wallLen - itemW, rawProjDist - halfW));
+                    uEnd = uStart + itemW;
+                    projDist = (uStart + uEnd) / 2;
+                }
+                levelLabel = `${Math.round(uStart)} cm → ${Math.round(uEnd)} cm`;
             }
             t = wallLen > 0 ? (projDist / wallLen) : 0.5;
+            this.activeUStart = uStart;
+            this.activeUEnd = uEnd;
 
             // Smart Snapping along wall height
-            let rawElev = Math.max(0, Math.min(wallH - itemH, Math.round(localHitY - itemH / 2)));
+            let rawElev = Math.max(0, Math.min(wallH, Math.round(localHitY - itemH / 2)));
+            const midWallElev = Math.max(0, Math.round(wallH / 2 - itemH / 2));
+            const topFlushElev = Math.max(0, wallH - itemH);
+            const copingElev = Math.max(0, Math.round(wallH - itemH / 2));
+
             if (rawElev <= 12) {
                 elev = 0;
-                levelLabel = levelLabel ? `${levelLabel} | FLOOR` : 'FLOOR (0 cm)';
+                levelLabel = levelLabel ? `${levelLabel} | FLOOR (0 cm)` : 'FLOOR (0 cm)';
             } else if (Math.abs(rawElev - 80) <= 10) {
                 elev = 80;
-                levelLabel = levelLabel ? `${levelLabel} | SILL 80cm` : 'WINDOW SILL (80 cm)';
+                levelLabel = levelLabel ? `${levelLabel} | SILL (80 cm)` : 'WINDOW SILL (80 cm)';
             } else if (Math.abs(rawElev - 90) <= 10) {
                 elev = 90;
-                levelLabel = levelLabel ? `${levelLabel} | MID 90cm` : 'MID-WALL (90 cm)';
+                levelLabel = levelLabel ? `${levelLabel} | MID-LOW (90 cm)` : 'MID-LOW (90 cm)';
+            } else if (Math.abs(rawElev - midWallElev) <= 12) {
+                elev = midWallElev;
+                levelLabel = levelLabel ? `${levelLabel} | MID-WALL (${midWallElev} cm)` : `MID-WALL (${midWallElev} cm)`;
             } else if (Math.abs(rawElev - 210) <= 12) {
                 elev = 210;
-                levelLabel = levelLabel ? `${levelLabel} | LINTEL 210cm` : 'LINTEL (210 cm)';
-            } else if (rawElev >= wallH - itemH - 15) {
-                elev = Math.max(0, wallH - itemH);
-                levelLabel = levelLabel ? `${levelLabel} | CEILING` : `CEILING (${Math.round(elev)} cm)`;
+                levelLabel = levelLabel ? `${levelLabel} | LINTEL (210 cm)` : 'LINTEL (210 cm)';
+            } else if (Math.abs(rawElev - topFlushElev) <= 12) {
+                elev = topFlushElev;
+                levelLabel = levelLabel ? `${levelLabel} | TOP FLUSH (${topFlushElev} cm)` : `TOP FLUSH (${topFlushElev} cm)`;
+            } else if (Math.abs(rawElev - copingElev) <= 12 || localHitY >= wallH - 10) {
+                elev = copingElev;
+                levelLabel = levelLabel ? `${levelLabel} | ROOFLINE/COPING (${copingElev} cm)` : `ROOFLINE/COPING (${copingElev} cm)`;
             } else {
                 elev = (preset.isFixedElevation && preset.elevation !== undefined) ? preset.elevation : rawElev;
             }
@@ -982,9 +1023,10 @@ export class WallPlugin3DPlacementSystem {
      */
     updateApertureAndModel(tool, wallEntity, t, elev, facing, wallLen, dx, dy, p1, p2, thick, wallH, itemW, itemH, depth, isValid, isMoldingOrTrim, isAttachedSurfaceElement, isFascia, projDist, preset) {
         const angleY = -Math.atan2(dy, dx);
+        const wallBaseY = Number(wallEntity.elevation !== undefined ? wallEntity.elevation : ((wallEntity.level && wallEntity.level.elevation) || 0));
 
-        // Anchor Master Group at the Wall Start (p1.x, 0, p1.y) rotated by angleY
-        this.placementGroup.position.set(p1.x, 0, p1.y);
+        // Anchor Master Group at the Wall Start (p1.x, wallBaseY, p1.y) rotated by angleY
+        this.placementGroup.position.set(p1.x, wallBaseY, p1.y);
         this.placementGroup.rotation.y = angleY;
         this.placementGroup.visible = true;
 
@@ -1164,12 +1206,15 @@ export class WallPlugin3DPlacementSystem {
             this.apertureEdges.position.copy(this.apertureVoidMesh.position);
             this.apertureEdges.material = this.apertureEdgeMat;
         } else if (isAttachedSurfaceElement) {
-            // For Sunshades, Curtains, Wall Art: protruding footprint box attached flush to chosen wall face
+            // For Sunshades, Curtains, Wall Art, Elevation Segment: protruding footprint box attached flush to chosen wall face
             const wallOffset = ((thick / 2) + (depth / 2)) * facing;
             const cutoutY = elev + itemH / 2;
+            const boxW = (tool === 'elevation_segment' && this.activeUEnd !== undefined && this.activeUStart !== undefined)
+                ? (this.activeUEnd - this.activeUStart)
+                : itemW;
 
             this.apertureVoidMesh.geometry.dispose();
-            this.apertureVoidMesh.geometry = new THREE.BoxGeometry(itemW, itemH, depth);
+            this.apertureVoidMesh.geometry = new THREE.BoxGeometry(boxW, itemH, depth);
             this.apertureVoidMesh.position.set(projDist, cutoutY, wallOffset);
 
             this.apertureVoidMat.color.setHex(0x00f0ff);
@@ -1350,7 +1395,10 @@ export class WallPlugin3DPlacementSystem {
         if (tool === 'elevation_segment') {
             const wallOffset = ((thick / 2) + (depth / 2)) * facing;
             const cutoutY = elev + itemH / 2;
-            const geo = new THREE.BoxGeometry(itemW, itemH, depth);
+            const segW = (this.activeUEnd !== undefined && this.activeUStart !== undefined)
+                ? (this.activeUEnd - this.activeUStart)
+                : itemW;
+            const geo = new THREE.BoxGeometry(segW, itemH, depth);
             let mat = new THREE.MeshStandardMaterial({
                 color: 0x8b5a2b,
                 roughness: 0.6
@@ -1490,10 +1538,17 @@ export class WallPlugin3DPlacementSystem {
             const startAnchor = (wall.startAnchor && typeof wall.startAnchor.position === 'function') ? wall.startAnchor.position() : (wall.startAnchor || { x: wall.startX || 0, y: wall.startY || 0 });
             const endAnchor = (wall.endAnchor && typeof wall.endAnchor.position === 'function') ? wall.endAnchor.position() : (wall.endAnchor || { x: wall.endX || 0, y: wall.endY || 0 });
             const wallLen = Math.hypot(endAnchor.x - startAnchor.x, endAnchor.y - startAnchor.y);
-            const localX = t * wallLen;
+            const localX = (this.activeLocalX !== undefined && this.activeLocalX !== null) ? this.activeLocalX : (t * wallLen);
             const itemH = preset.width || 30;
-            const beamCenterY = (elev !== undefined && elev !== null) ? (elev + itemH / 2) : 150;
-            createdEntity = createStarterElevationSegment(wall, localX, beamCenterY, facing, preset);
+            const wallBaseY = Number(wall.elevation !== undefined ? wall.elevation : ((wall.level && wall.level.elevation) || 0));
+            const beamCenterY = (elev !== undefined && elev !== null) ? (wallBaseY + elev + itemH / 2) : (wallBaseY + 150);
+            
+            const placementOptions = {
+                ...preset,
+                uStart: this.activeUStart !== undefined ? this.activeUStart : undefined,
+                uEnd: this.activeUEnd !== undefined ? this.activeUEnd : undefined
+            };
+            createdEntity = createStarterElevationSegment(wall, localX, beamCenterY, facing, placementOptions);
 
             if (!planner.elevationSegments) planner.elevationSegments = [];
             planner.elevationSegments.push(createdEntity);

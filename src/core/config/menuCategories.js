@@ -5,6 +5,7 @@ export const getMenuCategories = () => [
         id: 'common', name: 'Common',
         icon: '<path d="M4 6h16M4 12h16M4 18h16M8 6v12M16 6v12"></path>',
         tools: [
+            { id: 'elevation_segment', name: 'Elevation Segment' },
             { id: 'railing_catalog', name: 'Railing' }
         ]
     },

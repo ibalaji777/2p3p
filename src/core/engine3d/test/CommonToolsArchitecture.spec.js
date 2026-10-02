@@ -29,10 +29,11 @@ describe('Universal 3D Scene Common Tools Architecture (sms 4 Style)', () => {
             expect(COMMON_TOOLS.VERTICES).toBe('corner');
             expect(COMMON_TOOLS.BAY_NICHE).toBe('extrude_recess');
             expect(COMMON_TOOLS.SPLIT).toBe('split');
+            expect(COMMON_TOOLS.ELEVATION_SEGMENT).toBe('elevation_segment');
         });
 
         it('should have complete tool metadata definitions', () => {
-            expect(COMMON_TOOL_DEFINITIONS.length).toBe(14);
+            expect(COMMON_TOOL_DEFINITIONS.length).toBe(15);
             const selectDef = getToolDefinition(COMMON_TOOLS.SELECT);
             expect(selectDef).toBeDefined();
             expect(selectDef.hotkey).toBe('V');
@@ -303,6 +304,36 @@ describe('Universal 3D Scene Common Tools Architecture (sms 4 Style)', () => {
             // Cannot go below zero
             transformEngine.executeAxisStep(table, -1, 50);
             expect(table.elevation).toBe(0);
+        });
+
+        it('should execute elevation axis steps on elevation_segment and shift point coordinates', () => {
+            const seg = {
+                id: 'seg_elev_test',
+                type: 'elevation_segment',
+                elevation: 150,
+                points: [
+                    { x: 0, y: 150, z: 10, u: 0 },
+                    { x: 100, y: 150, z: 10, u: 100 }
+                ],
+                nodes: [
+                    { id: 'n0', x: 0, y: 150, z: 10 },
+                    { id: 'n1', x: 100, y: 150, z: 10 }
+                ],
+                mesh3D: new THREE.Group()
+            };
+
+            transformEngine.executeAxisStep(seg, 1, 10, { createCommand: false });
+            expect(seg.elevation).toBe(160);
+            expect(seg.points[0].y).toBe(160);
+            expect(seg.points[1].y).toBe(160);
+            expect(seg.nodes[0].y).toBe(160);
+            expect(seg.nodes[1].y).toBe(160);
+            expect(seg.mesh3D.position.y).toBe(0);
+
+            transformEngine.executeAxisStep(seg, -1, 20, { createCommand: false });
+            expect(seg.elevation).toBe(140);
+            expect(seg.points[0].y).toBe(140);
+            expect(seg.points[1].y).toBe(140);
         });
     });
 

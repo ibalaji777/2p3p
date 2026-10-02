@@ -17,7 +17,6 @@
       <button 
         class="tool-btn" 
         :class="{ active: currentTool === 'material', disabled: !canMaterial }"
-        :disabled="!canMaterial"
         @click="selectTool('material')"
         title="Material Painting Tool (Key: B)"
       >
@@ -64,6 +63,10 @@
             <path d="M4 20V10a6 6 0 0 1 6-6h10"></path>
             <circle cx="4" cy="20" r="2.2" fill="currentColor"></circle>
             <circle cx="20" cy="4" r="2.2" fill="currentColor"></circle>
+          </svg>
+          <svg v-else-if="currentTool === 'elevation_segment'" class="tool-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="2" y="6" width="20" height="12" rx="2"></rect>
+            <path d="M6 12h12M12 9v6"></path>
           </svg>
           <svg v-else class="tool-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <rect x="3" y="4" width="18" height="16" rx="2"></rect>
@@ -172,6 +175,21 @@
               </svg>
               <span class="flyout-label">Corners</span>
               <kbd class="flyout-badge">C</kbd>
+            </button>
+
+            <!-- 7. Elevation Segment -->
+            <button 
+              class="flyout-item-btn" 
+              :class="{ active: currentTool === 'elevation_segment' }"
+              @click="handleSelectWallTool('elevation_segment')"
+              title="Elevation Segment: Facade Band, Panel & Trim (Key: J)"
+            >
+              <svg class="flyout-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="2" y="6" width="20" height="12" rx="2"></rect>
+                <path d="M6 12h12M12 9v6"></path>
+              </svg>
+              <span class="flyout-label">Elevation</span>
+              <kbd class="flyout-badge">J</kbd>
             </button>
           </div>
         </div>
@@ -427,6 +445,16 @@
 
                 <div class="shortcut-item">
                   <div class="action-desc">
+                    <strong>Elevation Segment</strong>
+                    <span>Place architectural facade beams, bands & trims</span>
+                  </div>
+                  <div class="keys-container">
+                    <kbd class="key-chip">J</kbd>
+                  </div>
+                </div>
+
+                <div class="shortcut-item">
+                  <div class="action-desc">
                     <strong>Raise / Lower Elevation</strong>
                     <span>Adjust vertical height in 10cm increments</span>
                   </div>
@@ -677,7 +705,8 @@ const WALL_TOOLS_SET = new Set([
   'corner',
   'extrude_recess',
   'split',
-  'wall_corners'
+  'wall_corners',
+  'elevation_segment'
 ]);
 
 const showWallMenu = ref(false);
@@ -775,7 +804,8 @@ const selectTool = (toolId) => {
     'push_pull',
     'corner',
     'extrude_recess',
-    'split'
+    'split',
+    'elevation_segment'
   ];
   if (currentTool.value === toolId && toggleableTools.includes(toolId)) {
     toolId = 'select';

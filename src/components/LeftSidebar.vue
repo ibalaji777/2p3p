@@ -560,6 +560,21 @@ const getToolDetails = (toolId, toolName) => {
             btnText: 'Start Drawing Wall'
         };
     }
+    if (toolId === 'elevation_segment') {
+        return {
+            title: 'Elevation Segment',
+            subtitle: 'Modern Architectural Elevation & Facade Band',
+            badge: 'Modern Elevation',
+            icon: getToolTabIcon('elevation_segment'),
+            description: 'Place custom architectural beams, bands, and elevation elements freely on any wall. Extend endpoints, create modern L/U/Z bends, and wrap around building corners.',
+            features: [
+                'Free placement anywhere on the wall from start edge to end edge',
+                'Place at any elevation including upper walls, lintels, and wall tops',
+                'Dual-end push/pull handles and directional sprout arrows for modern architectural facades'
+            ],
+            btnText: 'Place Elevation Segment'
+        };
+    }
     if (toolId === 'room_box') {
         return {
             title: 'Room Tool (Box)',

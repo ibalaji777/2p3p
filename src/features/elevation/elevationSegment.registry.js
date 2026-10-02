@@ -53,20 +53,52 @@ export function createStarterElevationSegment(wall, localHitX, hitY, facing = 1,
     // Surface offset from wall center: half thickness + 3mm clearance to prevent coplanar Z-fighting
     const surfaceOffset = (wallThick / 2) + 0.3;
 
-    // Clamp initial segment within wall bounds
-    const halfLen = Math.min(initialLen / 2, wallLen * 0.4);
-    const centerX = Math.max(halfLen, Math.min(wallLen - halfLen, localHitX || wallLen / 2));
+    // Calculate initial segment span (allows placement anywhere including edges and center)
+    const segLen = Math.min(initialLen, wallLen);
+    const halfLen = segLen / 2;
 
-    const uStart = centerX - halfLen;
-    const uEnd = centerX + halfLen;
+    let uStart, uEnd;
+    if (options.uStart !== undefined && options.uEnd !== undefined) {
+        uStart = options.uStart;
+        uEnd = options.uEnd;
+    } else {
+        const targetCenter = (localHitX !== undefined && localHitX !== null) ? localHitX : (wallLen / 2);
+        // Center alignment check first
+        if (Math.abs(targetCenter - wallLen / 2) <= 15) {
+            const centerLen = Math.min(segLen, wallLen);
+            uStart = Math.max(0, (wallLen - centerLen) / 2);
+            uEnd = Math.min(wallLen, uStart + centerLen);
+        }
+        // Start edge alignment (if target is near start of wall)
+        else if (targetCenter <= halfLen + 5) {
+            uStart = 0;
+            uEnd = Math.min(wallLen, segLen);
+        } 
+        // End edge alignment (if target is near end of wall)
+        else if (targetCenter >= wallLen - halfLen - 5) {
+            uStart = Math.max(0, wallLen - segLen);
+            uEnd = wallLen;
+        } 
+        // Free placement anywhere along span
+        else {
+            uStart = Math.max(0, targetCenter - halfLen);
+            uEnd = Math.min(wallLen, uStart + segLen);
+            if (uEnd - uStart < segLen) {
+                uStart = Math.max(0, uEnd - segLen);
+            }
+        }
+    }
+
+    const wallBaseY = (wall && wall.elevation !== undefined) ? Number(wall.elevation) : ((wall && wall.level && wall.level.elevation) ? Number(wall.level.elevation) : 0);
+    const targetY = Math.round(hitY !== undefined ? hitY : (wallBaseY + 150));
 
     // Calculate 3D coordinates sitting flush on the wall face
     const startPt = {
         x: Math.round(p1.x + dirX * uStart + normX * surfaceOffset),
-        y: Math.round(hitY || 150),
+        y: targetY,
         z: Math.round(p1.y + dirZ * uStart + normZ * surfaceOffset),
         u: uStart,
-        t: uStart / wallLen,
+        t: wallLen > 0 ? (uStart / wallLen) : 0,
         normal: { x: normX, y: 0, z: normZ },
         cornerStyle: 'sharp',
         radius: 0
@@ -74,10 +106,10 @@ export function createStarterElevationSegment(wall, localHitX, hitY, facing = 1,
 
     const endPt = {
         x: Math.round(p1.x + dirX * uEnd + normX * surfaceOffset),
-        y: Math.round(hitY || 150),
+        y: targetY,
         z: Math.round(p1.y + dirZ * uEnd + normZ * surfaceOffset),
         u: uEnd,
-        t: uEnd / wallLen,
+        t: wallLen > 0 ? (uEnd / wallLen) : 1,
         normal: { x: normX, y: 0, z: normZ },
         cornerStyle: 'sharp',
         radius: 0
@@ -93,6 +125,7 @@ export function createStarterElevationSegment(wall, localHitX, hitY, facing = 1,
         width,
         depth,
         material,
+        elevation: targetY,
         hasSpotlights,
         spotlightSpacing,
         // Authoritative points list for sweeping
