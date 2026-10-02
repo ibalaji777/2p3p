@@ -169,12 +169,38 @@ When replacing the host wall with the new bay wall segments:
 
 ---
 
-## 6. Verification Checklist
+---
+
+## 6. Camera Movement Synchronization & Click-to-Place Interaction
+
+### A. Real-Time Camera Tracking & Badge Projections
+When the user moves the 3D camera (orbit, pan, or zoom via `OrbitControls`):
+1. **Ghost Geometry & Line-of-Sight Facing Vector**:
+   - `_onCameraChange()` must trigger `_updateExtrudeGhostGeometry()` not only in active edit mode but also during **hover preview** (`this.extrudeGroup?.visible === true`).
+   - The camera-to-wall line-of-sight facing vector ($\text{dot} \ge 0 \implies \text{facing} = 1$, else $-1$) automatically flips the ghost between front and back wall faces as the user orbits around the wall.
+2. **Floating Badge 2D Screen Projections**:
+   - `_updateBadgesPosition()` must recalculate 2D screen positions for `extrudeBadge`, `extenderBadge`, and `splitBadge` whenever the camera moves, keeping badges locked directly above the 3D wall feature.
+
+### B. Reliable Click-to-Place Attachment
+1. **Clean Parameter Passing (`intersect.point`)**:
+   - `InteractionSystem.select(object, type, side, preventAutoFocus, intersect)` must route `intersect?.point` to `wallInteractiveSuite.attach(object, currentCommonTool, intersect?.point)`.
+   - Never reference undeclared variables (`hitInfo`).
+2. **Disambiguating Camera Drag vs Click**:
+   - Drag movements ($> 6\text{ px}$) rotate or pan the camera without triggering accidental tool placement.
+   - Distinct clicks / taps ($\le 6\text{ px}$) reliably place and pin the active tool on the targeted wall.
+3. **Common Menu HUD Safe Infill**:
+   - When entering `extrude_recess` from the 3D wall menu HUD, always provide safe fallbacks (`extrudeStartT = 0.25`, `extrudeEndT = 0.75`) to avoid `NaN` geometry calculations, and set `isExtrudePinned = true`.
+
+---
+
+## 7. Verification Checklist
 
 Whenever modifying bay/niche or wall extrusion logic, verify:
 1. **Left Corner Hover**: Cursor at $t \le 0.05$ slides to the corner and turns **RED** (`🚫 Too Close to Connected Corner`).
 2. **Right Corner Hover**: Cursor at $t \ge 0.95$ slides to the corner and turns **RED** (`🚫 Too Close to Connected Corner`).
 3. **Wall Center Hover**: Cursor at $t = 0.5$ turns **CYAN** (`🔲 Click to Place Bay/Niche`).
-4. **Perpendicular Return Walls**: Pulling outward or inward produces exact $90^\circ$ return walls on both sides ($\vec{r} \cdot \vec{baseline} = 0$).
-5. **Anchor Preservation**: Any room wall meeting at the host wall's endpoints remains connected after extrusion.
-6. **Zero Regression**: All tests in `WallInteractiveSuite.spec.js`, `WallEngine.spec.js`, and `WallExtender.spec.js` pass.
+4. **Camera Orbit**: Moving camera during hover preview smoothly updates preview facing and keeps badge locked to wall.
+5. **Click to Place**: Clicking on a wall pins Bay/Niche without errors and displays the Confirm Bar with depth arrow handles.
+6. **Perpendicular Return Walls**: Pulling outward or inward produces exact $90^\circ$ return walls on both sides ($\vec{r} \cdot \vec{baseline} = 0$).
+7. **Anchor Preservation**: Any room wall meeting at the host wall's endpoints remains connected after extrusion.
+8. **Zero Regression**: All tests in `WallInteractiveSuite.spec.js`, `WallEngine.spec.js`, and `WallExtender.spec.js` pass.
