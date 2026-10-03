@@ -11,7 +11,7 @@ export function expandPathWithFillets(points, defaultWidth = 30, defaultDepth = 
     const expanded = [];
     const n = points.length;
 
-    expanded.push({ ...points[0] });
+    expanded.push({ ...points[0], origNodeIdx: 0 });
 
     for (let i = 1; i < n - 1; i++) {
         const pPrev = new THREE.Vector3(points[i - 1].x, points[i - 1].y, points[i - 1].z);
@@ -26,9 +26,10 @@ export function expandPathWithFillets(points, defaultWidth = 30, defaultDepth = 
 
         const node = points[i];
         const isFillet = (node.cornerStyle === 'fillet' && (node.radius || 0) > 0);
+        const isBevel = (node.cornerStyle === 'bevel' || node.cornerStyle === 'chamfer');
 
-        if (!isFillet || lenIn < 10 || lenOut < 10) {
-            expanded.push({ ...node });
+        if ((!isFillet && !isBevel) || lenIn < 10 || lenOut < 10) {
+            expanded.push({ ...node, origNodeIdx: i });
             continue;
         }
 
@@ -38,22 +39,24 @@ export function expandPathWithFillets(points, defaultWidth = 30, defaultDepth = 
         const dot = Math.max(-0.999, Math.min(0.999, dirIn.dot(dirOut)));
         const angle = Math.acos(dot); // Interior turn angle
 
-        // If collinear (angle near 0 or Math.PI), no fillet needed
+        // If collinear (angle near 0 or Math.PI), no fillet/bevel needed
         if (angle < 0.05 || angle > Math.PI - 0.05) {
-            expanded.push({ ...node });
+            expanded.push({ ...node, origNodeIdx: i });
             continue;
         }
 
         const halfTurn = (Math.PI - angle) / 2;
-        const requestedR = node.radius || 25;
+        const requestedR = node.radius || (isBevel ? 20 : 25);
 
         // Maximum tangent cutoff distance (clamped to 45% of adjacent segment lengths)
         const maxTangentDist = Math.min(lenIn * 0.45, lenOut * 0.45);
-        const tangentDist = Math.min(maxTangentDist, requestedR / Math.tan(halfTurn));
+        const tangentDist = isBevel
+            ? Math.min(maxTangentDist, requestedR)
+            : Math.min(maxTangentDist, requestedR / Math.tan(halfTurn));
         const effectiveR = tangentDist * Math.tan(halfTurn);
 
-        if (effectiveR < 2) {
-            expanded.push({ ...node });
+        if (tangentDist < 2) {
+            expanded.push({ ...node, origNodeIdx: i });
             continue;
         }
 
@@ -62,10 +65,32 @@ export function expandPathWithFillets(points, defaultWidth = 30, defaultDepth = 
         // Tangent end point (on outgoing segment)
         const ptEnd = pCurr.clone().add(dirOut.clone().multiplyScalar(tangentDist));
 
+        if (isBevel) {
+            const normStart = (points[i - 1] && points[i - 1].normal) ? points[i - 1].normal : (node.normal || points[0].normal);
+            const normEnd = (points[i + 1] && points[i + 1].normal) ? points[i + 1].normal : (node.normal || points[0].normal);
+            expanded.push({
+                x: Math.round(ptStart.x),
+                y: Math.round(ptStart.y),
+                z: Math.round(ptStart.z),
+                normal: normStart,
+                isBevelSample: true,
+                origNodeIdx: i
+            });
+            expanded.push({
+                x: Math.round(ptEnd.x),
+                y: Math.round(ptEnd.y),
+                z: Math.round(ptEnd.z),
+                normal: normEnd,
+                isBevelSample: true,
+                origNodeIdx: i
+            });
+            continue;
+        }
+
         // Normal plane of the corner turn
         const turnAxis = dirIn.clone().cross(dirOut).normalize();
         if (turnAxis.lengthSq() < 0.001) {
-            expanded.push({ ...node });
+            expanded.push({ ...node, origNodeIdx: i });
             continue;
         }
 
@@ -79,7 +104,7 @@ export function expandPathWithFillets(points, defaultWidth = 30, defaultDepth = 
 
         const rotAxis = radiusStartVec.clone().cross(radiusEndVec).normalize();
         if (rotAxis.lengthSq() < 0.001) {
-            expanded.push({ ...node });
+            expanded.push({ ...node, origNodeIdx: i });
             continue;
         }
 
@@ -131,12 +156,13 @@ export function expandPathWithFillets(points, defaultWidth = 30, defaultDepth = 
                 z: arcPt.z,
                 normal: { x: sampleNormal.x, y: sampleNormal.y, z: sampleNormal.z },
                 isFilletSample: true,
-                parentBendIndex: i
+                parentBendIndex: i,
+                origNodeIdx: i
             });
         }
     }
 
-    expanded.push({ ...points[n - 1] });
+    expanded.push({ ...points[n - 1], origNodeIdx: n - 1 });
     return expanded;
 }
 
@@ -150,25 +176,41 @@ export function buildElevationSegmentGeometry(points, options = {}) {
     const width = options.width || 30;
     const depth = options.depth || 40;
 
+    // Helper to resolve per-segment dimensions
+    const getDimsForNode = (idx) => {
+        if (!options.segments || !options.segments.length) {
+            return { w: width, d: depth };
+        }
+        const origIdx = path[idx]?.origNodeIdx !== undefined ? path[idx].origNodeIdx : idx;
+        const segIdx = Math.min(Math.max(0, origIdx), options.segments.length - 1);
+        const seg = options.segments[segIdx];
+        return {
+            w: (seg && Number(seg.width)) ? Number(seg.width) : width,
+            d: (seg && Number(seg.depth)) ? Number(seg.depth) : depth
+        };
+    };
+
     // Expand path with curved fillet subdivisions where requested
     const path = expandPathWithFillets(points, width, depth);
     const numPoints = path.length;
+
+    // Detect closed loop loopback
+    const pStart = path[0];
+    const pEnd = path[numPoints - 1];
+    const isClosed = numPoints >= 4 && Math.hypot(pEnd.x - pStart.x, pEnd.y - pStart.y, pEnd.z - pStart.z) < 15;
 
     // Compute parallel-transport node frames
     const nodeFrames = [];
     let prevFrame = null;
     for (let i = 0; i < numPoints; i++) {
-        const frame = computeNodeFrame(path, i, width, depth, options.defaultNormal, prevFrame, false);
-        // Pin inner (back) vertices to the sharp wall corner node so inner edge stays flush against the wall
-        if (path[i].isFilletSample && path[i].parentBendIndex !== undefined && points[path[i].parentBendIndex]) {
-            const pCorner = points[path[i].parentBendIndex];
-            frame[0].x = pCorner.x;
-            frame[0].z = pCorner.z;
-            frame[3].x = pCorner.x;
-            frame[3].z = pCorner.z;
-        }
+        const nodeDims = getDimsForNode(i);
+        const frame = computeNodeFrame(path, i, nodeDims.w, nodeDims.d, options.defaultNormal, prevFrame, isClosed);
         nodeFrames.push(frame);
         prevFrame = frame;
+    }
+
+    if (isClosed) {
+        nodeFrames[numPoints - 1] = nodeFrames[0];
     }
 
     const positions = [];
@@ -200,9 +242,9 @@ export function buildElevationSegmentGeometry(points, options = {}) {
         accumulatedLen += segLen;
 
         const faces = [
-            [0, 1], // Top / Left
+            [0, 1], // Top / Left (Outer rim on turn)
             [1, 2], // Front face
-            [2, 3], // Soffit (Bottom / Right)
+            [2, 3], // Soffit / Bottom / Right (Inner rim on turn)
             [3, 0]  // Back face (against wall)
         ];
 
@@ -214,44 +256,16 @@ export function buildElevationSegmentGeometry(points, options = {}) {
             frameA.normal ? frameA.normal.clone().negate().normalize() : new THREE.Vector3(0, 0, -1)        // Face 3: Back face
         ];
 
+        const dimsA = getDimsForNode(i);
+
         faces.forEach(([idx0, idx1], faceIdx) => {
             const p00 = frameA[idx0];
             const p01 = frameA[idx1];
             const p10 = frameB[idx0];
             const p11 = frameB[idx1];
 
-            // Face 3 is the back face against the wall.
-            // On a corner fillet fan, both frameA and frameB back vertices meet at the sharp wall corner.
-            if (faceIdx === 3 && path[i].isFilletSample && path[i + 1].isFilletSample) {
-                return;
-            }
-
             const outNorm = targetFaceNormals[faceIdx];
-            const vHeight = (faceIdx === 0 || faceIdx === 2) ? (depth / 100) : (width / 100);
-
-            // If p00 and p10 meet at the sharp wall corner (Face 0 Top or Face 2 Bottom),
-            // render a clean 3-vertex triangle fan instead of a degenerate quad:
-            if ((faceIdx === 0 || faceIdx === 2) && p00.distanceToSquared(p10) < 0.01) {
-                const triNorm = new THREE.Vector3().crossVectors(
-                    p01.clone().sub(p00),
-                    p11.clone().sub(p01)
-                );
-                const isCCW = triNorm.dot(outNorm) >= 0;
-                positions.push(
-                    p00.x, p00.y, p00.z,
-                    p01.x, p01.y, p01.z,
-                    p11.x, p11.y, p11.z
-                );
-                for (let k = 0; k < 3; k++) normals.push(outNorm.x, outNorm.y, outNorm.z);
-                uvs.push(u0, 0, u0, vHeight, u1, vHeight);
-                if (isCCW) {
-                    indices.push(vertexOffset, vertexOffset + 1, vertexOffset + 2);
-                } else {
-                    indices.push(vertexOffset, vertexOffset + 2, vertexOffset + 1);
-                }
-                vertexOffset += 3;
-                return;
-            }
+            const vHeight = (faceIdx === 0 || faceIdx === 2) ? (dimsA.d / 100) : (dimsA.w / 100);
 
             // Determine CCW triangle winding against outward normal
             const testTriNorm = new THREE.Vector3().crossVectors(
@@ -271,6 +285,17 @@ export function buildElevationSegmentGeometry(points, options = {}) {
                 // Smooth vertex normals along the front face (curved cylinder / continuous ribbon)
                 const normA = frameA.normal ? frameA.normal.clone().normalize() : outNorm;
                 const normB = frameB.normal ? frameB.normal.clone().normalize() : outNorm;
+                normals.push(
+                    normA.x, normA.y, normA.z,
+                    normA.x, normA.y, normA.z,
+                    normB.x, normB.y, normB.z,
+                    normB.x, normB.y, normB.z
+                );
+            } else if (faceIdx === 0 || faceIdx === 2) {
+                // Smooth vertex normals around curved turns (concentric outer and inner faces)
+                const dir = (faceIdx === 0) ? 1 : -1;
+                const normA = frameA.widthVec ? frameA.widthVec.clone().multiplyScalar(dir).normalize() : outNorm;
+                const normB = frameB.widthVec ? frameB.widthVec.clone().multiplyScalar(dir).normalize() : outNorm;
                 normals.push(
                     normA.x, normA.y, normA.z,
                     normA.x, normA.y, normA.z,
@@ -304,49 +329,52 @@ export function buildElevationSegmentGeometry(points, options = {}) {
         });
     }
 
-    // Start cap
-    const startF = nodeFrames[0];
-    const startNorm = new THREE.Vector3(path[0].x - path[1].x, path[0].y - path[1].y, path[0].z - path[1].z).normalize();
-    const sc0 = startF[0], sc1 = startF[3], sc2 = startF[2], sc3 = startF[1];
-    const scTriNorm = new THREE.Vector3().crossVectors(sc1.clone().sub(sc0), sc2.clone().sub(sc1));
-    const scIsCCW = scTriNorm.dot(startNorm) >= 0;
+    // Only add start and end caps if NOT a closed loop
+    if (!isClosed) {
+        // Start cap
+        const startF = nodeFrames[0];
+        const startNorm = new THREE.Vector3(path[0].x - path[1].x, path[0].y - path[1].y, path[0].z - path[1].z).normalize();
+        const sc0 = startF[0], sc1 = startF[3], sc2 = startF[2], sc3 = startF[1];
+        const scTriNorm = new THREE.Vector3().crossVectors(sc1.clone().sub(sc0), sc2.clone().sub(sc1));
+        const scIsCCW = scTriNorm.dot(startNorm) >= 0;
 
-    positions.push(
-        sc0.x, sc0.y, sc0.z,
-        sc1.x, sc1.y, sc1.z,
-        sc2.x, sc2.y, sc2.z,
-        sc3.x, sc3.y, sc3.z
-    );
-    for (let k = 0; k < 4; k++) normals.push(startNorm.x, startNorm.y, startNorm.z);
-    uvs.push(0, 0, 0, 1, 1, 1, 1, 0);
-    if (scIsCCW) {
-        indices.push(vertexOffset, vertexOffset + 1, vertexOffset + 2, vertexOffset, vertexOffset + 2, vertexOffset + 3);
-    } else {
-        indices.push(vertexOffset, vertexOffset + 2, vertexOffset + 1, vertexOffset, vertexOffset + 3, vertexOffset + 2);
+        positions.push(
+            sc0.x, sc0.y, sc0.z,
+            sc1.x, sc1.y, sc1.z,
+            sc2.x, sc2.y, sc2.z,
+            sc3.x, sc3.y, sc3.z
+        );
+        for (let k = 0; k < 4; k++) normals.push(startNorm.x, startNorm.y, startNorm.z);
+        uvs.push(0, 0, 0, 1, 1, 1, 1, 0);
+        if (scIsCCW) {
+            indices.push(vertexOffset, vertexOffset + 1, vertexOffset + 2, vertexOffset, vertexOffset + 2, vertexOffset + 3);
+        } else {
+            indices.push(vertexOffset, vertexOffset + 2, vertexOffset + 1, vertexOffset, vertexOffset + 3, vertexOffset + 2);
+        }
+        vertexOffset += 4;
+
+        // End cap
+        const endF = nodeFrames[numPoints - 1];
+        const endNorm = new THREE.Vector3(path[numPoints - 1].x - path[numPoints - 2].x, path[numPoints - 1].y - path[numPoints - 2].y, path[numPoints - 1].z - path[numPoints - 2].z).normalize();
+        const ec0 = endF[0], ec1 = endF[1], ec2 = endF[2], ec3 = endF[3];
+        const ecTriNorm = new THREE.Vector3().crossVectors(ec1.clone().sub(ec0), ec2.clone().sub(ec1));
+        const ecIsCCW = ecTriNorm.dot(endNorm) >= 0;
+
+        positions.push(
+            ec0.x, ec0.y, ec0.z,
+            ec1.x, ec1.y, ec1.z,
+            ec2.x, ec2.y, ec2.z,
+            ec3.x, ec3.y, ec3.z
+        );
+        for (let k = 0; k < 4; k++) normals.push(endNorm.x, endNorm.y, endNorm.z);
+        uvs.push(0, 0, 1, 0, 1, 1, 0, 1);
+        if (ecIsCCW) {
+            indices.push(vertexOffset, vertexOffset + 1, vertexOffset + 2, vertexOffset, vertexOffset + 2, vertexOffset + 3);
+        } else {
+            indices.push(vertexOffset, vertexOffset + 2, vertexOffset + 1, vertexOffset, vertexOffset + 3, vertexOffset + 2);
+        }
+        vertexOffset += 4;
     }
-    vertexOffset += 4;
-
-    // End cap
-    const endF = nodeFrames[numPoints - 1];
-    const endNorm = new THREE.Vector3(path[numPoints - 1].x - path[numPoints - 2].x, path[numPoints - 1].y - path[numPoints - 2].y, path[numPoints - 1].z - path[numPoints - 2].z).normalize();
-    const ec0 = endF[0], ec1 = endF[1], ec2 = endF[2], ec3 = endF[3];
-    const ecTriNorm = new THREE.Vector3().crossVectors(ec1.clone().sub(ec0), ec2.clone().sub(ec1));
-    const ecIsCCW = ecTriNorm.dot(endNorm) >= 0;
-
-    positions.push(
-        ec0.x, ec0.y, ec0.z,
-        ec1.x, ec1.y, ec1.z,
-        ec2.x, ec2.y, ec2.z,
-        ec3.x, ec3.y, ec3.z
-    );
-    for (let k = 0; k < 4; k++) normals.push(endNorm.x, endNorm.y, endNorm.z);
-    uvs.push(0, 0, 1, 0, 1, 1, 0, 1);
-    if (ecIsCCW) {
-        indices.push(vertexOffset, vertexOffset + 1, vertexOffset + 2, vertexOffset, vertexOffset + 2, vertexOffset + 3);
-    } else {
-        indices.push(vertexOffset, vertexOffset + 2, vertexOffset + 1, vertexOffset, vertexOffset + 3, vertexOffset + 2);
-    }
-    vertexOffset += 4;
 
     const geo = new THREE.BufferGeometry();
     geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));

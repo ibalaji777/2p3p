@@ -14,6 +14,7 @@ import { RoofEngine } from '../../roof/RoofEngine.js';
 import { globalSpatialDependencyEngine } from '../../spatial/SpatialDependencyEngine.js';
 import { TransformEngine } from '../../transform/TransformEngine.js';
 import { renderElevationSegment3D } from '../../../features/elevation/elevationSegment.renderer3d.js';
+import { rotateElevationSegment } from '../../../features/elevation/elevationSegment.registry.js';
 
 /**
  * Helper to compute local geometric center of any 3D object/group in its own local coordinate space.
@@ -139,6 +140,16 @@ export class CommonTransformEngine {
         const currentRot = entity.rotation !== undefined ? entity.rotation : 0;
         let newAngle = absoluteDeg !== null ? absoluteDeg : (currentRot + deltaDeg);
         newAngle = ((Math.round(newAngle) % 360) + 360) % 360;
+
+        // Elevation Segments & Facade Beams (Wall-Plane 2D Rotation)
+        if (entity.type === 'elevation_segment') {
+            rotateElevationSegment(entity, newAngle);
+            if (this.ctx.interactions?.elevationSegmentGizmo && this.ctx.interactions.elevationSegmentGizmo.visible) {
+                this.ctx.interactions.elevationSegmentGizmo.updateHandles();
+            }
+            this.notifyTransformChanged(entity);
+            return true;
+        }
 
         const mesh = entity.mesh3D;
         if (mesh) {

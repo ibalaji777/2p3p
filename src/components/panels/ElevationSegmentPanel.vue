@@ -2,21 +2,103 @@
     <div class="props-panel-inner">
         <h4 class="props-subtitle">Elevation Segment</h4>
 
+        <!-- 3D Tool Mode Switcher -->
+        <div class="control-group" style="margin-bottom: 12px; background: rgba(15, 23, 42, 0.4); border: 1px solid rgba(56, 189, 248, 0.2); border-radius: 8px; padding: 8px 10px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
+                <label style="font-weight: 700; color: #38bdf8; font-size: 11px; margin: 0;">3D Tool Mode</label>
+                <span style="font-size: 10px; color: #94a3b8;">Active Gizmo</span>
+            </div>
+            <div style="display: grid; grid-template-columns: repeat(6, 1fr); gap: 3px;">
+                <button type="button" 
+                        class="btn-secondary" 
+                        :class="{ active: currentGizmoMode === 'extrude' || currentGizmoMode === 'stretch' || currentGizmoMode === 'sprout' }"
+                        @click="setGizmoMode('extrude')" 
+                        style="padding: 5px 1px; font-size: 10px;">
+                    ⇥ Extrude
+                </button>
+                <button type="button" 
+                        class="btn-secondary" 
+                        :class="{ active: currentGizmoMode === 'perp' }"
+                        @click="setGizmoMode('perp')" 
+                        style="padding: 5px 1px; font-size: 10px;">
+                    ⟂ Perp
+                </button>
+                <button type="button" 
+                        class="btn-secondary" 
+                        :class="{ active: currentGizmoMode === 'corners' }"
+                        @click="setGizmoMode('corners')" 
+                        style="padding: 5px 1px; font-size: 10px;">
+                    📐 Corners
+                </button>
+                <button type="button" 
+                        class="btn-secondary" 
+                        :class="{ active: currentGizmoMode === 'angle' || currentGizmoMode === 'rotate' }"
+                        @click="setGizmoMode('angle')" 
+                        style="padding: 5px 1px; font-size: 10px;">
+                    ⭮ Angle
+                </button>
+                <button type="button" 
+                        class="btn-secondary" 
+                        :class="{ active: currentGizmoMode === 'dims' }"
+                        @click="setGizmoMode('dims')" 
+                        style="padding: 5px 1px; font-size: 10px;">
+                    📏 Dims
+                </button>
+                <button type="button" 
+                        class="btn-secondary" 
+                        :class="{ active: currentGizmoMode === 'all' }"
+                        @click="setGizmoMode('all')" 
+                        style="padding: 5px 1px; font-size: 10px;">
+                    🌐 All
+                </button>
+            </div>
+        </div>
+
+        <!-- Segment Arm Inspector (Independent Arms) -->
+        <div v-if="numArms > 1" class="control-group" style="margin-bottom: 12px; background: rgba(30, 41, 59, 0.4); border: 1px solid rgba(56, 189, 248, 0.2); border-radius: 8px; padding: 6px 8px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 5px;">
+                <label style="font-weight: 700; color: #38bdf8; font-size: 11px; margin: 0;">Select Arm to Edit</label>
+                <span style="font-size: 10px; color: #94a3b8;">Arm {{ activeArmIndex + 1 }} of {{ numArms }}</span>
+            </div>
+            <div style="display: flex; gap: 4px; overflow-x: auto; padding-bottom: 2px;">
+                <button v-for="a in numArms" :key="a"
+                        type="button"
+                        class="btn-secondary"
+                        :class="{ active: activeArmIndex === (a - 1) }"
+                        @click="selectArm(a - 1)"
+                        style="padding: 4px 8px; font-size: 11px; font-weight: 700; white-space: nowrap;">
+                    Arm {{ a }}
+                </button>
+            </div>
+        </div>
+
+        <!-- Arm Length (Independent) -->
+        <div class="control-group" v-if="numArms > 1">
+            <div style="display: flex; align-items: center; justify-content: space-between;">
+                <label style="font-weight: 700; color: #fbbf24;">Arm {{ activeArmIndex + 1 }} Length</label>
+                <span style="font-size: 10px; color: #94a3b8;">{{ Math.round(armLength) }} cm</span>
+            </div>
+            <div class="input-wrap">
+                <input type="range" v-model.number="armLength" min="20" max="600" step="5">
+                <DimensionInput v-model="armLength" />
+            </div>
+        </div>
+
         <!-- Width (Drop) -->
         <div class="control-group">
-            <label>Thickness (Beam Drop)</label>
+            <label>{{ numArms > 1 ? `Arm ${activeArmIndex + 1} Thickness (Beam Drop)` : 'Thickness (Beam Drop)' }}</label>
             <div class="input-wrap">
-                <input type="range" v-model.number="selectedEntity.width" min="15" max="250" step="5" @input="updateSegment">
-                <DimensionInput v-model="selectedEntity.width" @change="updateSegment" />
+                <input type="range" v-model.number="armWidth" min="15" max="250" step="5">
+                <DimensionInput v-model="armWidth" />
             </div>
         </div>
 
         <!-- Depth (Overhang) -->
         <div class="control-group">
-            <label>Depth (Overhang)</label>
+            <label>{{ numArms > 1 ? `Arm ${activeArmIndex + 1} Depth (Overhang)` : 'Depth (Overhang)' }}</label>
             <div class="input-wrap">
-                <input type="range" v-model.number="selectedEntity.depth" min="10" max="200" step="5" @input="updateSegment">
-                <DimensionInput v-model="selectedEntity.depth" @change="updateSegment" />
+                <input type="range" v-model.number="armDepth" min="10" max="200" step="5">
+                <DimensionInput v-model="armDepth" />
             </div>
         </div>
 
@@ -33,6 +115,30 @@
                 <button type="button" class="btn-xs" @click="setElevationPreset(90)">Mid (90)</button>
                 <button type="button" class="btn-xs" @click="setElevationPreset(210)">Lintel (210)</button>
                 <button type="button" class="btn-xs" @click="setElevationPreset(270)">Ceiling (270)</button>
+            </div>
+        </div>
+
+        <!-- Wall-Plane Arm Angle & Perpendicular Snap -->
+        <div class="control-group">
+            <div style="display: flex; align-items: center; justify-content: space-between;">
+                <label style="font-weight: 700; color: #38bdf8;">
+                    {{ numArms > 1 ? `Arm ${activeArmIndex + 1} Angle (⭮)` : 'Wall-Plane Rotation (⭮)' }}
+                </label>
+                <span style="font-size: 10px; color: #a855f7; font-weight: 800;">{{ Math.round(armAngle) }}°</span>
+            </div>
+            <div class="input-wrap">
+                <input type="range" v-model.number="armAngle" min="0" max="360" step="5">
+                <DimensionInput v-model="armAngle" />
+            </div>
+            <div style="display: flex; gap: 4px; margin-top: 6px; flex-wrap: wrap;">
+                <button type="button" class="btn-xs" @click="setArmAnglePreset(0)">0° Horiz</button>
+                <button type="button" class="btn-xs" @click="setArmAnglePreset(45)">45° Diag</button>
+                <button type="button" class="btn-xs" @click="setArmAnglePreset(90)">90° Vert</button>
+                <button type="button" class="btn-xs" @click="setArmAnglePreset(180)">⇄ 180°</button>
+                <button type="button" class="btn-xs" @click="setArmAnglePreset(270)">270°</button>
+                <button type="button" class="btn-xs" @click="setArmPerpendicular" style="border-color: #38bdf8; color: #38bdf8; font-weight: 700;">
+                    ⟂ Snap 90° Perp
+                </button>
             </div>
         </div>
 
@@ -69,20 +175,27 @@
                 Corner & Bend Inspector (Node {{ activeNodeIndex >= 0 ? activeNodeIndex + 1 : 'Selected' }})
             </label>
 
-            <div style="display: flex; gap: 6px; margin-top: 6px;">
+            <div style="display: flex; gap: 4px; margin-top: 6px;">
                 <button type="button" 
                         class="btn-secondary" 
-                        :class="{ active: currentNode?.cornerStyle !== 'fillet' }"
+                        :class="{ active: !currentNode?.cornerStyle || currentNode?.cornerStyle === 'sharp' }"
                         @click="setCorner('sharp')" 
-                        style="flex: 1; padding: 6px; font-size: 11px;">
-                    📐 Sharp 45° Miter
+                        style="flex: 1; padding: 6px 2px; font-size: 10px;">
+                    📐 Sharp Miter
                 </button>
                 <button type="button" 
                         class="btn-secondary" 
                         :class="{ active: currentNode?.cornerStyle === 'fillet' }"
                         @click="setCorner('fillet')" 
-                        style="flex: 1; padding: 6px; font-size: 11px;">
+                        style="flex: 1; padding: 6px 2px; font-size: 10px;">
                     ⚪ Curved Fillet
+                </button>
+                <button type="button" 
+                        class="btn-secondary" 
+                        :class="{ active: currentNode?.cornerStyle === 'bevel' || currentNode?.cornerStyle === 'chamfer' }"
+                        @click="setCorner('bevel')" 
+                        style="flex: 1; padding: 6px 2px; font-size: 10px;">
+                    ◢ Diagonal Bevel
                 </button>
             </div>
 
@@ -93,9 +206,84 @@
                     <DimensionInput v-model="currentRadius" @change="updateRadius" />
                 </div>
             </div>
+
+            <div v-if="currentNode?.cornerStyle === 'bevel' || currentNode?.cornerStyle === 'chamfer'" style="margin-top: 8px;">
+                <label style="font-size: 11px; color: #94a3b8;">Diagonal Chamfer Cut Distance</label>
+                <div class="input-wrap">
+                    <input type="range" v-model.number="currentRadius" min="5" max="100" step="5" @input="updateRadius">
+                    <DimensionInput v-model="currentRadius" @change="updateRadius" />
+                </div>
+            </div>
+
+            <!-- Split at Selected Node (Independent Editing) -->
+            <div v-if="activeNodeIndex >= 1 && activeNodeIndex < ((selectedEntity.points?.length || 0) - 1)" style="margin-top: 10px;">
+                <button type="button" 
+                        class="btn-secondary" 
+                        @click="onSplitNode" 
+                        style="width: 100%; padding: 6px; font-size: 11px; border: 1px solid rgba(168, 85, 247, 0.5); color: #d8b4fe; background: rgba(168, 85, 247, 0.15); display: flex; align-items: center; justify-content: center; gap: 6px; font-weight: 700;">
+                    <span>✂️ Split into 2 Segments at Node {{ activeNodeIndex + 1 }}</span>
+                </button>
+            </div>
         </div>
 
-        <!-- Sprout New Segment Actions -->
+        <!-- Complex Corner Presets (Phase 2) -->
+        <div class="control-group" style="margin-top: 14px; border-top: 1px solid rgba(255,255,255,0.12); padding-top: 10px;">
+            <div style="display: flex; align-items: center; justify-content: space-between;">
+                <label style="font-weight: 700; color: #38bdf8;">Corner Presets</label>
+                <span style="font-size: 10px; color: #94a3b8;">1-Click Shapes</span>
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin-top: 6px;">
+                <button type="button" class="btn-secondary" @click="applyCornerPreset('square_90', { direction: 'up' })" style="padding: 6px 4px; font-size: 10px;">
+                    ┌ 90° Square (Up)
+                </button>
+                <button type="button" class="btn-secondary" @click="applyCornerPreset('square_90', { direction: 'down' })" style="padding: 6px 4px; font-size: 10px;">
+                    └ 90° Square (Down)
+                </button>
+                <button type="button" class="btn-secondary" @click="applyCornerPreset('diagonal_45', { direction: 'up' })" style="padding: 6px 4px; font-size: 10px;">
+                    ◢ 45° Chamfer (Up)
+                </button>
+                <button type="button" class="btn-secondary" @click="applyCornerPreset('diagonal_45', { direction: 'down' })" style="padding: 6px 4px; font-size: 10px;">
+                    ◣ 45° Chamfer (Down)
+                </button>
+                <button type="button" class="btn-secondary" @click="applyCornerPreset('v_angle', { angleDeg: 60 })" style="padding: 6px 4px; font-size: 10px;">
+                    ✓ 60° V-Corner
+                </button>
+                <button type="button" class="btn-secondary" @click="applyCornerPreset('v_angle', { angleDeg: 120 })" style="padding: 6px 4px; font-size: 10px;">
+                    ⌿ 120° Wide Angle
+                </button>
+            </div>
+        </div>
+
+        <!-- Auto-Join Adjacent Segments (Phase 2) -->
+        <div class="control-group" style="margin-top: 14px; border-top: 1px solid rgba(255,255,255,0.12); padding-top: 10px;">
+            <div style="display: flex; align-items: center; justify-content: space-between;">
+                <label style="font-weight: 700; color: #10b981;">🔗 Auto-Join Adjacent Segments</label>
+                <span v-if="nearbySegments.length > 0" style="font-size: 10px; color: #10b981; font-weight: 700;">
+                    {{ nearbySegments.length }} nearby (≤45cm)
+                </span>
+                <span v-else style="font-size: 10px; color: #94a3b8;">None within 45cm</span>
+            </div>
+
+            <div v-if="nearbySegments.length > 0" style="margin-top: 6px;">
+                <div v-for="(item, idx) in nearbySegments" :key="idx" style="background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.4); border-radius: 6px; padding: 6px 8px; margin-bottom: 6px; display: flex; align-items: center; justify-content: space-between;">
+                    <div style="font-size: 11px; color: #f8fafc;">
+                        <span>Adjacent Beam</span>
+                        <span style="color: #10b981; margin-left: 6px; font-weight: 700;">{{ item.distance }}cm away</span>
+                    </div>
+                    <button type="button" 
+                            class="btn-primary" 
+                            @click="onAutoJoin(item.segment)" 
+                            style="padding: 4px 8px; font-size: 10px; background: #10b981; font-weight: 700;">
+                        🔗 Join Together
+                    </button>
+                </div>
+            </div>
+            <div v-else style="background: rgba(15, 23, 42, 0.4); border: 1px dashed rgba(255, 255, 255, 0.1); border-radius: 6px; padding: 6px 8px; margin-top: 6px; font-size: 10px; color: #94a3b8; text-align: center;">
+                Place or stretch endpoints within 45cm of another beam to auto-join.
+            </div>
+        </div>
+
+        <!-- Sprout New Segment Actions (6 Directions & Perpendicular) -->
         <div class="control-group" style="margin-top: 14px; border-top: 1px solid rgba(255,255,255,0.12); padding-top: 10px;">
             <label style="font-weight: 700; color: #10b981;">+ Sprout Connected Segment</label>
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 6px;">
@@ -110,6 +298,17 @@
                 </button>
                 <button type="button" class="btn-secondary" @click="sprout('right')" style="padding: 6px; font-size: 11px;">
                     → Sprout Right
+                </button>
+                <button type="button" class="btn-secondary" @click="sprout('away_wall')" style="padding: 6px; font-size: 11px; border-color: #06b6d4; color: #06b6d4;">
+                    ↗ Out (Away Wall)
+                </button>
+                <button type="button" class="btn-secondary" @click="sprout('toward_wall')" style="padding: 6px; font-size: 11px; border-color: #f43f5e; color: #f43f5e;">
+                    ↙ In (Toward Wall)
+                </button>
+            </div>
+            <div style="margin-top: 6px;">
+                <button type="button" class="btn-secondary" @click="sprout('perp')" style="width: 100%; padding: 6px; font-size: 11px; border-color: #38bdf8; color: #38bdf8; font-weight: 700;">
+                    ⟂ Sprout 90° Perpendicular
                 </button>
             </div>
         </div>
@@ -290,7 +489,18 @@ import {
     wrapElevationSegmentToAdjacentWall,
     snapEndpointToWallCorner,
     getEndpointCornerStatus,
-    wrapElevationSegmentAllConnectedWalls
+    wrapElevationSegmentAllConnectedWalls,
+    sproutCornerPreset,
+    rotateElevationSegment,
+    findNearbyElevationSegments,
+    joinElevationSegments,
+    splitElevationSegmentAtNode,
+    initEntitySegments,
+    setSegmentDimensions,
+    setSegmentLength,
+    getSegmentAngle,
+    rotateSegmentArm,
+    setSegmentPerpendicular
 } from '../../features/elevation/elevationSegment.registry.js';
 import { renderElevationSegment3D } from '../../features/elevation/elevationSegment.renderer3d.js';
 
@@ -304,6 +514,8 @@ const emit = defineEmits([
 ]);
 
 const activeNodeIndex = ref(0);
+const activeArmIndex = ref(0);
+const currentGizmoMode = ref('stretch');
 
 const onNodeSelect = (e) => {
     if (e.detail && e.detail.nodeIndex !== undefined) {
@@ -311,17 +523,155 @@ const onNodeSelect = (e) => {
     }
 };
 
+const onArmSelect = (e) => {
+    if (e.detail && e.detail.armIndex !== undefined) {
+        activeArmIndex.value = e.detail.armIndex;
+    }
+};
+
+const selectArm = (idx) => {
+    activeArmIndex.value = idx;
+    if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('elevation-segment-select-arm', {
+            detail: { armIndex: idx }
+        }));
+    }
+};
+
+const onGizmoModeChange = (e) => {
+    if (e.detail && e.detail.mode) {
+        currentGizmoMode.value = e.detail.mode;
+    }
+};
+
+const setGizmoMode = (mode) => {
+    currentGizmoMode.value = mode;
+    if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('elevation-segment-set-mode', {
+            detail: { mode }
+        }));
+    }
+};
+
+const refreshTrigger = ref(0);
+
+const onSegmentUpdated = () => {
+    refreshTrigger.value++;
+};
+
 onMounted(() => {
     if (typeof window !== 'undefined') {
         window.addEventListener('elevation-node-select', onNodeSelect);
+        window.addEventListener('elevation-segment-arm-selected', onArmSelect);
+        window.addEventListener('elevation-segment-mode-change', onGizmoModeChange);
+        window.addEventListener('elevation-segment-updated', onSegmentUpdated);
+        const gizmo = window.planner?.app3D?.interactionSystem?.elevationSegmentGizmo || window.app3D?.interactionSystem?.elevationSegmentGizmo;
+        if (gizmo?.activeMode) {
+            currentGizmoMode.value = gizmo.activeMode;
+        }
     }
 });
 
 onUnmounted(() => {
     if (typeof window !== 'undefined') {
         window.removeEventListener('elevation-node-select', onNodeSelect);
+        window.removeEventListener('elevation-segment-arm-selected', onArmSelect);
+        window.removeEventListener('elevation-segment-mode-change', onGizmoModeChange);
+        window.removeEventListener('elevation-segment-updated', onSegmentUpdated);
     }
 });
+
+const numArms = computed(() => {
+    const n = props.selectedEntity?.points?.length || 0;
+    return Math.max(1, n - 1);
+});
+
+const currentArmDims = computed(() => {
+    if (refreshTrigger.value >= 0 && props.selectedEntity) {
+        initEntitySegments(props.selectedEntity);
+        const curIdx = Math.min(Math.max(0, activeArmIndex.value), numArms.value - 1);
+        const seg = props.selectedEntity.segments?.[curIdx] || {};
+        const p1 = props.selectedEntity.points?.[curIdx];
+        const p2 = props.selectedEntity.points?.[curIdx + 1];
+        let len = 100;
+        if (p1 && p2) {
+            len = Math.round(Math.hypot(p2.x - p1.x, p2.y - p1.y, p2.z - p1.z));
+        }
+        return {
+            width: seg.width || props.selectedEntity.width || 30,
+            depth: seg.depth || props.selectedEntity.depth || 40,
+            length: len,
+            angle: getSegmentAngle(props.selectedEntity, curIdx)
+        };
+    }
+    return { width: 30, depth: 40, length: 100, angle: 0 };
+});
+
+const armWidth = computed({
+    get() {
+        return currentArmDims.value.width;
+    },
+    set(val) {
+        if (!props.selectedEntity) return;
+        const curIdx = Math.min(Math.max(0, activeArmIndex.value), numArms.value - 1);
+        setSegmentDimensions(props.selectedEntity, curIdx, { width: val });
+        if (curIdx === 0 || numArms.value <= 1) {
+            props.selectedEntity.width = val;
+        }
+        updateSegment();
+    }
+});
+
+const armDepth = computed({
+    get() {
+        return currentArmDims.value.depth;
+    },
+    set(val) {
+        if (!props.selectedEntity) return;
+        const curIdx = Math.min(Math.max(0, activeArmIndex.value), numArms.value - 1);
+        setSegmentDimensions(props.selectedEntity, curIdx, { depth: val });
+        if (curIdx === 0 || numArms.value <= 1) {
+            props.selectedEntity.depth = val;
+        }
+        updateSegment();
+    }
+});
+
+const armLength = computed({
+    get() {
+        return currentArmDims.value.length;
+    },
+    set(val) {
+        if (!props.selectedEntity) return;
+        const curIdx = Math.min(Math.max(0, activeArmIndex.value), numArms.value - 1);
+        setSegmentLength(props.selectedEntity, curIdx, val);
+        updateSegment();
+    }
+});
+
+const armAngle = computed({
+    get() {
+        return currentArmDims.value.angle;
+    },
+    set(val) {
+        if (!props.selectedEntity) return;
+        const curIdx = Math.min(Math.max(0, activeArmIndex.value), numArms.value - 1);
+        rotateSegmentArm(props.selectedEntity, curIdx, val);
+        updateSegment();
+    }
+});
+
+const setArmPerpendicular = () => {
+    if (!props.selectedEntity) return;
+    const curIdx = Math.min(Math.max(0, activeArmIndex.value), numArms.value - 1);
+    setSegmentPerpendicular(props.selectedEntity, curIdx);
+    updateSegment();
+    refreshTrigger.value++;
+};
+
+const setArmAnglePreset = (deg) => {
+    armAngle.value = deg;
+};
 
 const currentNode = computed(() => {
     if (!props.selectedEntity?.points) return null;
@@ -364,6 +714,29 @@ const setElevationPreset = (presetY) => {
     updateSegment();
 };
 
+const currentRotation = computed({
+    get() {
+        if (refreshTrigger.value >= 0 && props.selectedEntity) {
+            return props.selectedEntity.rotation || 0;
+        }
+        return 0;
+    },
+    set(val) {
+        if (!props.selectedEntity) return;
+        const targetDeg = ((val % 360) + 360) % 360;
+        rotateElevationSegment(props.selectedEntity, targetDeg);
+        updateSegment();
+    }
+});
+
+const onRotationInput = () => {
+    updateSegment();
+};
+
+const setRotationPreset = (deg) => {
+    currentRotation.value = deg;
+};
+
 const updateSegment = () => {
     if (!props.selectedEntity) return;
 
@@ -401,6 +774,54 @@ const sprout = (direction) => {
     sproutBendAtEndpoint(props.selectedEntity, idx, direction, props.selectedEntity.defaultSproutDist || 120);
     activeNodeIndex.value = (idx === 0) ? 0 : (props.selectedEntity.points.length - 1);
     updateSegment();
+};
+
+const applyCornerPreset = (presetType, options = {}) => {
+    const n = props.selectedEntity.points?.length || 0;
+    const idx = (activeNodeIndex.value === 0) ? 0 : (n - 1);
+    const res = sproutCornerPreset(props.selectedEntity, idx, presetType, {
+        distance: 100,
+        ...options
+    });
+    if (res) {
+        activeNodeIndex.value = (idx === 0) ? 0 : (props.selectedEntity.points.length - 1);
+        updateSegment();
+        refreshTrigger.value++;
+    }
+};
+
+const nearbySegments = computed(() => {
+    if (refreshTrigger.value < 0) return [];
+    const planner = window.planner?.value || window.planner;
+    if (!planner || !props.selectedEntity) return [];
+    return findNearbyElevationSegments(planner, props.selectedEntity, 45);
+});
+
+const onAutoJoin = (otherSegment) => {
+    const planner = window.planner?.value || window.planner;
+    if (!planner || !props.selectedEntity || !otherSegment) return;
+    const merged = joinElevationSegments(planner, props.selectedEntity, otherSegment, 45);
+    if (merged) {
+        updateSegment();
+        refreshTrigger.value++;
+        if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('elevation-segment-updated', { detail: { entity: merged } }));
+        }
+    }
+};
+
+const onSplitNode = () => {
+    const planner = window.planner?.value || window.planner;
+    if (!planner || !props.selectedEntity || activeNodeIndex.value < 1) return;
+    const res = splitElevationSegmentAtNode(planner, props.selectedEntity, activeNodeIndex.value);
+    if (res) {
+        activeNodeIndex.value = 0;
+        updateSegment();
+        refreshTrigger.value++;
+        if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('elevation-segment-updated', { detail: { entity: res.segA } }));
+        }
+    }
 };
 
 // Extension Studio State

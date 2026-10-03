@@ -116,7 +116,7 @@ export class ObjectCapabilityEvaluator {
                 selectable: true,
                 material: true,
                 movable: true,
-                rotatable: false,
+                rotatable: true,
                 tiltable: false,
                 elevatable: true,
                 pushPullable: false,

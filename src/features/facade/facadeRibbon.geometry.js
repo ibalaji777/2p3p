@@ -135,18 +135,40 @@ export const computeNodeFrame = (points, index, width, depth, defaultNormal = nu
     // Width axis is perpendicular to tangent and outward normal: N x T
     let widthVec = new THREE.Vector3().crossVectors(normal, tangent).normalize();
     if (widthVec.lengthSq() < 0.001) {
-        widthVec = new THREE.Vector3(0, 1, 0);
+        if (prevFrame && prevFrame.widthVec) {
+            widthVec = prevFrame.widthVec.clone().sub(tangent.clone().multiplyScalar(prevFrame.widthVec.dot(tangent))).normalize();
+        }
+        if (widthVec.lengthSq() < 0.001) {
+            widthVec = new THREE.Vector3(0, 1, 0);
+        }
     }
 
-    // Parallel transport: align widthVec consistently with the previous node
-    if (prevFrame && prevFrame.widthVec) {
-        if (prevFrame.widthVec.dot(widthVec) < -0.05) {
-            widthVec.negate();
+    if (prevFrame && prevFrame.widthVec && dirIn) {
+        // Discrete parallel transport across connecting segment (dirIn):
+        // Compare transverse orientations perpendicular to the shared segment dirIn
+        const wPrevSeg = prevFrame.widthVec.clone().sub(dirIn.clone().multiplyScalar(prevFrame.widthVec.dot(dirIn)));
+        const wCurrSeg = widthVec.clone().sub(dirIn.clone().multiplyScalar(widthVec.dot(dirIn)));
+        if (wPrevSeg.lengthSq() > 0.001 && wCurrSeg.lengthSq() > 0.001) {
+            if (wPrevSeg.dot(wCurrSeg) < 0) {
+                widthVec.negate();
+            }
+        } else {
+            if (prevFrame.widthVec.dot(widthVec) < 0) {
+                widthVec.negate();
+            }
         }
     } else {
         // Initial node: if moving primarily horizontal, prefer +Y upwards
         if (Math.abs(tangent.y) < 0.5 && widthVec.y < 0) {
             widthVec.negate();
+        }
+    }
+
+    // Ensure normal is perpendicular to tangent if needed (e.g. out-of-plane / away_wall sprout)
+    if (Math.abs(normal.dot(tangent)) > 0.9) {
+        normal = new THREE.Vector3().crossVectors(tangent, widthVec).normalize();
+        if (prevFrame && prevFrame.normal && prevFrame.normal.dot(normal) < 0) {
+            normal.negate();
         }
     }
 

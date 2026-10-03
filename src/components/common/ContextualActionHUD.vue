@@ -265,7 +265,8 @@ const hasInSceneHUD = computed(() => {
     const isDoor = type === 'door' || type.startsWith('door');
     const isWindow = type === 'window' || type.startsWith('window');
     const isOpening = isDoor || isWindow || type === 'opening' || type.includes('opening') || !!ent.isWidget || !!ent.isOpening || type === 'niche_recess' || type === 'solid_protrusion';
-    if (isStair || isPlatform || isRoom || isWall || isRoof || isOpening) {
+    const isElevationSegment = type.startsWith('elevation_segment') || type.includes('elevation_segment') || !!ent.isElevationSegment;
+    if (isStair || isPlatform || isRoom || isWall || isRoof || isOpening || isElevationSegment) {
       return true;
     }
   }

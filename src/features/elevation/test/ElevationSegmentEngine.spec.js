@@ -11,7 +11,13 @@ import {
     wrapElevationSegmentToAdjacentWall,
     snapEndpointToWallCorner,
     getEndpointCornerStatus,
-    wrapElevationSegmentAllConnectedWalls
+    wrapElevationSegmentAllConnectedWalls,
+    initEntitySegments,
+    setSegmentDimensions,
+    setSegmentLength,
+    getSegmentAngle,
+    rotateSegmentArm,
+    setSegmentPerpendicular
 } from '../elevationSegment.registry.js';
 import {
     expandPathWithFillets,
@@ -162,6 +168,120 @@ describe('Elevation Segment ("Sprout & Bend") Engine Suite', () => {
             expect(seg.points.length).toBe(4); // Terrace return arm
             expect(seg.points[3].y).toBe(seg.points[2].y); // Same height
         });
+
+        it('should build gapless untwisted 3D geometry for clockwise C-shape sprout (zero hourglass twist, positive normals)', () => {
+            // C-shape (top-right -> top-left -> bottom-left -> bottom-right)
+            const cPts = [
+                { x: 340, y: 270, z: 10, normal: { x: 0, y: 0, z: 1 } },
+                { x: 200, y: 270, z: 10, normal: { x: 0, y: 0, z: 1 } },
+                { x: 200, y: 150, z: 10, normal: { x: 0, y: 0, z: 1 } },
+                { x: 340, y: 150, z: 10, normal: { x: 0, y: 0, z: 1 } }
+            ];
+
+            const assembly = buildElevationSegmentGeometry(cPts, { width: 30, depth: 40 });
+            expect(assembly).toBeDefined();
+            expect(assembly.geometry).toBeDefined();
+
+            // Verify nodeFrames width vectors maintain consistent transverse orientation
+            const frames = assembly.nodeFrames;
+            expect(frames.length).toBe(4);
+
+            for (let i = 0; i < cPts.length - 1; i++) {
+                const pA = cPts[i];
+                const pB = cPts[i + 1];
+                const dir = new THREE.Vector3(pB.x - pA.x, pB.y - pA.y, pB.z - pA.z).normalize();
+                const fA = frames[i];
+                const fB = frames[i + 1];
+                const wA = fA.widthVec.clone().sub(dir.clone().multiplyScalar(fA.widthVec.dot(dir)));
+                const wB = fB.widthVec.clone().sub(dir.clone().multiplyScalar(fB.widthVec.dot(dir)));
+                const dot = wA.dot(wB);
+                expect(dot).toBeGreaterThan(0); // Strictly zero twists
+            }
+
+            // Inspect triangle normals in the vertical span: front face triangles must strictly face outward (+Z)
+            const pos = assembly.geometry.attributes.position;
+            const idx = assembly.geometry.index;
+            let frontFaceTriangles = 0;
+
+            for (let t = 0; t < idx.count; t += 3) {
+                const i0 = idx.getX(t);
+                const i1 = idx.getX(t + 1);
+                const i2 = idx.getX(t + 2);
+                const p0 = new THREE.Vector3(pos.getX(i0), pos.getY(i0), pos.getZ(i0));
+                const p1 = new THREE.Vector3(pos.getX(i1), pos.getY(i1), pos.getZ(i1));
+                const p2 = new THREE.Vector3(pos.getX(i2), pos.getY(i2), pos.getZ(i2));
+
+                const norm = new THREE.Vector3().crossVectors(p1.clone().sub(p0), p2.clone().sub(p0)).normalize();
+                // Vertices cantilevered at z = 50 form the front face
+                if (Math.abs(p0.z - 50) < 1 && Math.abs(p1.z - 50) < 1 && Math.abs(p2.z - 50) < 1) {
+                    frontFaceTriangles++;
+                    expect(norm.z).toBeGreaterThan(0.9); // Normal strictly pointing OUTWARD, never inverted!
+                }
+            }
+            expect(frontFaceTriangles).toBeGreaterThanOrEqual(6);
+        });
+
+        it('should build gapless untwisted 3D geometry for counter-clockwise C-shape sprout', () => {
+            const cPts = [
+                { x: 340, y: 150, z: 10, normal: { x: 0, y: 0, z: 1 } },
+                { x: 200, y: 150, z: 10, normal: { x: 0, y: 0, z: 1 } },
+                { x: 200, y: 270, z: 10, normal: { x: 0, y: 0, z: 1 } },
+                { x: 340, y: 270, z: 10, normal: { x: 0, y: 0, z: 1 } }
+            ];
+
+            const assembly = buildElevationSegmentGeometry(cPts, { width: 30, depth: 40 });
+            const frames = assembly.nodeFrames;
+
+            for (let i = 0; i < cPts.length - 1; i++) {
+                const pA = cPts[i];
+                const pB = cPts[i + 1];
+                const dir = new THREE.Vector3(pB.x - pA.x, pB.y - pA.y, pB.z - pA.z).normalize();
+                const fA = frames[i];
+                const fB = frames[i + 1];
+                const wA = fA.widthVec.clone().sub(dir.clone().multiplyScalar(fA.widthVec.dot(dir)));
+                const wB = fB.widthVec.clone().sub(dir.clone().multiplyScalar(fB.widthVec.dot(dir)));
+                expect(wA.dot(wB)).toBeGreaterThan(0);
+            }
+        });
+
+        it('should build gapless untwisted 3D geometry for S-shape serpentine sprout', () => {
+            const sPts = [
+                { x: 0, y: 100, z: 10, normal: { x: 0, y: 0, z: 1 } },
+                { x: 100, y: 100, z: 10, normal: { x: 0, y: 0, z: 1 } },
+                { x: 100, y: 200, z: 10, normal: { x: 0, y: 0, z: 1 } },
+                { x: 200, y: 200, z: 10, normal: { x: 0, y: 0, z: 1 } },
+                { x: 200, y: 300, z: 10, normal: { x: 0, y: 0, z: 1 } }
+            ];
+
+            const assembly = buildElevationSegmentGeometry(sPts, { width: 30, depth: 40 });
+            const frames = assembly.nodeFrames;
+
+            for (let i = 0; i < sPts.length - 1; i++) {
+                const pA = sPts[i];
+                const pB = sPts[i + 1];
+                const dir = new THREE.Vector3(pB.x - pA.x, pB.y - pA.y, pB.z - pA.z).normalize();
+                const fA = frames[i];
+                const fB = frames[i + 1];
+                const wA = fA.widthVec.clone().sub(dir.clone().multiplyScalar(fA.widthVec.dot(dir)));
+                const wB = fB.widthVec.clone().sub(dir.clone().multiplyScalar(fB.widthVec.dot(dir)));
+                expect(wA.dot(wB)).toBeGreaterThan(0);
+            }
+        });
+
+        it('should build closed box loop frame with seamless corner mitering and zero redundant internal caps', () => {
+            const boxPts = [
+                { x: 0, y: 0, z: 10, normal: { x: 0, y: 0, z: 1 } },
+                { x: 100, y: 0, z: 10, normal: { x: 0, y: 0, z: 1 } },
+                { x: 100, y: 100, z: 10, normal: { x: 0, y: 0, z: 1 } },
+                { x: 0, y: 100, z: 10, normal: { x: 0, y: 0, z: 1 } },
+                { x: 0, y: 0, z: 10, normal: { x: 0, y: 0, z: 1 } }
+            ];
+
+            const assembly = buildElevationSegmentGeometry(boxPts, { width: 30, depth: 40 });
+            expect(assembly).toBeDefined();
+            // Start and end node frames must match on closed loops
+            expect(assembly.nodeFrames[0]).toBe(assembly.nodeFrames[assembly.nodeFrames.length - 1]);
+        });
     });
 
     describe('3. Curved Fillet Bends & Concentric Arc Geometry', () => {
@@ -216,6 +336,17 @@ describe('Elevation Segment ("Sprout & Bend") Engine Suite', () => {
 
             // Should generate spotlights along the horizontal run
             expect(assembly.spotlights.length).toBeGreaterThanOrEqual(1);
+
+            // All frames across the fillet turn must maintain uniform physical width (30cm) and depth (40cm)
+            expect(assembly.nodeFrames.length).toBeGreaterThan(3);
+            assembly.nodeFrames.forEach((frame, idx) => {
+                const widthDist = frame[0].distanceTo(frame[3]);
+                const depthDist0 = frame[0].distanceTo(frame[1]);
+                const depthDist3 = frame[3].distanceTo(frame[2]);
+                expect(widthDist).toBeCloseTo(30, 0);
+                expect(depthDist0).toBeCloseTo(40, 0);
+                expect(depthDist3).toBeCloseTo(40, 0);
+            });
         });
 
         it('should update corner style dynamically via setNodeCornerStyle', () => {
@@ -1032,6 +1163,129 @@ describe('Elevation Segment ("Sprout & Bend") Engine Suite', () => {
             // Default targetY is wallBaseY + 150 = 320 + 150 = 470
             expect(seg.points[0].y).toBe(470);
             expect(seg.elevation).toBe(470);
+        });
+    });
+
+    describe('11. Advanced Sprout & Independent Arm Controls (In/Out, Dims, Arm Angle, Perp Snap)', () => {
+        it('should sprout away from the wall along +normal (depth_out / away_wall)', () => {
+            const seg = createStarterElevationSegment(mockWall, 250, 150, 1);
+            const nBefore = seg.points.length;
+            const lastPt = seg.points[nBefore - 1];
+            const normal = lastPt.normal;
+
+            sproutBendAtEndpoint(seg, nBefore - 1, 'away_wall', 60);
+
+            expect(seg.points.length).toBe(nBefore + 1);
+            const newPt = seg.points[seg.points.length - 1];
+            // Normal was (0, 0, 1) so Z must have increased by 60
+            expect(newPt.z).toBeCloseTo(lastPt.z + 60, 1);
+            expect(newPt.x).toBeCloseTo(lastPt.x, 1);
+            expect(newPt.y).toBeCloseTo(lastPt.y, 1);
+        });
+
+        it('should sprout toward the wall along -normal (depth_in / toward_wall)', () => {
+            const seg = createStarterElevationSegment(mockWall, 250, 150, 1);
+            const nBefore = seg.points.length;
+            const lastPt = seg.points[nBefore - 1];
+
+            sproutBendAtEndpoint(seg, nBefore - 1, 'toward_wall', 50);
+
+            expect(seg.points.length).toBe(nBefore + 1);
+            const newPt = seg.points[seg.points.length - 1];
+            // Normal was (0, 0, 1) so Z must have decreased by 50
+            expect(newPt.z).toBeCloseTo(lastPt.z - 50, 1);
+            expect(newPt.x).toBeCloseTo(lastPt.x, 1);
+            expect(newPt.y).toBeCloseTo(lastPt.y, 1);
+        });
+
+        it('should sprout perpendicular (90-degree bend) relative to incoming direction', () => {
+            const seg = createStarterElevationSegment(mockWall, 250, 150, 1);
+            // Incoming segment goes along X axis (horizontal)
+            const nBefore = seg.points.length;
+            const lastPt = seg.points[nBefore - 1];
+
+            sproutBendAtEndpoint(seg, nBefore - 1, 'perp', 80);
+
+            expect(seg.points.length).toBe(nBefore + 1);
+            const newPt = seg.points[seg.points.length - 1];
+            // Perpendicular to horizontal along wall plane is vertical (delta Y = 80 or -80)
+            const dx = newPt.x - lastPt.x;
+            const dy = newPt.y - lastPt.y;
+            expect(Math.abs(dx)).toBeCloseTo(0, 1);
+            expect(Math.abs(dy)).toBeCloseTo(80, 1);
+        });
+
+        it('should independently adjust segment dimensions and length per arm', () => {
+            const seg = createStarterElevationSegment(mockWall, 250, 150, 1);
+            // Add a second arm (L-shape)
+            sproutBendAtEndpoint(seg, 1, 'up', 100);
+
+            initEntitySegments(seg);
+            expect(seg.segments.length).toBe(2);
+
+            // Change arm 1 (index 0) width and depth
+            setSegmentDimensions(seg, 0, { width: 50, depth: 65 });
+            expect(seg.segments[0].width).toBe(50);
+            expect(seg.segments[0].depth).toBe(65);
+
+            // Arm 2 (index 1) remains unaffected
+            expect(seg.segments[1].width).toBe(seg.width || 30);
+            expect(seg.segments[1].depth).toBe(seg.depth || 40);
+
+            // Change arm 2 length independently
+            setSegmentLength(seg, 1, 180);
+            const p1 = seg.points[1];
+            const p2 = seg.points[2];
+            const arm2Len = Math.hypot(p2.x - p1.x, p2.y - p1.y, p2.z - p1.z);
+            expect(arm2Len).toBeCloseTo(180, 1);
+
+            // Arm 1 length remains unchanged
+            const p0 = seg.points[0];
+            const arm1Len = Math.hypot(p1.x - p0.x, p1.y - p0.y, p1.z - p0.z);
+            expect(arm1Len).toBeCloseTo(180, 1);
+        });
+
+        it('should rotate an individual segment arm while keeping other connected segments stationary', () => {
+            const seg = createStarterElevationSegment(mockWall, 250, 150, 1);
+            // Create an L-shaped elevation: Arm 0 (horizontal), Arm 1 (vertical up)
+            sproutBendAtEndpoint(seg, 1, 'up', 100);
+
+            const p0_before = { ...seg.points[0] };
+            const p1_before = { ...seg.points[1] };
+
+            // Rotate Arm 1 to 45 degrees
+            rotateSegmentArm(seg, 1, 45);
+
+            // Points of Arm 0 MUST be completely stationary
+            expect(seg.points[0].x).toBeCloseTo(p0_before.x, 2);
+            expect(seg.points[0].y).toBeCloseTo(p0_before.y, 2);
+            expect(seg.points[0].z).toBeCloseTo(p0_before.z, 2);
+
+            // Junction pivot point (p1) MUST be completely stationary (gapless joint!)
+            expect(seg.points[1].x).toBeCloseTo(p1_before.x, 2);
+            expect(seg.points[1].y).toBeCloseTo(p1_before.y, 2);
+            expect(seg.points[1].z).toBeCloseTo(p1_before.z, 2);
+
+            // Angle of Arm 1 is now 45 degrees
+            const currentAngle = getSegmentAngle(seg, 1);
+            expect(currentAngle).toBe(45);
+        });
+
+        it('should snap segment arm perpendicular (90°) relative to connected segment', () => {
+            const seg = createStarterElevationSegment(mockWall, 250, 150, 1);
+            // Add second arm
+            sproutBendAtEndpoint(seg, 1, 'up', 120);
+
+            // Rotate arm 1 to a non-perpendicular angle, e.g. 33 degrees
+            rotateSegmentArm(seg, 1, 33);
+            expect(getSegmentAngle(seg, 1)).toBe(33);
+
+            // Snap perpendicular
+            setSegmentPerpendicular(seg, 1, 0);
+
+            const snappedAngle = getSegmentAngle(seg, 1);
+            // Angle should now be either 90 or 270 degrees
+            expect([90, 270]).toContain(snappedAngle);
         });
     });
 });

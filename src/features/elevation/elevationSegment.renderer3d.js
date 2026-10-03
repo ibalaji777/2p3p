@@ -20,13 +20,14 @@ export const renderElevationSegment3D = (sceneGroup, entity, helpers = null) => 
     const assembly = buildElevationSegmentGeometry(entity.points, {
         width,
         depth,
+        segments: entity.segments,
         hasSpotlights: entity.hasSpotlights !== false,
         spotlightSpacing: entity.spotlightSpacing || 80
     });
 
     if (!assembly || !assembly.geometry) return null;
 
-    const hasFillet = Boolean(assembly.expandedPath && assembly.expandedPath.some(p => p.isFilletSample));
+    const hasFillet = Boolean(assembly.expandedPath && assembly.expandedPath.some(p => p.isFilletSample || p.isBevelSample));
     const geo = hasFillet
         ? assembly.geometry
         : normalizeRibbonUVs(assembly.geometry, assembly.totalLength, width * 2 + depth * 2);

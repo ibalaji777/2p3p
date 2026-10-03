@@ -1,8 +1,9 @@
 import * as THREE from 'three';
 import { FACADE_RIBBON_MATERIALS } from '../facade/facadeRibbon.registry.js';
 import { renderElevationSegment2D, syncElevationSegments2D, computeElevationSegment2DFootprint, computeElevationSegmentSpotlights2D } from './elevationSegment.renderer2d.js';
+import { renderElevationSegment3D } from './elevationSegment.renderer3d.js';
 
-export { renderElevationSegment2D, syncElevationSegments2D, computeElevationSegment2DFootprint, computeElevationSegmentSpotlights2D };
+export { renderElevationSegment2D, syncElevationSegments2D, computeElevationSegment2DFootprint, computeElevationSegmentSpotlights2D, renderElevationSegment3D };
 
 export const ELEVATION_SEGMENT_MATERIALS = {
     ...FACADE_RIBBON_MATERIALS
@@ -145,7 +146,7 @@ export function createStarterElevationSegment(wall, localHitX, hitY, facing = 1,
 /**
  * Sprouts a new connected segment from an existing endpoint, creating a bend at the junction.
  */
-export function sproutBendAtEndpoint(entity, nodeIndex, direction, distance = 120) {
+export function sproutBendAtEndpoint(entity, nodeIndex, direction, distance = 120, options = {}) {
     if (!entity || !entity.points || entity.points.length < 2) return null;
 
     const n = entity.points.length;
@@ -165,39 +166,55 @@ export function sproutBendAtEndpoint(entity, nodeIndex, direction, distance = 12
     ).normalize();
 
     const normal = targetPt.normal ? new THREE.Vector3(targetPt.normal.x, targetPt.normal.y, targetPt.normal.z) : new THREE.Vector3(0, 0, 1);
+    const up = new THREE.Vector3(0, 1, 0);
+    const wallTangent = up.clone().cross(normal).normalize();
 
-    // Compute new segment direction based on chosen sprout direction
+    // Compute new segment direction based on chosen sprout direction or custom angle
     let sproutVec = new THREE.Vector3(0, 1, 0); // Default UP
 
-    if (direction === 'up') {
+    if (options && options.angleDeg !== undefined) {
+        // Rotate currentDir around wall normal by angleDeg
+        const rad = (options.angleDeg * Math.PI) / 180;
+        sproutVec = currentDir.clone().applyAxisAngle(normal, rad).normalize();
+    } else if (direction === 'up') {
         sproutVec.set(0, 1, 0);
     } else if (direction === 'down') {
         sproutVec.set(0, -1, 0);
     } else if (direction === 'forward') {
         sproutVec.copy(currentDir);
-    } else if (direction === 'left' || direction === 'right') {
-        // Perpendicular vector along wall plane
-        const up = new THREE.Vector3(0, 1, 0);
-        const wallTangent = up.clone().cross(normal).normalize();
-        if (direction === 'left') {
-            sproutVec.copy(wallTangent).negate();
-        } else {
-            sproutVec.copy(wallTangent);
-        }
+    } else if (direction === 'left') {
+        sproutVec.copy(wallTangent).negate();
+    } else if (direction === 'right') {
+        sproutVec.copy(wallTangent);
+    } else if (direction === 'diagonal_up' || direction === 'diagonal_down') {
+        const ySign = (direction === 'diagonal_up') ? 1 : -1;
+        const xSign = currentDir.dot(wallTangent) >= 0 ? 1 : -1;
+        sproutVec = wallTangent.clone().multiplyScalar(xSign).add(up.clone().multiplyScalar(ySign)).normalize();
+    } else if (direction === 'away_wall' || direction === 'out' || direction === 'depth_out') {
+        sproutVec.copy(normal);
+    } else if (direction === 'toward_wall' || direction === 'in' || direction === 'depth_in') {
+        sproutVec.copy(normal).negate();
+    } else if (direction === 'perp' || direction === 'perp_pos') {
+        sproutVec = currentDir.clone().applyAxisAngle(normal, Math.PI / 2).normalize();
+    } else if (direction === 'perp_neg') {
+        sproutVec = currentDir.clone().applyAxisAngle(normal, -Math.PI / 2).normalize();
     }
+
+    const cornerStyle = options.cornerStyle || 'sharp';
+    const radius = options.radius !== undefined ? options.radius : 0;
 
     const newPt = {
         x: Math.round(targetPt.x + sproutVec.x * distance),
         y: Math.round(targetPt.y + sproutVec.y * distance),
         z: Math.round(targetPt.z + sproutVec.z * distance),
         normal: { x: normal.x, y: normal.y, z: normal.z },
-        cornerStyle: 'sharp',
-        radius: 0
+        cornerStyle,
+        radius
     };
 
     // The current endpoint now becomes an internal bend node
-    targetPt.cornerStyle = targetPt.cornerStyle || 'sharp';
-    targetPt.radius = targetPt.radius || 0;
+    targetPt.cornerStyle = cornerStyle;
+    targetPt.radius = radius;
 
     const newNodeId = `${entity.id}_n${Date.now()}`;
     const newSegId = `${entity.id}_s${Date.now()}`;
@@ -228,11 +245,33 @@ export function sproutBendAtEndpoint(entity, nodeIndex, direction, distance = 12
         }
     }
 
+    initEntitySegments(entity);
+
     return {
         newNode: newPt,
         bendNode: targetPt,
         entity
     };
+}
+
+/**
+ * 1-Click Corner Generation Presets (90°, 45° diagonal, 60°/120° V-shape).
+ */
+export function sproutCornerPreset(entity, nodeIndex, presetType, options = {}) {
+    const dist = options.distance || 100;
+    if (presetType === 'square_90') {
+        const dir = options.direction || 'up';
+        return sproutBendAtEndpoint(entity, nodeIndex, dir, dist, { cornerStyle: options.cornerStyle || 'sharp', radius: options.radius });
+    }
+    if (presetType === 'diagonal_45' || presetType === 'sloped_45') {
+        const dir = options.direction === 'down' ? 'diagonal_down' : 'diagonal_up';
+        return sproutBendAtEndpoint(entity, nodeIndex, dir, dist, { cornerStyle: options.cornerStyle || 'bevel', radius: options.radius || 20 });
+    }
+    if (presetType === 'v_angle') {
+        const angle = options.angleDeg !== undefined ? options.angleDeg : 60;
+        return sproutBendAtEndpoint(entity, nodeIndex, 'custom', dist, { angleDeg: angle, cornerStyle: options.cornerStyle || 'sharp', radius: options.radius });
+    }
+    return sproutBendAtEndpoint(entity, nodeIndex, options.direction || 'up', dist, options);
 }
 
 /**
@@ -250,6 +289,14 @@ export function sproutBranchFromNode(entity, nodeIndex, direction, distance = 10
     else if (direction === 'left' || direction === 'right') {
         const wallTangent = new THREE.Vector3(0, 1, 0).cross(normal).normalize();
         sproutVec = (direction === 'left') ? wallTangent.negate() : wallTangent;
+    } else if (direction === 'away_wall' || direction === 'out' || direction === 'depth_out') {
+        sproutVec.copy(normal);
+    } else if (direction === 'toward_wall' || direction === 'in' || direction === 'depth_in') {
+        sproutVec.copy(normal).negate();
+    } else if (direction === 'perp' || direction === 'perp_pos') {
+        sproutVec = new THREE.Vector3(0, 1, 0).applyAxisAngle(normal, Math.PI / 2).normalize();
+    } else if (direction === 'perp_neg') {
+        sproutVec = new THREE.Vector3(0, 1, 0).applyAxisAngle(normal, -Math.PI / 2).normalize();
     }
 
     const branchEndPt = {
@@ -277,14 +324,16 @@ export function sproutBranchFromNode(entity, nodeIndex, direction, distance = 10
 }
 
 /**
- * Updates corner style and fillet radius for a specific bend node.
+ * Updates corner style (sharp, fillet, bevel) and radius for a specific bend node.
  */
 export function setNodeCornerStyle(entity, nodeIndex, cornerStyle, radius = 25) {
     if (!entity || !entity.points || nodeIndex < 0 || nodeIndex >= entity.points.length) return false;
 
     const pt = entity.points[nodeIndex];
-    pt.cornerStyle = cornerStyle; // 'sharp' or 'fillet'
-    pt.radius = (cornerStyle === 'fillet') ? Math.max(5, Math.min(150, radius)) : 0;
+    pt.cornerStyle = cornerStyle; // 'sharp', 'fillet', 'bevel', 'chamfer'
+    pt.radius = (cornerStyle === 'fillet' || cornerStyle === 'bevel' || cornerStyle === 'chamfer')
+        ? Math.max(5, Math.min(150, radius))
+        : 0;
 
     if (entity.nodes && entity.nodes[nodeIndex]) {
         entity.nodes[nodeIndex].cornerStyle = pt.cornerStyle;
@@ -292,6 +341,289 @@ export function setNodeCornerStyle(entity, nodeIndex, cornerStyle, radius = 25) 
     }
 
     return true;
+}
+
+/**
+ * Rotates an Elevation Segment around its geometric center on the wall plane.
+ */
+export function rotateElevationSegment(entity, newAngleDeg, centerPt = null) {
+    if (!entity || !entity.points || entity.points.length < 2) return false;
+
+    const pts = entity.points;
+    const n = pts.length;
+
+    let cx = 0, cy = 0, cz = 0;
+    if (centerPt) {
+        cx = centerPt.x;
+        cy = centerPt.y;
+        cz = centerPt.z;
+    } else {
+        for (let i = 0; i < n; i++) {
+            cx += pts[i].x;
+            cy += pts[i].y;
+            cz += pts[i].z;
+        }
+        cx /= n;
+        cy /= n;
+        cz /= n;
+    }
+
+    const norm = pts[0].normal
+        ? new THREE.Vector3(pts[0].normal.x, pts[0].normal.y, pts[0].normal.z).normalize()
+        : new THREE.Vector3(0, 0, 1);
+
+    const currentAngle = entity.rotation || 0;
+    const deltaDeg = newAngleDeg - currentAngle;
+    if (Math.abs(deltaDeg) < 0.001) return false;
+
+    const deltaRad = (deltaDeg * Math.PI) / 180;
+
+    for (let i = 0; i < n; i++) {
+        const pt = pts[i];
+        const v = new THREE.Vector3(pt.x - cx, pt.y - cy, pt.z - cz);
+        v.applyAxisAngle(norm, deltaRad);
+        pt.x = Math.round(cx + v.x);
+        pt.y = Math.round(cy + v.y);
+        pt.z = Math.round(cz + v.z);
+
+        if (entity.nodes && entity.nodes[i]) {
+            entity.nodes[i].x = pt.x;
+            entity.nodes[i].y = pt.y;
+            entity.nodes[i].z = pt.z;
+        }
+    }
+
+    if (entity.branches && entity.branches.length > 0) {
+        entity.branches.forEach(b => {
+            if (b.points) {
+                b.points.forEach(bp => {
+                    const bv = new THREE.Vector3(bp.x - cx, bp.y - cy, bp.z - cz);
+                    bv.applyAxisAngle(norm, deltaRad);
+                    bp.x = Math.round(cx + bv.x);
+                    bp.y = Math.round(cy + bv.y);
+                    bp.z = Math.round(cz + bv.z);
+                });
+            }
+        });
+    }
+
+    entity.rotation = Math.round(((newAngleDeg % 360) + 360) % 360);
+    renderElevationSegment3D(null, entity);
+    return true;
+}
+
+/**
+ * Detects nearby elevation segments whose endpoints are within proximity of the active segment.
+ */
+export function findNearbyElevationSegments(planner, activeEntity, maxDist = 35) {
+    if (!planner || !planner.elevationSegments || !activeEntity || !activeEntity.points) return [];
+    const results = [];
+    const nA = activeEntity.points.length;
+    const startA = activeEntity.points[0];
+    const endA = activeEntity.points[nA - 1];
+
+    planner.elevationSegments.forEach(other => {
+        if (!other || other.id === activeEntity.id || !other.points || other.points.length < 2) return;
+        const nB = other.points.length;
+        const startB = other.points[0];
+        const endB = other.points[nB - 1];
+
+        const d1 = Math.hypot(endA.x - startB.x, endA.y - startB.y, endA.z - startB.z);
+        const d2 = Math.hypot(endA.x - endB.x, endA.y - endB.y, endA.z - endB.z);
+        const d3 = Math.hypot(startA.x - endB.x, startA.y - endB.y, startA.z - endB.z);
+        const d4 = Math.hypot(startA.x - startB.x, startA.y - startB.y, startA.z - startB.z);
+
+        const minDist = Math.min(d1, d2, d3, d4);
+        if (minDist <= maxDist) {
+            results.push({ segment: other, distance: Math.round(minDist) });
+        }
+    });
+
+    return results;
+}
+
+/**
+ * Automatically joins two nearby elevation segments into one continuous assembly.
+ */
+export function joinElevationSegments(planner, segA, segB, maxDist = 45) {
+    if (!segA || !segB || !segA.points || !segB.points) return null;
+
+    const nA = segA.points.length;
+    const nB = segB.points.length;
+    const startA = segA.points[0];
+    const endA = segA.points[nA - 1];
+    const startB = segB.points[0];
+    const endB = segB.points[nB - 1];
+
+    const d1 = Math.hypot(endA.x - startB.x, endA.y - startB.y, endA.z - startB.z);
+    const d2 = Math.hypot(endA.x - endB.x, endA.y - endB.y, endA.z - endB.z);
+    const d3 = Math.hypot(startA.x - endB.x, startA.y - endB.y, startA.z - endB.z);
+    const d4 = Math.hypot(startA.x - startB.x, startA.y - startB.y, startA.z - startB.z);
+
+    const minDist = Math.min(d1, d2, d3, d4);
+    if (minDist > maxDist) return null;
+
+    let mergedPoints = [];
+
+    if (minDist === d1) {
+        // segA end -> segB start
+        const bridgePt = {
+            ...startB,
+            x: Math.round((endA.x + startB.x) / 2),
+            y: Math.round((endA.y + startB.y) / 2),
+            z: Math.round((endA.z + startB.z) / 2),
+            cornerStyle: 'sharp'
+        };
+        mergedPoints = [...segA.points.slice(0, nA - 1), bridgePt, ...segB.points.slice(1)];
+    } else if (minDist === d2) {
+        // segA end -> segB end (reverse segB)
+        const revB = segB.points.slice().reverse();
+        const bridgePt = {
+            ...endB,
+            x: Math.round((endA.x + endB.x) / 2),
+            y: Math.round((endA.y + endB.y) / 2),
+            z: Math.round((endA.z + endB.z) / 2),
+            cornerStyle: 'sharp'
+        };
+        mergedPoints = [...segA.points.slice(0, nA - 1), bridgePt, ...revB.slice(1)];
+    } else if (minDist === d3) {
+        // segB end -> segA start
+        const bridgePt = {
+            ...startA,
+            x: Math.round((startA.x + endB.x) / 2),
+            y: Math.round((startA.y + endB.y) / 2),
+            z: Math.round((startA.z + endB.z) / 2),
+            cornerStyle: 'sharp'
+        };
+        mergedPoints = [...segB.points.slice(0, nB - 1), bridgePt, ...segA.points.slice(1)];
+    } else {
+        // segB start -> segA start (reverse segB)
+        const revB = segB.points.slice().reverse();
+        const bridgePt = {
+            ...startA,
+            x: Math.round((startA.x + startB.x) / 2),
+            y: Math.round((startA.y + startB.y) / 2),
+            z: Math.round((startA.z + startB.z) / 2),
+            cornerStyle: 'sharp'
+        };
+        mergedPoints = [...revB.slice(0, nB - 1), bridgePt, ...segA.points.slice(1)];
+    }
+
+    segA.points = mergedPoints;
+    segA.nodes = mergedPoints.map((p, idx) => ({ id: `${segA.id}_n${idx}`, ...p }));
+    segA.segments = [];
+    for (let i = 0; i < mergedPoints.length - 1; i++) {
+        segA.segments.push({
+            id: `${segA.id}_s${i}`,
+            startNodeId: segA.nodes[i].id,
+            endNodeId: segA.nodes[i + 1].id
+        });
+    }
+
+    // Remove segB from planner
+    if (planner && planner.elevationSegments) {
+        const idx = planner.elevationSegments.findIndex(s => s.id === segB.id);
+        if (idx !== -1) {
+            planner.elevationSegments.splice(idx, 1);
+        }
+    }
+    if (segB.mesh3D?.parent) {
+        segB.mesh3D.parent.remove(segB.mesh3D);
+    }
+
+    renderElevationSegment3D(null, segA);
+    if (planner && typeof planner.syncAll === 'function') {
+        planner.syncAll();
+    }
+
+    return segA;
+}
+
+/**
+ * Splits an elevation segment at an interior node into two independent, editable segments.
+ * Preserves independent editing after joining or continuous sprawling.
+ * 
+ * @param {Object} planner - The planner instance containing elevationSegments
+ * @param {Object} entity - The elevation segment to split
+ * @param {number} nodeIndex - The interior node index (1 <= nodeIndex <= n - 2)
+ * @returns {{ segA: Object, segB: Object } | null}
+ */
+export function splitElevationSegmentAtNode(planner, entity, nodeIndex) {
+    if (!entity || !entity.points || entity.points.length < 3) return null;
+    const n = entity.points.length;
+    if (nodeIndex < 1 || nodeIndex > n - 2) return null;
+
+    const pointsA = entity.points.slice(0, nodeIndex + 1);
+    const pointsB = entity.points.slice(nodeIndex);
+
+    // Endpoint of segA should be sharp
+    const lastA = pointsA[pointsA.length - 1];
+    pointsA[pointsA.length - 1] = {
+        ...lastA,
+        cornerStyle: 'sharp'
+    };
+    delete pointsA[pointsA.length - 1].radius;
+
+    // Start point of segB should be sharp
+    const firstB = pointsB[0];
+    pointsB[0] = {
+        ...firstB,
+        cornerStyle: 'sharp'
+    };
+    delete pointsB[0].radius;
+
+    // Update entity (segA) in place
+    entity.points = pointsA;
+    entity.nodes = pointsA.map((p, idx) => ({ id: `${entity.id}_n${idx}`, ...p }));
+    entity.segments = [];
+    for (let i = 0; i < pointsA.length - 1; i++) {
+        entity.segments.push({
+            id: `${entity.id}_s${i}`,
+            startNodeId: entity.nodes[i].id,
+            endNodeId: entity.nodes[i + 1].id
+        });
+    }
+
+    // Create segB
+    const segBId = 'elev_seg_' + Math.random().toString(36).substring(2, 9);
+    const segB = {
+        ...entity,
+        id: segBId,
+        name: `${entity.name || 'Elevation Segment'} (Part 2)`,
+        points: pointsB.map(p => ({ ...p })),
+        wallId: entity.wallId,
+        wallIds: entity.wallIds ? [...entity.wallIds] : (entity.wallId ? [entity.wallId] : [])
+    };
+    delete segB.mesh3D;
+
+    segB.nodes = segB.points.map((p, idx) => ({ id: `${segBId}_n${idx}`, ...p }));
+    segB.segments = [];
+    for (let i = 0; i < segB.points.length - 1; i++) {
+        segB.segments.push({
+            id: `${segBId}_s${i}`,
+            startNodeId: segB.nodes[i].id,
+            endNodeId: segB.nodes[i + 1].id
+        });
+    }
+
+    if (planner && planner.elevationSegments) {
+        planner.elevationSegments.push(segB);
+    }
+
+    // Re-render segA
+    renderElevationSegment3D(null, entity);
+
+    // Render segB
+    renderElevationSegment3D(null, segB);
+    if (entity.mesh3D?.parent && segB.mesh3D) {
+        entity.mesh3D.parent.add(segB.mesh3D);
+    }
+
+    if (planner && typeof planner.syncAll === 'function') {
+        planner.syncAll();
+    }
+
+    return { segA: entity, segB };
 }
 
 /**
@@ -489,6 +821,8 @@ export function wrapElevationSegmentToAdjacentWall(entity, nodeIndex, planner, o
     if (!entity.wallIds) entity.wallIds = [entity.wallId].filter(Boolean);
     if (!entity.wallIds.includes(adjWall.id)) entity.wallIds.push(adjWall.id);
 
+    initEntitySegments(entity);
+
     return {
         cornerPt,
         endPt,
@@ -668,4 +1002,394 @@ export function wrapElevationSegmentAllConnectedWalls(entity, planner, options =
 
     return wrappedCount;
 }
+
+/**
+ * Initializes or updates entity.segments array with independent per-segment metadata.
+ */
+export function initEntitySegments(entity) {
+    if (!entity || !entity.points || entity.points.length < 2) return [];
+    if (!Array.isArray(entity.segments)) entity.segments = [];
+
+    const n = entity.points.length;
+    const defaultW = entity.width || 30;
+    const defaultD = entity.depth || 40;
+
+    for (let i = 0; i < n - 1; i++) {
+        const pA = entity.points[i];
+        const pB = entity.points[i + 1];
+        const len = Math.hypot(pB.x - pA.x, pB.y - pA.y, pB.z - pA.z);
+
+        if (!entity.segments[i]) {
+            entity.segments[i] = {
+                id: `${entity.id || 'seg'}_arm_${i}`,
+                startNodeId: i,
+                endNodeId: i + 1,
+                length: Math.round(len),
+                width: defaultW,
+                depth: defaultD
+            };
+        } else {
+            entity.segments[i].length = Math.round(len);
+            if (entity.segments[i].width === undefined) entity.segments[i].width = defaultW;
+            if (entity.segments[i].depth === undefined) entity.segments[i].depth = defaultD;
+            entity.segments[i].startNodeId = i;
+            entity.segments[i].endNodeId = i + 1;
+        }
+    }
+
+    if (entity.segments.length > n - 1) {
+        entity.segments.length = n - 1;
+    }
+    return entity.segments;
+}
+
+/**
+ * Adjusts the physical length of a specific segment arm independently.
+ */
+export function setSegmentLength(entity, segmentIndex, newLength) {
+    if (!entity || !entity.points || entity.points.length < 2) return false;
+    const n = entity.points.length;
+    if (segmentIndex < 0 || segmentIndex >= n - 1) return false;
+
+    const targetLen = Math.max(15, Math.round(Number(newLength) || 15));
+    const pts = entity.points;
+    const i = segmentIndex;
+
+    const pA = pts[i];
+    const pB = pts[i + 1];
+    const dx = pB.x - pA.x;
+    const dy = pB.y - pA.y;
+    const dz = pB.z - pA.z;
+    const curLen = Math.hypot(dx, dy, dz) || 1;
+    const ux = dx / curLen;
+    const uy = dy / curLen;
+    const uz = dz / curLen;
+    const deltaL = targetLen - curLen;
+
+    if (Math.abs(deltaL) < 0.001) return true;
+
+    if (n === 2) {
+        // Single segment: P0 is anchor, P1 extends along direction
+        pts[1].x = Math.round(pA.x + ux * targetLen);
+        pts[1].y = Math.round(pA.y + uy * targetLen);
+        pts[1].z = Math.round(pA.z + uz * targetLen);
+        if (entity.nodes && entity.nodes[1]) {
+            entity.nodes[1].x = pts[1].x;
+            entity.nodes[1].y = pts[1].y;
+            entity.nodes[1].z = pts[1].z;
+        }
+    } else if (i === 0) {
+        // Leading segment: P1 is anchor junction, P0 is free end extending backwards
+        pts[0].x = Math.round(pB.x - ux * targetLen);
+        pts[0].y = Math.round(pB.y - uy * targetLen);
+        pts[0].z = Math.round(pB.z - uz * targetLen);
+        if (entity.nodes && entity.nodes[0]) {
+            entity.nodes[0].x = pts[0].x;
+            entity.nodes[0].y = pts[0].y;
+            entity.nodes[0].z = pts[0].z;
+        }
+    } else {
+        // Trailing segment or internal segment: Pi is pivot junction, P(i+1) and downstream points shift
+        const shiftX = Math.round(ux * deltaL);
+        const shiftY = Math.round(uy * deltaL);
+        const shiftZ = Math.round(uz * deltaL);
+
+        for (let k = i + 1; k < n; k++) {
+            pts[k].x += shiftX;
+            pts[k].y += shiftY;
+            pts[k].z += shiftZ;
+            if (entity.nodes && entity.nodes[k]) {
+                entity.nodes[k].x = pts[k].x;
+                entity.nodes[k].y = pts[k].y;
+                entity.nodes[k].z = pts[k].z;
+            }
+        }
+    }
+
+    initEntitySegments(entity);
+    renderElevationSegment3D(null, entity);
+    return true;
+}
+
+/**
+ * Updates dimensions (width, depth, length) for a specific segment arm independently.
+ */
+export function setSegmentDimensions(entity, segmentIndex, dims = {}) {
+    if (!entity || !entity.points || entity.points.length < 2) return false;
+    const n = entity.points.length;
+    if (segmentIndex < 0 || segmentIndex >= n - 1) return false;
+
+    initEntitySegments(entity);
+    const seg = entity.segments[segmentIndex];
+    if (!seg) return false;
+
+    if (dims.width !== undefined && dims.width !== null) {
+        seg.width = Math.max(10, Math.min(250, Math.round(Number(dims.width))));
+        if (entity.points.length === 2) {
+            entity.width = seg.width;
+        }
+    }
+    if (dims.depth !== undefined && dims.depth !== null) {
+        seg.depth = Math.max(10, Math.min(250, Math.round(Number(dims.depth))));
+        if (entity.points.length === 2) {
+            entity.depth = seg.depth;
+        }
+    }
+    if (dims.length !== undefined && dims.length !== null) {
+        setSegmentLength(entity, segmentIndex, dims.length);
+        return true;
+    }
+
+    renderElevationSegment3D(null, entity);
+    return true;
+}
+
+/**
+ * Computes the angle of a specific segment arm in degrees [0, 360).
+ */
+export function getSegmentAngle(entity, segmentIndex) {
+    if (!entity || !entity.points || entity.points.length < 2) return 0;
+    const n = entity.points.length;
+    if (segmentIndex < 0 || segmentIndex >= n - 1) return 0;
+
+    const pA = entity.points[segmentIndex];
+    const pB = entity.points[segmentIndex + 1];
+
+    const dx = pB.x - pA.x;
+    const dy = pB.y - pA.y;
+    const dz = pB.z - pA.z;
+
+    const norm = pA.normal
+        ? new THREE.Vector3(pA.normal.x, pA.normal.y, pA.normal.z).normalize()
+        : new THREE.Vector3(0, 0, 1);
+
+    const up = new THREE.Vector3(0, 1, 0);
+    let tangent = new THREE.Vector3().crossVectors(up, norm).normalize();
+    if (tangent.lengthSq() < 0.001) tangent.set(1, 0, 0);
+
+    const v = new THREE.Vector3(dx, dy, dz);
+    const vx = v.dot(tangent);
+    const vy = v.dot(up);
+
+    const rad = Math.atan2(vy, vx);
+    const deg = ((rad * 180 / Math.PI) % 360 + 360) % 360;
+    return Math.round(deg);
+}
+
+/**
+ * Rotates an individual segment arm around its connected junction, preserving other segments.
+ */
+export function rotateSegmentArm(entity, segmentIndex, newAngleDeg) {
+    if (!entity || !entity.points || entity.points.length < 2) return false;
+    const n = entity.points.length;
+    if (segmentIndex < 0 || segmentIndex >= n - 1) return false;
+
+    const currentAngle = getSegmentAngle(entity, segmentIndex);
+    const deltaDeg = newAngleDeg - currentAngle;
+    if (Math.abs(deltaDeg) < 0.01) return true;
+
+    const deltaRad = (deltaDeg * Math.PI) / 180;
+    const pts = entity.points;
+    const i = segmentIndex;
+
+    const norm = pts[i].normal
+        ? new THREE.Vector3(pts[i].normal.x, pts[i].normal.y, pts[i].normal.z).normalize()
+        : new THREE.Vector3(0, 0, 1);
+
+    if (n === 2) {
+        // Single segment: pivot around P0, rotate P1
+        const cx = pts[0].x, cy = pts[0].y, cz = pts[0].z;
+        const v = new THREE.Vector3(pts[1].x - cx, pts[1].y - cy, pts[1].z - cz);
+        v.applyAxisAngle(norm, deltaRad);
+        pts[1].x = Math.round(cx + v.x);
+        pts[1].y = Math.round(cy + v.y);
+        pts[1].z = Math.round(cz + v.z);
+        if (entity.nodes && entity.nodes[1]) {
+            entity.nodes[1].x = pts[1].x;
+            entity.nodes[1].y = pts[1].y;
+            entity.nodes[1].z = pts[1].z;
+        }
+    } else if (i === 0) {
+        // Leading segment: P1 is anchor junction, P0 rotates around P1
+        const cx = pts[1].x, cy = pts[1].y, cz = pts[1].z;
+        const v = new THREE.Vector3(pts[0].x - cx, pts[0].y - cy, pts[0].z - cz);
+        v.applyAxisAngle(norm, deltaRad);
+        pts[0].x = Math.round(cx + v.x);
+        pts[0].y = Math.round(cy + v.y);
+        pts[0].z = Math.round(cz + v.z);
+        if (entity.nodes && entity.nodes[0]) {
+            entity.nodes[0].x = pts[0].x;
+            entity.nodes[0].y = pts[0].y;
+            entity.nodes[0].z = pts[0].z;
+        }
+    } else if (i === n - 2) {
+        // Trailing segment: Pi is anchor junction, P(i+1) rotates around Pi
+        const cx = pts[i].x, cy = pts[i].y, cz = pts[i].z;
+        const v = new THREE.Vector3(pts[i + 1].x - cx, pts[i + 1].y - cy, pts[i + 1].z - cz);
+        v.applyAxisAngle(norm, deltaRad);
+        pts[i + 1].x = Math.round(cx + v.x);
+        pts[i + 1].y = Math.round(cy + v.y);
+        pts[i + 1].z = Math.round(cz + v.z);
+        if (entity.nodes && entity.nodes[i + 1]) {
+            entity.nodes[i + 1].x = pts[i + 1].x;
+            entity.nodes[i + 1].y = pts[i + 1].y;
+            entity.nodes[i + 1].z = pts[i + 1].z;
+        }
+    } else {
+        // Internal segment: Pi is pivot junction, P(i+1) and downstream points k > i rotate around Pi
+        const cx = pts[i].x, cy = pts[i].y, cz = pts[i].z;
+        for (let k = i + 1; k < n; k++) {
+            const v = new THREE.Vector3(pts[k].x - cx, pts[k].y - cy, pts[k].z - cz);
+            v.applyAxisAngle(norm, deltaRad);
+            pts[k].x = Math.round(cx + v.x);
+            pts[k].y = Math.round(cy + v.y);
+            pts[k].z = Math.round(cz + v.z);
+            if (entity.nodes && entity.nodes[k]) {
+                entity.nodes[k].x = pts[k].x;
+                entity.nodes[k].y = pts[k].y;
+                entity.nodes[k].z = pts[k].z;
+            }
+        }
+    }
+
+    initEntitySegments(entity);
+    renderElevationSegment3D(null, entity);
+    return true;
+}
+
+/**
+ * Snaps a segment arm to be strictly perpendicular (90°) relative to its connected neighbor.
+ */
+export function setSegmentPerpendicular(entity, segmentIndex, referenceIndex = null) {
+    if (!entity || !entity.points || entity.points.length < 2) return false;
+    const n = entity.points.length;
+    if (segmentIndex < 0 || segmentIndex >= n - 1) return false;
+
+    let targetAngle = 90;
+    const currentAngle = getSegmentAngle(entity, segmentIndex);
+
+    if (n === 2) {
+        // Single segment: snap to nearest 90-degree cardinal
+        targetAngle = Math.round(currentAngle / 90) * 90;
+        if (Math.abs(currentAngle - targetAngle) < 1) {
+            targetAngle = (targetAngle + 90) % 360;
+        }
+    } else {
+        const refIdx = (referenceIndex !== null && referenceIndex !== undefined)
+            ? referenceIndex
+            : (segmentIndex > 0 ? segmentIndex - 1 : segmentIndex + 1);
+
+        const refAngle = getSegmentAngle(entity, refIdx);
+        const cand1 = (refAngle + 90) % 360;
+        const cand2 = (refAngle + 270) % 360;
+
+        const diff1 = Math.min(Math.abs(currentAngle - cand1), 360 - Math.abs(currentAngle - cand1));
+        const diff2 = Math.min(Math.abs(currentAngle - cand2), 360 - Math.abs(currentAngle - cand2));
+
+        targetAngle = (diff1 <= diff2) ? cand1 : cand2;
+    }
+
+    targetAngle = ((targetAngle % 360) + 360) % 360;
+    return rotateSegmentArm(entity, segmentIndex, targetAngle);
+}
+
+/**
+ * Adjusts the Y elevation of a single selected segment arm while keeping other segments in place.
+ * If adjacent segments are horizontal, inserts step nodes so that neighboring arms stay 100% horizontal
+ * at their original Y position with zero slanting.
+ *
+ * @param {Object} entity - Elevation segment entity
+ * @param {number} segmentIndex - Index of the arm to adjust (0 to n - 2)
+ * @param {number} deltaY - Vertical change in cm (e.g. +10, -10)
+ * @returns {boolean}
+ */
+export function adjustArmElevation(entity, segmentIndex, deltaY) {
+    if (!entity || !entity.points || entity.points.length < 2) return false;
+    const n = entity.points.length;
+    const a = Math.min(Math.max(0, segmentIndex || 0), n - 2);
+
+    if (n === 2) {
+        entity.points[0].y = Math.max(0, (entity.points[0].y || 0) + deltaY);
+        entity.points[1].y = Math.max(0, (entity.points[1].y || 0) + deltaY);
+        entity.elevation = entity.points[0].y;
+        if (entity.nodes) {
+            if (entity.nodes[0]) entity.nodes[0].y = entity.points[0].y;
+            if (entity.nodes[1]) entity.nodes[1].y = entity.points[1].y;
+        }
+        renderElevationSegment3D(null, entity);
+        return true;
+    }
+
+    const pA = entity.points[a];
+    const pB = entity.points[a + 1];
+
+    const isArmAHorizontal = Math.abs(pA.y - pB.y) <= 1;
+
+    const hasPrev = (a > 0);
+    const prevPt = hasPrev ? entity.points[a - 1] : null;
+    const prevCollinearY = prevPt && Math.abs(prevPt.y - pA.y) <= 1;
+
+    const hasNext = (a + 1 < n - 1);
+    const nextPt = hasNext ? entity.points[a + 2] : null;
+    const nextCollinearY = nextPt && Math.abs(nextPt.y - pB.y) <= 1;
+
+    if (isArmAHorizontal && (prevCollinearY || nextCollinearY)) {
+        let pts = entity.points;
+        let curA = a;
+
+        if (prevCollinearY && Math.hypot(prevPt.x - pA.x, prevPt.z - pA.z) > 1) {
+            const stepNode = {
+                ...pA,
+                cornerStyle: 'sharp',
+                radius: 0
+            };
+            pts.splice(curA, 0, stepNode);
+            curA++;
+        }
+
+        const newB = curA + 1;
+        const curNextPt = pts[newB + 1];
+        if (curNextPt && Math.abs(curNextPt.y - pts[newB].y) <= 1 && Math.hypot(curNextPt.x - pts[newB].x, curNextPt.z - pts[newB].z) > 1) {
+            const stepNode = {
+                ...pts[newB],
+                cornerStyle: 'sharp',
+                radius: 0
+            };
+            pts.splice(newB + 1, 0, stepNode);
+        }
+
+        pts[curA].y = Math.max(0, pts[curA].y + deltaY);
+        pts[curA + 1].y = Math.max(0, pts[curA + 1].y + deltaY);
+
+        initEntitySegments(entity);
+        renderElevationSegment3D(null, entity);
+        return true;
+    }
+
+    pA.y = Math.max(0, (pA.y || 0) + deltaY);
+    pB.y = Math.max(0, (pB.y || 0) + deltaY);
+
+    if (entity.nodes) {
+        if (entity.nodes[a]) entity.nodes[a].y = pA.y;
+        if (entity.nodes[a + 1]) entity.nodes[a + 1].y = pB.y;
+    }
+
+    initEntitySegments(entity);
+    renderElevationSegment3D(null, entity);
+    return true;
+}
+
+/**
+ * Sets the absolute elevation of a single selected segment arm while keeping remaining segments in place.
+ */
+export function setArmElevation(entity, segmentIndex, targetY) {
+    if (!entity || !entity.points || entity.points.length < 2) return false;
+    const n = entity.points.length;
+    const a = Math.min(Math.max(0, segmentIndex || 0), n - 2);
+    const curY = (entity.points[a].y + entity.points[a + 1].y) / 2;
+    const deltaY = Math.round(targetY - curY);
+    return adjustArmElevation(entity, a, deltaY);
+}
+
+
 
